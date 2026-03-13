@@ -1,0 +1,26 @@
+{
+  "name": "dvai-edge-react",
+  "version": "1.0.0",
+  "description": "React wrappers for dvai-edge-core",
+  "main": "src/index.jsx",
+  "module": "src/index.jsx",
+  "exports": {
+    ".": "./src/index.jsx"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["ai", "local", "react", "hooks"],
+  "author": "Deep Chakraborty <https://github.com/dk013>",
+  "license": "Custom (See LICENSE)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/westenets/dvai-edge.git"
+  },
+  "dependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0",
+    "dvai-edge-core": "workspace:*"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "dvai-edge-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Monorepo for DvAI-Edge: Local AI Orchestration",
+  "author": "Deep Chakraborty <https://github.com/dk013>",
+  "license": "Custom (See LICENSE)",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
+  }
+}

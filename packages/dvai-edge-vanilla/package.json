@@ -1,0 +1,24 @@
+{
+  "name": "dvai-edge-vanilla",
+  "version": "1.0.0",
+  "description": "Vanilla JS wrapper for dvai-edge-core",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["ai", "local", "vanilla"],
+  "author": "Deep Chakraborty <https://github.com/dk013>",
+  "license": "Custom (See LICENSE)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/westenets/dvai-edge.git"
+  },
+  "dependencies": {
+    "dvai-edge-core": "workspace:*"
+  }
+}
