@@ -25,18 +25,26 @@ The monorepo consists of three main packages:
 
 ---
 
-## 🛠️ Setup & Installation
+### 1. Installation
+Depending on your workflow, you can add this repository as a submodule or install via npm (once published).
 
-### 1. Install Dependencies
+#### As a Git Submodule
 ```bash
-npm install dvai-edge-core
-# and/or
-npm install dvai-edge-react
+git submodule add https://github.com/westenets/dvai-edge.git
+cd dvai-edge
+pnpm install
+pnpm build
+```
+
+#### Via npm (Coming Soon)
+```bash
+npm install @dvai/dvai-edge-core
 ```
 
 ### 2. Initialize Service Worker
-DvAI-Edge requires a service worker to intercept OpenAI API calls. Use the built-in CLI to initialize it in your project's public folder:
+DvAI-Edge requires a service worker to intercept OpenAI API calls. Use the built-in CLI to initialize it:
 ```bash
+# If using as submodule, run from the submodule root or via npx
 npx dvai-edge init [public-dir]
 ```
 *Note: `public-dir` defaults to `public` (Standard for Next.js/Vite).*

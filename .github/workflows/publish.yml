@@ -1,11 +1,14 @@
 name: Publish Packages
 
+# on:
+#   push:
+#     branches:
+#       - main
+#     tags:
+#       - 'v*'
+
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
+  workflow_dispatch: # Enable manual trigger only
 
 jobs:
   build-and-publish:
@@ -27,6 +30,8 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@dvai'
 
       - name: Install dependencies
         run: pnpm install
