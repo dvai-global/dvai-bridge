@@ -2,13 +2,20 @@
   "name": "dvai-edge-react",
   "version": "1.0.0",
   "description": "React wrappers for dvai-edge-core",
-  "main": "src/index.jsx",
-  "module": "src/index.jsx",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./src/index.jsx"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
   },
   "type": "module",
   "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["ai", "local", "react", "hooks"],

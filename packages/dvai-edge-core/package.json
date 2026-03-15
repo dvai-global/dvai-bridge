@@ -2,13 +2,23 @@
   "name": "dvai-edge-core",
   "version": "1.0.0",
   "description": "Core JS logic for local WebLLM + MSW agent",
-  "main": "src/index.js",
-  "module": "src/index.js",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./src/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
   },
   "type": "module",
+  "bin": {
+    "dvai-edge": "./bin/dvai-edge.js"
+  },
   "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["ai", "local", "webllm", "msw"],

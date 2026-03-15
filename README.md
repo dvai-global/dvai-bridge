@@ -11,47 +11,49 @@ Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, ze
 - **Local-First**: Runs LLMs entirely in the browser using WebGPU/WebAssembly.
 - **OpenAI Compatible**: Exposes a `mockUrl` that behaves exactly like OpenAI's API.
 - **Zero Configuration**: No proxy servers or backend needed for the AI engine.
-- **Multi-Framework**: First-class support for React, Vanilla JS, and standard node-compatible libraries (LangChain).
+- **TypeScript First**: Full IntelliSense and type safety across all packages.
+- **Monorepo Design**: Purpose-built packages for React and Vanilla JS.
 
 ---
 
-## 📦 Installation
+## 📦 Packages
 
-### React
+The monorepo consists of three main packages:
+- **`dvai-edge-core`**: Core logic and orchestration.
+- **`dvai-edge-react`**: React components and hooks.
+- **`dvai-edge-vanilla`**: Wrapper for non-framework environments.
+
+---
+
+## 🛠️ Setup & Installation
+
+### 1. Install Dependencies
 ```bash
-pnpm install dvai-edge-react dvai-edge-core
+npm install dvai-edge-core
+# and/or
+npm install dvai-edge-react
 ```
 
-### Vanilla JS / CDN
-For non-framework projects, you can include the library directly from GitHub via jsDelivr:
-
-```html
-<script src="https://cdn.jsdelivr.net/gh/westenets/dvai-edge@main/packages/dvai-edge-vanilla/src/index.js" type="module"></script>
-<script type="module">
-  import { VanillaDvAI } from 'https://cdn.jsdelivr.net/gh/westenets/dvai-edge@main/packages/dvai-edge-vanilla/src/index.js';
-  
-  const ai = new VanillaDvAI();
-  await ai.initialize();
-  
-  console.log("Mock API is at:", ai.mockUrl);
-</script>
+### 2. Initialize Service Worker
+DvAI-Edge requires a service worker to intercept OpenAI API calls. Use the built-in CLI to initialize it in your project's public folder:
+```bash
+npx dvai-edge init [public-dir]
 ```
+*Note: `public-dir` defaults to `public` (Standard for Next.js/Vite).*
 
 ---
 
-## 🛠️ Usage Examples
+## 💻 Usage
 
-### 1. React Integration
-The `dvai-edge-react` package provides a context provider and hooks for seamless integration.
-
-```jsx
+### React Integration
+```tsx
 import { DvAIProvider, useDvAI } from 'dvai-edge-react';
 
 function App() {
   return (
     <DvAIProvider config={{ 
-      modelId: "Llama-3-8B-Instruct-v0.1-q4f16_1-MLC",
-      licenseKey: "dvai-your-key-here" // Required for production domains
+      modelId: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
+      licenseKey: "dvai-your-key-here" 
     }}>
       <ChatComponent />
     </DvAIProvider>
@@ -67,67 +69,46 @@ function ChatComponent() {
 }
 ```
 
-### 2. LangChain (Core)
-Use `dvai-edge-core` to intercept requests from standard AI libraries.
-
-```javascript
-import { ChatOpenAI } from "@langchain/openai";
-import { DvAI } from "dvai-edge-core";
-
-const core = new DvAI({
-  licenseKey: "dvai-your-key-here"
-});
-await core.initialize();
-
-const chat = new ChatOpenAI({
-  configuration: { baseURL: core.mockUrl }, // Intercepted locally!
-  modelName: core.modelId,
-  apiKey: "not-needed",
-});
-
-const res = await chat.invoke("Hello locally!");
+### Vanilla JS / CDN
+```html
+<!-- Direct CDN usage -->
+<script src="https://cdn.jsdelivr.net/npm/dvai-edge-vanilla/dist/index.global.js"></script>
+<script>
+  const ai = new VanillaDvAI();
+  ai.initialize().then(() => {
+    console.log("Mock API is active!");
+  });
+</script>
 ```
-
-### 3. Capacitor / Mobile
-DvAI-Edge is fully compatible with Capacitor. To ensure MSW intercepts requests correctly on Android/iOS:
-
-1. **Service Worker Placement**: Ensure `mockServiceWorker.js` is in your `public` folder and copied to the `webDir` (usually `www` or `dist`).
-2. **Initialization**: Initialize the engine as usual. MSW automatically handles the `capacitor://` or `http://localhost` origins used by Capacitor.
 
 ---
 
 ## 🔑 License Activation
 
-DvAI-Edge is free for development on `localhost` and `127.0.0.1`. For production domains:
-1. Purchase a key from [deepvoiceai.co](https://deepvoiceai.co).
-2. Pass the key in the `licenseKey` configuration property.
-3. The engine will throw an error if a valid key is not provided on a production domain.
+DvAI-Edge is free for development on `localhost` and `127.0.0.1`. In production, the `LicenseValidator` checks for valid signed keys.
+
+1. **Mobile Production**: Detects native `DEBUG` flags in Capacitor and Cordova to ensure license requirements are met even on `localhost`.
+2. **Setup**: Pass your key in the `licenseKey` property.
+3. **Get a Key**: Contact `info@deepvoiceai.co` for commercial licensing.
 
 ---
 
 ## 📜 Licensing
 
 This project is licensed under a **Dual License** model:
-
-1. **Development & Personal Use**: Free to use for development, testing, and personal projects. See `LICENSE` for details.
-2. **Commercial Use**: Requires a paid commercial license from **Deep Voice Ai Limited**.
-
-### How to get a Commercial License
-To use DvAI-Edge in a production environment or for revenue-generating activities:
-1. Visit [Deep Voice Ai Licensing](https://deepvoiceai.co/licensing) (Coming Soon).
-2. Contact `info@deepvoiceai.co` for enterprise pricing.
-3. Once paid, you will receive a license certificate for your organization.
+1. **Development & Personal Use**: Free to use for development and testing.
+2. **Commercial Use**: Requires a paid license from **Deep Voice Ai Limited**.
 
 ---
 
-## 🤝 Contribution Guidelines
+## 🤝 Contributing
 
-We welcome contributions! Please follow these steps:
-1. Fork the repository `westenets/dvai-edge`.
-2. Create a feature branch (`git checkout -b feat/my-feature`).
-3. Ensure all tests pass (`npm test`).
-4. Submit a Pull Request with a detailed description of changes.
+We use `pnpm` for monorepo management.
+1. Clone the repo: `git clone https://github.com/westenets/dvai-edge.git`
+2. Install dependencies: `pnpm install`
+3. Build all packages: `pnpm build`
+4. Create a feature branch and submit a PR!
 
 ---
 
-© 2026 Deep Voice Ai Limited. All rights reserved.
+© 2026 Deep Voice Ai Limited. All rights reserved.
