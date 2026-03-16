@@ -133,6 +133,24 @@ export class DvAI {
   getWorker(): SetupWorker | null {
     return this.worker;
   }
+
+  /**
+   * Unloads the LLM engine and stops the MSW worker to free up resources.
+   */
+  async unload(): Promise<void> {
+    if (this.engine) {
+      await this.engine.unload();
+      this.engine = null;
+    }
+
+    if (this.worker) {
+      this.worker.stop();
+      this.worker = null;
+    }
+
+    this.isReady = false;
+    console.log("[DvAI] Unloaded model and worker.");
+  }
 }
 
 // Export a singleton instance by default, or the class for advanced usage

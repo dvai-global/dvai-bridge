@@ -91,6 +91,34 @@ function ChatComponent() {
 
 ---
 
+## 🔋 Resource Management (Mobile & Laptop)
+
+To preserve battery life and free up system resources (RAM/VRAM/CPU) when the AI is not needed, you can programmatically unload the engine and stop the service worker.
+
+### React
+```tsx
+const { unload, init } = useDvAI();
+
+// Unload when done
+await unload();
+
+// Re-initialize later
+await init();
+```
+
+### Vanilla JS
+```javascript
+const ai = new VanillaDvAI();
+
+// Unload resources
+await ai.unload();
+
+// Re-initialize
+await ai.initialize();
+```
+
+---
+
 ## 🔑 License Activation
 
 DvAI-Edge is free for development on `localhost` and `127.0.0.1`. In production, the `LicenseValidator` checks for valid signed keys.

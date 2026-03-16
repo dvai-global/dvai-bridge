@@ -36,6 +36,10 @@ declare class DvAI {
      * Gets the MSW worker instance directly if needed.
      */
     getWorker(): SetupWorker | null;
+    /**
+     * Unloads the LLM engine and stops the MSW worker to free up resources.
+     */
+    unload(): Promise<void>;
 }
 declare const dvai: DvAI;
 

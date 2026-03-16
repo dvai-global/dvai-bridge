@@ -14,6 +14,7 @@ export interface DvAIContextValue {
   modelId: string;
   engine: any;
   init: () => Promise<boolean>;
+  unload: () => Promise<void>;
 }
 
 const DvAIContext = createContext<DvAIContextValue | null>(null);
@@ -49,6 +50,13 @@ export const DvAIProvider: React.FC<DvAIProviderProps> = ({ children, config = {
     }
   }, [config]);
 
+  const unload = useCallback(async () => {
+    await dvai.unload();
+    setIsReady(false);
+    hasInitialized.current = false;
+    setProgress({ text: "Unloaded", progress: 0, timeElapsed: 0 });
+  }, []);
+
   useEffect(() => {
     if (config.autoInit !== false) {
       init();
@@ -63,6 +71,7 @@ export const DvAIProvider: React.FC<DvAIProviderProps> = ({ children, config = {
     modelId: dvai.modelId,
     engine: dvai.getEngine(),
     init,
+    unload,
   };
 
   return (

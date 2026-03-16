@@ -47,6 +47,16 @@ export class VanillaDvAI {
   }
 
   /**
+   * Unloads the AI engine and worker.
+   */
+  async unload(): Promise<void> {
+    await this.core.unload();
+    this.isReady = this.core.isReady;
+    this.progressText = "";
+    this.notifyListeners();
+  }
+
+  /**
    * Subscribes to state changes.
    * @param listener - Callback function receiving the current state.
    * @returns A function to unsubscribe.

@@ -13,6 +13,7 @@ interface DvAIContextValue {
     modelId: string;
     engine: any;
     init: () => Promise<boolean>;
+    unload: () => Promise<void>;
 }
 /**
  * DvAIProvider: React Context Provider for DvAI-Edge.

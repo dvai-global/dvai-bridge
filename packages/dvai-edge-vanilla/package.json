@@ -1,6 +1,6 @@
 {
   "name": "@dvai/dvai-edge-vanilla",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
@@ -23,7 +23,11 @@
     "dev": "tsup --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["ai", "local", "vanilla"],
+  "keywords": [
+    "ai",
+    "local",
+    "vanilla"
+  ],
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",
   "repository": {

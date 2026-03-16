@@ -1,4 +1,10 @@
-import { DvAIConfig } from 'dvai-edge-core';
+interface DvAIConfig {
+    modelId?: string;
+    mockUrl?: string;
+    serviceWorkerUrl?: string;
+    licenseKey?: string;
+    autoInit?: boolean;
+}
 
 interface VanillaState {
     isReady: boolean;
@@ -22,6 +28,10 @@ declare class VanillaDvAI {
      * Initializes the AI engine.
      */
     initialize(): Promise<void>;
+    /**
+     * Unloads the AI engine and worker.
+     */
+    unload(): Promise<void>;
     /**
      * Subscribes to state changes.
      * @param listener - Callback function receiving the current state.
