@@ -2,7 +2,7 @@
 
 **DvAI-Edge** is a high-performance, local-first AI orchestration layer that allows you to run robust LLM agents directly in the browser while maintaining a standard OpenAI-compatible API interface using MSW (Mock Service Worker).
 
-Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, zero-latency AI interactions that work offline and across desktop/mobile environments (including Capacitor).
+Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, zero-latency AI interactions that work offline and across desktop/mobile environments (including Electron/Capacitor).
 
 ---
 
