@@ -8,5 +8,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   minify: true,
-  external: ['react', 'react-dom', 'dvai-edge-core'],
+  external: ['react', 'react-dom', '@dvai-edge/core'],
 });

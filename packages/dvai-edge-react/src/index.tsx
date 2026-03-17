@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from "react";
-import { dvai, type DvAIConfig, type InitProgressReport } from "dvai-edge-core";
+import { dvai, type DvAIConfig, type BackendType } from "@dvai-edge/core";
+
+export type { DvAIConfig, BackendType } from "@dvai-edge/core";
 
 export interface DvAIProviderProps {
   children: ReactNode;
@@ -7,13 +9,23 @@ export interface DvAIProviderProps {
 }
 
 export interface DvAIContextValue {
+  /** Whether the AI engine is ready to accept requests. */
   isReady: boolean;
-  progress: InitProgressReport;
+  /** Current initialization progress. */
+  progress: { text: string; progress: number; timeElapsed: number };
+  /** Any error from initialization. */
   error: Error | null;
+  /** The mock URL for OpenAI-compatible API calls. */
   mockUrl: string;
+  /** The model ID for the active backend. */
   modelId: string;
+  /** The active backend type ("webllm" or "transformers"). */
+  backend: BackendType;
+  /** The underlying engine instance (MLCEngine or transformers pipeline). */
   engine: any;
+  /** Initialize the AI engine manually. */
   init: () => Promise<boolean>;
+  /** Unload the AI engine and free resources. */
   unload: () => Promise<void>;
 }
 
@@ -25,7 +37,11 @@ const DvAIContext = createContext<DvAIContextValue | null>(null);
  */
 export const DvAIProvider: React.FC<DvAIProviderProps> = ({ children, config = {} }) => {
   const [isReady, setIsReady] = useState(false);
-  const [progress, setProgress] = useState<InitProgressReport>({ text: "Initializing...", progress: 0, timeElapsed: 0 });
+  const [progress, setProgress] = useState<{ text: string; progress: number; timeElapsed: number }>({
+    text: "Initializing...",
+    progress: 0,
+    timeElapsed: 0,
+  });
   const [error, setError] = useState<Error | null>(null);
   const hasInitialized = useRef(false);
 
@@ -37,6 +53,14 @@ export const DvAIProvider: React.FC<DvAIProviderProps> = ({ children, config = {
     if (config.modelId) dvai.modelId = config.modelId;
     if (config.mockUrl) dvai.mockUrl = config.mockUrl;
     if (config.serviceWorkerUrl) dvai.serviceWorkerUrl = config.serviceWorkerUrl;
+    if (config.backend) dvai.backend = config.backend;
+    if (config.transformersModelId) dvai.transformersModelId = config.transformersModelId;
+    if (config.pipelineTask) dvai.pipelineTask = config.pipelineTask;
+    if (config.device) dvai.device = config.device;
+    if (config.generationTimeout !== undefined) dvai.generationTimeout = config.generationTimeout;
+    if (config.maxBlankChunks !== undefined) dvai.maxBlankChunks = config.maxBlankChunks;
+    if (config.webllmWorkerUrl) dvai.webllmWorkerUrl = config.webllmWorkerUrl;
+    if (config.transformersWorkerUrl) dvai.transformersWorkerUrl = config.transformersWorkerUrl;
 
     try {
       await dvai.initialize((info) => {
@@ -68,7 +92,8 @@ export const DvAIProvider: React.FC<DvAIProviderProps> = ({ children, config = {
     progress,
     error,
     mockUrl: dvai.mockUrl,
-    modelId: dvai.modelId,
+    modelId: dvai.backend === "transformers" ? dvai.transformersModelId : dvai.modelId,
+    backend: dvai.backend,
     engine: dvai.getEngine(),
     init,
     unload,

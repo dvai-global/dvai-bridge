@@ -27,7 +27,7 @@ for (const pkgName of packages) {
     // Update internal workspace dependencies if they exist
     if (pkg.dependencies) {
       for (const depName in pkg.dependencies) {
-        if (depName.startsWith('@dvai/')) {
+        if (depName.startsWith('@dvai-edge/')) {
           // If it's a workspace dependency, we keep "workspace:*" or similar
           // but we can also ensure other fields are consistent if needed.
         }

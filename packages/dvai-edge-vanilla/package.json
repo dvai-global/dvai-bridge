@@ -1,10 +1,10 @@
 {
-  "name": "@dvai/dvai-edge-vanilla",
-  "version": "1.0.2",
+  "name": "@dvai-edge/vanilla",
+  "version": "1.2.0",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
-  "description": "Vanilla JS wrapper for dvai-edge-core",
+  "description": "Vanilla JS wrapper for @dvai-edge/core",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -26,7 +26,8 @@
   "keywords": [
     "ai",
     "local",
-    "vanilla"
+    "vanilla",
+    "edge"
   ],
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",
@@ -35,6 +36,6 @@
     "url": "https://github.com/westenets/dvai-edge.git"
   },
   "dependencies": {
-    "@dvai/dvai-edge-core": "workspace:*"
+    "@dvai-edge/core": "workspace:*"
   }
 }

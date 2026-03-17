@@ -1,7 +1,7 @@
 {
   "name": "dvai-edge-monorepo",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.2.0",
   "description": "Monorepo for DvAI-Edge: Local AI Orchestration",
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",
@@ -9,7 +9,7 @@
   "scripts": {
     "prebuild": "node scripts/sync-versions.js",
     "build": "pnpm -r build",
-    "test": "pnpm -r test"
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
@@ -17,6 +17,7 @@
     "@types/react-dom": "^19.2.3",
     "cross-env": "^10.1.0",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
   }
 }

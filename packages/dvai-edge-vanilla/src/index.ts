@@ -1,10 +1,13 @@
-import { dvai, DvAI, type DvAIConfig } from "dvai-edge-core";
+import { dvai, DvAI, type DvAIConfig, type BackendType } from "@dvai-edge/core";
+
+export type { DvAIConfig, BackendType } from "@dvai-edge/core";
 
 export interface VanillaState {
   isReady: boolean;
   progress: string;
   mockUrl: string;
   modelId: string;
+  backend: BackendType;
 }
 
 export type VanillaListener = (state: VanillaState) => void;
@@ -18,19 +21,29 @@ export class VanillaDvAI {
   private progressText: string = "";
   private mockUrl: string;
   private modelId: string;
+  private backend: BackendType;
   private listeners: Set<VanillaListener> = new Set();
 
   constructor(config: DvAIConfig = {}) {
-    this.core = dvai; // Default to singleton, or we could use `new DvAI(config)`
-    // If config is provided, we should probably apply it to the singleton or use a new instance
+    this.core = dvai; // Default to singleton
+    // Apply config to singleton
     if (Object.keys(config).length > 0) {
       if (config.modelId) this.core.modelId = config.modelId;
       if (config.mockUrl) this.core.mockUrl = config.mockUrl;
       if (config.serviceWorkerUrl) this.core.serviceWorkerUrl = config.serviceWorkerUrl;
+      if (config.backend) this.core.backend = config.backend;
+      if (config.transformersModelId) this.core.transformersModelId = config.transformersModelId;
+      if (config.device) this.core.device = config.device;
+      if (config.generationTimeout !== undefined) this.core.generationTimeout = config.generationTimeout;
+      if (config.maxBlankChunks !== undefined) this.core.maxBlankChunks = config.maxBlankChunks;
+      if (config.pipelineTask) this.core.pipelineTask = config.pipelineTask;
+      if (config.webllmWorkerUrl) this.core.webllmWorkerUrl = config.webllmWorkerUrl;
+      if (config.transformersWorkerUrl) this.core.transformersWorkerUrl = config.transformersWorkerUrl;
     }
-    
+
     this.mockUrl = this.core.mockUrl;
-    this.modelId = this.core.modelId;
+    this.modelId = this.core.backend === "transformers" ? this.core.transformersModelId : this.core.modelId;
+    this.backend = this.core.backend;
   }
 
   /**
@@ -76,7 +89,7 @@ export class VanillaDvAI {
   }
 
   /**
-   * returns the current state.
+   * Returns the current state.
    */
   getState(): VanillaState {
     return {
@@ -84,6 +97,7 @@ export class VanillaDvAI {
       progress: this.progressText,
       mockUrl: this.mockUrl,
       modelId: this.modelId,
+      backend: this.backend,
     };
   }
 }

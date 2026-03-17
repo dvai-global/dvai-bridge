@@ -1,10 +1,10 @@
 {
-  "name": "@dvai/dvai-edge-core",
-  "version": "1.0.2",
+  "name": "@dvai-edge/core",
+  "version": "1.2.0",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
-  "description": "Core JS logic for local WebLLM + MSW agent",
+  "description": "Core orchestration for local AI inference (WebLLM + Transformers.js + MSW)",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -30,7 +30,10 @@
     "ai",
     "local",
     "webllm",
-    "msw"
+    "transformers",
+    "msw",
+    "edge",
+    "webgpu"
   ],
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",
@@ -39,7 +42,18 @@
     "url": "https://github.com/westenets/dvai-edge.git"
   },
   "dependencies": {
-    "@mlc-ai/web-llm": "^0.2.78",
     "msw": "^2.7.0"
+  },
+  "peerDependencies": {
+    "@mlc-ai/web-llm": "^0.2.78",
+    "@huggingface/transformers": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@mlc-ai/web-llm": {
+      "optional": true
+    },
+    "@huggingface/transformers": {
+      "optional": true
+    }
   }
 }

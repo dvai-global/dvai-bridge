@@ -10,9 +10,9 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "dvai-edge-core": ["packages/dvai-edge-core/src/index.ts"],
-      "dvai-edge-react": ["packages/dvai-edge-react/src/index.tsx"],
-      "dvai-edge-vanilla": ["packages/dvai-edge-vanilla/src/index.ts"]
+      "@dvai-edge/core": ["packages/dvai-edge-core/src/index.ts"],
+      "@dvai-edge/react": ["packages/dvai-edge-react/src/index.tsx"],
+      "@dvai-edge/vanilla": ["packages/dvai-edge-vanilla/src/index.ts"]
     }
   },
   "exclude": ["**/node_modules", "**/dist"]

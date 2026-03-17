@@ -13,5 +13,5 @@ export default defineConfig({
   // We don't mark dvai-edge-core as external since it's used in IIFE bundle for CDN
   // but for ESM/CJS it might be better to keep it external. 
   // For CDN usage, we typically want everything bundled.
-  noExternal: ['dvai-edge-core'],
+  noExternal: ['@dvai-edge/core'],
 });

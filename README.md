@@ -1,6 +1,6 @@
 # DvAI-Edge
 
-**DvAI-Edge** is a high-performance, local-first AI orchestration layer that allows you to run robust LLM agents (via WebLLM and LangChain) directly in the browser while maintaining a standard OpenAI-compatible API interface using MSW (Mock Service Worker).
+**DvAI-Edge** is a high-performance, local-first AI orchestration layer that allows you to run robust LLM agents directly in the browser while maintaining a standard OpenAI-compatible API interface using MSW (Mock Service Worker).
 
 Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, zero-latency AI interactions that work offline and across desktop/mobile environments (including Capacitor).
 
@@ -8,27 +8,68 @@ Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, ze
 
 ## 🚀 Key Features
 
+- **Multi-Backend**: Choose between **WebLLM** (MLC/WebGPU) or **Transformers.js** (ONNX/WebGPU/CPU) for maximum model compatibility.
+- **Multi-Modal**: Transformers.js backend supports text-generation, text-to-image, ASR, TTS, and more via configurable `pipelineTask`.
 - **Local-First**: Runs LLMs entirely in the browser using WebGPU/WebAssembly.
-- **OpenAI Compatible**: Exposes a `mockUrl` that behaves exactly like OpenAI's API.
+- **OpenAI Compatible**: Exposes a `mockUrl` that behaves exactly like OpenAI's API — works with any agent SDK.
+- **Worker Offloaded**: Inference runs in Web Workers to keep the main UI thread responsive.
+- **Robust Streaming**: Built-in blank-chunk detection, generation timeout, and engine state recovery.
 - **Zero Configuration**: No proxy servers or backend needed for the AI engine.
+- **Tree-Shakeable**: Backend-specific dependencies are optional peer deps — install only what you need.
 - **TypeScript First**: Full IntelliSense and type safety across all packages.
-- **Monorepo Design**: Purpose-built packages for React and Vanilla JS.
 
 ---
 
 ## 📦 Packages
 
-The monorepo consists of three main packages:
-- **`dvai-edge-core`**: Core logic and orchestration.
-- **`dvai-edge-react`**: React components and hooks.
-- **`dvai-edge-vanilla`**: Wrapper for non-framework environments.
+| Package | Description |
+|---|---|
+| `@dvai-edge/core` | Core logic: backend engines, MSW orchestration, OpenAI-compatible wrapper |
+| `@dvai-edge/react` | React Context Provider and `useDvAI` hook |
+| `@dvai-edge/vanilla` | Wrapper for non-framework environments (vanilla JS / CDN) |
 
 ---
 
-### 1. Installation
-Depending on your workflow, you can add this repository as a submodule or install via npm (once published).
+## ⚡ Backend Engines
 
-#### As a Git Submodule
+### WebLLM (Default)
+Uses `@mlc-ai/web-llm` — optimized MLC-compiled models running via WebGPU. Best for models specifically compiled for the MLC runtime.
+
+### Transformers.js
+Uses `@huggingface/transformers` — runs ONNX models with WebGPU acceleration (auto-falls back to CPU). Supports a much wider range of model architectures and **multiple modalities** (text, image, audio, video).
+
+| | WebLLM | Transformers.js |
+|---|---|---|
+| **Model Format** | MLC-compiled | ONNX |
+| **GPU Acceleration** | WebGPU only | WebGPU or CPU fallback |
+| **Model Variety** | Limited (MLC catalog) | Huge (HuggingFace Hub) |
+| **Modalities** | Text only | Text, Image, Audio, Video |
+| **OpenAI API** | Built-in | Custom wrapper (built into DvAI) |
+
+---
+
+## 📥 Installation
+
+### Install only the backend you need:
+
+```bash
+# WebLLM only (default)
+npm install @dvai-edge/core @mlc-ai/web-llm
+
+# Transformers.js only
+npm install @dvai-edge/core @huggingface/transformers
+
+# Both backends
+npm install @dvai-edge/core @mlc-ai/web-llm @huggingface/transformers
+
+# With React
+npm install @dvai-edge/react
+
+# With Vanilla JS
+npm install @dvai-edge/vanilla
+```
+
+### As a Git Submodule
 ```bash
 git submodule add https://github.com/westenets/dvai-edge.git
 cd dvai-edge
@@ -36,18 +77,12 @@ pnpm install
 pnpm build
 ```
 
-#### Via npm (Coming Soon)
+### Initialize Workers
+DvAI-Edge needs worker files in your public directory:
 ```bash
-npm install @dvai/dvai-edge-core
-```
-
-### 2. Initialize Service Worker
-DvAI-Edge requires a service worker to intercept OpenAI API calls. Use the built-in CLI to initialize it:
-```bash
-# If using as submodule, run from the submodule root or via npx
 npx dvai-edge init [public-dir]
 ```
-*Note: `public-dir` defaults to `public` (Standard for Next.js/Vite).*
+This copies the MSW service worker and AI inference workers to your public directory.
 
 ---
 
@@ -55,13 +90,19 @@ npx dvai-edge init [public-dir]
 
 ### React Integration
 ```tsx
-import { DvAIProvider, useDvAI } from 'dvai-edge-react';
+import { DvAIProvider, useDvAI } from '@dvai-edge/react';
 
 function App() {
   return (
-    <DvAIProvider config={{ 
+    <DvAIProvider config={{
+      // WebLLM (default)
       modelId: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
-      licenseKey: "dvai-your-key-here" 
+      licenseKey: "dvai-your-key-here",
+
+      // Or use Transformers.js:
+      // backend: "transformers",
+      // transformersModelId: "Xenova/Qwen2.5-0.5B-Instruct",
+      // device: "auto", // "webgpu" | "cpu" | "auto"
     }}>
       <ChatComponent />
     </DvAIProvider>
@@ -69,53 +110,111 @@ function App() {
 }
 
 function ChatComponent() {
-  const { isReady, progressText, mockUrl } = useDvAI();
+  const { isReady, progress, mockUrl, backend } = useDvAI();
 
-  if (!isReady) return <div>Loading Engine: {progressText}</div>;
+  if (!isReady) return <div>Loading ({backend}): {progress.text}</div>;
 
-  return <div>Local AI is live at {mockUrl}</div>;
+  return <div>Local AI is live at {mockUrl} via {backend}</div>;
 }
 ```
 
 ### Vanilla JS / CDN
 ```html
-<!-- Direct CDN usage -->
-<script src="https://cdn.jsdelivr.net/npm/dvai-edge-vanilla/dist/index.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@dvai-edge/vanilla/dist/index.global.js"></script>
 <script>
-  const ai = new VanillaDvAI();
+  const ai = new VanillaDvAI({
+    // backend: "transformers",
+    // transformersModelId: "Xenova/Qwen2.5-0.5B-Instruct",
+  });
   ai.initialize().then(() => {
     console.log("Mock API is active!");
   });
 </script>
 ```
 
+### Direct Inference (No MSW)
+```typescript
+import { DvAI } from '@dvai-edge/core';
+
+const ai = new DvAI({ backend: "transformers", transformersModelId: "Xenova/Qwen2.5-0.5B-Instruct" });
+await ai.initialize();
+
+const response = await ai.chatCompletion({
+  messages: [{ role: "user", content: "Hello!" }],
+  max_tokens: 100,
+});
+console.log(response.choices[0].message.content);
+```
+
+### Multi-Modal Pipeline (Transformers.js only)
+```typescript
+import { DvAI } from '@dvai-edge/core';
+
+// Text-to-Image
+const imageAI = new DvAI({
+  backend: "transformers",
+  transformersModelId: "Xenova/stable-diffusion-v1-4",
+  pipelineTask: "text-to-image",
+});
+await imageAI.initialize();
+const result = await imageAI.runPipeline("A cute cat in space");
+
+// Speech-to-Text
+const asrAI = new DvAI({
+  backend: "transformers",
+  transformersModelId: "Xenova/whisper-tiny.en",
+  pipelineTask: "automatic-speech-recognition",
+});
+await asrAI.initialize();
+const transcript = await asrAI.runPipeline(audioBuffer);
+```
+
+---
+
+## 🛡️ Robustness Features
+
+- **Blank Chunk Detection**: Aborts streaming after too many blank chunks (configurable `maxBlankChunks`, default: 20).
+- **Generation Timeout**: Prevents infinite loops (configurable `generationTimeout`, default: 60s).
+- **Engine State Recovery**: Resets engine after failures to prevent cascading errors.
+- **Finish Reason Checks**: Terminates streams on `"stop"` or `"length"`.
+- **Worker Offloading**: Inference runs in Web Workers; gracefully falls back to main thread.
+
 ---
 
 ## 🔋 Resource Management (Mobile & Laptop)
 
-To preserve battery life and free up system resources (RAM/VRAM/CPU) when the AI is not needed, you can programmatically unload the engine and stop the service worker.
-
 ### React
 ```tsx
 const { unload, init } = useDvAI();
-
-// Unload when done
-await unload();
-
-// Re-initialize later
-await init();
+await unload(); // Free resources
+await init();   // Re-initialize later
 ```
 
 ### Vanilla JS
 ```javascript
-const ai = new VanillaDvAI();
-
-// Unload resources
-await ai.unload();
-
-// Re-initialize
-await ai.initialize();
+await ai.unload();     // Free resources
+await ai.initialize(); // Re-initialize
 ```
+
+---
+
+## ⚙️ Configuration Reference
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `modelId` | `string` | `"Qwen2.5-1.5B-Instruct-q4f16_1-MLC"` | WebLLM model ID |
+| `backend` | `"webllm" \| "transformers"` | `"webllm"` | Backend engine to use |
+| `transformersModelId` | `string` | `"Xenova/Qwen2.5-0.5B-Instruct"` | HuggingFace model ID |
+| `pipelineTask` | `string` | `"text-generation"` | Transformers.js pipeline task |
+| `device` | `"webgpu" \| "cpu" \| "auto"` | `"auto"` | Transformers.js device |
+| `generationTimeout` | `number` | `60000` | Max generation time (ms) |
+| `maxBlankChunks` | `number` | `20` | Blank chunks before abort |
+| `mockUrl` | `string` | `"https://api.openai.local/v1/chat/completions"` | MSW intercept URL |
+| `serviceWorkerUrl` | `string` | `"/mockServiceWorker.js"` | Path to MSW worker |
+| `webllmWorkerUrl` | `string` | `"/dvai-webllm.worker.js"` | Path to WebLLM inference worker |
+| `transformersWorkerUrl` | `string` | `"/dvai-transformers.worker.js"` | Path to Transformers.js inference worker |
+| `licenseKey` | `string` | — | License key for production |
+| `autoInit` | `boolean` | `true` | Auto-initialize on mount |
 
 ---
 
@@ -123,7 +222,7 @@ await ai.initialize();
 
 DvAI-Edge is free for development on `localhost` and `127.0.0.1`. In production, the `LicenseValidator` checks for valid signed keys.
 
-1. **Mobile Production**: Detects native `DEBUG` flags in Capacitor and Cordova to ensure license requirements are met even on `localhost`.
+1. **Mobile Production**: Detects native `DEBUG` flags in Capacitor and Cordova.
 2. **Setup**: Pass your key in the `licenseKey` property.
 3. **Get a Key**: Contact `info@deepvoiceai.co` for commercial licensing.
 
@@ -143,8 +242,9 @@ We use `pnpm` for monorepo management.
 1. Clone the repo: `git clone https://github.com/westenets/dvai-edge.git`
 2. Install dependencies: `pnpm install`
 3. Build all packages: `pnpm build`
-4. Create a feature branch and submit a PR!
+4. Run tests: `pnpm test`
+5. Create a feature branch and submit a PR!
 
 ---
 
-© 2026 Deep Voice Ai Limited. All rights reserved.
+© 2026 Deep Voice Ai Limited. All rights reserved.

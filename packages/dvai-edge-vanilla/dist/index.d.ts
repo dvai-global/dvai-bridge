@@ -1,16 +1,12 @@
-interface DvAIConfig {
-    modelId?: string;
-    mockUrl?: string;
-    serviceWorkerUrl?: string;
-    licenseKey?: string;
-    autoInit?: boolean;
-}
+import { DvAIConfig, BackendType } from '@dvai-edge/core';
+export { BackendType, DvAIConfig } from '@dvai-edge/core';
 
 interface VanillaState {
     isReady: boolean;
     progress: string;
     mockUrl: string;
     modelId: string;
+    backend: BackendType;
 }
 type VanillaListener = (state: VanillaState) => void;
 /**
@@ -22,6 +18,7 @@ declare class VanillaDvAI {
     private progressText;
     private mockUrl;
     private modelId;
+    private backend;
     private listeners;
     constructor(config?: DvAIConfig);
     /**
@@ -40,7 +37,7 @@ declare class VanillaDvAI {
     subscribe(listener: VanillaListener): () => void;
     private notifyListeners;
     /**
-     * returns the current state.
+     * Returns the current state.
      */
     getState(): VanillaState;
 }
