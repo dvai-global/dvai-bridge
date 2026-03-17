@@ -1,3 +1,5 @@
+![DvAI-Edge](/assets/banner.png)
+
 # DvAI-Edge
 
 **DvAI-Edge** is a high-performance, local-first AI orchestration layer that allows you to run robust LLM agents directly in the browser while maintaining a standard OpenAI-compatible API interface using MSW (Mock Service Worker).
