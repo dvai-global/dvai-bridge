@@ -27,6 +27,22 @@ export interface DvAIContextValue {
   init: () => Promise<boolean>;
   /** Unload the AI engine and free resources. */
   unload: () => Promise<void>;
+  /**
+   * Perform a direct chat completion (bypasses MSW, calls backend directly).
+   * Useful for programmatic usage without going through the fetch mock.
+   */
+  chatCompletion: (requestBody: any) => Promise<any>;
+  /**
+   * Run the pipeline directly (Transformers.js backend only).
+   * Use for non-text tasks: text-to-image, ASR, text-to-speech, etc.
+   * @param inputs - Input data appropriate for the pipeline task
+   * @param options - Pipeline-specific options
+   */
+  runPipeline: (inputs: any, options?: Record<string, any>) => Promise<any>;
+  /** Get the underlying engine/pipeline instance directly. */
+  getEngine: () => any;
+  /** Get the MSW worker instance directly. */
+  getWorker: () => any;
 }
 
 const DvAIContext = createContext<DvAIContextValue | null>(null);
@@ -87,6 +103,17 @@ export const DvAIProvider: React.FC<DvAIProviderProps> = ({ children, config = {
     }
   }, [config, init]);
 
+  const chatCompletion = useCallback(async (requestBody: any): Promise<any> => {
+    return dvai.chatCompletion(requestBody);
+  }, []);
+
+  const runPipeline = useCallback(async (inputs: any, options?: Record<string, any>): Promise<any> => {
+    return dvai.runPipeline(inputs, options);
+  }, []);
+
+  const getEngine = useCallback(() => dvai.getEngine(), []);
+  const getWorker = useCallback(() => dvai.getWorker(), []);
+
   const value: DvAIContextValue = {
     isReady,
     progress,
@@ -97,6 +124,10 @@ export const DvAIProvider: React.FC<DvAIProviderProps> = ({ children, config = {
     engine: dvai.getEngine(),
     init,
     unload,
+    chatCompletion,
+    runPipeline,
+    getEngine,
+    getWorker,
   };
 
   return (

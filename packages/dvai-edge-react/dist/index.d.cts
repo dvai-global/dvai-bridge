@@ -29,6 +29,22 @@ interface DvAIContextValue {
     init: () => Promise<boolean>;
     /** Unload the AI engine and free resources. */
     unload: () => Promise<void>;
+    /**
+     * Perform a direct chat completion (bypasses MSW, calls backend directly).
+     * Useful for programmatic usage without going through the fetch mock.
+     */
+    chatCompletion: (requestBody: any) => Promise<any>;
+    /**
+     * Run the pipeline directly (Transformers.js backend only).
+     * Use for non-text tasks: text-to-image, ASR, text-to-speech, etc.
+     * @param inputs - Input data appropriate for the pipeline task
+     * @param options - Pipeline-specific options
+     */
+    runPipeline: (inputs: any, options?: Record<string, any>) => Promise<any>;
+    /** Get the underlying engine/pipeline instance directly. */
+    getEngine: () => any;
+    /** Get the MSW worker instance directly. */
+    getWorker: () => any;
 }
 /**
  * DvAIProvider: React Context Provider for DvAI-Edge.

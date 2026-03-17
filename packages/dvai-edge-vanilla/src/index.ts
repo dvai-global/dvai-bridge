@@ -70,6 +70,40 @@ export class VanillaDvAI {
   }
 
   /**
+   * Perform a direct chat completion (bypasses MSW, calls backend directly).
+   * Useful for programmatic usage without going through the fetch mock.
+   */
+  async chatCompletion(requestBody: any): Promise<any> {
+    return this.core.chatCompletion(requestBody);
+  }
+
+  /**
+   * Run the pipeline directly (Transformers.js backend only).
+   * Use for non-text tasks: text-to-image, ASR, text-to-speech, etc.
+   * @param inputs - Input data appropriate for the pipeline task
+   * @param options - Pipeline-specific options
+   */
+  async runPipeline(inputs: any, options?: Record<string, any>): Promise<any> {
+    return this.core.runPipeline(inputs, options);
+  }
+
+  /**
+   * Get the underlying engine/pipeline instance directly.
+   * - For WebLLM: returns the MLCEngine
+   * - For Transformers.js: returns the pipeline
+   */
+  getEngine(): any {
+    return this.core.getEngine();
+  }
+
+  /**
+   * Get the MSW worker instance directly.
+   */
+  getWorker(): any {
+    return this.core.getWorker();
+  }
+
+  /**
    * Subscribes to state changes.
    * @param listener - Callback function receiving the current state.
    * @returns A function to unsubscribe.
