@@ -36,13 +36,23 @@ export class VanillaDvAI {
       if (config.device) this.core.device = config.device;
       if (config.generationTimeout !== undefined) this.core.generationTimeout = config.generationTimeout;
       if (config.maxBlankChunks !== undefined) this.core.maxBlankChunks = config.maxBlankChunks;
+      if (config.maxRetries !== undefined) this.core.maxRetries = config.maxRetries;
       if (config.pipelineTask) this.core.pipelineTask = config.pipelineTask;
       if (config.webllmWorkerUrl) this.core.webllmWorkerUrl = config.webllmWorkerUrl;
       if (config.transformersWorkerUrl) this.core.transformersWorkerUrl = config.transformersWorkerUrl;
+      // Native backend config
+      if (config.nativeModelPath) this.core.nativeModelPath = config.nativeModelPath;
+      if (config.nativeGpuLayers !== undefined) this.core.nativeGpuLayers = config.nativeGpuLayers;
+      if (config.nativeThreads !== undefined) this.core.nativeThreads = config.nativeThreads;
+      if (config.nativeContextSize !== undefined) this.core.nativeContextSize = config.nativeContextSize;
     }
 
     this.mockUrl = this.core.mockUrl;
-    this.modelId = this.core.backend === "transformers" ? this.core.transformersModelId : this.core.modelId;
+    this.modelId = this.core.backend === "transformers"
+      ? this.core.transformersModelId
+      : this.core.backend === "native"
+        ? this.core.nativeModelPath
+        : this.core.modelId;
     this.backend = this.core.backend;
   }
 

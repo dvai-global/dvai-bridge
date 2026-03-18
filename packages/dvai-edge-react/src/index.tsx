@@ -75,8 +75,14 @@ export const DvAIProvider: React.FC<DvAIProviderProps> = ({ children, config = {
     if (config.device) dvai.device = config.device;
     if (config.generationTimeout !== undefined) dvai.generationTimeout = config.generationTimeout;
     if (config.maxBlankChunks !== undefined) dvai.maxBlankChunks = config.maxBlankChunks;
+    if (config.maxRetries !== undefined) dvai.maxRetries = config.maxRetries;
     if (config.webllmWorkerUrl) dvai.webllmWorkerUrl = config.webllmWorkerUrl;
     if (config.transformersWorkerUrl) dvai.transformersWorkerUrl = config.transformersWorkerUrl;
+    // Native backend config
+    if (config.nativeModelPath) dvai.nativeModelPath = config.nativeModelPath;
+    if (config.nativeGpuLayers !== undefined) dvai.nativeGpuLayers = config.nativeGpuLayers;
+    if (config.nativeThreads !== undefined) dvai.nativeThreads = config.nativeThreads;
+    if (config.nativeContextSize !== undefined) dvai.nativeContextSize = config.nativeContextSize;
 
     try {
       await dvai.initialize((info) => {

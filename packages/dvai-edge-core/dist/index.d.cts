@@ -30,15 +30,66 @@ interface TransformersProgressInfo {
  */
 declare function detectWebGPU(): Promise<boolean>;
 
-type BackendType = "webllm" | "transformers";
+/**
+ * NativeBackend: Wraps llama-cpp-capacitor for native on-device inference.
+ * - Uses llama.cpp via Capacitor plugin for Metal (iOS) / Vulkan (Android)
+ * - Provides OpenAI-compatible chat completion response format
+ * - Supports streaming via token callbacks
+ * - Falls back gracefully when not running in Capacitor
+ */
+interface NativeBackendConfig {
+    modelPath: string;
+    contextSize?: number;
+    threads?: number;
+    gpuLayers?: number;
+    generationTimeout?: number;
+}
+declare class NativeBackend {
+    private context;
+    private modelPath;
+    private contextSize;
+    private threads;
+    private gpuLayers;
+    private generationTimeout;
+    constructor(config: NativeBackendConfig);
+    /**
+     * Detect whether we're in a Capacitor Native environment.
+     */
+    static isAvailable(): boolean;
+    initialize(onProgress?: (info: any) => void): Promise<void>;
+    /**
+     * Non-streaming chat completion.
+     * Accepts OpenAI-format request body {messages, max_tokens, temperature, ...}
+     * Returns OpenAI-format response.
+     */
+    chatCompletion(requestBody: any): Promise<any>;
+    /**
+     * Streaming chat completion.
+     * Returns a ReadableStream of SSE-formatted data (OpenAI streaming format).
+     */
+    createStreamingResponse(requestBody: any): ReadableStream<Uint8Array>;
+    /**
+     * Get the native LlamaContext instance.
+     */
+    getEngine(): any;
+    isWorkerBased(): boolean;
+    /**
+     * Unloads the model and frees native memory.
+     */
+    unload(): Promise<void>;
+    /** Wraps a promise with a timeout. */
+    private withTimeout;
+}
+
+type BackendType = "webllm" | "transformers" | "native" | "auto";
 type DeviceType = "webgpu" | "cpu" | "auto";
 
 interface DvAIConfig {
-    /** The model ID for web-llm backend. Default: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC" */
+    /** The model ID for web-llm backend. Default: "gemma-2-2b-it-q4f16_1-MLC" */
     modelId?: string;
-    /** The backend engine to use. Default: "webllm" */
+    /** The backend engine to use. Default: "webllm". Set to "auto" to auto-detect (native on Capacitor, webllm otherwise). */
     backend?: BackendType;
-    /** HuggingFace model ID for Transformers.js backend. Default: "Xenova/Qwen2.5-0.5B-Instruct" */
+    /** HuggingFace model ID for Transformers.js backend. Default: "onnx-community/gemma-3n-E2B-it-ONNX" */
     transformersModelId?: string;
     /** Pipeline task for Transformers.js (e.g. "text-generation", "text-to-image", "automatic-speech-recognition"). Default: "text-generation" */
     pipelineTask?: string;
@@ -46,8 +97,10 @@ interface DvAIConfig {
     device?: DeviceType;
     /** Generation timeout in ms. Default: 60000 (60s) */
     generationTimeout?: number;
-    /** Maximum consecutive blank chunks before aborting stream. Default: 20 */
+    /** Maximum consecutive blank chunks before aborting stream (WebLLM). Default: 20 */
     maxBlankChunks?: number;
+    /** Maximum auto-recovery retries on fatal WebLLM errors (blank output/timeout). Default: 2 */
+    maxRetries?: number;
     /** Mock URL for MSW interception. Default: "https://api.openai.local/v1/chat/completions" */
     mockUrl?: string;
     /** Path to the MSW service worker script. Default: "/mockServiceWorker.js" */
@@ -56,6 +109,14 @@ interface DvAIConfig {
     webllmWorkerUrl?: string;
     /** URL to the Transformers.js worker script (for offloading inference). Default: "/dvai-transformers.worker.js" */
     transformersWorkerUrl?: string;
+    /** Path to the GGUF model file for native backend. Required when using backend: "native". */
+    nativeModelPath?: string;
+    /** Number of GPU layers for native backend (iOS Metal). Default: 99 (max) */
+    nativeGpuLayers?: number;
+    /** Number of CPU threads for native backend. Default: 4 */
+    nativeThreads?: number;
+    /** Context window size for native backend. Default: 2048 */
+    nativeContextSize?: number;
     /** License key for production use. */
     licenseKey?: string;
     /** Auto-initialize on creation (React/Vanilla). Default: true */
@@ -63,7 +124,7 @@ interface DvAIConfig {
 }
 /**
  * DvAI: Local AI Orchestration
- * Orchestrates WebLLM or Transformers.js for local execution
+ * Orchestrates WebLLM, Transformers.js, or native llama.cpp for local execution
  * and MSW for intercepting API calls with an OpenAI-compatible endpoint.
  */
 declare class DvAI {
@@ -77,22 +138,39 @@ declare class DvAI {
     device: DeviceType;
     generationTimeout: number;
     maxBlankChunks: number;
+    maxRetries: number;
     webllmWorkerUrl: string;
     transformersWorkerUrl: string;
+    nativeModelPath: string;
+    nativeGpuLayers: number;
+    nativeThreads: number;
+    nativeContextSize: number;
     private validator;
     private backendInstance;
     private worker;
     isReady: boolean;
+    /** Tracks how many consecutive recovery attempts have been made. */
+    private recoveryAttempts;
+    /** The resolved backend type (after "auto" resolution). */
+    private resolvedBackend;
     constructor(config?: DvAIConfig);
     /**
-     * Returns the active backend type.
+     * Returns the active backend type (resolved from "auto" if applicable).
      */
-    getActiveBackend(): BackendType;
+    getActiveBackend(): "webllm" | "transformers" | "native";
+    /**
+     * Resolves the "auto" backend to a concrete type based on environment.
+     */
+    private resolveBackend;
     /**
      * Initializes the MSW Service Worker and the selected backend engine.
      * @param onProgress - Callback for model download progress
      */
     initialize(onProgress?: (info: any) => void): Promise<boolean>;
+    /**
+     * Attempts to recover from a fatal WebLLM error by unloading and reloading the backend.
+     */
+    private attemptRecovery;
     /**
      * Lazy-imports and initializes the selected backend.
      */
@@ -101,6 +179,7 @@ declare class DvAI {
      * Gets the underlying engine instance directly.
      * - For WebLLM: returns the MLCEngine
      * - For Transformers.js: returns the pipeline
+     * - For Native: returns the LlamaContext
      */
     getEngine(): any;
     /**
@@ -126,4 +205,4 @@ declare class DvAI {
 }
 declare const dvai: DvAI;
 
-export { type BackendType, type DeviceType, DvAI, type DvAIConfig, type PipelineTask, type TransformersProgressInfo, detectWebGPU, dvai };
+export { type BackendType, type DeviceType, DvAI, type DvAIConfig, NativeBackend, type PipelineTask, type TransformersProgressInfo, detectWebGPU, dvai };

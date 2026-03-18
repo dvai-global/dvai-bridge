@@ -24,29 +24,31 @@ Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, ze
 
 ## 📦 Packages
 
-| Package | Description |
-|---|---|
-| `@dvai-edge/core` | Core logic: backend engines, MSW orchestration, OpenAI-compatible wrapper |
-| `@dvai-edge/react` | React Context Provider and `useDvAI` hook |
-| `@dvai-edge/vanilla` | Wrapper for non-framework environments (vanilla JS / CDN) |
+| Package              | Description                                                               |
+| -------------------- | ------------------------------------------------------------------------- |
+| `@dvai-edge/core`    | Core logic: backend engines, MSW orchestration, OpenAI-compatible wrapper |
+| `@dvai-edge/react`   | React Context Provider and `useDvAI` hook                                 |
+| `@dvai-edge/vanilla` | Wrapper for non-framework environments (vanilla JS / CDN)                 |
 
 ---
 
 ## ⚡ Backend Engines
 
 ### WebLLM (Default)
+
 Uses `@mlc-ai/web-llm` — optimized MLC-compiled models running via WebGPU. Best for models specifically compiled for the MLC runtime.
 
 ### Transformers.js
+
 Uses `@huggingface/transformers` — runs ONNX models with WebGPU acceleration (auto-falls back to CPU). Supports a much wider range of model architectures and **multiple modalities** (text, image, audio, video).
 
-| | WebLLM | Transformers.js |
-|---|---|---|
-| **Model Format** | MLC-compiled | ONNX |
-| **GPU Acceleration** | WebGPU only | WebGPU or CPU fallback |
-| **Model Variety** | Limited (MLC catalog) | Huge (HuggingFace Hub) |
-| **Modalities** | Text only | Text, Image, Audio, Video |
-| **OpenAI API** | Built-in | Custom wrapper (built into DvAI) |
+|                      | WebLLM                | Transformers.js                  |
+| -------------------- | --------------------- | -------------------------------- |
+| **Model Format**     | MLC-compiled          | ONNX                             |
+| **GPU Acceleration** | WebGPU only           | WebGPU or CPU fallback           |
+| **Model Variety**    | Limited (MLC catalog) | Huge (HuggingFace Hub)           |
+| **Modalities**       | Text only             | Text, Image, Audio, Video        |
+| **OpenAI API**       | Built-in              | Custom wrapper (built into DvAI) |
 
 ---
 
@@ -72,6 +74,7 @@ npm install @dvai-edge/vanilla
 ```
 
 ### As a Git Submodule
+
 ```bash
 git submodule add https://github.com/westenets/dvai-edge.git
 cd dvai-edge
@@ -80,10 +83,13 @@ pnpm build
 ```
 
 ### Initialize Workers
+
 DvAI-Edge needs worker files in your public directory:
+
 ```bash
 npx dvai-edge init [public-dir]
 ```
+
 This copies the MSW service worker and AI inference workers to your public directory.
 
 ---
@@ -91,81 +97,99 @@ This copies the MSW service worker and AI inference workers to your public direc
 ## 💻 Usage
 
 ### React Integration
+
 ```tsx
-import { DvAIProvider, useDvAI } from '@dvai-edge/react';
+import { DvAIProvider, useDvAI } from "@dvai-edge/react";
 
 function App() {
-  return (
-    <DvAIProvider config={{
-      // WebLLM (default)
-      modelId: "Qwen2.5-1.5B-Instruct-q4f16_1-MLC",
-      licenseKey: "dvai-your-key-here",
+	return (
+		<DvAIProvider
+			config={{
+				// WebLLM (default)
+				modelId: "gemma-2-2b-it-q4f16_1-MLC",
+				licenseKey: "dvai-your-key-here",
 
-      // Or use Transformers.js:
-      // backend: "transformers",
-      // transformersModelId: "Xenova/Qwen2.5-0.5B-Instruct",
-      // device: "auto", // "webgpu" | "cpu" | "auto"
-    }}>
-      <ChatComponent />
-    </DvAIProvider>
-  );
+				// Or use Transformers.js:
+				// backend: "transformers",
+				// transformersModelId: "onnx-community/gemma-3n-E2B-it-ONNX",
+				// device: "auto", // "webgpu" | "cpu" | "auto"
+			}}
+		>
+			<ChatComponent />
+		</DvAIProvider>
+	);
 }
 
 function ChatComponent() {
-  const { isReady, progress, mockUrl, backend } = useDvAI();
+	const { isReady, progress, mockUrl, backend } = useDvAI();
 
-  if (!isReady) return <div>Loading ({backend}): {progress.text}</div>;
+	if (!isReady)
+		return (
+			<div>
+				Loading ({backend}): {progress.text}
+			</div>
+		);
 
-  return <div>Local AI is live at {mockUrl} via {backend}</div>;
+	return (
+		<div>
+			Local AI is live at {mockUrl} via {backend}
+		</div>
+	);
 }
 ```
 
 ### Vanilla JS / CDN
+
 ```html
 <script src="https://cdn.jsdelivr.net/npm/@dvai-edge/vanilla/dist/index.global.js"></script>
 <script>
-  const ai = new VanillaDvAI({
-    // backend: "transformers",
-    // transformersModelId: "Xenova/Qwen2.5-0.5B-Instruct",
-  });
-  ai.initialize().then(() => {
-    console.log("Mock API is active!");
-  });
+	const ai = new VanillaDvAI({
+		// backend: "transformers",
+		// transformersModelId: "onnx-community/gemma-3n-E2B-it-ONNX",
+	});
+	ai.initialize().then(() => {
+		console.log("Mock API is active!");
+	});
 </script>
 ```
 
 ### Direct Inference (No MSW)
-```typescript
-import { DvAI } from '@dvai-edge/core';
 
-const ai = new DvAI({ backend: "transformers", transformersModelId: "Xenova/Qwen2.5-0.5B-Instruct" });
+```typescript
+import { DvAI } from "@dvai-edge/core";
+
+const ai = new DvAI({
+	backend: "transformers",
+	transformersModelId: "onnx-community/gemma-3n-E2B-it-ONNX",
+});
 await ai.initialize();
 
 const response = await ai.chatCompletion({
-  messages: [{ role: "user", content: "Hello!" }],
-  max_tokens: 100,
+	messages: [{ role: "user", content: "Hello!" }],
+	max_tokens: 100,
 });
 console.log(response.choices[0].message.content);
 ```
 
 ### Multi-Modal Pipeline (Transformers.js only)
+
 ```typescript
-import { DvAI } from '@dvai-edge/core';
+import { DvAI } from "@dvai-edge/core";
 
 // Text-to-Image
 const imageAI = new DvAI({
-  backend: "transformers",
-  transformersModelId: "Xenova/stable-diffusion-v1-4",
-  pipelineTask: "text-to-image",
+	backend: "transformers",
+	transformersModelId: "Xenova/stable-diffusion-v1-4",
+	pipelineTask: "text-to-image",
 });
 await imageAI.initialize();
 const result = await imageAI.runPipeline("A cute cat in space");
 
 // Speech-to-Text
 const asrAI = new DvAI({
-  backend: "transformers",
-  transformersModelId: "Xenova/whisper-tiny.en",
-  pipelineTask: "automatic-speech-recognition",
+	backend: "transformers",
+	transformersModelId: "Xenova/whisper-tiny.en",
+	pipelineTask: "automatic-speech-recognition",
 });
 await asrAI.initialize();
 const transcript = await asrAI.runPipeline(audioBuffer);
@@ -186,15 +210,17 @@ const transcript = await asrAI.runPipeline(audioBuffer);
 ## 🔋 Resource Management (Mobile & Laptop)
 
 ### React
+
 ```tsx
 const { unload, init } = useDvAI();
 await unload(); // Free resources
-await init();   // Re-initialize later
+await init(); // Re-initialize later
 ```
 
 ### Vanilla JS
+
 ```javascript
-await ai.unload();     // Free resources
+await ai.unload(); // Free resources
 await ai.initialize(); // Re-initialize
 ```
 
@@ -202,21 +228,21 @@ await ai.initialize(); // Re-initialize
 
 ## ⚙️ Configuration Reference
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `modelId` | `string` | `"Qwen2.5-1.5B-Instruct-q4f16_1-MLC"` | WebLLM model ID |
-| `backend` | `"webllm" \| "transformers"` | `"webllm"` | Backend engine to use |
-| `transformersModelId` | `string` | `"Xenova/Qwen2.5-0.5B-Instruct"` | HuggingFace model ID |
-| `pipelineTask` | `string` | `"text-generation"` | Transformers.js pipeline task |
-| `device` | `"webgpu" \| "cpu" \| "auto"` | `"auto"` | Transformers.js device |
-| `generationTimeout` | `number` | `60000` | Max generation time (ms) |
-| `maxBlankChunks` | `number` | `20` | Blank chunks before abort |
-| `mockUrl` | `string` | `"https://api.openai.local/v1/chat/completions"` | MSW intercept URL |
-| `serviceWorkerUrl` | `string` | `"/mockServiceWorker.js"` | Path to MSW worker |
-| `webllmWorkerUrl` | `string` | `"/dvai-webllm.worker.js"` | Path to WebLLM inference worker |
-| `transformersWorkerUrl` | `string` | `"/dvai-transformers.worker.js"` | Path to Transformers.js inference worker |
-| `licenseKey` | `string` | — | License key for production |
-| `autoInit` | `boolean` | `true` | Auto-initialize on mount |
+| Option                  | Type                          | Default                                          | Description                              |
+| ----------------------- | ----------------------------- | ------------------------------------------------ | ---------------------------------------- |
+| `modelId`               | `string`                      | `"gemma-2-2b-it-q4f16_1-MLC"`                    | WebLLM model ID                          |
+| `backend`               | `"webllm" \| "transformers"`  | `"webllm"`                                       | Backend engine to use                    |
+| `transformersModelId`   | `string`                      | `"onnx-community/gemma-3n-E2B-it-ONNX"`          | HuggingFace model ID                     |
+| `pipelineTask`          | `string`                      | `"text-generation"`                              | Transformers.js pipeline task            |
+| `device`                | `"webgpu" \| "cpu" \| "auto"` | `"auto"`                                         | Transformers.js device                   |
+| `generationTimeout`     | `number`                      | `60000`                                          | Max generation time (ms)                 |
+| `maxBlankChunks`        | `number`                      | `20`                                             | Blank chunks before abort                |
+| `mockUrl`               | `string`                      | `"https://api.openai.local/v1/chat/completions"` | MSW intercept URL                        |
+| `serviceWorkerUrl`      | `string`                      | `"/mockServiceWorker.js"`                        | Path to MSW worker                       |
+| `webllmWorkerUrl`       | `string`                      | `"/dvai-webllm.worker.js"`                       | Path to WebLLM inference worker          |
+| `transformersWorkerUrl` | `string`                      | `"/dvai-transformers.worker.js"`                 | Path to Transformers.js inference worker |
+| `licenseKey`            | `string`                      | —                                                | License key for production               |
+| `autoInit`              | `boolean`                     | `true`                                           | Auto-initialize on mount                 |
 
 ---
 
@@ -233,6 +259,7 @@ DvAI-Edge is free for development on `localhost` and `127.0.0.1`. In production,
 ## 📜 Licensing
 
 This project is licensed under a **Dual License** model:
+
 1. **Development & Personal Use**: Free to use for development and testing.
 2. **Commercial Use**: Requires a paid license from **Deep Voice Ai Limited**.
 
@@ -241,6 +268,7 @@ This project is licensed under a **Dual License** model:
 ## 🤝 Contributing
 
 We use `pnpm` for monorepo management.
+
 1. Clone the repo: `git clone https://github.com/westenets/dvai-edge.git`
 2. Install dependencies: `pnpm install`
 3. Build all packages: `pnpm build`

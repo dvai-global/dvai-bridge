@@ -24,11 +24,22 @@ export class WebLLMBackend {
   private workerUrl?: string;
   private usingWorker: boolean = false;
 
+  /**
+   * Set to a non-null string when a fatal error occurs (blank output, timeout)
+   * that requires a full unload → reload cycle at the orchestrator level.
+   */
+  public lastFatalError: string | null = null;
+
   constructor(config: WebLLMBackendConfig) {
     this.modelId = config.modelId;
     this.generationTimeout = config.generationTimeout;
     this.maxBlankChunks = config.maxBlankChunks;
     this.workerUrl = config.workerUrl;
+  }
+
+  /** Clear the fatal error flag after a successful recovery. */
+  clearFatalError(): void {
+    this.lastFatalError = null;
   }
 
   async initialize(onProgress?: (info: any) => void): Promise<void> {
@@ -83,9 +94,10 @@ export class WebLLMBackend {
     // Validate response has actual content
     const content = result?.choices?.[0]?.message?.content;
     if (content === undefined || content === null || content === "") {
-      console.warn("[DvAI/WebLLM] Warning: Engine returned blank content, attempting engine reset.");
+      console.warn("[DvAI/WebLLM] Warning: Engine returned blank content — flagging for full restart.");
+      this.lastFatalError = "blank_output";
       try { await this.engine.resetChat(); } catch (_) { /* best effort */ }
-      throw new Error("WebLLM engine returned blank content. The engine state has been reset — please retry.");
+      throw new Error("WebLLM engine returned blank content. A full engine restart is required.");
     }
 
     return result;
@@ -100,6 +112,8 @@ export class WebLLMBackend {
     if (!engine) throw new Error("WebLLM engine not initialized");
     const maxBlankChunks = this.maxBlankChunks;
     const generationTimeout = this.generationTimeout;
+    // Capture class reference for use inside ReadableStream closure
+    const backend = this;
 
     return new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -128,12 +142,13 @@ export class WebLLMBackend {
               if (!delta?.content && delta?.content !== undefined) {
                 consecutiveBlanks++;
                 if (consecutiveBlanks >= maxBlankChunks) {
-                  console.warn(`[DvAI/WebLLM] ${maxBlankChunks} consecutive blank chunks detected, aborting stream.`);
+                  console.warn(`[DvAI/WebLLM] ${maxBlankChunks} consecutive blank chunks detected — flagging for full restart.`);
+                  backend.lastFatalError = "blank_stream";
                   try { engine.interruptGenerate(); } catch (_) { /* best effort */ }
                   try { await engine.resetChat(); } catch (_) { /* best effort */ }
                   controller.enqueue(
                     new TextEncoder().encode(
-                      `data: ${JSON.stringify({ error: "Stream aborted: too many blank chunks" })}\n\n`
+                      `data: ${JSON.stringify({ error: "Stream aborted: too many blank chunks. Engine restart required." })}\n\n`
                     )
                   );
                   break;
@@ -158,6 +173,10 @@ export class WebLLMBackend {
           await Promise.race([streamPromise, timeoutPromise]);
         } catch (error: any) {
           console.error("[DvAI/WebLLM] Stream error:", error.message);
+          // Flag timeout errors for full restart
+          if (error.message?.includes("timed out")) {
+            backend.lastFatalError = "timeout";
+          }
           // Try to interrupt and reset on failure
           try { engine.interruptGenerate(); } catch (_) { /* best effort */ }
           try { await engine.resetChat(); } catch (_) { /* best effort */ }
