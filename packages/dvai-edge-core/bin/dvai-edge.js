@@ -28,18 +28,31 @@ if (command === 'init') {
 
   // 2. Copy worker files to public directory
   const distDir = path.resolve(__dirname, '..', 'dist');
-  const workerFiles = ['dvai-webllm.worker.js', 'dvai-transformers.worker.js'];
+  const workerFiles = [
+    'dvai-webllm.worker.js', 
+    'dvai-transformers.worker.js',
+    'dvai-native.worker.js' // Reserved for future native worker use if needed
+  ];
 
+  let copiedCount = 0;
   for (const file of workerFiles) {
     const src = path.join(distDir, file);
-    const dest = path.join(publicDir, file);
+    const dest = path.join(process.cwd(), publicDir, file);
 
     if (fs.existsSync(src)) {
+      // Ensure target directory exists
+      if (!fs.existsSync(path.dirname(dest))) {
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+      }
       fs.copyFileSync(src, dest);
       console.log(`[DvAI] ✅ Copied ${file} to ${publicDir}/`);
-    } else {
-      console.warn(`[DvAI] ⚠️ Worker file not found: ${src}. Run "pnpm build" in dvai-edge-core first.`);
+      copiedCount++;
     }
+  }
+
+  if (copiedCount === 0) {
+    console.warn(`[DvAI] ⚠️ No worker files found in ${distDir}.`);
+    console.warn(`[DvAI] 💡 Please ensure the library is built or run "npm run prepare" in the dvai-edge folder.`);
   }
 
   console.log('[DvAI] ✅ Setup complete! You can now use dvai-edge in your project.');

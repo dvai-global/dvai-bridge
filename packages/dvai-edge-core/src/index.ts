@@ -25,6 +25,8 @@ export interface DvAIConfig {
 	pipelineTask?: string;
 	/** Device for Transformers.js - "webgpu", "cpu", or "auto" (detect). Default: "auto" */
 	device?: DeviceType;
+	/** Quantization for Transformers.js (e.g. "q4", "q8", "f16"). Default: undefined */
+	dtype?: string;
 	/** Generation timeout in ms. Default: 60000 (60s) */
 	generationTimeout?: number;
 	/** Maximum consecutive blank chunks before aborting stream (WebLLM). Default: 20 */
@@ -75,6 +77,7 @@ export class DvAI {
 	public maxRetries: number;
 	public webllmWorkerUrl: string;
 	public transformersWorkerUrl: string;
+	public dtype?: string;
 
 	// Native backend options
 	public nativeModelPath: string;
@@ -86,7 +89,6 @@ export class DvAI {
 	private backendInstance: any = null; // WebLLMBackend | TransformersBackend | NativeBackend
 	private worker: SetupWorker | null = null;
 	public isReady: boolean = false;
-
 	/** Tracks how many consecutive recovery attempts have been made. */
 	private recoveryAttempts: number = 0;
 
@@ -97,9 +99,10 @@ export class DvAI {
 		this.modelId = config.modelId || "gemma-2-2b-it-q4f16_1-MLC";
 		this.backend = config.backend || "webllm";
 		this.transformersModelId =
-			config.transformersModelId || "onnx-community/gemma-3n-E2B-it-ONNX";
+			config.transformersModelId || config.modelId || "onnx-community/gemma-3n-E2B-it-ONNX";
 		this.pipelineTask = config.pipelineTask || "text-generation";
 		this.device = config.device || "auto";
+		this.dtype = config.dtype;
 		this.generationTimeout = config.generationTimeout ?? 60000;
 		this.maxBlankChunks = config.maxBlankChunks ?? 20;
 		this.maxRetries = config.maxRetries ?? 2;
@@ -183,7 +186,7 @@ export class DvAI {
 
 			// 2. Setup MSW worker to intercept requests
 			const handlers = [
-				http.post(this.mockUrl, async ({ request }) => {
+				http.post(this.mockUrl, async ({ request }: { request: Request }) => {
 					if (!this.backendInstance) {
 						return HttpResponse.json(
 							{ error: "AI engine not initialized" },
@@ -262,7 +265,7 @@ export class DvAI {
 				serviceWorker: {
 					url: this.serviceWorkerUrl,
 				},
-			});
+			} as any);
 
 			this.isReady = true;
 			this.recoveryAttempts = 0;
@@ -357,6 +360,7 @@ export class DvAI {
 				generationTimeout: this.generationTimeout,
 				workerUrl: this.transformersWorkerUrl,
 				pipelineTask: this.pipelineTask,
+				dtype: this.dtype,
 			});
 			await backend.initialize(onProgress);
 			this.backendInstance = backend;

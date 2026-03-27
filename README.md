@@ -75,22 +75,42 @@ npm install @dvai-edge/vanilla
 
 ### As a Git Submodule
 
-```bash
-git submodule add https://github.com/westenets/dvai-edge.git
-cd dvai-edge
-pnpm install
-pnpm build
-```
+If you want to include DvAI-Edge as a git submodule in your project:
+
+1. Add the submodule:
+   ```bash
+   git submodule add https://github.com/westenets/dvai-edge.git packages/dvai-edge
+   ```
+2. Install dependencies:
+   ```bash
+   cd packages/dvai-edge
+   pnpm install
+   pnpm build
+   ```
+3. Link the core package in your main project's `package.json`:
+   ```json
+   "dependencies": {
+     "@dvai-edge/core": "file:./packages/dvai-edge/packages/dvai-edge-core"
+   }
+   ```
 
 ### Initialize Workers
 
-DvAI-Edge needs worker files in your public directory:
+DvAI-Edge needs worker files in your project's `public` directory to function. You can use the built-in CLI to set this up automatically.
 
+**If installed via npm:**
 ```bash
 npx dvai-edge init [public-dir]
 ```
 
-This copies the MSW service worker and AI inference workers to your public directory.
+**If used as a submodule:**
+```bash
+node packages/dvai-edge/packages/dvai-edge-core/bin/dvai-edge.js init [public-dir]
+```
+
+This command will:
+1. Initialize the **MSW service worker** (`mockServiceWorker.js`).
+2. Copy the **AI inference workers** (`dvai-transformers.worker.js`, etc.) to your public directory.
 
 ---
 

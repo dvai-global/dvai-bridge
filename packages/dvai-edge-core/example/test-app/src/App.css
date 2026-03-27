@@ -1,0 +1,100 @@
+.app-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: #0f172a;
+  color: #f8fafc;
+  min-height: 100vh;
+}
+
+h1 {
+  color: #3b82f6;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  background-color: #3b82f6;
+  color: white;
+  transition: all 0.2s;
+}
+
+button:hover:not(:disabled) {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status-badge {
+  text-align: center;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.status-badge span.loading { color: #fbbf24; }
+.status-badge span.running { color: #3b82f6; }
+.status-badge span.success { color: #10b981; }
+.status-badge span.error { color: #ef4444; }
+
+.result-container {
+  background-color: #1e293b;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #334155;
+}
+
+.result-container h3 {
+  margin-top: 0;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.result-container code {
+  display: block;
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.logs-container h3 {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin-bottom: 0.5rem;
+}
+
+.logs-window {
+  background-color: #000;
+  height: 400px;
+  overflow-y: auto;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  border: 1px solid #334155;
+}
+
+.log-line {
+  margin-bottom: 0.25rem;
+  color: #e2e8f0;
+}
+
+.log-line:last-child {
+  margin-bottom: 0;
+}

@@ -50,3 +50,8 @@ resources/windows/splash
 
 # Production build
 www/
+dist/
+packages/*/dist/
+example/dist/
+example/*/dist/
+.vite/

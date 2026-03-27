@@ -23,5 +23,14 @@ export default defineConfig([
     clean: false,
     minify: true,
     noExternal: [/.*/], // Bundle all dependencies into workers
+    platform: 'browser',
+    target: 'es2020',
+    define: {
+      'process.env.NODE_ENV': '"production"',
+    },
+    treeshake: true,
+    esbuildOptions(options) {
+      options.external = ['fs', 'path', 'child_process', 'crypto', 'http', 'https', 'os', 'url', 'sharp', 'onnxruntime-node', 'node-fetch'];
+    }
   },
 ]);

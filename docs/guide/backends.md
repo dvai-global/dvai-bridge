@@ -45,11 +45,16 @@ pnpm add @huggingface/transformers
 ```typescript
 const config = {
   backend: "transformers",
-  transformersModelId: "onnx-community/gemma-3n-E2B-it-ONNX",
+  transformersModelId: "onnx-community/Llama-3.2-1B-Instruct-ONNX",
   device: "auto", // "webgpu" | "cpu" | "auto"
-  pipelineTask: "text-generation"
+  dtype: "q4",    // Quantized for speed and memory efficiency
+  pipelineTask: "text-generation",
+  transformersWorkerUrl: "/dvai-transformers.worker.js" // Optional: run in Web Worker
 };
 ```
+
+> [!TIP]
+> **Dealing with "Unknown ArrayValue filter: trim"**: If you encounter this error (common with Llama 3/3.2 models), ensure your input content is a string. `dvai-edge` automatically flattens structured content blocks (like those from LangChain) into strings to maintain compatibility with the model's Jinja2 templates.
 
 ### Multi-Modal Examples:
 ```typescript
