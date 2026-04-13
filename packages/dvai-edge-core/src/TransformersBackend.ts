@@ -45,6 +45,32 @@ function flattenContent(content: any): string {
  */
 export type PipelineTask = string;
 
+/**
+ * A pipeline-compatible callable function.
+ * Accepts messages (chat format) and generation options,
+ * returns results in the same shape as a Transformers.js pipeline:
+ *   [{ generated_text: string }]
+ */
+export type PipelineCallable = (messages: any, options?: any) => Promise<any>;
+
+/**
+ * Factory function that the client can supply to customize model loading.
+ * Receives the dynamically-imported @huggingface/transformers module and
+ * config details; must return a PipelineCallable.
+ *
+ * This lets the client control *how* the model is loaded and how inference
+ * is run, while DvAI handles everything else (MSW, OpenAI endpoint, etc.).
+ */
+export type CreatePipelineFn = (
+	transformers: any,
+	ctx: {
+		modelId: string;
+		device: "webgpu" | "wasm";
+		dtype?: string;
+		onProgress?: (info: any) => void;
+	},
+) => Promise<PipelineCallable>;
+
 export interface TransformersBackendConfig {
 	modelId: string;
 	device: DeviceType;
@@ -54,6 +80,13 @@ export interface TransformersBackendConfig {
 	pipelineTask?: PipelineTask;
 	/** Quantization/DType for the model (e.g. 'q4', 'q8', 'f16'). Default: undefined */
 	dtype?: string;
+	/**
+	 * Optional custom pipeline factory. When provided, replaces the default
+	 * `pipeline()` call during main-thread initialization.
+	 * Use this for models that require direct loading (e.g. Gemma 4, multimodal
+	 * models) or any architecture not supported by the pipeline() API.
+	 */
+	createPipeline?: CreatePipelineFn;
 }
 
 export interface TransformersProgressInfo {
@@ -89,6 +122,7 @@ export class TransformersBackend {
 	private workerUrl?: string;
 	private pipelineTask: PipelineTask;
 	private dtype?: string;
+	private createPipelineFn?: CreatePipelineFn;
 	private usingWorker: boolean = false;
 	private pendingRequests: Map<
 		string,
@@ -105,6 +139,7 @@ export class TransformersBackend {
 		this.workerUrl = config.workerUrl;
 		this.pipelineTask = config.pipelineTask || "text-generation";
 		this.dtype = config.dtype;
+		this.createPipelineFn = config.createPipeline;
 	}
 
 	async initialize(onProgress?: (info: any) => void): Promise<void> {
@@ -251,7 +286,8 @@ export class TransformersBackend {
 		onProgress?: (info: any) => void,
 	): Promise<void> {
 		// @ts-ignore - module resolved at runtime after pnpm install
-		const { pipeline, env } = await import("@huggingface/transformers");
+		const transformers = await import("@huggingface/transformers");
+		const { pipeline: pipelineFn, env } = transformers;
 
 		// Only allow local models if explicitly requested or if we're in a specific environment.
 		// Defaulting to false ensures CDN fallback when local models are not provided.
@@ -274,11 +310,22 @@ export class TransformersBackend {
 				}
 			: undefined;
 
-		this.pipeline = await pipeline(this.pipelineTask as any, this.modelId, {
-			device: this.resolvedDevice,
-			progress_callback: progressCallback,
-			dtype: this.dtype as any,
-		});
+		if (this.createPipelineFn) {
+			// Client-supplied custom pipeline factory — use it instead of pipeline().
+			console.log("[DvAI/Transformers] Using custom createPipeline factory.");
+			this.pipeline = await this.createPipelineFn(transformers, {
+				modelId: this.modelId,
+				device: this.resolvedDevice,
+				dtype: this.dtype,
+				onProgress: progressCallback,
+			});
+		} else {
+			this.pipeline = await pipelineFn(this.pipelineTask as any, this.modelId, {
+				device: this.resolvedDevice,
+				progress_callback: progressCallback,
+				dtype: this.dtype as any,
+			});
+		}
 		this.usingWorker = false;
 
 		if (this.resolvedDevice === "wasm") {
@@ -319,6 +366,8 @@ export class TransformersBackend {
 			"text2text-generation",
 			"summarization",
 			"translation",
+			"image-text-to-text",
+			"any-to-any",
 		].includes(this.pipelineTask);
 	}
 

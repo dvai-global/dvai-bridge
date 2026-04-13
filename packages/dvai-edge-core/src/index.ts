@@ -12,7 +12,7 @@ export type { InitProgressReport } from "@mlc-ai/web-llm";
 
 export type BackendType = "webllm" | "transformers" | "native" | "auto";
 export type DeviceType = "webgpu" | "cpu" | "auto";
-export type { PipelineTask } from "./TransformersBackend.js";
+export type { PipelineTask, CreatePipelineFn, PipelineCallable } from "./TransformersBackend.js";
 
 export interface DvAIConfig {
 	/** The model ID for web-llm backend. Default: "gemma-2-2b-it-q4f16_1-MLC" */
@@ -41,6 +41,13 @@ export interface DvAIConfig {
 	webllmWorkerUrl?: string;
 	/** URL to the Transformers.js worker script (for offloading inference). Default: "/dvai-transformers.worker.js" */
 	transformersWorkerUrl?: string;
+	/**
+	 * Custom pipeline factory for Transformers.js backend.
+	 * When provided, replaces the default pipeline() call with your own
+	 * model loading and inference logic. Must return a callable that accepts
+	 * (messages, options) and returns [{ generated_text: string }].
+	 */
+	createPipeline?: import("./TransformersBackend.js").CreatePipelineFn;
 
 	// --- Native backend (llama-cpp-capacitor) options ---
 	/** Path to the GGUF model file for native backend. Required when using backend: "native". */
@@ -78,6 +85,7 @@ export class DvAI {
 	public webllmWorkerUrl: string;
 	public transformersWorkerUrl: string;
 	public dtype?: string;
+	public createPipeline?: import("./TransformersBackend.js").CreatePipelineFn;
 
 	// Native backend options
 	public nativeModelPath: string;
@@ -103,15 +111,16 @@ export class DvAI {
 		this.pipelineTask = config.pipelineTask || "text-generation";
 		this.device = config.device || "auto";
 		this.dtype = config.dtype;
+		this.createPipeline = config.createPipeline;
 		this.generationTimeout = config.generationTimeout ?? 60000;
 		this.maxBlankChunks = config.maxBlankChunks ?? 20;
 		this.maxRetries = config.maxRetries ?? 2;
-		this.webllmWorkerUrl = config.webllmWorkerUrl || "/dvai-webllm.worker.js";
+		this.webllmWorkerUrl = config.webllmWorkerUrl ?? "/dvai-webllm.worker.js";
 		this.transformersWorkerUrl =
-			config.transformersWorkerUrl || "/dvai-transformers.worker.js";
+			config.transformersWorkerUrl ?? "/dvai-transformers.worker.js";
 		this.mockUrl =
-			config.mockUrl || "https://api.openai.local/v1/chat/completions";
-		this.serviceWorkerUrl = config.serviceWorkerUrl || "/mockServiceWorker.js";
+			config.mockUrl ?? "https://api.openai.local/v1/chat/completions";
+		this.serviceWorkerUrl = config.serviceWorkerUrl ?? "/mockServiceWorker.js";
 		this.licenseKey = config.licenseKey;
 		this.validator = new LicenseValidator({ licenseKey: this.licenseKey });
 
@@ -163,8 +172,15 @@ export class DvAI {
 		// 0. Validate License for Commercial/Production use
 		await this.validator.validate();
 
-		// 0.1 Verify Service Worker Reachability (Quality of Life) — skip for native backend
-		if (this.resolvedBackend !== "native") {
+		// Detect Web Worker context — MSW (service workers) are unavailable inside Web Workers.
+		const isWorkerContext =
+			typeof window === "undefined" &&
+			typeof self !== "undefined" &&
+			typeof (self as any).importScripts === "function";
+
+		// 0.1 Verify Service Worker Reachability (Quality of Life) — skip for native backend,
+		// skip when inside a Worker context, and skip when serviceWorkerUrl is empty (MSW disabled).
+		if (this.resolvedBackend !== "native" && !isWorkerContext && this.serviceWorkerUrl) {
 			try {
 				const swRes = await fetch(this.serviceWorkerUrl, { method: "HEAD" });
 				if (!swRes.ok) {
@@ -184,88 +200,96 @@ export class DvAI {
 			// 1. Initialize the selected backend (lazy import)
 			await this.initializeBackend(onProgress);
 
-			// 2. Setup MSW worker to intercept requests
-			const handlers = [
-				http.post(this.mockUrl, async ({ request }: { request: Request }) => {
-					if (!this.backendInstance) {
-						return HttpResponse.json(
-							{ error: "AI engine not initialized" },
-							{ status: 503 },
-						);
-					}
-
-					const requestBody = (await request.json()) as any;
-
-					try {
-						// Auto-recovery check: if WebLLM backend has a fatal error, attempt restart
-						if (
-							this.resolvedBackend === "webllm" &&
-							this.backendInstance?.lastFatalError &&
-							this.recoveryAttempts < this.maxRetries
-						) {
-							await this.attemptRecovery(onProgress);
+			// 2. Setup MSW worker to intercept requests.
+			// Skip when inside a Web Worker (navigator.serviceWorker is unavailable)
+			// or when serviceWorkerUrl is explicitly empty (MSW disabled).
+			if (!isWorkerContext && this.serviceWorkerUrl) {
+				const handlers = [
+					http.post(this.mockUrl, async ({ request }: { request: Request }) => {
+						if (!this.backendInstance) {
+							return HttpResponse.json(
+								{ error: "AI engine not initialized" },
+								{ status: 503 },
+							);
 						}
 
-						if (requestBody.stream) {
-							const stream =
-								this.backendInstance.createStreamingResponse(requestBody);
-							return new HttpResponse(stream, {
-								headers: {
-									"Content-Type": "text/event-stream",
-									"Cache-Control": "no-cache",
-									Connection: "keep-alive",
-								},
-							});
-						} else {
-							const response =
-								await this.backendInstance.chatCompletion(requestBody);
-							return HttpResponse.json(response);
-						}
-					} catch (error: any) {
-						console.error("[DvAI] Error processing request:", error);
+						const requestBody = (await request.json()) as any;
 
-						// If this is a WebLLM fatal error and we haven't exceeded retries, attempt recovery
-						if (
-							this.resolvedBackend === "webllm" &&
-							this.backendInstance?.lastFatalError &&
-							this.recoveryAttempts < this.maxRetries
-						) {
-							console.log(`[DvAI] Attempting auto-recovery (${this.recoveryAttempts + 1}/${this.maxRetries})...`);
-							try {
+						try {
+							// Auto-recovery check: if WebLLM backend has a fatal error, attempt restart
+							if (
+								this.resolvedBackend === "webllm" &&
+								this.backendInstance?.lastFatalError &&
+								this.recoveryAttempts < this.maxRetries
+							) {
 								await this.attemptRecovery(onProgress);
-								// Retry the request after recovery
-								if (requestBody.stream) {
-									const stream =
-										this.backendInstance.createStreamingResponse(requestBody);
-									return new HttpResponse(stream, {
-										headers: {
-											"Content-Type": "text/event-stream",
-											"Cache-Control": "no-cache",
-											Connection: "keep-alive",
-										},
-									});
-								} else {
-									const response =
-										await this.backendInstance.chatCompletion(requestBody);
-									return HttpResponse.json(response);
-								}
-							} catch (recoveryError: any) {
-								console.error("[DvAI] Recovery failed:", recoveryError.message);
 							}
+
+							if (requestBody.stream) {
+								const stream =
+									this.backendInstance.createStreamingResponse(requestBody);
+								return new HttpResponse(stream, {
+									headers: {
+										"Content-Type": "text/event-stream",
+										"Cache-Control": "no-cache",
+										Connection: "keep-alive",
+									},
+								});
+							} else {
+								const response =
+									await this.backendInstance.chatCompletion(requestBody);
+								return HttpResponse.json(response);
+							}
+						} catch (error: any) {
+							console.error("[DvAI] Error processing request:", error);
+
+							// If this is a WebLLM fatal error and we haven't exceeded retries, attempt recovery
+							if (
+								this.resolvedBackend === "webllm" &&
+								this.backendInstance?.lastFatalError &&
+								this.recoveryAttempts < this.maxRetries
+							) {
+								console.log(`[DvAI] Attempting auto-recovery (${this.recoveryAttempts + 1}/${this.maxRetries})...`);
+								try {
+									await this.attemptRecovery(onProgress);
+									// Retry the request after recovery
+									if (requestBody.stream) {
+										const stream =
+											this.backendInstance.createStreamingResponse(requestBody);
+										return new HttpResponse(stream, {
+											headers: {
+												"Content-Type": "text/event-stream",
+												"Cache-Control": "no-cache",
+												Connection: "keep-alive",
+											},
+										});
+									} else {
+										const response =
+											await this.backendInstance.chatCompletion(requestBody);
+										return HttpResponse.json(response);
+									}
+								} catch (recoveryError: any) {
+									console.error("[DvAI] Recovery failed:", recoveryError.message);
+								}
+							}
+
+							return HttpResponse.json({ error: error.message }, { status: 500 });
 						}
+					}),
+				];
 
-						return HttpResponse.json({ error: error.message }, { status: 500 });
-					}
-				}),
-			];
-
-			this.worker = setupWorker(...handlers);
-			await this.worker.start({
-				onUnhandledRequest: "bypass",
-				serviceWorker: {
-					url: this.serviceWorkerUrl,
-				},
-			} as any);
+				this.worker = setupWorker(...handlers);
+				await this.worker.start({
+					onUnhandledRequest: "bypass",
+					serviceWorker: {
+						url: this.serviceWorkerUrl,
+					},
+				} as any);
+			} else {
+				console.log(
+					`[DvAI] Skipping MSW setup (${isWorkerContext ? "Worker context" : "serviceWorkerUrl empty"}).`,
+				);
+			}
 
 			this.isReady = true;
 			this.recoveryAttempts = 0;
@@ -361,6 +385,7 @@ export class DvAI {
 				workerUrl: this.transformersWorkerUrl,
 				pipelineTask: this.pipelineTask,
 				dtype: this.dtype,
+				createPipeline: this.createPipeline,
 			});
 			await backend.initialize(onProgress);
 			this.backendInstance = backend;

@@ -25,10 +25,23 @@ function flattenContent(content: any): string {
 
 // Disable internal ONNX Runtime proxy (prevents nested worker spawning)
 // and set numThreads to 1 to ensure single-thread WASM execution within our worker.
-if ((env as any).backends?.onnx?.wasm) {
-  (env as any).backends.onnx.wasm.proxy = false;
-  (env as any).backends.onnx.wasm.numThreads = 1;
-}
+// Try multiple access paths for env.backends — the layout varies across
+// Transformers.js versions (v3 vs v4) and ONNX Runtime versions.
+try {
+  if ((env as any).backends?.onnx?.wasm) {
+    (env as any).backends.onnx.wasm.proxy = false;
+    (env as any).backends.onnx.wasm.numThreads = 1;
+  }
+} catch { /* env path not available in this version */ }
+
+// Also try the onnxruntime-web env directly (ort.env.wasm)
+try {
+  const ort = (globalThis as any).ort ?? (env as any).ort;
+  if (ort?.env?.wasm) {
+    ort.env.wasm.proxy = false;
+    ort.env.wasm.numThreads = 1;
+  }
+} catch { /* ort not available */ }
 
 // Force use of remote models (CDN)
 env.allowLocalModels = false;

@@ -42,7 +42,7 @@ const {
 
 - **`isReady`**: `boolean` — `true` when the engine is fully initialized and MSW is active.
 - **`progress`**: `{ text: string, progress: number }` — Current loading/downloading state.
-- **`mockUrl`**: `string` — The local URL that intercepts OpenAI-compatible requests.
+- **`mockUrl`**: `string` — The local URL that intercepts OpenAI-compatible requests (default: `https://api.openai.local/v1/chat/completions`).
 - **`backend`**: `"webllm" | "transformers" | "native"` — The currently active inference engine.
 - **`modelId`**: `string` — The ID of the currently loaded model.
 - **`unload()`**: `() => Promise<void>` — Manually unload the current engine and workers to free resources.
@@ -52,25 +52,41 @@ const {
 
 ## LangChain Integration
 
-`dvai-edge` is fully compatible with LangChain (and other OpenAI-compatible SDKs). It provides a local mock URL that intercepts standard `/chat/completions` requests.
+`dvai-edge` is fully compatible with LangChain (and other OpenAI-compatible SDKs). It provides a local mock URL that intercepts standard `/chat/completions` requests via MSW (Mock Service Worker).
 
 ### Example with Tool Calling:
 
 For small models like Llama 3.2 1B, it is recommended to use a manual tool-execution loop to ensure reliable parsing of JSON-formatted tool calls from the model's message content.
 
 ```tsx
-import { useDvAI } from '@dvai-edge/react';
+import { DvAIProvider, useDvAI } from '@dvai-edge/react';
 import { ChatOpenAI } from "@langchain/openai";
 import { DynamicTool } from "langchain";
 
 function App() {
-  const { isReady, mockUrl } = useDvAI();
+  return (
+    <DvAIProvider config={{
+      backend: "transformers",
+      transformersModelId: "onnx-community/Llama-3.2-1B-Instruct-ONNX",
+      pipelineTask: "text-generation",
+      dtype: "q4",
+      device: "auto",
+    }}>
+      <AgentDemo />
+    </DvAIProvider>
+  );
+}
+
+function AgentDemo() {
+  const { isReady } = useDvAI();
 
   const runAgent = async () => {
     if (!isReady) return;
 
+    // MSW intercepts this — no network request leaves the browser
     const model = new ChatOpenAI({
-      configuration: { baseURL: mockUrl },
+      apiKey: "not-needed",
+      configuration: { baseURL: "https://api.openai.local/v1" },
       temperature: 0,
     });
 
@@ -78,7 +94,7 @@ function App() {
       get_weather: new DynamicTool({
         name: "get_weather",
         description: "Returns the current weather.",
-        func: async () => "Sunny, 25°C",
+        func: async () => "Sunny, 25C",
       }),
     };
 
@@ -111,6 +127,79 @@ function App() {
 }
 ```
 
+### Example with Custom Model (Gemma 4):
+
+When using a model that requires `createPipeline`, pass it through the provider config:
+
+```tsx
+import { DvAIProvider, useDvAI } from '@dvai-edge/react';
+import { ChatOpenAI } from "@langchain/openai";
+import type { CreatePipelineFn } from "@dvai-edge/core";
+
+const createGemma4: CreatePipelineFn = async (transformers, ctx) => {
+  const { AutoProcessor, Gemma4ForConditionalGeneration } = transformers;
+  const processor = await AutoProcessor.from_pretrained(ctx.modelId, {
+    progress_callback: ctx.onProgress,
+  });
+  const model = await Gemma4ForConditionalGeneration.from_pretrained(ctx.modelId, {
+    dtype: ctx.dtype, device: ctx.device, progress_callback: ctx.onProgress,
+  });
+
+  return async (messages, options) => {
+    const prompt = processor.apply_chat_template(messages, {
+      enable_thinking: false, add_generation_prompt: true,
+    });
+    const inputs = await processor(prompt, null, null, { add_special_tokens: false });
+    const outputs = await model.generate({
+      ...inputs,
+      max_new_tokens: options?.max_new_tokens ?? 512,
+      do_sample: options?.do_sample ?? true,
+    });
+    const decoded = processor.batch_decode(
+      outputs.slice(null, [inputs.input_ids.dims.at(-1), null]),
+      { skip_special_tokens: true },
+    );
+    return [{ generated_text: decoded[0] ?? "" }];
+  };
+};
+
+function App() {
+  return (
+    <DvAIProvider config={{
+      backend: "transformers",
+      transformersModelId: "onnx-community/gemma-4-E2B-it-ONNX",
+      pipelineTask: "image-text-to-text",
+      dtype: "q4f16",
+      device: "webgpu",
+      transformersWorkerUrl: "",
+      createPipeline: createGemma4,
+    }}>
+      <Chat />
+    </DvAIProvider>
+  );
+}
+
+function Chat() {
+  const { isReady } = useDvAI();
+
+  const ask = async () => {
+    if (!isReady) return;
+
+    const model = new ChatOpenAI({
+      apiKey: "not-needed",
+      configuration: { baseURL: "https://api.openai.local/v1" },
+    });
+
+    const response = await model.invoke([
+      { role: "user", content: "Explain quantum computing in 3 sentences." }
+    ]);
+    console.log(response.content);
+  };
+
+  return <button onClick={ask} disabled={!isReady}>Ask Gemma 4</button>;
+}
+```
+
 ---
 
 ## `dvai` Instance
@@ -121,5 +210,5 @@ For advanced use cases, the `DvAI` core instance is also exported:
 import { useDvAI } from '@dvai-edge/react';
 
 const { dvai } = useDvAI();
-// Call dvai.chatCompletion() directly if needed
+// Direct access to dvai.chatCompletion(), dvai.runPipeline(), etc.
 ```

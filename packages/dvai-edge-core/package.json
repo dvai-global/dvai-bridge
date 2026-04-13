@@ -44,7 +44,7 @@
     "msw": "^2.12.13"
   },
   "peerDependencies": {
-    "@huggingface/transformers": "^4.0.0-next.0",
+    "@huggingface/transformers": "^4.0.1",
     "@mlc-ai/web-llm": "^0.2.78",
     "llama-cpp-capacitor": ">=0.1.0"
   },

@@ -30,7 +30,24 @@ export default defineConfig([
     },
     treeshake: true,
     esbuildOptions(options) {
-      options.external = ['fs', 'path', 'child_process', 'crypto', 'http', 'https', 'os', 'url', 'sharp', 'onnxruntime-node', 'node-fetch'];
+      // Force browser entry points for packages with conditional exports.
+      // Without this, tsup/esbuild may resolve to the Node.js entry
+      // (e.g. transformers.node.mjs) which pulls in sharp, fs, child_process
+      // — all of which crash inside a browser Web Worker.
+      options.conditions = ['browser', 'import', 'default'];
+      options.mainFields = ['browser', 'module', 'main'];
+
+      // Externalize Node.js builtins and native modules that must not
+      // appear in a browser bundle.
+      options.external = [
+        'fs', 'path', 'child_process', 'crypto', 'http', 'https',
+        'os', 'url', 'stream', 'events', 'util', 'assert', 'buffer',
+        'zlib', 'net', 'tls', 'dns', 'worker_threads',
+        'sharp', 'sharp/*',
+        'onnxruntime-node',
+        'node-fetch',
+        'node:*',
+      ];
     }
   },
 ]);

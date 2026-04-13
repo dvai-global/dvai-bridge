@@ -3,7 +3,9 @@ packages:
   - 'packages/dvai-edge-core/example/*'
   - 'docs'
 
-
 onlyBuiltDependencies:
+  - esbuild
   - msw
   - onnxruntime-node
+  - protobufjs
+  - sharp
