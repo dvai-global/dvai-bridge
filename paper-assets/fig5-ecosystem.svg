@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 660" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+  <defs>
+    <linearGradient id="bridgegrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+    <style>
+      .title { font-size: 18px; font-weight: 700; fill: #111827; }
+      .layer-label { font-size: 11px; font-weight: 600; fill: #6B7280; letter-spacing: 0.6px; }
+      .bridge-title { font-size: 18px; font-weight: 800; fill: #FFFFFF; letter-spacing: 1px; }
+      .bridge-sub { font-size: 12px; fill: #DBEAFE; }
+      .card-title { font-size: 14px; font-weight: 700; fill: #111827; }
+      .card-sub { font-size: 11px; fill: #374151; }
+      .tag { font-size: 10px; font-weight: 700; fill: #065F46; }
+      .tag-future { font-size: 10px; font-weight: 700; fill: #92400E; }
+      .section { font-size: 13px; font-weight: 700; fill: #111827; }
+      .hw { font-size: 10px; font-weight: 600; fill: #92400E; }
+    </style>
+  </defs>
+
+  <text x="450" y="32" class="title" text-anchor="middle">Figure 5 — From Bridge to Ecosystem</text>
+
+  <!-- Top layer: third-party consumers -->
+  <text x="40" y="70" class="layer-label">THIRD-PARTY AGENT ECOSYSTEM (unchanged, speaks OpenAI)</text>
+  <rect x="40" y="80" width="820" height="76" rx="10" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.2"/>
+
+  <rect x="60" y="96" width="160" height="46" rx="6" fill="#D1FAE5" stroke="#10B981" stroke-width="1.2"/>
+  <text x="140" y="116" class="card-title" text-anchor="middle">LangChain</text>
+  <text x="140" y="132" class="card-sub" text-anchor="middle">baseURL change only</text>
+
+  <rect x="230" y="96" width="160" height="46" rx="6" fill="#D1FAE5" stroke="#10B981" stroke-width="1.2"/>
+  <text x="310" y="116" class="card-title" text-anchor="middle">Vercel AI SDK</text>
+  <text x="310" y="132" class="card-sub" text-anchor="middle">streamText / generateText</text>
+
+  <rect x="400" y="96" width="160" height="46" rx="6" fill="#D1FAE5" stroke="#10B981" stroke-width="1.2"/>
+  <text x="480" y="116" class="card-title" text-anchor="middle">CrewAI / AutoGPT</text>
+  <text x="480" y="132" class="card-sub" text-anchor="middle">multi-agent teams</text>
+
+  <rect x="570" y="96" width="160" height="46" rx="6" fill="#D1FAE5" stroke="#10B981" stroke-width="1.2"/>
+  <text x="650" y="116" class="card-title" text-anchor="middle">LlamaIndex</text>
+  <text x="650" y="132" class="card-sub" text-anchor="middle">local-RAG pipelines</text>
+
+  <rect x="740" y="96" width="100" height="46" rx="6" fill="#D1FAE5" stroke="#10B981" stroke-width="1.2"/>
+  <text x="790" y="116" class="card-title" text-anchor="middle">raw fetch</text>
+  <text x="790" y="132" class="card-sub" text-anchor="middle">your app</text>
+
+  <!-- Middle layer: first-party products -->
+  <text x="40" y="186" class="layer-label">FIRST-PARTY PRODUCTS BUILT ON DVAI-BRIDGE</text>
+  <rect x="40" y="196" width="820" height="130" rx="10" fill="#FFFBEB" stroke="#F59E0B" stroke-width="1.2"/>
+
+  <!-- DVAI-Connect -->
+  <rect x="60" y="215" width="380" height="94" rx="8" fill="#FFFFFF" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="76" y="238" class="card-title">DVAI-Connect</text>
+  <text x="340" y="238" class="tag-future" text-anchor="end">ROADMAP</text>
+  <text x="76" y="258" class="card-sub">End-to-end-encrypted meetings with on-device intelligence:</text>
+  <text x="76" y="274" class="card-sub">local STT · live summarisation · action extraction · decision capture.</text>
+  <text x="76" y="294" class="card-sub" font-style="italic">Audio never leaves the participant's device — zero-trust by construction.</text>
+
+  <!-- LifeStream -->
+  <rect x="460" y="215" width="380" height="94" rx="8" fill="#FFFFFF" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="476" y="238" class="card-title">LifeStream</text>
+  <text x="820" y="238" class="tag-future" text-anchor="end">ROADMAP</text>
+  <text x="476" y="258" class="card-sub">Personal AI that grows with the user — calendar, health,</text>
+  <text x="476" y="274" class="card-sub">journaling, habits, mental &amp; physical wellbeing, skill growth.</text>
+  <text x="476" y="294" class="card-sub" font-style="italic">Ethically only possible locally — longitudinal memory stays on-device.</text>
+
+  <!-- Substrate: DVAI-Bridge -->
+  <text x="40" y="356" class="layer-label">THE SUBSTRATE (shipping today, v1.4.1)</text>
+  <rect x="40" y="366" width="820" height="100" rx="10" fill="url(#bridgegrad)" stroke="#1E3A8A" stroke-width="1.5"/>
+  <text x="450" y="400" class="bridge-title" text-anchor="middle">DVAI-BRIDGE</text>
+  <text x="450" y="420" class="bridge-sub" text-anchor="middle">Universal Local Inference Layer · OpenAI-compatible · TypeScript-first</text>
+  <text x="450" y="438" class="bridge-sub" text-anchor="middle">@dvai-edge/core · @dvai-edge/react · @dvai-edge/vanilla</text>
+  <text x="450" y="456" class="bridge-sub" text-anchor="middle">Driver resolver · MSW request interception · auto-recovery · worker offloading</text>
+
+  <!-- Bottom: hardware reach -->
+  <text x="40" y="496" class="layer-label">HARDWARE REACH</text>
+
+  <rect x="40" y="508" width="260" height="62" rx="10" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.2"/>
+  <text x="170" y="528" class="section" text-anchor="middle">Web Browser</text>
+  <text x="170" y="546" class="hw" text-anchor="middle">WebGPU · WASM · CPU</text>
+  <text x="170" y="562" class="hw" text-anchor="middle">WebLLM · Transformers.js</text>
+
+  <rect x="320" y="508" width="260" height="62" rx="10" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.2"/>
+  <text x="450" y="528" class="section" text-anchor="middle">Desktop</text>
+  <text x="450" y="546" class="hw" text-anchor="middle">CUDA · Metal · Vulkan · AVX</text>
+  <text x="450" y="562" class="hw" text-anchor="middle">Electron · .NET (roadmap)</text>
+
+  <rect x="600" y="508" width="260" height="62" rx="10" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.2"/>
+  <text x="730" y="528" class="section" text-anchor="middle">Mobile</text>
+  <text x="730" y="546" class="hw" text-anchor="middle">Apple Neural Engine · NNAPI</text>
+  <text x="730" y="562" class="hw" text-anchor="middle">Capacitor · Swift / Kotlin (roadmap)</text>
+
+  <!-- Arrows suggesting consumers depend on substrate -->
+  <line x1="170" y1="156" x2="170" y2="196" stroke="#6B7280" stroke-width="1" stroke-dasharray="3 3"/>
+  <line x1="450" y1="156" x2="450" y2="196" stroke="#6B7280" stroke-width="1" stroke-dasharray="3 3"/>
+  <line x1="730" y1="156" x2="730" y2="196" stroke="#6B7280" stroke-width="1" stroke-dasharray="3 3"/>
+  <line x1="250" y1="326" x2="250" y2="366" stroke="#6B7280" stroke-width="1" stroke-dasharray="3 3"/>
+  <line x1="650" y1="326" x2="650" y2="366" stroke="#6B7280" stroke-width="1" stroke-dasharray="3 3"/>
+
+  <!-- Bridge to hardware -->
+  <line x1="170" y1="466" x2="170" y2="508" stroke="#6B7280" stroke-width="1" stroke-dasharray="3 3"/>
+  <line x1="450" y1="466" x2="450" y2="508" stroke="#6B7280" stroke-width="1" stroke-dasharray="3 3"/>
+  <line x1="730" y1="466" x2="730" y2="508" stroke="#6B7280" stroke-width="1" stroke-dasharray="3 3"/>
+
+  <!-- Foot caption -->
+  <text x="450" y="605" class="card-sub" text-anchor="middle">A single substrate unlocks (a) every OpenAI-compatible SDK, (b) privacy-native first-party products, and (c) every device tier,</text>
+  <text x="450" y="622" class="card-sub" text-anchor="middle">without a server in the path.</text>
+</svg>

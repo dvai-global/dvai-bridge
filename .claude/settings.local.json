@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where.exe pandoc *)",
+      "Bash(where.exe wkhtmltopdf *)",
+      "Bash(npm --version)"
+    ]
+  }
+}

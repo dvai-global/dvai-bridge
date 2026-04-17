@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+  <defs>
+    <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#374151"/>
+    </marker>
+    <marker id="arr3r" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#3B82F6"/>
+    </marker>
+    <style>
+      .title { font-size: 18px; font-weight: 700; fill: #111827; }
+      .actor { font-size: 13px; font-weight: 700; fill: #111827; }
+      .actor-sub { font-size: 10px; fill: #6B7280; }
+      .msg { font-size: 11px; fill: #111827; }
+      .msg-code { font-size: 11px; font-family: 'Fira Code', Consolas, monospace; fill: #1E3A8A; }
+      .msg-return { font-size: 11px; fill: #1E40AF; font-weight: 600; }
+      .step { font-size: 10px; font-weight: 700; fill: #6B7280; }
+      .note { font-size: 10px; fill: #6B7280; font-style: italic; }
+    </style>
+  </defs>
+
+  <text x="480" y="30" class="title" text-anchor="middle">Figure 3 — Request-Interception Sequence (streaming case)</text>
+
+  <!-- Actor columns -->
+  <!-- Positions: 100, 300, 500, 700, 880 -->
+  <rect x="40" y="55" width="140" height="40" rx="6" fill="#D1FAE5" stroke="#10B981" stroke-width="1.2"/>
+  <text x="110" y="74" class="actor" text-anchor="middle">Application</text>
+  <text x="110" y="89" class="actor-sub" text-anchor="middle">LangChain · fetch()</text>
+
+  <rect x="220" y="55" width="160" height="40" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.2"/>
+  <text x="300" y="74" class="actor" text-anchor="middle">Service Worker</text>
+  <text x="300" y="89" class="actor-sub" text-anchor="middle">mockServiceWorker.js</text>
+
+  <rect x="420" y="55" width="160" height="40" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.2"/>
+  <text x="500" y="74" class="actor" text-anchor="middle">MSW Handler</text>
+  <text x="500" y="89" class="actor-sub" text-anchor="middle">registered by DvAI</text>
+
+  <rect x="620" y="55" width="160" height="40" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.2"/>
+  <text x="700" y="74" class="actor" text-anchor="middle">Backend Driver</text>
+  <text x="700" y="89" class="actor-sub" text-anchor="middle">WebLLM / Transformers / Native</text>
+
+  <rect x="820" y="55" width="130" height="40" rx="6" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.2"/>
+  <text x="885" y="74" class="actor" text-anchor="middle">Engine</text>
+  <text x="885" y="89" class="actor-sub" text-anchor="middle">MLC · ONNX · llama.cpp</text>
+
+  <!-- Lifelines -->
+  <line x1="110" y1="100" x2="110" y2="610" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 4"/>
+  <line x1="300" y1="100" x2="300" y2="610" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 4"/>
+  <line x1="500" y1="100" x2="500" y2="610" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 4"/>
+  <line x1="700" y1="100" x2="700" y2="610" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 4"/>
+  <line x1="885" y1="100" x2="885" y2="610" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 4"/>
+
+  <!-- Step 1: fetch -->
+  <text x="50" y="135" class="step">① request</text>
+  <line x1="110" y1="150" x2="300" y2="150" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)"/>
+  <text x="205" y="145" class="msg-code" text-anchor="middle">POST api.openai.local/v1/chat/completions</text>
+  <text x="205" y="162" class="msg" text-anchor="middle">{ messages, stream: true, max_tokens }</text>
+
+  <!-- Step 2: Service Worker intercepts -->
+  <text x="240" y="190" class="step">② intercept</text>
+  <line x1="300" y1="205" x2="500" y2="205" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)"/>
+  <text x="400" y="200" class="msg" text-anchor="middle">forward to MSW handler</text>
+  <text x="400" y="215" class="note" text-anchor="middle">matches http.post(mockUrl, ...)</text>
+
+  <!-- Step 3: handler parses body, routes to createStreamingResponse -->
+  <text x="445" y="245" class="step">③ route</text>
+  <line x1="500" y1="260" x2="700" y2="260" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)"/>
+  <text x="600" y="255" class="msg-code" text-anchor="middle">createStreamingResponse(body)</text>
+  <text x="600" y="270" class="note" text-anchor="middle">(non-streaming path calls chatCompletion)</text>
+
+  <!-- Step 4: driver → engine -->
+  <text x="645" y="300" class="step">④ generate</text>
+  <line x1="700" y1="315" x2="885" y2="315" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)"/>
+  <text x="792" y="310" class="msg" text-anchor="middle">engine.chat.completions.create({ stream: true })</text>
+
+  <!-- Step 5: engine → driver tokens -->
+  <text x="645" y="345" class="step">⑤ tokens</text>
+  <line x1="700" y1="360" x2="885" y2="360" stroke="#3B82F6" stroke-width="1.5" stroke-dasharray="5 3" marker-start="url(#arr3r)"/>
+  <text x="792" y="355" class="msg-return" text-anchor="middle">async-iterator of deltas (token-by-token)</text>
+  <text x="792" y="372" class="note" text-anchor="middle">blank-chunk detector watches for N empty deltas</text>
+
+  <!-- Step 6: ReadableStream to handler -->
+  <text x="445" y="400" class="step">⑥ stream</text>
+  <line x1="500" y1="415" x2="700" y2="415" stroke="#3B82F6" stroke-width="1.5" stroke-dasharray="5 3" marker-start="url(#arr3r)"/>
+  <text x="600" y="410" class="msg-return" text-anchor="middle">ReadableStream&lt;Uint8Array&gt;</text>
+  <text x="600" y="425" class="note" text-anchor="middle">each chunk = SSE-encoded OpenAI delta</text>
+
+  <!-- Step 7: handler → SW (HttpResponse with SSE headers) -->
+  <text x="240" y="455" class="step">⑦ respond</text>
+  <line x1="300" y1="470" x2="500" y2="470" stroke="#3B82F6" stroke-width="1.5" stroke-dasharray="5 3" marker-start="url(#arr3r)"/>
+  <text x="400" y="465" class="msg-return" text-anchor="middle">HttpResponse (text/event-stream)</text>
+
+  <!-- Step 8: SW → App SSE stream -->
+  <text x="50" y="510" class="step">⑧ SSE</text>
+  <line x1="110" y1="525" x2="300" y2="525" stroke="#3B82F6" stroke-width="1.5" stroke-dasharray="5 3" marker-start="url(#arr3r)"/>
+  <text x="205" y="520" class="msg-return" text-anchor="middle">data: {choices:[{delta:{content:"..."}}]}</text>
+  <text x="205" y="537" class="note" text-anchor="middle">App parses SSE stream exactly as if from OpenAI</text>
+
+  <!-- Recovery side note -->
+  <rect x="40" y="565" width="910" height="45" rx="6" fill="#FEF2F2" stroke="#EF4444" stroke-width="1"/>
+  <text x="495" y="585" class="msg" text-anchor="middle" font-weight="700" fill="#991B1B">On fatal fault (blank output / timeout)</text>
+  <text x="495" y="601" class="note" text-anchor="middle" fill="#7F1D1D">handler invokes attemptRecovery() → unload → reinitialize → retry (bounded by maxRetries, default 2)</text>
+</svg>

@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 620" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6B7280"/>
+    </marker>
+    <style>
+      .title { font-size: 18px; font-weight: 700; fill: #111827; }
+      .layer-label { font-size: 11px; font-weight: 600; fill: #6B7280; letter-spacing: 0.6px; }
+      .box-title { font-size: 14px; font-weight: 700; fill: #111827; }
+      .box-sub { font-size: 11px; fill: #374151; }
+      .hw-label { font-size: 11px; fill: #92400E; font-weight: 600; }
+    </style>
+  </defs>
+
+  <text x="440" y="32" class="title" text-anchor="middle">Figure 1 — DVAI-BRIDGE Layered Architecture</text>
+
+  <!-- LAYER 1: Application / Agent SDK -->
+  <text x="40" y="70" class="layer-label">APPLICATION LAYER</text>
+  <rect x="40" y="80" width="800" height="72" rx="8" fill="#D1FAE5" stroke="#10B981" stroke-width="1.5"/>
+  <text x="60" y="105" class="box-title">Application &amp; Agent SDK (unchanged)</text>
+  <text x="60" y="125" class="box-sub">LangChain · Vercel AI SDK · CrewAI · LlamaIndex · custom OpenAI clients · raw fetch()</text>
+  <text x="60" y="142" class="box-sub">Points baseURL → https://api.openai.local/v1</text>
+
+  <!-- arrow down -->
+  <line x1="440" y1="152" x2="440" y2="180" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- LAYER 2: OpenAI-compatible API Surface -->
+  <text x="40" y="196" class="layer-label">API-COMPATIBILITY LAYER (MSW)</text>
+  <rect x="40" y="206" width="800" height="72" rx="8" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5"/>
+  <text x="60" y="231" class="box-title">Service Worker + MSW Handler</text>
+  <text x="60" y="251" class="box-sub">Intercepts fetch to https://api.openai.local/v1/chat/completions</text>
+  <text x="60" y="268" class="box-sub">Request parsing · streaming vs non-streaming routing · SSE packaging</text>
+
+  <line x1="440" y1="278" x2="440" y2="306" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- LAYER 3: DvAI Core -->
+  <text x="40" y="322" class="layer-label">ORCHESTRATION CORE</text>
+  <rect x="40" y="332" width="800" height="72" rx="8" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5"/>
+  <text x="60" y="357" class="box-title">DvAI Core — @dvai-edge/core</text>
+  <text x="60" y="377" class="box-sub">resolveBackend() · initializeBackend() · auto-recovery loop · blank-chunk detector · timeouts</text>
+  <text x="60" y="394" class="box-sub">Config surface (DvAIConfig) · createPipeline factory · React/Vanilla wrappers</text>
+
+  <line x1="440" y1="404" x2="440" y2="432" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- LAYER 4: Drivers -->
+  <text x="40" y="448" class="layer-label">DRIVER LAYER (pluggable)</text>
+  <rect x="40" y="458" width="253" height="72" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5"/>
+  <text x="60" y="482" class="box-title">WebLLMBackend</text>
+  <text x="60" y="501" class="box-sub">@mlc-ai/web-llm · MLC models</text>
+  <text x="60" y="518" class="box-sub">True async streaming</text>
+
+  <rect x="313" y="458" width="253" height="72" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5"/>
+  <text x="333" y="482" class="box-title">TransformersBackend</text>
+  <text x="333" y="501" class="box-sub">@huggingface/transformers · ONNX</text>
+  <text x="333" y="518" class="box-sub">Multi-modal · simulated streaming</text>
+
+  <rect x="586" y="458" width="254" height="72" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5"/>
+  <text x="606" y="482" class="box-title">NativeBackend</text>
+  <text x="606" y="501" class="box-sub">llama-cpp-capacitor · GGUF</text>
+  <text x="606" y="518" class="box-sub">True token streaming</text>
+
+  <!-- LAYER 5: Hardware -->
+  <text x="40" y="556" class="layer-label">HARDWARE ACCELERATION</text>
+  <rect x="40" y="566" width="253" height="42" rx="8" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="167" y="593" class="hw-label" text-anchor="middle">WebGPU · WASM · CPU</text>
+
+  <rect x="313" y="566" width="253" height="42" rx="8" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="440" y="593" class="hw-label" text-anchor="middle">WebGPU · CUDA · Metal · Vulkan</text>
+
+  <rect x="586" y="566" width="254" height="42" rx="8" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="713" y="593" class="hw-label" text-anchor="middle">Apple Neural Engine · Android NNAPI</text>
+
+  <!-- connector lines driver→hardware -->
+  <line x1="167" y1="530" x2="167" y2="566" stroke="#6B7280" stroke-width="1"/>
+  <line x1="440" y1="530" x2="440" y2="566" stroke="#6B7280" stroke-width="1"/>
+  <line x1="713" y1="530" x2="713" y2="566" stroke="#6B7280" stroke-width="1"/>
+</svg>

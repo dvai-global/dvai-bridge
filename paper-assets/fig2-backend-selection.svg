@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 620" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+  <defs>
+    <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#374151"/>
+    </marker>
+    <style>
+      .title { font-size: 18px; font-weight: 700; fill: #111827; }
+      .start { font-size: 14px; font-weight: 700; fill: #111827; }
+      .dec { font-size: 13px; font-weight: 600; fill: #1E3A8A; }
+      .leaf { font-size: 14px; font-weight: 700; fill: #065F46; }
+      .leaf-sub { font-size: 11px; fill: #065F46; }
+      .edge { font-size: 12px; fill: #374151; font-weight: 600; }
+      .note { font-size: 11px; fill: #6B7280; font-style: italic; }
+    </style>
+  </defs>
+
+  <text x="380" y="32" class="title" text-anchor="middle">Figure 2 — Backend Selection Decision Tree</text>
+
+  <!-- Start node -->
+  <rect x="280" y="60" width="200" height="56" rx="28" fill="#F3F4F6" stroke="#374151" stroke-width="1.5"/>
+  <text x="380" y="84" class="start" text-anchor="middle">new DvAI(config)</text>
+  <text x="380" y="102" class="note" text-anchor="middle">config.backend = ?</text>
+
+  <line x1="380" y1="116" x2="380" y2="148" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow2)"/>
+
+  <!-- Decision 1: is backend === "auto" -->
+  <polygon points="380,155 540,220 380,285 220,220" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5"/>
+  <text x="380" y="216" class="dec" text-anchor="middle">backend === "auto" ?</text>
+  <text x="380" y="234" class="note" text-anchor="middle">resolveBackend() — index.ts:144</text>
+
+  <!-- Branch: No (explicit) -->
+  <line x1="220" y1="220" x2="140" y2="220" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow2)"/>
+  <text x="180" y="212" class="edge" text-anchor="middle">no</text>
+  <rect x="30" y="185" width="110" height="70" rx="10" fill="#D1FAE5" stroke="#10B981" stroke-width="1.5"/>
+  <text x="85" y="212" class="leaf" text-anchor="middle">Use explicit</text>
+  <text x="85" y="230" class="leaf-sub" text-anchor="middle">webllm |</text>
+  <text x="85" y="245" class="leaf-sub" text-anchor="middle">transformers | native</text>
+
+  <!-- Branch: Yes -->
+  <line x1="380" y1="285" x2="380" y2="320" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow2)"/>
+  <text x="395" y="308" class="edge">yes</text>
+
+  <!-- Decision 2: is Capacitor native platform -->
+  <polygon points="380,327 570,400 380,473 190,400" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5"/>
+  <text x="380" y="395" class="dec" text-anchor="middle">window.Capacitor</text>
+  <text x="380" y="414" class="dec" text-anchor="middle">.isNativePlatform() ?</text>
+
+  <!-- Branch Capacitor yes -->
+  <line x1="570" y1="400" x2="640" y2="400" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow2)"/>
+  <text x="605" y="392" class="edge" text-anchor="middle">yes</text>
+  <rect x="640" y="365" width="110" height="70" rx="10" fill="#D1FAE5" stroke="#10B981" stroke-width="1.5"/>
+  <text x="695" y="390" class="leaf" text-anchor="middle">native</text>
+  <text x="695" y="407" class="leaf-sub" text-anchor="middle">llama.cpp</text>
+  <text x="695" y="421" class="leaf-sub" text-anchor="middle">(iOS / Android)</text>
+
+  <!-- Branch Capacitor no -->
+  <line x1="380" y1="473" x2="380" y2="508" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow2)"/>
+  <text x="395" y="497" class="edge">no</text>
+  <rect x="320" y="510" width="120" height="70" rx="10" fill="#D1FAE5" stroke="#10B981" stroke-width="1.5"/>
+  <text x="380" y="535" class="leaf" text-anchor="middle">webllm</text>
+  <text x="380" y="552" class="leaf-sub" text-anchor="middle">WebGPU</text>
+  <text x="380" y="566" class="leaf-sub" text-anchor="middle">(default web)</text>
+
+  <!-- Footer note -->
+  <text x="380" y="604" class="note" text-anchor="middle">Transformers.js backend is selected only via explicit config — it is the multi-modal / CPU-fallback path.</text>
+</svg>
