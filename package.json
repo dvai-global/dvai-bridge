@@ -11,7 +11,8 @@
     "prebuild": "node scripts/sync-versions.js",
     "build": "pnpm -r run build",
     "dev": "pnpm -r run dev",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:research": "pnpm add -D -w marked && node scripts/build-research-pdf.mjs; pnpm remove -w marked"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
