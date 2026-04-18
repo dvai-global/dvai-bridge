@@ -17,7 +17,8 @@ export type { InitProgressReport } from "@mlc-ai/web-llm";
  */
 export function chatToLegacyCompletion(chatResp: any): any {
 	return {
-		id: (chatResp.id || "").replace("chatcmpl-", "cmpl-") || `cmpl-${Date.now()}`,
+		id:
+			(chatResp.id || "").replace("chatcmpl-", "cmpl-") || `cmpl-${Date.now()}`,
 		object: "text_completion",
 		created: chatResp.created ?? Math.floor(Date.now() / 1000),
 		model: chatResp.model,
@@ -85,9 +86,7 @@ export function legacyCompletionStreamAdapter(
 								})),
 							};
 							controller.enqueue(
-								encoder.encode(
-									`data: ${JSON.stringify(legacyChunk)}\n\n`,
-								),
+								encoder.encode(`data: ${JSON.stringify(legacyChunk)}\n\n`),
 							);
 						} catch {
 							// Forward raw payload if JSON parsing fails (e.g., error events)
@@ -104,9 +103,13 @@ export function legacyCompletionStreamAdapter(
 
 export type BackendType = "webllm" | "transformers" | "native" | "auto";
 export type DeviceType = "webgpu" | "cpu" | "auto";
-export type { PipelineTask, CreatePipelineFn, PipelineCallable } from "./TransformersBackend.js";
+export type {
+	PipelineTask,
+	CreatePipelineFn,
+	PipelineCallable,
+} from "./TransformersBackend.js";
 
-export interface DvAIConfig {
+export interface DVAIConfig {
 	/** The model ID for web-llm backend. Default: "gemma-2-2b-it-q4f16_1-MLC" */
 	modelId?: string;
 	/** The backend engine to use. Default: "webllm". Set to "auto" to auto-detect (native on Capacitor, webllm otherwise). */
@@ -165,11 +168,11 @@ export interface DvAIConfig {
 }
 
 /**
- * DvAI: Local AI Orchestration
+ * DVAI: Local AI Orchestration
  * Orchestrates WebLLM, Transformers.js, or native llama.cpp for local execution
  * and MSW for intercepting API calls with an OpenAI-compatible endpoint.
  */
-export class DvAI {
+export class DVAI {
 	public modelId: string;
 	public mockUrl: string;
 	public serviceWorkerUrl: string;
@@ -203,11 +206,13 @@ export class DvAI {
 	/** The resolved backend type (after "auto" resolution). */
 	private resolvedBackend: "webllm" | "transformers" | "native" = "webllm";
 
-	constructor(config: DvAIConfig = {}) {
+	constructor(config: DVAIConfig = {}) {
 		this.modelId = config.modelId || "gemma-2-2b-it-q4f16_1-MLC";
 		this.backend = config.backend || "webllm";
 		this.transformersModelId =
-			config.transformersModelId || config.modelId || "onnx-community/gemma-3n-E2B-it-ONNX";
+			config.transformersModelId ||
+			config.modelId ||
+			"onnx-community/gemma-3n-E2B-it-ONNX";
 		this.pipelineTask = config.pipelineTask || "text-generation";
 		this.device = config.device || "auto";
 		this.dtype = config.dtype;
@@ -234,7 +239,10 @@ export class DvAI {
 		// Resolve explicit backends immediately so getActiveBackend() is correct
 		// before initialize(). "auto" defers to initialize() for runtime env detection.
 		if (this.backend !== "auto") {
-			this.resolvedBackend = this.backend as "webllm" | "transformers" | "native";
+			this.resolvedBackend = this.backend as
+				| "webllm"
+				| "transformers"
+				| "native";
 		}
 	}
 
@@ -255,10 +263,14 @@ export class DvAI {
 				typeof window !== "undefined" &&
 				!!(window as any).Capacitor?.isNativePlatform?.();
 			if (isCapacitor) {
-				console.log("[DvAI] Auto-detected Capacitor environment → using native backend");
+				console.log(
+					"[DVAI] Auto-detected Capacitor environment → using native backend",
+				);
 				return "native";
 			}
-			console.log("[DvAI] Auto-detected web environment → using webllm backend");
+			console.log(
+				"[DVAI] Auto-detected web environment → using webllm backend",
+			);
 			return "webllm";
 		}
 		return this.backend as "webllm" | "transformers" | "native";
@@ -287,18 +299,22 @@ export class DvAI {
 
 		// 0.1 Verify Service Worker Reachability (Quality of Life) — skip for native backend,
 		// skip when inside a Worker context, and skip when serviceWorkerUrl is empty (MSW disabled).
-		if (this.resolvedBackend !== "native" && !isWorkerContext && this.serviceWorkerUrl) {
+		if (
+			this.resolvedBackend !== "native" &&
+			!isWorkerContext &&
+			this.serviceWorkerUrl
+		) {
 			try {
 				const swRes = await fetch(this.serviceWorkerUrl, { method: "HEAD" });
 				if (!swRes.ok) {
 					console.warn(
-						`[DvAI] Warning: Service Worker not found at "${this.serviceWorkerUrl}". ` +
+						`[DVAI] Warning: Service Worker not found at "${this.serviceWorkerUrl}". ` +
 							`Please run "dvai-bridge init" or "npx msw init <public_dir>" to generate it.`,
 					);
 				}
 			} catch (e) {
 				console.warn(
-					`[DvAI] Could not verify Service Worker existence at "${this.serviceWorkerUrl}".`,
+					`[DVAI] Could not verify Service Worker existence at "${this.serviceWorkerUrl}".`,
 				);
 			}
 		}
@@ -322,7 +338,7 @@ export class DvAI {
 				} as any);
 			} else {
 				console.log(
-					`[DvAI] Skipping MSW setup (${isWorkerContext ? "Worker context" : "serviceWorkerUrl empty"}).`,
+					`[DVAI] Skipping MSW setup (${isWorkerContext ? "Worker context" : "serviceWorkerUrl empty"}).`,
 				);
 			}
 
@@ -330,7 +346,7 @@ export class DvAI {
 			this.recoveryAttempts = 0;
 			return true;
 		} catch (error) {
-			console.error("[DvAI] Failed to initialize:", error);
+			console.error("[DVAI] Failed to initialize:", error);
 			throw error;
 		}
 	}
@@ -414,7 +430,7 @@ export class DvAI {
 				}
 				return await runOnce();
 			} catch (error: any) {
-				console.error("[DvAI] Error processing request:", error);
+				console.error("[DVAI] Error processing request:", error);
 
 				if (
 					self.resolvedBackend === "webllm" &&
@@ -422,16 +438,13 @@ export class DvAI {
 					self.recoveryAttempts < self.maxRetries
 				) {
 					console.log(
-						`[DvAI] Attempting auto-recovery (${self.recoveryAttempts + 1}/${self.maxRetries})...`,
+						`[DVAI] Attempting auto-recovery (${self.recoveryAttempts + 1}/${self.maxRetries})...`,
 					);
 					try {
 						await self.attemptRecovery(onProgress);
 						return await runOnce();
 					} catch (recoveryError: any) {
-						console.error(
-							"[DvAI] Recovery failed:",
-							recoveryError.message,
-						);
+						console.error("[DVAI] Recovery failed:", recoveryError.message);
 					}
 				}
 
@@ -476,14 +489,12 @@ export class DvAI {
 				const chatResp = await self.backendInstance.chatCompletion(chatBody);
 				return HttpResponse.json(chatToLegacyCompletion(chatResp));
 			} catch (error: any) {
-				console.error("[DvAI] Error processing /v1/completions:", error);
+				console.error("[DVAI] Error processing /v1/completions:", error);
 				return HttpResponse.json({ error: error.message }, { status: 500 });
 			}
 		};
 
-		const handleEmbeddings = async (
-			request: Request,
-		): Promise<Response> => {
+		const handleEmbeddings = async (request: Request): Promise<Response> => {
 			if (!self.backendInstance) {
 				return HttpResponse.json(
 					{ error: "AI engine not initialized" },
@@ -541,11 +552,8 @@ export class DvAI {
 					usage: { prompt_tokens: 0, total_tokens: 0 },
 				});
 			} catch (error: any) {
-				console.error("[DvAI] Error processing /v1/embeddings:", error);
-				return HttpResponse.json(
-					{ error: error.message },
-					{ status: 500 },
-				);
+				console.error("[DVAI] Error processing /v1/embeddings:", error);
+				return HttpResponse.json({ error: error.message }, { status: 500 });
 			}
 		};
 
@@ -592,7 +600,7 @@ export class DvAI {
 		this.recoveryAttempts++;
 		const fatalError = this.backendInstance?.lastFatalError;
 		console.log(
-			`[DvAI] Auto-recovery: unloading engine due to "${fatalError}" (attempt ${this.recoveryAttempts}/${this.maxRetries})`,
+			`[DVAI] Auto-recovery: unloading engine due to "${fatalError}" (attempt ${this.recoveryAttempts}/${this.maxRetries})`,
 		);
 
 		// Unload the backend
@@ -600,7 +608,7 @@ export class DvAI {
 			try {
 				await this.backendInstance.unload();
 			} catch (e) {
-				console.warn("[DvAI] Error during recovery unload:", e);
+				console.warn("[DVAI] Error during recovery unload:", e);
 			}
 			this.backendInstance = null;
 		}
@@ -610,7 +618,7 @@ export class DvAI {
 		if (this.backendInstance?.clearFatalError) {
 			this.backendInstance.clearFatalError();
 		}
-		console.log("[DvAI] Auto-recovery: engine reloaded successfully");
+		console.log("[DVAI] Auto-recovery: engine reloaded successfully");
 	}
 
 	/**
@@ -626,7 +634,7 @@ export class DvAI {
 				NativeBackendClass = mod.NativeBackend;
 			} catch {
 				throw new Error(
-					'[DvAI] Native backend selected but "llama-cpp-capacitor" is not available.\n' +
+					'[DVAI] Native backend selected but "llama-cpp-capacitor" is not available.\n' +
 						"Install it with: npm install llama-cpp-capacitor\n" +
 						"The native backend requires a Capacitor iOS or Android app.",
 				);
@@ -634,7 +642,7 @@ export class DvAI {
 
 			if (!this.nativeModelPath) {
 				throw new Error(
-					"[DvAI] Native backend requires a model path. Set `nativeModelPath` in config.",
+					"[DVAI] Native backend requires a model path. Set `nativeModelPath` in config.",
 				);
 			}
 
@@ -649,7 +657,7 @@ export class DvAI {
 			await backend.initialize(onProgress);
 			this.backendInstance = backend;
 			console.log(
-				`[DvAI] Native backend ready (llama.cpp, threads: ${this.nativeThreads}, gpu_layers: ${this.nativeGpuLayers})`,
+				`[DVAI] Native backend ready (llama.cpp, threads: ${this.nativeThreads}, gpu_layers: ${this.nativeGpuLayers})`,
 			);
 		} else if (this.resolvedBackend === "transformers") {
 			let TransformersBackend: any;
@@ -658,7 +666,7 @@ export class DvAI {
 				TransformersBackend = mod.TransformersBackend;
 			} catch {
 				throw new Error(
-					'[DvAI] Transformers.js backend selected but "@huggingface/transformers" is not installed.\n' +
+					'[DVAI] Transformers.js backend selected but "@huggingface/transformers" is not installed.\n' +
 						"Install it with: npm install @huggingface/transformers",
 				);
 			}
@@ -674,7 +682,7 @@ export class DvAI {
 			await backend.initialize(onProgress);
 			this.backendInstance = backend;
 			console.log(
-				`[DvAI] Transformers.js backend ready (task: ${this.pipelineTask}, device: ${backend.getResolvedDevice()}, worker: ${backend.isWorkerBased()})`,
+				`[DVAI] Transformers.js backend ready (task: ${this.pipelineTask}, device: ${backend.getResolvedDevice()}, worker: ${backend.isWorkerBased()})`,
 			);
 		} else {
 			let WebLLMBackend: any;
@@ -683,7 +691,7 @@ export class DvAI {
 				WebLLMBackend = mod.WebLLMBackend;
 			} catch {
 				throw new Error(
-					'[DvAI] WebLLM backend selected but "@mlc-ai/web-llm" is not installed.\n' +
+					'[DVAI] WebLLM backend selected but "@mlc-ai/web-llm" is not installed.\n' +
 						"Install it with: npm install @mlc-ai/web-llm",
 				);
 			}
@@ -696,7 +704,7 @@ export class DvAI {
 			await backend.initialize(onProgress);
 			this.backendInstance = backend;
 			console.log(
-				`[DvAI] WebLLM backend ready (worker: ${backend.isWorkerBased()})`,
+				`[DVAI] WebLLM backend ready (worker: ${backend.isWorkerBased()})`,
 			);
 		}
 	}
@@ -732,7 +740,7 @@ export class DvAI {
 	async chatCompletion(requestBody: any): Promise<any> {
 		if (!this.backendInstance)
 			throw new Error(
-				"[DvAI] Backend not initialized. Call initialize() first.",
+				"[DVAI] Backend not initialized. Call initialize() first.",
 			);
 		return this.backendInstance.chatCompletion(requestBody);
 	}
@@ -752,18 +760,18 @@ export class DvAI {
 	async embedding(inputs: string | string[]): Promise<number[][]> {
 		if (!this.backendInstance)
 			throw new Error(
-				"[DvAI] Backend not initialized. Call initialize() first.",
+				"[DVAI] Backend not initialized. Call initialize() first.",
 			);
 		if (this.resolvedBackend === "webllm") {
 			throw new Error(
-				"[DvAI] Embeddings are not supported on the WebLLM backend. " +
+				"[DVAI] Embeddings are not supported on the WebLLM backend. " +
 					"Use backend: 'transformers' with pipelineTask: 'feature-extraction', " +
 					"or backend: 'native' with nativeEmbeddingMode: true.",
 			);
 		}
 		if (typeof this.backendInstance.embedding !== "function") {
 			throw new Error(
-				"[DvAI] The current backend does not expose an embedding() method.",
+				"[DVAI] The current backend does not expose an embedding() method.",
 			);
 		}
 		return this.backendInstance.embedding(inputs);
@@ -778,11 +786,14 @@ export class DvAI {
 	async runPipeline(inputs: any, options?: Record<string, any>): Promise<any> {
 		if (!this.backendInstance)
 			throw new Error(
-				"[DvAI] Backend not initialized. Call initialize() first.",
+				"[DVAI] Backend not initialized. Call initialize() first.",
 			);
-		if (this.resolvedBackend !== "transformers" || !this.backendInstance.runPipeline) {
+		if (
+			this.resolvedBackend !== "transformers" ||
+			!this.backendInstance.runPipeline
+		) {
 			throw new Error(
-				"[DvAI] runPipeline() is only available with the Transformers.js backend.",
+				"[DVAI] runPipeline() is only available with the Transformers.js backend.",
 			);
 		}
 		return this.backendInstance.runPipeline(inputs, options);
@@ -804,9 +815,9 @@ export class DvAI {
 
 		this.isReady = false;
 		this.recoveryAttempts = 0;
-		console.log("[DvAI] Unloaded model and worker.");
+		console.log("[DVAI] Unloaded model and worker.");
 	}
 }
 
 // Export a singleton instance by default, or the class for advanced usage
-export const dvai: DvAI = new DvAI();
+export const dvai: DVAI = new DVAI();

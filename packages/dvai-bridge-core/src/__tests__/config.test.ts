@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { DvAI } from "../index";
+import { DVAI } from "../index";
 
-describe("DvAI Config and Defaults", () => {
+describe("DVAI Config and Defaults", () => {
 	it("should use default config values", () => {
-		const dvai = new DvAI();
+		const dvai = new DVAI();
 		expect(dvai.modelId).toBe("gemma-2-2b-it-q4f16_1-MLC");
 		expect(dvai.backend).toBe("webllm");
 		expect(dvai.transformersModelId).toBe(
@@ -21,7 +21,7 @@ describe("DvAI Config and Defaults", () => {
 	});
 
 	it("should apply custom config", () => {
-		const dvai = new DvAI({
+		const dvai = new DVAI({
 			modelId: "custom-model",
 			backend: "transformers",
 			transformersModelId: "custom-hf-model",
@@ -48,28 +48,28 @@ describe("DvAI Config and Defaults", () => {
 	});
 
 	it("should return the active backend", () => {
-		const dvai1 = new DvAI({ backend: "webllm" });
+		const dvai1 = new DVAI({ backend: "webllm" });
 		expect(dvai1.getActiveBackend()).toBe("webllm");
 
-		const dvai2 = new DvAI({ backend: "transformers" });
+		const dvai2 = new DVAI({ backend: "transformers" });
 		expect(dvai2.getActiveBackend()).toBe("transformers");
 	});
 
 	it("should return null engine before initialization", () => {
-		const dvai = new DvAI();
+		const dvai = new DVAI();
 		expect(dvai.getEngine()).toBeNull();
 		expect(dvai.getWorker()).toBeNull();
 	});
 
 	it("should throw on chatCompletion before initialization", async () => {
-		const dvai = new DvAI();
+		const dvai = new DVAI();
 		await expect(dvai.chatCompletion({ messages: [] })).rejects.toThrow(
 			"Backend not initialized",
 		);
 	});
 
 	it("should throw on runPipeline with webllm backend", async () => {
-		const dvai = new DvAI({ backend: "webllm" });
+		const dvai = new DVAI({ backend: "webllm" });
 		// Mock the backend as initialized but webllm
 		(dvai as any).backendInstance = { run: () => {} };
 		await expect(dvai.runPipeline("test input")).rejects.toThrow(

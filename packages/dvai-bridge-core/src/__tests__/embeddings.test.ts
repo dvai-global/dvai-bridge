@@ -42,7 +42,12 @@ describe("TransformersBackend embeddings", () => {
 			generationTimeout: 5000,
 			pipelineTask: "feature-extraction",
 		});
-		const tensor = { tolist: () => [[0.1, 0.2], [0.3, 0.4]] };
+		const tensor = {
+			tolist: () => [
+				[0.1, 0.2],
+				[0.3, 0.4],
+			],
+		};
 		(backend as any).pipeline = vi.fn().mockResolvedValue(tensor);
 
 		const result = await backend.embedding(["a", "b"]);
@@ -81,16 +86,14 @@ describe("TransformersBackend embeddings", () => {
 			generationTimeout: 5000,
 			pipelineTask: "feature-extraction",
 		});
-		(backend as any).pipeline = vi
-			.fn()
-			.mockResolvedValue([[0.1, 0.2]]);
+		(backend as any).pipeline = vi.fn().mockResolvedValue([[0.1, 0.2]]);
 
 		const result = await backend.embedding("single input");
 		expect(result).toEqual([[0.1, 0.2]]);
-		expect((backend as any).pipeline).toHaveBeenCalledWith(
-			["single input"],
-			{ pooling: "mean", normalize: true },
-		);
+		expect((backend as any).pipeline).toHaveBeenCalledWith(["single input"], {
+			pooling: "mean",
+			normalize: true,
+		});
 	});
 });
 
@@ -158,10 +161,10 @@ describe("NativeBackend embeddings", () => {
 	});
 });
 
-describe("DvAI.embedding gating", () => {
+describe("DVAI.embedding gating", () => {
 	it("throws when backend is webllm", async () => {
-		const { DvAI } = await import("../index");
-		const dvai = new DvAI({ backend: "webllm" });
+		const { DVAI } = await import("../index");
+		const dvai = new DVAI({ backend: "webllm" });
 		(dvai as any).backendInstance = { embedding: vi.fn() };
 		await expect(dvai.embedding("hi")).rejects.toThrow(
 			"not supported on the WebLLM backend",
@@ -169,14 +172,14 @@ describe("DvAI.embedding gating", () => {
 	});
 
 	it("throws when backend is not initialized", async () => {
-		const { DvAI } = await import("../index");
-		const dvai = new DvAI({ backend: "transformers" });
+		const { DVAI } = await import("../index");
+		const dvai = new DVAI({ backend: "transformers" });
 		await expect(dvai.embedding("hi")).rejects.toThrow("not initialized");
 	});
 
 	it("delegates to backendInstance.embedding on transformers backend", async () => {
-		const { DvAI } = await import("../index");
-		const dvai = new DvAI({ backend: "transformers" });
+		const { DVAI } = await import("../index");
+		const dvai = new DVAI({ backend: "transformers" });
 		const vectors = [[0.1, 0.2]];
 		(dvai as any).backendInstance = {
 			embedding: vi.fn().mockResolvedValue(vectors),
@@ -186,8 +189,8 @@ describe("DvAI.embedding gating", () => {
 	});
 
 	it("throws if backend has no embedding method (e.g. custom)", async () => {
-		const { DvAI } = await import("../index");
-		const dvai = new DvAI({ backend: "transformers" });
+		const { DVAI } = await import("../index");
+		const dvai = new DVAI({ backend: "transformers" });
 		(dvai as any).backendInstance = {};
 		await expect(dvai.embedding("hi")).rejects.toThrow(
 			"does not expose an embedding()",

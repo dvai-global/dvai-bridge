@@ -7,16 +7,16 @@ import React, {
 	useCallback,
 	ReactNode,
 } from "react";
-import { dvai, type DvAIConfig, type BackendType } from "@dvai-bridge/core";
+import { dvai, type DVAIConfig, type BackendType } from "@dvai-bridge/core";
 
-export type { DvAIConfig, BackendType } from "@dvai-bridge/core";
+export type { DVAIConfig, BackendType } from "@dvai-bridge/core";
 
-export interface DvAIProviderProps {
+export interface DVAIProviderProps {
 	children: ReactNode;
-	config?: DvAIConfig;
+	config?: DVAIConfig;
 }
 
-export interface DvAIContextValue {
+export interface DVAIContextValue {
 	/** Whether the AI engine is ready to accept requests. */
 	isReady: boolean;
 	/** Current initialization progress. */
@@ -53,13 +53,13 @@ export interface DvAIContextValue {
 	getWorker: () => any;
 }
 
-const DvAIContext = createContext<DvAIContextValue | null>(null);
+const DVAIContext = createContext<DVAIContextValue | null>(null);
 
 /**
- * DvAIProvider: React Context Provider for DVAI-Bridge.
+ * DVAIProvider: React Context Provider for DVAI-Bridge.
  * Manages the initialization state and progress of the local AI engine.
  */
-export const DvAIProvider: React.FC<DvAIProviderProps> = ({
+export const DVAIProvider: React.FC<DVAIProviderProps> = ({
 	children,
 	config = {},
 }) => {
@@ -146,7 +146,7 @@ export const DvAIProvider: React.FC<DvAIProviderProps> = ({
 	const getEngine = useCallback(() => dvai.getEngine(), []);
 	const getWorker = useCallback(() => dvai.getWorker(), []);
 
-	const value: DvAIContextValue = {
+	const value: DVAIContextValue = {
 		isReady,
 		progress,
 		error,
@@ -163,17 +163,17 @@ export const DvAIProvider: React.FC<DvAIProviderProps> = ({
 		getWorker,
 	};
 
-	return <DvAIContext.Provider value={value}>{children}</DvAIContext.Provider>;
+	return <DVAIContext.Provider value={value}>{children}</DVAIContext.Provider>;
 };
 
 /**
- * useDvAI Hook: Accesses the DvAI context.
- * Must be used within a DvAIProvider.
+ * useDVAI Hook: Accesses the DVAI context.
+ * Must be used within a DVAIProvider.
  */
-export const useDvAI = (): DvAIContextValue => {
-	const context = useContext(DvAIContext);
+export const useDVAI = (): DVAIContextValue => {
+	const context = useContext(DVAIContext);
 	if (!context) {
-		throw new Error("useDvAI must be used within a DvAIProvider");
+		throw new Error("useDVAI must be used within a DVAIProvider");
 	}
 	return context;
 };

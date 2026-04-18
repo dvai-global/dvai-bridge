@@ -71,7 +71,7 @@ const config = {
 
 Many newer models (multimodal models like Gemma 4, or any model whose architecture isn't supported by the `pipeline()` API) require direct model loading. Instead of adding every possible model loader to dvai-bridge, the library exposes a **`createPipeline`** callback that lets you control exactly how the model is loaded and how inference runs.
 
-DvAI handles everything else: MSW setup, the OpenAI-compatible endpoint, response formatting, and streaming.
+DVAI handles everything else: MSW setup, the OpenAI-compatible endpoint, response formatting, and streaming.
 
 #### When to use `createPipeline`:
 
@@ -82,7 +82,7 @@ DvAI handles everything else: MSW setup, the OpenAI-compatible endpoint, respons
 #### Example: Gemma 4 E2B (Multimodal)
 
 ```typescript
-import { DvAI, type CreatePipelineFn } from "@dvai-bridge/core";
+import { DVAI, type CreatePipelineFn } from "@dvai-bridge/core";
 
 const createGemma4Pipeline: CreatePipelineFn = async (transformers, ctx) => {
 	const { AutoProcessor, Gemma4ForConditionalGeneration } = transformers;
@@ -126,7 +126,7 @@ const createGemma4Pipeline: CreatePipelineFn = async (transformers, ctx) => {
 	};
 };
 
-const dvai = new DvAI({
+const dvai = new DVAI({
 	backend: "transformers",
 	transformersModelId: "onnx-community/gemma-4-E2B-it-ONNX",
 	pipelineTask: "image-text-to-text",

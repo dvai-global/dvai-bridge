@@ -48,14 +48,14 @@ This command copies:
 
 ### Using with React
 
-Wrap your app with `DvAIProvider` to initialize the orchestration layer.
+Wrap your app with `DVAIProvider` to initialize the orchestration layer.
 
 ```tsx
-import { DvAIProvider, useDvAI } from "@dvai-bridge/react";
+import { DVAIProvider, useDVAI } from "@dvai-bridge/react";
 
 function App() {
 	return (
-		<DvAIProvider
+		<DVAIProvider
 			config={{
 				backend: "auto", // Automatically selects Native on Mobile, WebLLM on Web
 				nativeModelPath: "public/models/mistral-7b-v0.1.Q4_K_M.gguf",
@@ -63,12 +63,12 @@ function App() {
 			}}
 		>
 			<MyChat />
-		</DvAIProvider>
+		</DVAIProvider>
 	);
 }
 
 function MyChat() {
-	const { isReady, mockUrl } = useDvAI();
+	const { isReady, mockUrl } = useDVAI();
 
 	// Use mockUrl with any OpenAI-compatible SDK (LangChain, Vercel AI SDK, etc.)
 	return <div>AI is {isReady ? "Ready" : "Loading..."}</div>;
@@ -78,9 +78,9 @@ function MyChat() {
 ### Using with Vanilla JS
 
 ```javascript
-import { VanillaDvAI } from "@dvai-bridge/vanilla";
+import { VanillaDVAI } from "@dvai-bridge/vanilla";
 
-const ai = new VanillaDvAI({
+const ai = new VanillaDVAI({
 	backend: "webllm",
 	modelId: "gemma-2-2b-it-q4f16_1-MLC",
 });
@@ -94,10 +94,10 @@ console.log("API intercepted at:", ai.mockUrl);
 For full control (e.g., in Next.js, custom workers, or non-framework setups):
 
 ```typescript
-import { DvAI } from "@dvai-bridge/core";
+import { DVAI } from "@dvai-bridge/core";
 import { ChatOpenAI } from "@langchain/openai";
 
-const dvai = new DvAI({
+const dvai = new DVAI({
 	backend: "transformers",
 	transformersModelId: "onnx-community/Llama-3.2-1B-Instruct-ONNX",
 	pipelineTask: "text-generation",
@@ -123,7 +123,7 @@ const response = await model.invoke([
 For models not supported by the built-in `pipeline()` API (e.g., Gemma 4, multimodal models), supply a `createPipeline` callback:
 
 ```typescript
-import { DvAI, type CreatePipelineFn } from "@dvai-bridge/core";
+import { DVAI, type CreatePipelineFn } from "@dvai-bridge/core";
 
 const createGemma4: CreatePipelineFn = async (transformers, ctx) => {
 	const { AutoProcessor, Gemma4ForConditionalGeneration } = transformers;
@@ -161,7 +161,7 @@ const createGemma4: CreatePipelineFn = async (transformers, ctx) => {
 	};
 };
 
-const dvai = new DvAI({
+const dvai = new DVAI({
 	backend: "transformers",
 	transformersModelId: "onnx-community/gemma-4-E2B-it-ONNX",
 	pipelineTask: "image-text-to-text",
@@ -182,7 +182,7 @@ See the [Backends guide](/guide/backends#custom-pipeline-factory-createpipeline)
 When you need embeddings (e.g., for RAG), initialize DVAI-Bridge with a feature-extraction pipeline and call `embedding()` directly or hit `POST /v1/embeddings`.
 
 ```typescript
-const dvai = new DvAI({
+const dvai = new DVAI({
 	backend: "transformers",
 	transformersModelId: "Xenova/all-MiniLM-L6-v2",
 	pipelineTask: "feature-extraction",
@@ -201,6 +201,6 @@ const res = await fetch("https://api.openai.local/v1/embeddings", {
 });
 ```
 
-On the **native** (llama-cpp-capacitor) backend, set `nativeEmbeddingMode: true` and point `nativeModelPath` at a GGUF embedding model. The native chat and embedding contexts are distinct — for both, construct two `DvAI` instances.
+On the **native** (llama-cpp-capacitor) backend, set `nativeEmbeddingMode: true` and point `nativeModelPath` at a GGUF embedding model. The native chat and embedding contexts are distinct — for both, construct two `DVAI` instances.
 
 **WebLLM does not support embeddings** — `/v1/embeddings` returns 400 on the WebLLM backend.
