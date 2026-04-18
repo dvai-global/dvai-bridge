@@ -1,6 +1,6 @@
 # Vanilla JS Reference
 
-Direct usage for non-framework environments using `@dvai-edge/vanilla`.
+Direct usage for non-framework environments using `@dvai-bridge/vanilla`.
 
 ## `VanillaDvAI` Class
 
@@ -8,7 +8,7 @@ A lightweight wrapper around the core orchestrator, optimized for usage in stand
 
 ### Usage:
 ```javascript
-import { VanillaDvAI } from '@dvai-edge/vanilla';
+import { VanillaDvAI } from '@dvai-bridge/vanilla';
 
 const ai = new VanillaDvAI({
   backend: 'webllm'
@@ -39,7 +39,7 @@ You can also use the core package directly for scenarios where you need full con
 
 ### Standard Pipeline Model:
 ```javascript
-import { DvAI } from '@dvai-edge/core';
+import { DvAI } from '@dvai-bridge/core';
 
 const ai = new DvAI({
   backend: 'transformers',
@@ -71,7 +71,7 @@ const result = await ai.chatCompletion({
 
 ### Custom Model with `createPipeline`:
 ```javascript
-import { DvAI } from '@dvai-edge/core';
+import { DvAI } from '@dvai-bridge/core';
 
 const ai = new DvAI({
   backend: 'transformers',
@@ -117,7 +117,7 @@ console.log('Gemma 4 ready at:', ai.mockUrl);
 If you only need `runPipeline()` (e.g., for embeddings) and don't need the OpenAI-compatible endpoint:
 
 ```javascript
-import { DvAI } from '@dvai-edge/core';
+import { DvAI } from '@dvai-bridge/core';
 
 const embedder = new DvAI({
   backend: 'transformers',

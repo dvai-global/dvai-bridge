@@ -1,8 +1,8 @@
-![DvAI-Edge](/assets/banner.png)
+![DvAI-Bridge](/assets/banner.png)
 
-# DvAI-Edge
+# DvAI-Bridge
 
-**DvAI-Edge** is a high-performance, local-first AI orchestration layer that allows you to run robust LLM agents directly in the browser while maintaining a standard OpenAI-compatible API interface using MSW (Mock Service Worker).
+**DvAI-Bridge** is a high-performance, local-first AI orchestration layer that allows you to run robust LLM agents directly in the browser while maintaining a standard OpenAI-compatible API interface using MSW (Mock Service Worker).
 
 Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, zero-latency AI interactions that work offline and across desktop/mobile environments (including Electron/Capacitor).
 
@@ -26,9 +26,9 @@ Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, ze
 
 | Package              | Description                                                               |
 | -------------------- | ------------------------------------------------------------------------- |
-| `@dvai-edge/core`    | Core logic: backend engines, MSW orchestration, OpenAI-compatible wrapper |
-| `@dvai-edge/react`   | React Context Provider and `useDvAI` hook                                 |
-| `@dvai-edge/vanilla` | Wrapper for non-framework environments (vanilla JS / CDN)                 |
+| `@dvai-bridge/core`    | Core logic: backend engines, MSW orchestration, OpenAI-compatible wrapper |
+| `@dvai-bridge/react`   | React Context Provider and `useDvAI` hook                                 |
+| `@dvai-bridge/vanilla` | Wrapper for non-framework environments (vanilla JS / CDN)                 |
 
 ---
 
@@ -58,54 +58,54 @@ Uses `@huggingface/transformers` — runs ONNX models with WebGPU acceleration (
 
 ```bash
 # WebLLM only (default)
-npm install @dvai-edge/core @mlc-ai/web-llm
+npm install @dvai-bridge/core @mlc-ai/web-llm
 
 # Transformers.js only
-npm install @dvai-edge/core @huggingface/transformers
+npm install @dvai-bridge/core @huggingface/transformers
 
 # Both backends
-npm install @dvai-edge/core @mlc-ai/web-llm @huggingface/transformers
+npm install @dvai-bridge/core @mlc-ai/web-llm @huggingface/transformers
 
 # With React
-npm install @dvai-edge/react
+npm install @dvai-bridge/react
 
 # With Vanilla JS
-npm install @dvai-edge/vanilla
+npm install @dvai-bridge/vanilla
 ```
 
 ### As a Git Submodule
 
-If you want to include DvAI-Edge as a git submodule in your project:
+If you want to include DvAI-Bridge as a git submodule in your project:
 
 1. Add the submodule:
    ```bash
-   git submodule add https://github.com/westenets/dvai-edge.git packages/dvai-edge
+   git submodule add https://github.com/westenets/dvai-bridge.git packages/dvai-bridge
    ```
 2. Install dependencies:
    ```bash
-   cd packages/dvai-edge
+   cd packages/dvai-bridge
    pnpm install
    pnpm build
    ```
 3. Link the core package in your main project's `package.json`:
    ```json
    "dependencies": {
-     "@dvai-edge/core": "file:./packages/dvai-edge/packages/dvai-edge-core"
+     "@dvai-bridge/core": "file:./packages/dvai-bridge/packages/dvai-bridge-core"
    }
    ```
 
 ### Initialize Workers
 
-DvAI-Edge needs worker files in your project's `public` directory to function. You can use the built-in CLI to set this up automatically.
+DvAI-Bridge needs worker files in your project's `public` directory to function. You can use the built-in CLI to set this up automatically.
 
 **If installed via npm:**
 ```bash
-npx dvai-edge init [public-dir]
+npx dvai-bridge init [public-dir]
 ```
 
 **If used as a submodule:**
 ```bash
-node packages/dvai-edge/packages/dvai-edge-core/bin/dvai-edge.js init [public-dir]
+node packages/dvai-bridge/packages/dvai-bridge-core/bin/dvai-bridge.js init [public-dir]
 ```
 
 This command will:
@@ -119,7 +119,7 @@ This command will:
 ### React Integration
 
 ```tsx
-import { DvAIProvider, useDvAI } from "@dvai-edge/react";
+import { DvAIProvider, useDvAI } from "@dvai-bridge/react";
 
 function App() {
 	return (
@@ -161,7 +161,7 @@ function ChatComponent() {
 ### Vanilla JS / CDN
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@dvai-edge/vanilla/dist/index.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@dvai-bridge/vanilla/dist/index.global.js"></script>
 <script>
 	const ai = new VanillaDvAI({
 		// backend: "transformers",
@@ -176,7 +176,7 @@ function ChatComponent() {
 ### Direct Inference (No MSW)
 
 ```typescript
-import { DvAI } from "@dvai-edge/core";
+import { DvAI } from "@dvai-bridge/core";
 
 const ai = new DvAI({
 	backend: "transformers",
@@ -194,7 +194,7 @@ console.log(response.choices[0].message.content);
 ### Multi-Modal Pipeline (Transformers.js only)
 
 ```typescript
-import { DvAI } from "@dvai-edge/core";
+import { DvAI } from "@dvai-bridge/core";
 
 // Text-to-Image
 const imageAI = new DvAI({
@@ -268,7 +268,7 @@ await ai.initialize(); // Re-initialize
 
 ## 🔑 License Activation
 
-DvAI-Edge is free for development on `localhost` and `127.0.0.1`. In production, the `LicenseValidator` checks for valid signed keys.
+DvAI-Bridge is free for development on `localhost` and `127.0.0.1`. In production, the `LicenseValidator` checks for valid signed keys.
 
 1. **Mobile Production**: Detects native `DEBUG` flags in Capacitor and Cordova.
 2. **Setup**: Pass your key in the `licenseKey` property.
@@ -289,7 +289,7 @@ This project is licensed under a **Dual License** model:
 
 We use `pnpm` for monorepo management.
 
-1. Clone the repo: `git clone https://github.com/westenets/dvai-edge.git`
+1. Clone the repo: `git clone https://github.com/westenets/dvai-bridge.git`
 2. Install dependencies: `pnpm install`
 3. Build all packages: `pnpm build`
 4. Run tests: `pnpm test`

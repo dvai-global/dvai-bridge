@@ -105,5 +105,5 @@
   <text x="60" y="546" class="state-sub">maxRetries — default 2 — bound on recovery attempts per session</text>
   <text x="60" y="563" class="state-sub">maxBlankChunks — default 20 — consecutive empty deltas before FaultDetected</text>
   <text x="60" y="580" class="state-sub">generationTimeout — default 60000 ms — per-generation wall clock before FaultDetected</text>
-  <text x="60" y="597" class="edge-note">Source: packages/dvai-edge-core/src/index.ts — attemptRecovery() at lines 306–331</text>
+  <text x="60" y="597" class="edge-note">Source: packages/dvai-bridge-core/src/index.ts — attemptRecovery() at lines 306–331</text>
 </svg>

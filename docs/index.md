@@ -2,19 +2,19 @@
 layout: home
 
 hero:
-  name: "DvAI-Edge"
+  name: "DvAI-Bridge"
   text: "Local AI Orchestration"
   tagline: "Unified LLM inference for Web, Capacitor, and Electron with zero cloud costs."
   image:
     src: /banner.png
-    alt: DvAI-Edge Banner
+    alt: DvAI-Bridge Banner
   actions:
     - theme: brand
       text: Get Started
       link: /guide/getting-started
     - theme: alt
       text: View on GitHub
-      link: https://github.com/Westenets/dvai-edge
+      link: https://github.com/Westenets/dvai-bridge
 
 features:
   - title: 🚀 Multi-Backend

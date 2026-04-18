@@ -36,7 +36,7 @@
   <!-- LAYER 3: DvAI Core -->
   <text x="40" y="322" class="layer-label">ORCHESTRATION CORE</text>
   <rect x="40" y="332" width="800" height="72" rx="8" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5"/>
-  <text x="60" y="357" class="box-title">DvAI Core — @dvai-edge/core</text>
+  <text x="60" y="357" class="box-title">DvAI Core — @dvai-bridge/core</text>
   <text x="60" y="377" class="box-sub">resolveBackend() · initializeBackend() · auto-recovery loop · blank-chunk detector · timeouts</text>
   <text x="60" y="394" class="box-sub">Config surface (DvAIConfig) · createPipeline factory · React/Vanilla wrappers</text>
 

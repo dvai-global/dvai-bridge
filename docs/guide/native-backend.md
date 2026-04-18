@@ -30,7 +30,7 @@ const config = {
 
 ## Automatic Detection
 
-By setting `backend: "auto"`, DvAI-Edge will automatically detect the environment:
+By setting `backend: "auto"`, DvAI-Bridge will automatically detect the environment:
 - If running as a **Native App (Capacitor)**, it will prioritize the Native backend.
 - If running in a **Web Browser**, it will fall back to WebLLM or Transformers.js.
 

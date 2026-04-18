@@ -69,7 +69,7 @@
   <rect x="40" y="366" width="820" height="100" rx="10" fill="url(#bridgegrad)" stroke="#1E3A8A" stroke-width="1.5"/>
   <text x="450" y="400" class="bridge-title" text-anchor="middle">DVAI-BRIDGE</text>
   <text x="450" y="420" class="bridge-sub" text-anchor="middle">Universal Local Inference Layer · OpenAI-compatible · TypeScript-first</text>
-  <text x="450" y="438" class="bridge-sub" text-anchor="middle">@dvai-edge/core · @dvai-edge/react · @dvai-edge/vanilla</text>
+  <text x="450" y="438" class="bridge-sub" text-anchor="middle">@dvai-bridge/core · @dvai-bridge/react · @dvai-bridge/vanilla</text>
   <text x="450" y="456" class="bridge-sub" text-anchor="middle">Driver resolver · MSW request interception · auto-recovery · worker offloading</text>
 
   <!-- Bottom: hardware reach -->

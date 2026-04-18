@@ -1,6 +1,6 @@
 # React Reference
 
-Integration for React applications using `@dvai-edge/react`.
+Integration for React applications using `@dvai-bridge/react`.
 
 ## `DvAIProvider`
 
@@ -12,7 +12,7 @@ The provider component that manages the global AI orchestration state. Ensure th
 
 ### Example:
 ```tsx
-import { DvAIProvider } from '@dvai-edge/react';
+import { DvAIProvider } from '@dvai-bridge/react';
 
 <DvAIProvider config={{ backend: 'webllm' }}>
   <App />
@@ -52,14 +52,14 @@ const {
 
 ## LangChain Integration
 
-`dvai-edge` is fully compatible with LangChain (and other OpenAI-compatible SDKs). It provides a local mock URL that intercepts standard `/chat/completions` requests via MSW (Mock Service Worker).
+`dvai-bridge` is fully compatible with LangChain (and other OpenAI-compatible SDKs). It provides a local mock URL that intercepts standard `/chat/completions` requests via MSW (Mock Service Worker).
 
 ### Example with Tool Calling:
 
 For small models like Llama 3.2 1B, it is recommended to use a manual tool-execution loop to ensure reliable parsing of JSON-formatted tool calls from the model's message content.
 
 ```tsx
-import { DvAIProvider, useDvAI } from '@dvai-edge/react';
+import { DvAIProvider, useDvAI } from '@dvai-bridge/react';
 import { ChatOpenAI } from "@langchain/openai";
 import { DynamicTool } from "langchain";
 
@@ -132,9 +132,9 @@ function AgentDemo() {
 When using a model that requires `createPipeline`, pass it through the provider config:
 
 ```tsx
-import { DvAIProvider, useDvAI } from '@dvai-edge/react';
+import { DvAIProvider, useDvAI } from '@dvai-bridge/react';
 import { ChatOpenAI } from "@langchain/openai";
-import type { CreatePipelineFn } from "@dvai-edge/core";
+import type { CreatePipelineFn } from "@dvai-bridge/core";
 
 const createGemma4: CreatePipelineFn = async (transformers, ctx) => {
   const { AutoProcessor, Gemma4ForConditionalGeneration } = transformers;
@@ -207,7 +207,7 @@ function Chat() {
 For advanced use cases, the `DvAI` core instance is also exported:
 
 ```tsx
-import { useDvAI } from '@dvai-edge/react';
+import { useDvAI } from '@dvai-bridge/react';
 
 const { dvai } = useDvAI();
 // Direct access to dvai.chatCompletion(), dvai.runPipeline(), etc.

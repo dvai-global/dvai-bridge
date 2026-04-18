@@ -57,3 +57,8 @@ example/*/dist/
 .vite/
 RESEARCH.pdf
 RESEARCH.html
+
+# VitePress build artifacts
+docs/.vitepress/cache/
+docs/.vitepress/.temp/
+docs/.vitepress/dist/
