@@ -12,7 +12,7 @@
     "build": "pnpm -r run build",
     "dev": "pnpm -r run dev",
     "test": "vitest run",
-    "build:research": "pnpm add -D -w marked && node scripts/build-research-pdf.mjs; pnpm remove -w marked"
+    "build:research": "node scripts/build-research-pdf.mjs"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
