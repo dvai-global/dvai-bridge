@@ -62,3 +62,6 @@ RESEARCH.html
 docs/.vitepress/cache/
 docs/.vitepress/.temp/
 docs/.vitepress/dist/
+
+# Claude Code local config
+.claude/
