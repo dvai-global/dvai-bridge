@@ -78,7 +78,7 @@ The core package (`@dvai-bridge/core`, ≈1.9 kLOC) exports a single orchestrato
 | Driver | Engine | Model format | Streaming | Target |
 |---|---|---|---|---|
 | `WebLLMBackend` | `@mlc-ai/web-llm` | MLC-compiled (WebGPU) | **True** async-iterator | Browser, WebGPU-capable |
-| `TransformersBackend` | `@huggingface/transformers` | ONNX (Transformers.js v4.0.1+) | **Simulated** word-by-word | Browser (WebGPU/WASM), Node.js |
+| `TransformersBackend` | `@huggingface/transformers` | ONNX (Transformers.js v4.0.1+) | **True** token-level via `TextStreamer` | Browser (WebGPU/WASM), Node.js |
 | `NativeBackend` | `llama-cpp-capacitor` | GGUF | **True** token callback | Capacitor iOS/Android |
 
 Each driver implements the same four-method contract: `initialize(onProgress)`, `chatCompletion(body)`, `createStreamingResponse(body)` → `ReadableStream<Uint8Array>`, and `unload()`. The `DvAI` class does not know or care which driver is active; it only knows how to plug a driver into the OpenAI-shaped request/response surface described in §4.
@@ -87,7 +87,7 @@ Each driver implements the same four-method contract: `initialize(onProgress)`, 
 
 ![Figure 2 — Backend selection decision tree](paper-assets/fig2-backend-selection.svg)
 
-The configuration surface (`DvAIConfig`) accepts `backend: "webllm" | "transformers" | "native" | "auto"`. When `auto` is chosen, `DvAI.resolveBackend()` (`packages/dvai-bridge-core/src/index.ts:144`) performs a two-step decision:
+The configuration surface (`DvAIConfig`) accepts `backend: "webllm" | "transformers" | "native" | "auto"`. When `auto` is chosen, `DvAI.resolveBackend()` (in `packages/dvai-bridge-core/src/index.ts`) performs a two-step decision:
 
 ```typescript
 private resolveBackend(): "webllm" | "transformers" | "native" {
@@ -109,9 +109,9 @@ That is: if the runtime is a Capacitor-wrapped mobile app, prefer the native GGU
 The `DvAIConfig` surface is intentionally small. The main knobs fall into four groups:
 
 - **Backend selection**: `backend`, `modelId`, `transformersModelId`, `pipelineTask`, `device`, `dtype`.
-- **Native (Capacitor)**: `nativeModelPath`, `nativeGpuLayers` (default 99), `nativeThreads` (default 4), `nativeContextSize` (default 2048).
+- **Native (Capacitor)**: `nativeModelPath`, `nativeGpuLayers` (default 99), `nativeThreads` (default 4), `nativeContextSize` (default 2048), `nativeEmbeddingMode` (default `false`; set `true` to specialise the llama.cpp context for embeddings).
 - **Robustness**: `generationTimeout` (default 60 000 ms), `maxBlankChunks` (default 20), `maxRetries` (default 2).
-- **Transport**: `mockUrl` (default `https://api.openai.local/v1/chat/completions`), `serviceWorkerUrl`, per-backend worker URLs.
+- **Transport**: `mockUrl` (default `https://api.openai.local/v1/chat/completions`, also used to derive the base URL for `/v1/completions`, `/v1/embeddings`, and `/v1/models`), `serviceWorkerUrl`, per-backend worker URLs.
 
 The extensibility story is carried by `createPipeline`, a factory callback that lets a caller bring any Transformers.js-compatible model — including architectures the library has never heard of (e.g., `Gemma4ForConditionalGeneration` with a custom `AutoProcessor`). DvAI supplies MSW wiring, streaming serialisation, and OpenAI shaping; the caller supplies model loading and the `generate` function. This avoids the anti-pattern in which every new model requires a new library release.
 
@@ -140,7 +140,7 @@ Agent SDKs are opinionated about wire format. LangChain's `ChatOpenAI`, Vercel A
 
 Mock Service Worker (MSW) [MSW] is a library originally built for API mocking in tests. It registers a real browser Service Worker that intercepts `fetch` calls matching a route pattern and hands them to a user-defined handler. DVAI-BRIDGE repurposes this mechanism for production: during `DvAI.initialize()`, the library registers a handler for its mock URL (default `https://api.openai.local/v1/chat/completions`) and then calls `setupWorker(...).start({ serviceWorker: { url: "/mockServiceWorker.js" }, onUnhandledRequest: "bypass" })`.
 
-The handler (excerpt from `packages/dvai-bridge-core/src/index.ts:207–278`) is terse but does a surprising amount:
+The handler (excerpt from `DvAI.buildMswHandlers()` in `packages/dvai-bridge-core/src/index.ts`; one of four handlers, covering `POST /v1/chat/completions`) is terse but does a surprising amount:
 
 ```typescript
 http.post(this.mockUrl, async ({ request }) => {
@@ -185,7 +185,14 @@ This is not a DVAI-BRIDGE-specific LangChain adapter. It is *the* LangChain Open
 
 ### 4.4 What Is and Is Not Implemented Today
 
-The library implements `POST /v1/chat/completions` only. The OpenAI API surface also includes `/v1/completions` (legacy), `/v1/embeddings`, `/v1/audio/*`, `/v1/images/*`, and `/v1/models`. These are explicitly **future work**. Embeddings are the most commonly requested — they block on-device retrieval-augmented generation (RAG) pipelines from being fully resident on the device. The roadmap in §8 returns to this.
+The library currently implements four OpenAI endpoints, all registered through the same MSW interceptor and derived from a single `mockUrl`:
+
+- `POST /v1/chat/completions` — the primary endpoint; streaming and non-streaming supported on all three drivers.
+- `POST /v1/completions` — the legacy OpenAI text-completion endpoint. The incoming `prompt` is wrapped as a single user message, forwarded to the chat pipeline, and the response is rewritten to the legacy `text_completion` shape. A small SSE adapter rewrites chat chunks to the legacy chunk shape for streaming clients.
+- `POST /v1/embeddings` — returns OpenAI-shaped embedding vectors. Gated by backend: supported when `backend: "transformers"` with `pipelineTask: "feature-extraction"`, or when `backend: "native"` with `nativeEmbeddingMode: true`. WebLLM returns HTTP 400 with an explanatory error since MLC runtimes do not currently expose embedding outputs.
+- `GET /v1/models` — returns a single-entry list with the currently loaded model ID, matching the OpenAI `list models` response shape.
+
+The remaining OpenAI surface — `/v1/audio/*` and `/v1/images/*` — is explicitly **future work**. These are the two endpoint families that require additional pipeline machinery (ASR/TTS models, image-generation models) that the library does not yet orchestrate through its OpenAI layer; users can, however, reach them today via `DvAI.runPipeline()` on the Transformers.js backend. The roadmap in §8 returns to this.
 
 ---
 
@@ -193,13 +200,13 @@ The library implements `POST /v1/chat/completions` only. The OpenAI API surface 
 
 ### 5.1 Streaming Across Backends
 
-All three drivers expose `createStreamingResponse(body): ReadableStream<Uint8Array>` and serialise to the OpenAI delta-chunk SSE format. Under the hood they differ substantially:
+All three drivers expose `createStreamingResponse(body): ReadableStream<Uint8Array>` and serialise to the OpenAI delta-chunk SSE format. Under the hood they differ in mechanism but are now uniformly *true streaming*:
 
-- **`WebLLMBackend`** receives a native async iterator of `ChatCompletionChunk` objects from MLC, wraps it in a `ReadableStream`, and emits each chunk verbatim. This is *true streaming* — tokens are forwarded as soon as the engine produces them.
-- **`NativeBackend`** uses the `llama-cpp-capacitor` per-token callback to push tokens into the stream as they are decoded by llama.cpp. Also true streaming.
-- **`TransformersBackend`** generates the full response first, then splits it on whitespace (`split(/(?<=\s)/)`) and emits the fragments one at a time. This is *simulated* streaming; wall-clock latency-to-first-token is approximately generation time, not token time.
+- **`WebLLMBackend`** receives a native async iterator of `ChatCompletionChunk` objects from MLC, wraps it in a `ReadableStream`, and emits each chunk verbatim. Tokens are forwarded as soon as the engine produces them.
+- **`NativeBackend`** uses the `llama-cpp-capacitor` per-token callback to push tokens into the stream as they are decoded by llama.cpp.
+- **`TransformersBackend`** attaches a `TextStreamer` (from `@huggingface/transformers`) to the underlying pipeline with `skip_prompt: true` and a `callback_function` that forwards each decoded text fragment. In worker mode the callback runs inside the Web Worker and `postMessage`s a `stream_chunk` event per fragment; in main-thread mode it enqueues directly. An earlier implementation generated the full response and then split it on whitespace to *simulate* streaming — that path has been removed because its time-to-first-token equalled full generation time, defeating the UX purpose of streaming.
 
-We state this plainly because it matters for UX design: apps that require perceived-latency parity across drivers should either restrict themselves to WebLLM/Native or accept that Transformers.js-backed sessions will pause and then "burst."
+With this change, perceived-latency characteristics are now roughly comparable across the three drivers; differences that remain are properties of the underlying engines (WebGPU vs. ONNX Runtime vs. Metal/Vulkan llama.cpp) rather than of DVAI-BRIDGE itself.
 
 ### 5.2 Failure Modes in Practice
 
@@ -213,7 +220,7 @@ WebGPU inference in a browser is not mission-critical-software yet. In several m
 
 ![Figure 4 — Auto-recovery state machine](paper-assets/fig4-auto-recovery.svg)
 
-DVAI-BRIDGE addresses all three classes with a single bounded state machine (`attemptRecovery()` at `packages/dvai-bridge-core/src/index.ts:306`):
+DVAI-BRIDGE addresses all three classes with a single bounded state machine (`DvAI.attemptRecovery()` in `packages/dvai-bridge-core/src/index.ts`):
 
 - A *blank-chunk counter* is incremented each time the driver emits a chunk with empty `delta.content`; if it exceeds `maxBlankChunks` (default 20), the driver marks `lastFatalError` and aborts.
 - A *generation timeout* (default 60 000 ms) races every streamed iteration; timing out likewise marks `lastFatalError`.
@@ -329,7 +336,7 @@ It is worth stating, sharply, what DVAI-BRIDGE is and is not.
 
 **What it is:** a *client-side inference and API-compatibility layer* — a substrate that makes a local model answer to the OpenAI wire protocol on the device that owns the data.
 
-**What it is not:** an in-library agent runtime. DVAI-BRIDGE does not ship an agent loop, a tool-call scheduler, a memory store, a retrieval index, or a planner. It does not define an "Agent" class. It implements only `/v1/chat/completions`.
+**What it is not:** an in-library agent runtime. DVAI-BRIDGE does not ship an agent loop, a tool-call scheduler, a memory store, a retrieval index, or a planner. It does not define an "Agent" class. It implements a deliberately narrow slice of the OpenAI HTTP surface (`/v1/chat/completions`, `/v1/completions`, `/v1/embeddings`, `/v1/models`) and stops there.
 
 This is a *deliberate* architectural choice, not an omission. The design bet is that the agent ecosystem will converge on the OpenAI HTTP interface (as it has), and that *betting on the interface rather than on a specific runtime* is the higher-leverage move. Every month, LangChain, Vercel, CrewAI, LlamaIndex, and their peers improve their agent loops. DVAI-BRIDGE inherits every one of those improvements at zero engineering cost because the interface is unchanged. If the library tried to own the agent loop itself, it would spend most of its engineering budget racing the ecosystem it depends on.
 
@@ -337,7 +344,7 @@ Three further trade-offs worth naming:
 
 - **MSW is a clever transport, not a universal one.** Service Workers require an HTTPS (or localhost) origin, are blocked in some cross-origin iframes, and are not available in pure Node.js or Deno server contexts. For those contexts DVAI-BRIDGE exposes `dvai.chatCompletion()` and `dvai.createStreamingResponse()` directly, bypassing the mock layer.
 - **`createPipeline` flexibility comes at the cost of a larger built-in model zoo.** The library keeps itself small and defers exotic model loaders to the caller. For most callers this is the right trade; for callers who want a shrink-wrapped experience it is friction.
-- **Only chat-completions is implemented today.** Embeddings are the highest-impact gap: they would unlock on-device RAG entirely inside the library. This is prioritised future work, not a permanent omission.
+- **OpenAI surface is partial.** `/v1/chat/completions`, `/v1/completions`, `/v1/embeddings`, and `/v1/models` are implemented today; `/v1/audio/*` and `/v1/images/*` are not. Embeddings now unblock fully-local RAG (with the backend caveats in §4.4), but audio and image endpoints remain prioritised future work.
 
 The deeper point is that the library's moat is not any single backend — Transformers.js and WebLLM are both excellent, but neither is proprietary. The moat is the **OpenAI-mock-as-universal-interface** pattern. That is what turns three heterogeneous runtimes into one product.
 
@@ -351,7 +358,7 @@ DVAI-BRIDGE, as shipped, is a substrate. Interesting substrates invite applicati
 
 ### 8.1 Roadmap for the Library Itself
 
-- **Expanded API surface.** `/v1/embeddings` first (unblocks fully-local RAG), then `/v1/audio/transcriptions` (unblocks privacy-native voice workflows) and `/v1/images` (unblocks local vision generation).
+- **Expanded API surface.** `/v1/embeddings`, `/v1/completions`, and `/v1/models` have shipped. Remaining work: `/v1/audio/transcriptions` (unblocks privacy-native voice workflows) and `/v1/images` (unblocks local vision generation).
 - **Native Framework Support.** Dedicated drivers for .NET-based enterprise applications.
 - **Native mobile bindings.** First-class iOS (Swift) and Android (Kotlin) SDKs that expose the DvAI contract without requiring Capacitor.
 - **React Native bridge.** Bringing the local-inference layer directly into RN's native bridge so mobile UIs get native-speed streaming.
@@ -396,11 +403,13 @@ Taken together, these forces support a thesis we will commit to here: **local-fi
 
 We list the library's real limitations candidly, so that readers and adopters can plan around them.
 
-- **Only `/v1/chat/completions` today.** Embeddings, completions (legacy), audio, images, and model-listing endpoints are unimplemented.
-- **Simulated streaming on Transformers.js.** The ONNX backend generates the full response before emitting word-by-word chunks. Perceived latency-to-first-token matches total generation time.
-- **MSW constraints.** Service Worker registration requires a secure origin (HTTPS or localhost), is unavailable inside pure Web Workers, and can be blocked in sandboxed iframes. Non-browser Node.js/Deno paths must use the direct API.
+- **Partial OpenAI surface.** `/v1/chat/completions`, `/v1/completions`, `/v1/embeddings`, and `/v1/models` are implemented; `/v1/audio/*` and `/v1/images/*` are not.
+- **Embeddings are backend-gated.** `/v1/embeddings` requires either `backend: "transformers"` with `pipelineTask: "feature-extraction"` or `backend: "native"` with `nativeEmbeddingMode: true`. WebLLM returns HTTP 400 for embedding requests because MLC runtimes do not expose embedding outputs today.
+- **Native chat and native embeddings are separate contexts.** llama.cpp specialises a context at creation time — a chat-mode context cannot also produce embeddings — so an application that needs both on the native backend must construct two `DvAI` instances pointed at two GGUF files.
+- **No built-in tool/function-calling runtime.** The library relies on the tool-calling loops of downstream agent SDKs (LangChain, Vercel AI SDK, CrewAI); for small local models it recommends manual JSON parsing on assistant content rather than the cloud-grade structured-tool-call protocol. This is a deliberate scope decision, not an oversight.
+- **MSW constraints.** Service Worker registration requires a secure origin (HTTPS or localhost), is unavailable inside pure Web Workers, and can be blocked in sandboxed iframes. Non-browser Node.js/Deno paths must use the direct API (`dvai.chatCompletion()`, `dvai.embedding()`, `dvai.createStreamingResponse()`).
 - **Licence validation is placeholder.** `LicenseValidator.ts` currently contains TODOs; a cryptographic verification design is planned for v2.
-- **Test coverage is shallow.** Unit tests exercise blank-chunk detection and config defaults; there are no end-to-end tests against real models, no streaming tests beyond blank detection, and no Native-backend tests (which require a Capacitor environment).
+- **Test coverage is selective.** Unit tests exercise backend resolution, config defaults, blank-chunk detection, embeddings, and legacy-completion stream conversion (35 tests across five files); there are no end-to-end tests against real models and no Native-backend tests (which require a Capacitor environment).
 - **Desktop/Electron path is implicit.** The library works in Electron via the Transformers.js backend but has no Electron-specific guide or packaging recipe in the documentation yet.
 - **No model caching layer.** Model weights are fetched from the Hugging Face CDN (Transformers.js) or the MLC catalogue (WebLLM) on first run. Offline-first packaging is the caller's responsibility today.
 - **No in-library agent runtime.** By design (§7), but worth restating: tool calling, retrieval, planning, and memory are delegated to external SDKs.

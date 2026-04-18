@@ -196,3 +196,15 @@ type PipelineCallable = (messages: any, options?: any) => Promise<any>;
 // For non-text tasks supported by pipeline(), use runPipeline() directly
 const result = await ai.runPipeline("A professional photograph of a futuristic city");
 ```
+
+---
+
+## Performance References
+
+DvAI-Bridge adds an OpenAI-compatible surface + MSW interception on top of each backend — the raw inference speed is whatever the underlying engine delivers. Numbers are heavily hardware- and model-dependent; rather than republish them, here are the upstream sources:
+
+- **WebLLM** — [WebLLM benchmarks](https://webllm.mlc.ai/#chat-demo) publish tokens/sec for common MLC-compiled models on WebGPU (e.g., Llama 3.1 8B Q4 ≈ 41 tok/s and Phi 3.5 mini ≈ 71 tok/s on an M3 Max, ~71–80% of native speed).
+- **Transformers.js** — HuggingFace maintains an official [transformers.js-benchmarking toolkit](https://github.com/huggingface/transformers.js-benchmarking) for WASM / WebGPU / WebNN / Node. Representative numbers are in the [v3 launch post](https://huggingface.co/blog/transformersjs-v3) (e.g., up to ~64× WebGPU-vs-WASM speedup on embeddings; `all-MiniLM-L6-v2` at 8–12 ms/inference on an M2 Air).
+- **llama.cpp (native backend via `llama-cpp-capacitor`)** — [`llama-bench`](https://github.com/ggerganov/llama.cpp/tree/master/examples/llama-bench) is the standard tool for per-device prompt-processing and text-generation throughput; results vary widely across CPUs and mobile GPUs (Metal / Vulkan).
+
+To measure the bridge's own overhead (MSW roundtrip, worker postMessage, streaming adapter), compare `dvai.chatCompletion(...)` to a `fetch(mockUrl, ...)` call of the same prompt — they should differ by a few ms at most on modern browsers.
