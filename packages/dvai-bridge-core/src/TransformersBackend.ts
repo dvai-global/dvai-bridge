@@ -25,7 +25,8 @@ function tensorToArray(t: any): number[][] {
 	}
 	if (typeof t.tolist === "function") {
 		const arr = t.tolist();
-		if (Array.isArray(arr) && arr.length > 0 && Array.isArray(arr[0])) return arr;
+		if (Array.isArray(arr) && arr.length > 0 && Array.isArray(arr[0]))
+			return arr;
 		return [arr];
 	}
 	if (t.data && t.dims) {
@@ -46,14 +47,14 @@ function tensorToArray(t: any): number[][] {
  * that expect 'content' to be a string and use filters like '| trim'.
  */
 function flattenContent(content: any): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content.map((c) => flattenContent(c)).join("");
-  }
-  if (content && typeof content === "object") {
-    return content.text || content.content || JSON.stringify(content);
-  }
-  return String(content || "");
+	if (typeof content === "string") return content;
+	if (Array.isArray(content)) {
+		return content.map((c) => flattenContent(c)).join("");
+	}
+	if (content && typeof content === "object") {
+		return content.text || content.content || JSON.stringify(content);
+	}
+	return String(content || "");
 }
 
 /**
@@ -87,7 +88,7 @@ export type PipelineCallable = (messages: any, options?: any) => Promise<any>;
  * config details; must return a PipelineCallable.
  *
  * This lets the client control *how* the model is loaded and how inference
- * is run, while DvAI handles everything else (MSW, OpenAI endpoint, etc.).
+ * is run, while DVAI handles everything else (MSW, OpenAI endpoint, etc.).
  */
 export type CreatePipelineFn = (
 	transformers: any,
@@ -184,7 +185,7 @@ export class TransformersBackend {
 			const hasWebGPU = await detectWebGPU();
 			this.resolvedDevice = hasWebGPU ? "webgpu" : "wasm";
 			console.log(
-				`[DvAI/Transformers] Auto-detected device: ${this.resolvedDevice}`,
+				`[DVAI/Transformers] Auto-detected device: ${this.resolvedDevice}`,
 			);
 		} else {
 			// Map "cpu" to "wasm" for Transformers.js v3/v4 compatibility
@@ -199,7 +200,7 @@ export class TransformersBackend {
 				return;
 			} catch (err) {
 				console.warn(
-					"[DvAI/Transformers] Worker initialization failed, falling back to main thread:",
+					"[DVAI/Transformers] Worker initialization failed, falling back to main thread:",
 					err,
 				);
 				this.worker = null;
@@ -250,7 +251,7 @@ export class TransformersBackend {
 						);
 
 						console.log(
-							"[DvAI/Transformers] Initialized with Web Worker (main thread unblocked)",
+							"[DVAI/Transformers] Initialized with Web Worker (main thread unblocked)",
 						);
 						resolve();
 						break;
@@ -279,7 +280,7 @@ export class TransformersBackend {
 				device: this.resolvedDevice,
 				dtype: this.dtype,
 			};
-			console.log("[DvAI/Transformers] Sending init to worker:", initParams);
+			console.log("[DVAI/Transformers] Sending init to worker:", initParams);
 			worker.postMessage(initParams);
 		});
 	}
@@ -301,7 +302,9 @@ export class TransformersBackend {
 					return;
 				case "error":
 					this.pendingStreams.delete(msg.id);
-					stream.onError(new Error(msg.error || "Unknown worker internal error"));
+					stream.onError(
+						new Error(msg.error || "Unknown worker internal error"),
+					);
 					return;
 			}
 		}
@@ -367,7 +370,7 @@ export class TransformersBackend {
 
 		if (this.createPipelineFn) {
 			// Client-supplied custom pipeline factory — use it instead of pipeline().
-			console.log("[DvAI/Transformers] Using custom createPipeline factory.");
+			console.log("[DVAI/Transformers] Using custom createPipeline factory.");
 			this.pipeline = await this.createPipelineFn(transformers, {
 				modelId: this.modelId,
 				device: this.resolvedDevice,
@@ -385,12 +388,12 @@ export class TransformersBackend {
 
 		if (this.resolvedDevice === "wasm") {
 			console.warn(
-				"[DvAI/Transformers] Running on main thread with WASM (CPU) — inference may block the UI. " +
+				"[DVAI/Transformers] Running on main thread with WASM (CPU) — inference may block the UI. " +
 					"Set `workerUrl` to a deployed transformers worker for better performance.",
 			);
 		} else {
 			console.log(
-				"[DvAI/Transformers] Initialized on main thread (WebGPU compute is async)",
+				"[DVAI/Transformers] Initialized on main thread (WebGPU compute is async)",
 			);
 		}
 	}
@@ -494,7 +497,7 @@ export class TransformersBackend {
 			);
 		} else if (this.pipeline) {
 			// Run inference on main thread
-			console.log("[DvAI/Transformers] Running local inference:", messages);
+			console.log("[DVAI/Transformers] Running local inference:", messages);
 			result = await this.withTimeout(
 				this.pipeline(messages, options),
 				this.generationTimeout,
@@ -560,7 +563,9 @@ export class TransformersBackend {
 							{ index: 0, delta: { content: text }, finish_reason: null },
 						],
 					};
-					controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+					controller.enqueue(
+						encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`),
+					);
 				};
 
 				const enqueueFinal = (finishReason: string = "stop") => {
@@ -599,9 +604,8 @@ export class TransformersBackend {
 							(async () => {
 								try {
 									// @ts-ignore - module resolved at runtime
-									const { TextStreamer } = await import(
-										"@huggingface/transformers"
-									);
+									const { TextStreamer } =
+										await import("@huggingface/transformers");
 									const tokenizer = (backend.pipeline as any).tokenizer;
 									if (!tokenizer) {
 										throw new Error(
@@ -659,7 +663,7 @@ export class TransformersBackend {
 					await Promise.race([streamPromise, timeoutPromise]);
 					enqueueFinal("stop");
 				} catch (error: any) {
-					console.error("[DvAI/Transformers] Stream error:", error.message);
+					console.error("[DVAI/Transformers] Stream error:", error.message);
 					controller.enqueue(
 						encoder.encode(
 							`data: ${JSON.stringify({ error: error.message })}\n\n`,

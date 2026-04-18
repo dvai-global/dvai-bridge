@@ -53,7 +53,7 @@ To prevent battery drain and memory leakage, you should unload the model when it
 
 ```typescript
 // React
-const { unload } = useDvAI();
+const { unload } = useDVAI();
 await unload();
 
 // Vanilla

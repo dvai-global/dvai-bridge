@@ -1,8 +1,8 @@
 # API Reference
 
-Detailed reference for the `DvAI` configuration and common types.
+Detailed reference for the `DVAI` configuration and common types.
 
-## `DvAIConfig`
+## `DVAIConfig`
 
 The main configuration object used to initialize the orchestration layer.
 
@@ -73,9 +73,9 @@ Options passed to `chatCompletion` or `createStreamingResponse`.
 
 ---
 
-## `DvAIInstance` (Core Class)
+## `DVAIInstance` (Core Class)
 
-Methods available on the `DvAI` class instance.
+Methods available on the `DVAI` class instance.
 
 ### `initialize(onProgress?)`
 

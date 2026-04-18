@@ -39,7 +39,7 @@ Beyond the cost and privacy benefits, DVAI-Bridge solves the fragmentation of lo
 
 ## Custom Pipeline Factory
 
-For models not supported by the built-in `pipeline()` API (e.g., Gemma 4, multimodal architectures, or future model formats), DVAI-Bridge exposes a `createPipeline` callback. You supply the model loading and inference logic; DvAI handles MSW, the OpenAI endpoint, streaming, and response formatting. See the [Backends guide](/guide/backends#custom-pipeline-factory-createpipeline) for details.
+For models not supported by the built-in `pipeline()` API (e.g., Gemma 4, multimodal architectures, or future model formats), DVAI-Bridge exposes a `createPipeline` callback. You supply the model loading and inference logic; DVAI handles MSW, the OpenAI endpoint, streaming, and response formatting. See the [Backends guide](/guide/backends#custom-pipeline-factory-createpipeline) for details.
 
 ## Hybrid Selection
 

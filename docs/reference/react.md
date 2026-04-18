@@ -2,40 +2,36 @@
 
 Integration for React applications using `@dvai-bridge/react`.
 
-## `DvAIProvider`
+## `DVAIProvider`
 
 The provider component that manages the global AI orchestration state. Ensure this wraps your application (usually in `main.tsx` or `App.tsx`).
 
 ### Props:
-- `config`: A [`DvAIConfig`](/reference/api) object.
+
+- `config`: A [`DVAIConfig`](/reference/api) object.
 - `children`: Your React application components.
 
 ### Example:
-```tsx
-import { DvAIProvider } from '@dvai-bridge/react';
 
-<DvAIProvider config={{ backend: 'webllm' }}>
-  <App />
-</DvAIProvider>
+```tsx
+import { DVAIProvider } from "@dvai-bridge/react";
+
+<DVAIProvider config={{ backend: "webllm" }}>
+	<App />
+</DVAIProvider>;
 ```
 
 ---
 
-## `useDvAI` Hook
+## `useDVAI` Hook
 
 The primary interface for interacting with the local AI engine.
 
 ### Usage:
+
 ```tsx
-const { 
-  isReady, 
-  progress, 
-  mockUrl, 
-  backend, 
-  modelId, 
-  unload, 
-  init 
-} = useDvAI();
+const { isReady, progress, mockUrl, backend, modelId, unload, init } =
+	useDVAI();
 ```
 
 ### Return Properties:
@@ -59,71 +55,79 @@ const {
 For small models like Llama 3.2 1B, it is recommended to use a manual tool-execution loop to ensure reliable parsing of JSON-formatted tool calls from the model's message content.
 
 ```tsx
-import { DvAIProvider, useDvAI } from '@dvai-bridge/react';
+import { DVAIProvider, useDVAI } from "@dvai-bridge/react";
 import { ChatOpenAI } from "@langchain/openai";
 import { DynamicTool } from "langchain";
 
 function App() {
-  return (
-    <DvAIProvider config={{
-      backend: "transformers",
-      transformersModelId: "onnx-community/Llama-3.2-1B-Instruct-ONNX",
-      pipelineTask: "text-generation",
-      dtype: "q4",
-      device: "auto",
-    }}>
-      <AgentDemo />
-    </DvAIProvider>
-  );
+	return (
+		<DVAIProvider
+			config={{
+				backend: "transformers",
+				transformersModelId: "onnx-community/Llama-3.2-1B-Instruct-ONNX",
+				pipelineTask: "text-generation",
+				dtype: "q4",
+				device: "auto",
+			}}
+		>
+			<AgentDemo />
+		</DVAIProvider>
+	);
 }
 
 function AgentDemo() {
-  const { isReady } = useDvAI();
+	const { isReady } = useDVAI();
 
-  const runAgent = async () => {
-    if (!isReady) return;
+	const runAgent = async () => {
+		if (!isReady) return;
 
-    // MSW intercepts this — no network request leaves the browser
-    const model = new ChatOpenAI({
-      apiKey: "not-needed",
-      configuration: { baseURL: "https://api.openai.local/v1" },
-      temperature: 0,
-    });
+		// MSW intercepts this — no network request leaves the browser
+		const model = new ChatOpenAI({
+			apiKey: "not-needed",
+			configuration: { baseURL: "https://api.openai.local/v1" },
+			temperature: 0,
+		});
 
-    const tools = {
-      get_weather: new DynamicTool({
-        name: "get_weather",
-        description: "Returns the current weather.",
-        func: async () => "Sunny, 25C",
-      }),
-    };
+		const tools = {
+			get_weather: new DynamicTool({
+				name: "get_weather",
+				description: "Returns the current weather.",
+				func: async () => "Sunny, 25C",
+			}),
+		};
 
-    let messages = [
-      { role: "system", content: "You are a helpful assistant. To use a tool, respond with JSON: {\"tool\": \"name\", \"args\": {}}" },
-      { role: "user", content: "What's the weather?" }
-    ];
+		let messages = [
+			{
+				role: "system",
+				content:
+					'You are a helpful assistant. To use a tool, respond with JSON: {"tool": "name", "args": {}}',
+			},
+			{ role: "user", content: "What's the weather?" },
+		];
 
-    // Manual loop for robust tool-calling on small models
-    for (let i = 0; i < 5; i++) {
-      const response = await model.invoke(messages);
-      const content = (response.content as string).trim();
+		// Manual loop for robust tool-calling on small models
+		for (let i = 0; i < 5; i++) {
+			const response = await model.invoke(messages);
+			const content = (response.content as string).trim();
 
-      if (content.startsWith("{") && content.includes('"tool"')) {
-        const toolCall = JSON.parse(content);
-        if (tools[toolCall.tool]) {
-          const result = await tools[toolCall.tool].func(JSON.stringify(toolCall.args));
-          messages.push({ role: "assistant", content });
-          messages.push({ role: "user", content: `TOOL_RESULT: ${result}` });
-          continue;
-        }
-      }
-      
-      console.log("Final Answer:", content);
-      break;
-    }
-  };
+			if (content.startsWith("{") && content.includes('"tool"')) {
+				const toolCall = JSON.parse(content);
+				if (tools[toolCall.tool]) {
+					const result = await tools[toolCall.tool].func(
+						JSON.stringify(toolCall.args),
+					);
+					messages.push({ role: "assistant", content });
+					messages.push({ role: "user", content: `TOOL_RESULT: ${result}` });
+					continue;
+				}
+			}
 
-  return <button onClick={runAgent}>Run AI Agent</button>;
+			console.log("Final Answer:", content);
+			break;
+		}
+	};
+
+	return <button onClick={runAgent}>Run AI Agent</button>;
 }
 ```
 
@@ -132,71 +136,85 @@ function AgentDemo() {
 When using a model that requires `createPipeline`, pass it through the provider config:
 
 ```tsx
-import { DvAIProvider, useDvAI } from '@dvai-bridge/react';
+import { DVAIProvider, useDVAI } from "@dvai-bridge/react";
 import { ChatOpenAI } from "@langchain/openai";
 import type { CreatePipelineFn } from "@dvai-bridge/core";
 
 const createGemma4: CreatePipelineFn = async (transformers, ctx) => {
-  const { AutoProcessor, Gemma4ForConditionalGeneration } = transformers;
-  const processor = await AutoProcessor.from_pretrained(ctx.modelId, {
-    progress_callback: ctx.onProgress,
-  });
-  const model = await Gemma4ForConditionalGeneration.from_pretrained(ctx.modelId, {
-    dtype: ctx.dtype, device: ctx.device, progress_callback: ctx.onProgress,
-  });
+	const { AutoProcessor, Gemma4ForConditionalGeneration } = transformers;
+	const processor = await AutoProcessor.from_pretrained(ctx.modelId, {
+		progress_callback: ctx.onProgress,
+	});
+	const model = await Gemma4ForConditionalGeneration.from_pretrained(
+		ctx.modelId,
+		{
+			dtype: ctx.dtype,
+			device: ctx.device,
+			progress_callback: ctx.onProgress,
+		},
+	);
 
-  return async (messages, options) => {
-    const prompt = processor.apply_chat_template(messages, {
-      enable_thinking: false, add_generation_prompt: true,
-    });
-    const inputs = await processor(prompt, null, null, { add_special_tokens: false });
-    const outputs = await model.generate({
-      ...inputs,
-      max_new_tokens: options?.max_new_tokens ?? 512,
-      do_sample: options?.do_sample ?? true,
-    });
-    const decoded = processor.batch_decode(
-      outputs.slice(null, [inputs.input_ids.dims.at(-1), null]),
-      { skip_special_tokens: true },
-    );
-    return [{ generated_text: decoded[0] ?? "" }];
-  };
+	return async (messages, options) => {
+		const prompt = processor.apply_chat_template(messages, {
+			enable_thinking: false,
+			add_generation_prompt: true,
+		});
+		const inputs = await processor(prompt, null, null, {
+			add_special_tokens: false,
+		});
+		const outputs = await model.generate({
+			...inputs,
+			max_new_tokens: options?.max_new_tokens ?? 512,
+			do_sample: options?.do_sample ?? true,
+		});
+		const decoded = processor.batch_decode(
+			outputs.slice(null, [inputs.input_ids.dims.at(-1), null]),
+			{ skip_special_tokens: true },
+		);
+		return [{ generated_text: decoded[0] ?? "" }];
+	};
 };
 
 function App() {
-  return (
-    <DvAIProvider config={{
-      backend: "transformers",
-      transformersModelId: "onnx-community/gemma-4-E2B-it-ONNX",
-      pipelineTask: "image-text-to-text",
-      dtype: "q4f16",
-      device: "webgpu",
-      transformersWorkerUrl: "",
-      createPipeline: createGemma4,
-    }}>
-      <Chat />
-    </DvAIProvider>
-  );
+	return (
+		<DVAIProvider
+			config={{
+				backend: "transformers",
+				transformersModelId: "onnx-community/gemma-4-E2B-it-ONNX",
+				pipelineTask: "image-text-to-text",
+				dtype: "q4f16",
+				device: "webgpu",
+				transformersWorkerUrl: "",
+				createPipeline: createGemma4,
+			}}
+		>
+			<Chat />
+		</DVAIProvider>
+	);
 }
 
 function Chat() {
-  const { isReady } = useDvAI();
+	const { isReady } = useDVAI();
 
-  const ask = async () => {
-    if (!isReady) return;
+	const ask = async () => {
+		if (!isReady) return;
 
-    const model = new ChatOpenAI({
-      apiKey: "not-needed",
-      configuration: { baseURL: "https://api.openai.local/v1" },
-    });
+		const model = new ChatOpenAI({
+			apiKey: "not-needed",
+			configuration: { baseURL: "https://api.openai.local/v1" },
+		});
 
-    const response = await model.invoke([
-      { role: "user", content: "Explain quantum computing in 3 sentences." }
-    ]);
-    console.log(response.content);
-  };
+		const response = await model.invoke([
+			{ role: "user", content: "Explain quantum computing in 3 sentences." },
+		]);
+		console.log(response.content);
+	};
 
-  return <button onClick={ask} disabled={!isReady}>Ask Gemma 4</button>;
+	return (
+		<button onClick={ask} disabled={!isReady}>
+			Ask Gemma 4
+		</button>
+	);
 }
 ```
 
@@ -204,11 +222,11 @@ function Chat() {
 
 ## `dvai` Instance
 
-For advanced use cases, the `DvAI` core instance is also exported:
+For advanced use cases, the `DVAI` core instance is also exported:
 
 ```tsx
-import { useDvAI } from '@dvai-bridge/react';
+import { useDVAI } from "@dvai-bridge/react";
 
-const { dvai } = useDvAI();
+const { dvai } = useDVAI();
 // Direct access to dvai.chatCompletion(), dvai.runPipeline(), etc.
 ```

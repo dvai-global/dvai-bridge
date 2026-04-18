@@ -27,7 +27,7 @@ Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, ze
 | Package                | Description                                                               |
 | ---------------------- | ------------------------------------------------------------------------- |
 | `@dvai-bridge/core`    | Core logic: backend engines, MSW orchestration, OpenAI-compatible wrapper |
-| `@dvai-bridge/react`   | React Context Provider and `useDvAI` hook                                 |
+| `@dvai-bridge/react`   | React Context Provider and `useDVAI` hook                                 |
 | `@dvai-bridge/vanilla` | Wrapper for non-framework environments (vanilla JS / CDN)                 |
 
 ---
@@ -48,7 +48,7 @@ Uses `@huggingface/transformers` — runs ONNX models with WebGPU acceleration (
 | **GPU Acceleration** | WebGPU only           | WebGPU or CPU fallback           |
 | **Model Variety**    | Limited (MLC catalog) | Huge (HuggingFace Hub)           |
 | **Modalities**       | Text only             | Text, Image, Audio, Video        |
-| **OpenAI API**       | Built-in              | Custom wrapper (built into DvAI) |
+| **OpenAI API**       | Built-in              | Custom wrapper (built into DVAI) |
 
 ---
 
@@ -122,11 +122,11 @@ This command will:
 ### React Integration
 
 ```tsx
-import { DvAIProvider, useDvAI } from "@dvai-bridge/react";
+import { DVAIProvider, useDVAI } from "@dvai-bridge/react";
 
 function App() {
 	return (
-		<DvAIProvider
+		<DVAIProvider
 			config={{
 				// WebLLM (default)
 				modelId: "gemma-2-2b-it-q4f16_1-MLC",
@@ -139,12 +139,12 @@ function App() {
 			}}
 		>
 			<ChatComponent />
-		</DvAIProvider>
+		</DVAIProvider>
 	);
 }
 
 function ChatComponent() {
-	const { isReady, progress, mockUrl, backend } = useDvAI();
+	const { isReady, progress, mockUrl, backend } = useDVAI();
 
 	if (!isReady)
 		return (
@@ -166,7 +166,7 @@ function ChatComponent() {
 ```html
 <script src="https://cdn.jsdelivr.net/npm/@dvai-bridge/vanilla/dist/index.global.js"></script>
 <script>
-	const ai = new VanillaDvAI({
+	const ai = new VanillaDVAI({
 		// backend: "transformers",
 		// transformersModelId: "onnx-community/gemma-3n-E2B-it-ONNX",
 	});
@@ -179,9 +179,9 @@ function ChatComponent() {
 ### Direct Inference (No MSW)
 
 ```typescript
-import { DvAI } from "@dvai-bridge/core";
+import { DVAI } from "@dvai-bridge/core";
 
-const ai = new DvAI({
+const ai = new DVAI({
 	backend: "transformers",
 	transformersModelId: "onnx-community/gemma-3n-E2B-it-ONNX",
 });
@@ -197,10 +197,10 @@ console.log(response.choices[0].message.content);
 ### Multi-Modal Pipeline (Transformers.js only)
 
 ```typescript
-import { DvAI } from "@dvai-bridge/core";
+import { DVAI } from "@dvai-bridge/core";
 
 // Text-to-Image
-const imageAI = new DvAI({
+const imageAI = new DVAI({
 	backend: "transformers",
 	transformersModelId: "Xenova/stable-diffusion-v1-4",
 	pipelineTask: "text-to-image",
@@ -209,7 +209,7 @@ await imageAI.initialize();
 const result = await imageAI.runPipeline("A cute cat in space");
 
 // Speech-to-Text
-const asrAI = new DvAI({
+const asrAI = new DVAI({
 	backend: "transformers",
 	transformersModelId: "Xenova/whisper-tiny.en",
 	pipelineTask: "automatic-speech-recognition",
@@ -235,7 +235,7 @@ const transcript = await asrAI.runPipeline(audioBuffer);
 ### React
 
 ```tsx
-const { unload, init } = useDvAI();
+const { unload, init } = useDVAI();
 await unload(); // Free resources
 await init(); // Re-initialize later
 ```

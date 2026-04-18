@@ -11,11 +11,11 @@
 
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { DvAI } from "@dvai-bridge/core";
+import { DVAI } from "@dvai-bridge/core";
 
 export async function runLangChainExample() {
 	// 1. Initialize the engine + MSW interceptors
-	const dvai = new DvAI({
+	const dvai = new DVAI({
 		backend: "webllm", // or "transformers" / "native"
 		// ...other config as needed
 	});

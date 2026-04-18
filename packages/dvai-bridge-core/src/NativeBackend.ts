@@ -48,12 +48,10 @@ export class NativeBackend {
 		);
 	}
 
-	async initialize(
-		onProgress?: (info: any) => void,
-	): Promise<void> {
+	async initialize(onProgress?: (info: any) => void): Promise<void> {
 		if (!NativeBackend.isAvailable()) {
 			throw new Error(
-				"[DvAI/Native] Not running in a Capacitor native environment. " +
+				"[DVAI/Native] Not running in a Capacitor native environment. " +
 					'The "native" backend requires a Capacitor iOS or Android app.',
 			);
 		}
@@ -64,7 +62,7 @@ export class NativeBackend {
 			initLlama = mod.initLlama;
 		} catch {
 			throw new Error(
-				'[DvAI/Native] "llama-cpp-capacitor" is not installed.\n' +
+				'[DVAI/Native] "llama-cpp-capacitor" is not installed.\n' +
 					"Install it with: npm install llama-cpp-capacitor",
 			);
 		}
@@ -102,7 +100,7 @@ export class NativeBackend {
 		});
 
 		console.log(
-			`[DvAI/Native] llama.cpp backend ready (ctx: ${this.contextSize}, threads: ${this.threads}, gpu_layers: ${this.gpuLayers})`,
+			`[DVAI/Native] llama.cpp backend ready (ctx: ${this.contextSize}, threads: ${this.threads}, gpu_layers: ${this.gpuLayers})`,
 		);
 	}
 
@@ -112,8 +110,7 @@ export class NativeBackend {
 	 * Returns OpenAI-format response.
 	 */
 	async chatCompletion(requestBody: any): Promise<any> {
-		if (!this.context)
-			throw new Error("[DvAI/Native] Context not initialized");
+		if (!this.context) throw new Error("[DVAI/Native] Context not initialized");
 
 		const result: any = await this.withTimeout(
 			this.context.completion({
@@ -150,8 +147,7 @@ export class NativeBackend {
 				prompt_tokens: result.tokens_evaluated ?? 0,
 				completion_tokens: result.tokens_predicted ?? 0,
 				total_tokens:
-					(result.tokens_evaluated ?? 0) +
-					(result.tokens_predicted ?? 0),
+					(result.tokens_evaluated ?? 0) + (result.tokens_predicted ?? 0),
 			},
 		};
 	}
@@ -162,7 +158,7 @@ export class NativeBackend {
 	 */
 	createStreamingResponse(requestBody: any): ReadableStream<Uint8Array> {
 		const context = this.context;
-		if (!context) throw new Error("[DvAI/Native] Context not initialized");
+		if (!context) throw new Error("[DVAI/Native] Context not initialized");
 		const modelPath = this.modelPath;
 		const generationTimeout = this.generationTimeout;
 
@@ -197,9 +193,7 @@ export class NativeBackend {
 								],
 							};
 							controller.enqueue(
-								encoder.encode(
-									`data: ${JSON.stringify(chunk)}\n\n`,
-								),
+								encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`),
 							);
 						},
 					);
@@ -229,22 +223,15 @@ export class NativeBackend {
 							{
 								index: 0,
 								delta: {},
-								finish_reason: result?.stopped_eos
-									? "stop"
-									: "length",
+								finish_reason: result?.stopped_eos ? "stop" : "length",
 							},
 						],
 					};
 					controller.enqueue(
-						encoder.encode(
-							`data: ${JSON.stringify(finalChunk)}\n\n`,
-						),
+						encoder.encode(`data: ${JSON.stringify(finalChunk)}\n\n`),
 					);
 				} catch (error: any) {
-					console.error(
-						"[DvAI/Native] Stream error:",
-						error.message,
-					);
+					console.error("[DVAI/Native] Stream error:", error.message);
 					controller.enqueue(
 						encoder.encode(
 							`data: ${JSON.stringify({ error: error.message })}\n\n`,
@@ -252,9 +239,7 @@ export class NativeBackend {
 					);
 				} finally {
 					if (timeoutId) clearTimeout(timeoutId);
-					controller.enqueue(
-						encoder.encode("data: [DONE]\n\n"),
-					);
+					controller.enqueue(encoder.encode("data: [DONE]\n\n"));
 					controller.close();
 				}
 			},
@@ -266,17 +251,16 @@ export class NativeBackend {
 	 * Requires the context to be initialized with `embeddingMode: true`.
 	 */
 	async embedding(inputs: string | string[]): Promise<number[][]> {
-		if (!this.context)
-			throw new Error("[DvAI/Native] Context not initialized");
+		if (!this.context) throw new Error("[DVAI/Native] Context not initialized");
 		if (!this.embeddingMode) {
 			throw new Error(
-				"[DvAI/Native] embedding() requires the context to be initialized with " +
-					"embeddingMode: true. Set `nativeEmbeddingMode: true` in DvAI config.",
+				"[DVAI/Native] embedding() requires the context to be initialized with " +
+					"embeddingMode: true. Set `nativeEmbeddingMode: true` in DVAI config.",
 			);
 		}
 		if (typeof this.context.embedding !== "function") {
 			throw new Error(
-				"[DvAI/Native] The installed llama-cpp-capacitor version does not expose an " +
+				"[DVAI/Native] The installed llama-cpp-capacitor version does not expose an " +
 					"embedding() API on the context.",
 			);
 		}
@@ -315,7 +299,7 @@ export class NativeBackend {
 				// Release this specific context
 				await this.context.release();
 			} catch (e) {
-				console.warn("[DvAI/Native] Error releasing context:", e);
+				console.warn("[DVAI/Native] Error releasing context:", e);
 			}
 
 			try {
@@ -334,12 +318,7 @@ export class NativeBackend {
 	private withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 		return new Promise<T>((resolve, reject) => {
 			const timer = setTimeout(
-				() =>
-					reject(
-						new Error(
-							`Native generation timed out after ${ms}ms`,
-						),
-					),
+				() => reject(new Error(`Native generation timed out after ${ms}ms`)),
 				ms,
 			);
 			promise

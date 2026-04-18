@@ -12,10 +12,10 @@ const command = args[0];
 
 if (command === "init") {
 	const publicDir = args[1] || "public";
-	console.log(`[DvAI] Initializing DVAI-Bridge in ./${publicDir}...`);
+	console.log(`[DVAI] Initializing DVAI-Bridge in ./${publicDir}...`);
 
 	// 1. Initialize MSW Service Worker
-	console.log("[DvAI] Setting up MSW service worker...");
+	console.log("[DVAI] Setting up MSW service worker...");
 	const result = spawnSync("npx", ["msw", "init", publicDir], {
 		stdio: "inherit",
 		shell: true,
@@ -23,7 +23,7 @@ if (command === "init") {
 
 	if (result.status !== 0) {
 		console.error(
-			'[DvAI] ❌ Failed to initialize MSW. Please ensure you have "msw" installed.',
+			'[DVAI] ❌ Failed to initialize MSW. Please ensure you have "msw" installed.',
 		);
 		process.exit(1);
 	}
@@ -47,24 +47,24 @@ if (command === "init") {
 				fs.mkdirSync(path.dirname(dest), { recursive: true });
 			}
 			fs.copyFileSync(src, dest);
-			console.log(`[DvAI] ✅ Copied ${file} to ${publicDir}/`);
+			console.log(`[DVAI] ✅ Copied ${file} to ${publicDir}/`);
 			copiedCount++;
 		}
 	}
 
 	if (copiedCount === 0) {
-		console.warn(`[DvAI] ⚠️ No worker files found in ${distDir}.`);
+		console.warn(`[DVAI] ⚠️ No worker files found in ${distDir}.`);
 		console.warn(
-			`[DvAI] 💡 Please ensure the library is built or run "npm run prepare" in the dvai-bridge folder.`,
+			`[DVAI] 💡 Please ensure the library is built or run "npm run prepare" in the dvai-bridge folder.`,
 		);
 	}
 
 	console.log(
-		"[DvAI] ✅ Setup complete! You can now use dvai-bridge in your project.",
+		"[DVAI] ✅ Setup complete! You can now use dvai-bridge in your project.",
 	);
 } else {
 	console.log(`
-DvAI Edge CLI
+DVAI Edge CLI
 Usage:
   dvai-bridge init [public-dir]    Initializes MSW service worker and copies
                                   AI inference workers (defaults to 'public')
