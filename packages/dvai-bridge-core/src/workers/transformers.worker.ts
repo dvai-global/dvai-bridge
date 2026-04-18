@@ -1,12 +1,12 @@
 /**
  * Transformers.js Web Worker Entry Point
  * Runs inference inside a Web Worker to keep the main thread unblocked.
- * Supports any pipeline task (text-generation, text-to-image, ASR, etc.)
+ * Supports any pipeline task (text-generation, text-to-image, ASR, feature-extraction, etc.)
  *
  * Deploy this file to your public directory via `dvai-bridge init`.
  */
 // @ts-ignore - module resolved at runtime
-import { pipeline, env } from "@huggingface/transformers";
+import { pipeline, env, TextStreamer } from "@huggingface/transformers";
 
 /**
  * Aggressive content flattening to satisfy Jinja2 templates (like Llama 3)
@@ -54,11 +54,44 @@ let activeModelId: string = "";
 let currentTask: string = "text-generation";
 
 /**
+ * Convert a Transformers.js Tensor (or plain array) into a nested number[][].
+ * Handles both single-input and batched feature-extraction outputs.
+ */
+function tensorToArray(t: any): number[][] {
+  if (!t) return [];
+  // Already a plain array (batched or single)
+  if (Array.isArray(t)) {
+    if (t.length > 0 && Array.isArray(t[0])) return t as number[][];
+    return [t as number[]];
+  }
+  // Transformers.js Tensor: has .tolist() or .data + .dims
+  if (typeof t.tolist === "function") {
+    const arr = t.tolist();
+    if (Array.isArray(arr) && arr.length > 0 && Array.isArray(arr[0])) return arr;
+    return [arr];
+  }
+  if (t.data && t.dims) {
+    const [batch, hidden] = t.dims.length === 2 ? t.dims : [1, t.dims[t.dims.length - 1]];
+    const flat = Array.from(t.data as Iterable<number>);
+    const out: number[][] = [];
+    for (let i = 0; i < batch; i++) {
+      out.push(flat.slice(i * hidden, (i + 1) * hidden));
+    }
+    return out;
+  }
+  return [];
+}
+
+/**
  * Message protocol:
  * - { type: "init", pipelineTask, modelId, device } → initialize pipeline
- * - { type: "generate", requestBody } → run inference
+ * - { type: "generate", requestBody } → run inference (non-streaming)
  *     - if requestBody.raw: runs pipeline(inputs, options) directly (any modality)
  *     - else: runs text-generation with chat messages
+ * - { type: "generate_stream", requestBody } → stream text generation token-by-token
+ *     - emits { type: "stream_chunk", id, text } for each decoded text chunk
+ *     - emits { type: "stream_complete", id } when done
+ * - { type: "embed", inputs } → run feature-extraction pipeline and return embeddings
  * - { type: "unload" } → dispose pipeline
  */
 self.onmessage = async (event: MessageEvent) => {
@@ -97,31 +130,68 @@ self.onmessage = async (event: MessageEvent) => {
           return;
         }
 
-        // Text-generation mode: use chat messages
-        const { messages: rawMessages, max_tokens, max_completion_tokens, temperature, top_p } = requestBody;
-        const maxNewTokens = max_tokens ?? max_completion_tokens ?? 256;
-        const temp = temperature ?? 0.7;
-        const topPVal = top_p ?? 1.0;
-
-        // Aggressive sanitization: ensure content is ALWAYS a string
-        const messages = (rawMessages || []).map((m: any) => ({
-          ...m,
-          content: flattenContent(m.content)
-        }));
-
-        console.log("[DvAI/Worker] Sanitized messages for Jinja:", messages);
-
-        const options: any = {
-          max_new_tokens: maxNewTokens,
-          temperature: temp,
-          top_p: topPVal,
-          do_sample: temp > 0,
-          return_full_text: false,
-        };
-
+        const { messages, options } = buildTextGenArgs(requestBody);
         const result = await activePipeline(messages, options);
-
         self.postMessage({ type: "generate_complete", id, data: result });
+        break;
+      }
+
+      case "generate_stream": {
+        if (!activePipeline) {
+          self.postMessage({ type: "error", id, error: "Pipeline not initialized" });
+          return;
+        }
+
+        const { messages, options } = buildTextGenArgs(data.requestBody);
+
+        // Attach a TextStreamer that posts each decoded text chunk back to the main thread.
+        // skip_prompt: don't emit the rendered prompt; skip_special_tokens: hide <|eot|> etc.
+        const tokenizer = activePipeline.tokenizer;
+        if (!tokenizer) {
+          self.postMessage({
+            type: "error",
+            id,
+            error: "Streaming requires a tokenizer on the pipeline. Current task may not support streaming.",
+          });
+          return;
+        }
+
+        const streamer = new (TextStreamer as any)(tokenizer, {
+          skip_prompt: true,
+          skip_special_tokens: true,
+          callback_function: (text: string) => {
+            if (text) self.postMessage({ type: "stream_chunk", id, text });
+          },
+        });
+
+        await activePipeline(messages, { ...options, streamer });
+        self.postMessage({ type: "stream_complete", id });
+        break;
+      }
+
+      case "embed": {
+        if (!activePipeline) {
+          self.postMessage({ type: "error", id, error: "Pipeline not initialized" });
+          return;
+        }
+        if (currentTask !== "feature-extraction") {
+          self.postMessage({
+            type: "error",
+            id,
+            error: `Embeddings require pipelineTask="feature-extraction". Current task: "${currentTask}".`,
+          });
+          return;
+        }
+        const inputs = data.inputs;
+        const result = await activePipeline(inputs, {
+          pooling: data.pooling || "mean",
+          normalize: data.normalize !== false,
+        });
+        self.postMessage({
+          type: "embed_complete",
+          id,
+          data: tensorToArray(result),
+        });
         break;
       }
 
@@ -141,3 +211,24 @@ self.onmessage = async (event: MessageEvent) => {
     self.postMessage({ type: "error", id, error: error.message });
   }
 };
+
+function buildTextGenArgs(requestBody: any): { messages: any[]; options: any } {
+  const { messages: rawMessages, max_tokens, max_completion_tokens, temperature, top_p } = requestBody;
+  const maxNewTokens = max_tokens ?? max_completion_tokens ?? 256;
+  const temp = temperature ?? 0.7;
+  const topPVal = top_p ?? 1.0;
+
+  const messages = (rawMessages || []).map((m: any) => ({
+    ...m,
+    content: flattenContent(m.content),
+  }));
+
+  const options: any = {
+    max_new_tokens: maxNewTokens,
+    temperature: temp,
+    top_p: topPVal,
+    do_sample: temp > 0,
+    return_full_text: false,
+  };
+  return { messages, options };
+}
