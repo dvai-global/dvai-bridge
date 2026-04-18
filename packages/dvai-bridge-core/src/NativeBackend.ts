@@ -12,6 +12,12 @@ export interface NativeBackendConfig {
 	threads?: number;
 	gpuLayers?: number;
 	generationTimeout?: number;
+	/**
+	 * Initialize the llama.cpp context in embedding mode so `embedding()` can
+	 * be used. When true, the context is specialized for producing embeddings
+	 * and should typically not be used for chat/completion. Default: false.
+	 */
+	embeddingMode?: boolean;
 }
 
 export class NativeBackend {
@@ -21,6 +27,7 @@ export class NativeBackend {
 	private threads: number;
 	private gpuLayers: number;
 	private generationTimeout: number;
+	private embeddingMode: boolean;
 
 	constructor(config: NativeBackendConfig) {
 		this.modelPath = config.modelPath;
@@ -28,6 +35,7 @@ export class NativeBackend {
 		this.threads = config.threads ?? 4;
 		this.gpuLayers = config.gpuLayers ?? 99; // Use all available GPU layers
 		this.generationTimeout = config.generationTimeout ?? 60000;
+		this.embeddingMode = config.embeddingMode ?? false;
 	}
 
 	/**
@@ -76,6 +84,7 @@ export class NativeBackend {
 				n_threads: this.threads,
 				n_gpu_layers: this.gpuLayers,
 				use_mmap: true,
+				embedding: this.embeddingMode,
 			},
 			(progressPercent: number) => {
 				onProgress?.({
@@ -250,6 +259,40 @@ export class NativeBackend {
 				}
 			},
 		});
+	}
+
+	/**
+	 * Generate embeddings for one or more text inputs.
+	 * Requires the context to be initialized with `embeddingMode: true`.
+	 */
+	async embedding(inputs: string | string[]): Promise<number[][]> {
+		if (!this.context)
+			throw new Error("[DvAI/Native] Context not initialized");
+		if (!this.embeddingMode) {
+			throw new Error(
+				"[DvAI/Native] embedding() requires the context to be initialized with " +
+					"embeddingMode: true. Set `nativeEmbeddingMode: true` in DvAI config.",
+			);
+		}
+		if (typeof this.context.embedding !== "function") {
+			throw new Error(
+				"[DvAI/Native] The installed llama-cpp-capacitor version does not expose an " +
+					"embedding() API on the context.",
+			);
+		}
+
+		const inputArray = Array.isArray(inputs) ? inputs : [inputs];
+		const results: number[][] = [];
+		for (const text of inputArray) {
+			const out: any = await this.withTimeout(
+				this.context.embedding(text),
+				this.generationTimeout,
+			);
+			// llama-cpp-capacitor may return { embedding: number[] } or number[]
+			const vec = Array.isArray(out) ? out : (out?.embedding ?? out);
+			results.push(vec);
+		}
+		return results;
 	}
 
 	/**
