@@ -1,6 +1,6 @@
 # Backends
 
-DvAI-Edge supports multiple backend engines for local AI inference. You can choose the one that best fits your model format and performance requirements.
+DvAI-Bridge supports multiple backend engines for local AI inference. You can choose the one that best fits your model format and performance requirements.
 
 ## WebLLM (Default)
 
@@ -57,13 +57,13 @@ const config = {
 ```
 
 > [!TIP]
-> **Dealing with "Unknown ArrayValue filter: trim"**: If you encounter this error (common with Llama 3/3.2 models), ensure your input content is a string. `dvai-edge` automatically flattens structured content blocks (like those from LangChain) into strings to maintain compatibility with the model's Jinja2 templates.
+> **Dealing with "Unknown ArrayValue filter: trim"**: If you encounter this error (common with Llama 3/3.2 models), ensure your input content is a string. `dvai-bridge` automatically flattens structured content blocks (like those from LangChain) into strings to maintain compatibility with the model's Jinja2 templates.
 
 ---
 
 ### Custom Pipeline Factory (`createPipeline`)
 
-Many newer models (multimodal models like Gemma 4, or any model whose architecture isn't supported by the `pipeline()` API) require direct model loading. Instead of adding every possible model loader to dvai-edge, the library exposes a **`createPipeline`** callback that lets you control exactly how the model is loaded and how inference runs.
+Many newer models (multimodal models like Gemma 4, or any model whose architecture isn't supported by the `pipeline()` API) require direct model loading. Instead of adding every possible model loader to dvai-bridge, the library exposes a **`createPipeline`** callback that lets you control exactly how the model is loaded and how inference runs.
 
 DvAI handles everything else: MSW setup, the OpenAI-compatible endpoint, response formatting, and streaming.
 
@@ -75,7 +75,7 @@ DvAI handles everything else: MSW setup, the OpenAI-compatible endpoint, respons
 #### Example: Gemma 4 E2B (Multimodal)
 
 ```typescript
-import { DvAI, type CreatePipelineFn } from "@dvai-edge/core";
+import { DvAI, type CreatePipelineFn } from "@dvai-bridge/core";
 
 const createGemma4Pipeline: CreatePipelineFn = async (transformers, ctx) => {
   const { AutoProcessor, Gemma4ForConditionalGeneration } = transformers;

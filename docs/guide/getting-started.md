@@ -1,6 +1,6 @@
 # Getting Started
 
-Follow these steps to integrate DvAI-Edge into your project.
+Follow these steps to integrate DvAI-Bridge into your project.
 
 ## Installation
 
@@ -8,7 +8,7 @@ Install the core package along with any backends you plan to use.
 
 ```bash
 # Core package
-pnpm add @dvai-edge/core
+pnpm add @dvai-bridge/core
 
 # Transformers.js v4 (for ONNX models from Hugging Face)
 pnpm add @huggingface/transformers@^4.0.1
@@ -24,18 +24,18 @@ pnpm add llama-cpp-capacitor
 
 ```bash
 # For React projects
-pnpm add @dvai-edge/react
+pnpm add @dvai-bridge/react
 
 # For Vanilla JS / Non-framework projects
-pnpm add @dvai-edge/vanilla
+pnpm add @dvai-bridge/vanilla
 ```
 
 ## Initialization
 
-DvAI-Edge requires certain worker files to be available in your application's `public` folder. You can initialize these automatically:
+DvAI-Bridge requires certain worker files to be available in your application's `public` folder. You can initialize these automatically:
 
 ```bash
-npx dvai-edge init ./public
+npx dvai-bridge init ./public
 ```
 
 This command copies:
@@ -50,7 +50,7 @@ This command copies:
 Wrap your app with `DvAIProvider` to initialize the orchestration layer.
 
 ```tsx
-import { DvAIProvider, useDvAI } from '@dvai-edge/react';
+import { DvAIProvider, useDvAI } from '@dvai-bridge/react';
 
 function App() {
   return (
@@ -75,7 +75,7 @@ function MyChat() {
 ### Using with Vanilla JS
 
 ```javascript
-import { VanillaDvAI } from '@dvai-edge/vanilla';
+import { VanillaDvAI } from '@dvai-bridge/vanilla';
 
 const ai = new VanillaDvAI({
   backend: 'webllm',
@@ -91,7 +91,7 @@ console.log('API intercepted at:', ai.mockUrl);
 For full control (e.g., in Next.js, custom workers, or non-framework setups):
 
 ```typescript
-import { DvAI } from "@dvai-edge/core";
+import { DvAI } from "@dvai-bridge/core";
 import { ChatOpenAI } from "@langchain/openai";
 
 const dvai = new DvAI({
@@ -120,7 +120,7 @@ const response = await model.invoke([
 For models not supported by the built-in `pipeline()` API (e.g., Gemma 4, multimodal models), supply a `createPipeline` callback:
 
 ```typescript
-import { DvAI, type CreatePipelineFn } from "@dvai-edge/core";
+import { DvAI, type CreatePipelineFn } from "@dvai-bridge/core";
 
 const createGemma4: CreatePipelineFn = async (transformers, ctx) => {
   const { AutoProcessor, Gemma4ForConditionalGeneration } = transformers;

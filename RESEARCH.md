@@ -10,7 +10,7 @@
 
 ## Abstract
 
-The dominant deployment model for large language models (LLMs) today places inference inside centralized cloud services. For agentic workloads — where a single user request fans out into tens or hundreds of model calls — this architecture creates compounding problems across privacy, cost, latency, and vendor lock-in. We present **DVAI-BRIDGE**, a TypeScript library (packages: `@dvai-edge/core`, `@dvai-edge/react`, `@dvai-edge/vanilla`) that moves inference to the end-user's device and presents the result as a drop-in replacement for the OpenAI HTTP API. The library achieves this by (i) defining a pluggable *driver* abstraction over three industry-standard inference engines — WebLLM (WebGPU), Transformers.js (ONNX), and llama.cpp (native mobile) — and (ii) installing a Mock Service Worker (MSW) interceptor in the browser so that any HTTP client pointed at `https://api.openai.local/v1/chat/completions` transparently hits the local model instead of the public internet. Because the wire format is unchanged, existing agent SDKs such as LangChain, Vercel AI SDK, CrewAI, and LlamaIndex work against DVAI-BRIDGE without code changes. We describe the architecture, the interception mechanism, the auto-recovery state machine that stabilises browser WebGPU failures, and three integration case studies. We then honestly delimit what the library is and is not today, before situating it inside a broader thesis: edge AI is becoming a *peer tier* to cloud AI, and purpose-built on-device applications such as *DVAI-Connect* (end-to-end-encrypted meetings with local intelligence) and *LifeStream* (a longitudinal personal assistant) are only ethically deployable when inference is local.
+The dominant deployment model for large language models (LLMs) today places inference inside centralized cloud services. For agentic workloads — where a single user request fans out into tens or hundreds of model calls — this architecture creates compounding problems across privacy, cost, latency, and vendor lock-in. We present **DVAI-BRIDGE**, a TypeScript library (packages: `@dvai-bridge/core`, `@dvai-bridge/react`, `@dvai-bridge/vanilla`) that moves inference to the end-user's device and presents the result as a drop-in replacement for the OpenAI HTTP API. The library achieves this by (i) defining a pluggable *driver* abstraction over three industry-standard inference engines — WebLLM (WebGPU), Transformers.js (ONNX), and llama.cpp (native mobile) — and (ii) installing a Mock Service Worker (MSW) interceptor in the browser so that any HTTP client pointed at `https://api.openai.local/v1/chat/completions` transparently hits the local model instead of the public internet. Because the wire format is unchanged, existing agent SDKs such as LangChain, Vercel AI SDK, CrewAI, and LlamaIndex work against DVAI-BRIDGE without code changes. We describe the architecture, the interception mechanism, the auto-recovery state machine that stabilises browser WebGPU failures, and three integration case studies. We then honestly delimit what the library is and is not today, before situating it inside a broader thesis: edge AI is becoming a *peer tier* to cloud AI, and purpose-built on-device applications such as *DVAI-Connect* (end-to-end-encrypted meetings with local intelligence) and *LifeStream* (a longitudinal personal assistant) are only ethically deployable when inference is local.
 
 ---
 
@@ -73,7 +73,7 @@ DVAI-BRIDGE was written against five concrete goals:
 
 ### 3.2 The Pluggable Driver Abstraction
 
-The core package (`@dvai-edge/core`, ≈1.9 kLOC) exports a single orchestrator, `DvAI`, which delegates to one of three drivers at runtime (files in `packages/dvai-edge-core/src/`):
+The core package (`@dvai-bridge/core`, ≈1.9 kLOC) exports a single orchestrator, `DvAI`, which delegates to one of three drivers at runtime (files in `packages/dvai-bridge-core/src/`):
 
 | Driver | Engine | Model format | Streaming | Target |
 |---|---|---|---|---|
@@ -87,7 +87,7 @@ Each driver implements the same four-method contract: `initialize(onProgress)`, 
 
 ![Figure 2 — Backend selection decision tree](paper-assets/fig2-backend-selection.svg)
 
-The configuration surface (`DvAIConfig`) accepts `backend: "webllm" | "transformers" | "native" | "auto"`. When `auto` is chosen, `DvAI.resolveBackend()` (`packages/dvai-edge-core/src/index.ts:144`) performs a two-step decision:
+The configuration surface (`DvAIConfig`) accepts `backend: "webllm" | "transformers" | "native" | "auto"`. When `auto` is chosen, `DvAI.resolveBackend()` (`packages/dvai-bridge-core/src/index.ts:144`) performs a two-step decision:
 
 ```typescript
 private resolveBackend(): "webllm" | "transformers" | "native" {
@@ -119,8 +119,8 @@ The extensibility story is carried by `createPipeline`, a factory callback that 
 
 Two thin wrappers exist on top of the core:
 
-- **`@dvai-edge/react`** ships a `DvAIProvider` context component and a `useDvAI()` hook that exposes `{ isReady, progress, mockUrl, backend, modelId, init, unload, dvai }`.
-- **`@dvai-edge/vanilla`** wraps the core with a `subscribe(listener)` observable pattern for frameworks (Vue, Svelte, Angular) or vanilla apps.
+- **`@dvai-bridge/react`** ships a `DvAIProvider` context component and a `useDvAI()` hook that exposes `{ isReady, progress, mockUrl, backend, modelId, init, unload, dvai }`.
+- **`@dvai-bridge/vanilla`** wraps the core with a `subscribe(listener)` observable pattern for frameworks (Vue, Svelte, Angular) or vanilla apps.
 
 Both are thin — the core does the work, the wrappers translate state transitions into idioms the framework likes.
 
@@ -140,7 +140,7 @@ Agent SDKs are opinionated about wire format. LangChain's `ChatOpenAI`, Vercel A
 
 Mock Service Worker (MSW) [MSW] is a library originally built for API mocking in tests. It registers a real browser Service Worker that intercepts `fetch` calls matching a route pattern and hands them to a user-defined handler. DVAI-BRIDGE repurposes this mechanism for production: during `DvAI.initialize()`, the library registers a handler for its mock URL (default `https://api.openai.local/v1/chat/completions`) and then calls `setupWorker(...).start({ serviceWorker: { url: "/mockServiceWorker.js" }, onUnhandledRequest: "bypass" })`.
 
-The handler (excerpt from `packages/dvai-edge-core/src/index.ts:207–278`) is terse but does a surprising amount:
+The handler (excerpt from `packages/dvai-bridge-core/src/index.ts:207–278`) is terse but does a surprising amount:
 
 ```typescript
 http.post(this.mockUrl, async ({ request }) => {
@@ -213,7 +213,7 @@ WebGPU inference in a browser is not mission-critical-software yet. In several m
 
 ![Figure 4 — Auto-recovery state machine](paper-assets/fig4-auto-recovery.svg)
 
-DVAI-BRIDGE addresses all three classes with a single bounded state machine (`attemptRecovery()` at `packages/dvai-edge-core/src/index.ts:306`):
+DVAI-BRIDGE addresses all three classes with a single bounded state machine (`attemptRecovery()` at `packages/dvai-bridge-core/src/index.ts:306`):
 
 - A *blank-chunk counter* is incremented each time the driver emits a chunk with empty `delta.content`; if it exceeds `maxBlankChunks` (default 20), the driver marks `lastFatalError` and aborts.
 - A *generation timeout* (default 60 000 ms) races every streamed iteration; timing out likewise marks `lastFatalError`.

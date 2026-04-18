@@ -1,19 +1,19 @@
 # Auto-Recovery & Robustness
 
-Local AI inference can be unpredictable due to varying hardware and memory pressure. DvAI-Edge includes advanced features to ensure your application remains stable even when the underlying engine fails.
+Local AI inference can be unpredictable due to varying hardware and memory pressure. DvAI-Bridge includes advanced features to ensure your application remains stable even when the underlying engine fails.
 
 ## WebLLM Auto-Recovery
 
-WebLLM (MLC) can sometimes return blank outputs or hang if the WebGPU context is lost or overloaded. DvAI-Edge implements an automatic recovery cycle for these scenarios.
+WebLLM (MLC) can sometimes return blank outputs or hang if the WebGPU context is lost or overloaded. DvAI-Bridge implements an automatic recovery cycle for these scenarios.
 
 ### Detection Mechanism:
-DvAI-Edge monitors the following as **Fatal Errors**:
+DvAI-Bridge monitors the following as **Fatal Errors**:
 - **Blank Output**: The engine returns an empty string for a chat completion.
 - **Blank Stream**: A streaming response produces no text content before closing.
 - **Timeout**: The generation exceeds the `generationTimeout` (default: 60s).
 
 ### Recovery Process:
-When a fatal error is detected, DvAI-Edge:
+When a fatal error is detected, DvAI-Bridge:
 1.  **Unloads** the current backend (releasing memory and workers).
 2.  **Re-initializes** the backend (reloading the model and engine).
 3.  **Retries** the original request automatically.
@@ -32,7 +32,7 @@ const config = {
 
 ## Blank Chunk Detection
 
-For streaming responses, DvAI-Edge can abort the generation if it detects too many consecutive empty chunks, which often indicates the model is in an infinite loop or "stuck".
+For streaming responses, DvAI-Bridge can abort the generation if it detects too many consecutive empty chunks, which often indicates the model is in an infinite loop or "stuck".
 
 ```typescript
 const config = {

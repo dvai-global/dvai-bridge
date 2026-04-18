@@ -1,14 +1,14 @@
 import { defineConfig } from "vitepress";
 
 export default defineConfig({
-	title: "DvAI-Edge",
+	title: "DvAI-Bridge",
 	description: "Local AI Orchestration for Web, Capacitor, and Electron",
 	themeConfig: {
 		logo: "/logo.png",
 		nav: [
 			{ text: "Guide", link: "/guide/introduction" },
 			{ text: "Reference", link: "/reference/api" },
-			{ text: "GitHub", link: "https://github.com/Westenets/dvai-edge" },
+			{ text: "GitHub", link: "https://github.com/Westenets/dvai-bridge" },
 		],
 		sidebar: [
 			{
@@ -31,7 +31,7 @@ export default defineConfig({
 			},
 		],
 		socialLinks: [
-			{ icon: "github", link: "https://github.com/Westenets/dvai-edge" },
+			{ icon: "github", link: "https://github.com/Westenets/dvai-bridge" },
 		],
 		    footer: {
       message: 'Released under Custom License.',
