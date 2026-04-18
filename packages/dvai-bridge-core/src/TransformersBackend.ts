@@ -14,6 +14,34 @@
 export type DeviceType = "webgpu" | "cpu" | "auto";
 
 /**
+ * Convert a Transformers.js Tensor (or plain array) into a nested number[][].
+ * Handles both single-input and batched feature-extraction outputs.
+ */
+function tensorToArray(t: any): number[][] {
+	if (!t) return [];
+	if (Array.isArray(t)) {
+		if (t.length > 0 && Array.isArray(t[0])) return t as number[][];
+		return [t as number[]];
+	}
+	if (typeof t.tolist === "function") {
+		const arr = t.tolist();
+		if (Array.isArray(arr) && arr.length > 0 && Array.isArray(arr[0])) return arr;
+		return [arr];
+	}
+	if (t.data && t.dims) {
+		const [batch, hidden] =
+			t.dims.length === 2 ? t.dims : [1, t.dims[t.dims.length - 1]];
+		const flat = Array.from(t.data as Iterable<number>);
+		const out: number[][] = [];
+		for (let i = 0; i < batch; i++) {
+			out.push(flat.slice(i * hidden, (i + 1) * hidden));
+		}
+		return out;
+	}
+	return [];
+}
+
+/**
  * Aggressive content flattening to satisfy Jinja2 templates (like Llama 3)
  * that expect 'content' to be a string and use filters like '| trim'.
  */
@@ -129,6 +157,14 @@ export class TransformersBackend {
 		{
 			resolve: (value: any) => void;
 			reject: (error: any) => void;
+		}
+	> = new Map();
+	private pendingStreams: Map<
+		string,
+		{
+			onChunk: (text: string) => void;
+			onComplete: () => void;
+			onError: (error: any) => void;
 		}
 	> = new Map();
 
@@ -252,11 +288,30 @@ export class TransformersBackend {
 		const msg = event.data;
 		if (!msg.id) return;
 
+		// Streaming messages first — they share an id with pendingStreams
+		const stream = this.pendingStreams.get(msg.id);
+		if (stream) {
+			switch (msg.type) {
+				case "stream_chunk":
+					stream.onChunk(msg.text);
+					return;
+				case "stream_complete":
+					this.pendingStreams.delete(msg.id);
+					stream.onComplete();
+					return;
+				case "error":
+					this.pendingStreams.delete(msg.id);
+					stream.onError(new Error(msg.error || "Unknown worker internal error"));
+					return;
+			}
+		}
+
 		const pending = this.pendingRequests.get(msg.id);
 		if (!pending) return;
 
 		switch (msg.type) {
 			case "generate_complete":
+			case "embed_complete":
 				this.pendingRequests.delete(msg.id);
 				pending.resolve(msg.data);
 				break;
@@ -474,75 +529,188 @@ export class TransformersBackend {
 	}
 
 	/**
-	 * OpenAI-compatible streaming chat completion.
-	 * Returns a ReadableStream of SSE-formatted data.
+	 * OpenAI-compatible streaming chat completion using real token-level streaming
+	 * via Transformers.js TextStreamer. Returns a ReadableStream of SSE-formatted data.
 	 */
 	createStreamingResponse(requestBody: any): ReadableStream<Uint8Array> {
+		if (!this.isTextTask()) {
+			throw new Error(
+				`Streaming chat completion is only available for text-generation tasks. ` +
+					`Current task: "${this.pipelineTask}".`,
+			);
+		}
+
 		const modelId = this.modelId;
 		const backend = this;
+		const generationTimeout = this.generationTimeout;
 
 		return new ReadableStream<Uint8Array>({
 			async start(controller) {
 				const completionId = `chatcmpl-${Date.now()}`;
 				const created = Math.floor(Date.now() / 1000);
+				const encoder = new TextEncoder();
 
-				try {
-					// Generate full response (worker or main thread), then simulate streaming
-					const response = await backend.chatCompletion(requestBody);
-					const content: string = response.choices[0]?.message?.content ?? "";
-
-					// Emit content word-by-word for a streaming experience
-					const words = content.split(/(?<=\s)/);
-
-					for (const word of words) {
-						const chunk = {
-							id: completionId,
-							object: "chat.completion.chunk",
-							created,
-							model: modelId,
-							choices: [
-								{
-									index: 0,
-									delta: { content: word },
-									finish_reason: null,
-								},
-							],
-						};
-						controller.enqueue(
-							new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`),
-						);
-					}
-
-					// Final chunk with finish_reason
-					const finalChunk = {
+				const enqueueChunk = (text: string) => {
+					const chunk = {
 						id: completionId,
 						object: "chat.completion.chunk",
 						created,
 						model: modelId,
 						choices: [
-							{
-								index: 0,
-								delta: {},
-								finish_reason: "stop",
-							},
+							{ index: 0, delta: { content: text }, finish_reason: null },
 						],
 					};
+					controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+				};
+
+				const enqueueFinal = (finishReason: string = "stop") => {
+					const finalChunk = {
+						id: completionId,
+						object: "chat.completion.chunk",
+						created,
+						model: modelId,
+						choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
+					};
 					controller.enqueue(
-						new TextEncoder().encode(`data: ${JSON.stringify(finalChunk)}\n\n`),
+						encoder.encode(`data: ${JSON.stringify(finalChunk)}\n\n`),
 					);
+				};
+
+				let timeoutId: ReturnType<typeof setTimeout> | null = null;
+				try {
+					const streamPromise = new Promise<void>((resolve, reject) => {
+						if (backend.usingWorker && backend.worker) {
+							const id = backend.generateRequestId();
+							backend.pendingStreams.set(id, {
+								onChunk: enqueueChunk,
+								onComplete: resolve,
+								onError: reject,
+							});
+							backend.worker.postMessage({
+								type: "generate_stream",
+								id,
+								requestBody,
+							});
+						} else if (backend.pipeline) {
+							// Main-thread streaming via TextStreamer.
+							// Lazy-load @huggingface/transformers to access TextStreamer without
+							// importing it at top-level (keeps the main bundle lean).
+							// eslint-disable-next-line @typescript-eslint/no-floating-promises
+							(async () => {
+								try {
+									// @ts-ignore - module resolved at runtime
+									const { TextStreamer } = await import(
+										"@huggingface/transformers"
+									);
+									const tokenizer = (backend.pipeline as any).tokenizer;
+									if (!tokenizer) {
+										throw new Error(
+											"Streaming requires a tokenizer on the pipeline.",
+										);
+									}
+
+									const messages = (requestBody.messages || []).map(
+										(m: any) => ({
+											...m,
+											content: flattenContent(m.content),
+										}),
+									);
+									const options: any = {
+										max_new_tokens:
+											requestBody.max_tokens ??
+											requestBody.max_completion_tokens ??
+											256,
+										temperature: requestBody.temperature ?? 0.7,
+										top_p: requestBody.top_p ?? 1.0,
+										do_sample: (requestBody.temperature ?? 0.7) > 0,
+										return_full_text: false,
+										streamer: new TextStreamer(tokenizer, {
+											skip_prompt: true,
+											skip_special_tokens: true,
+											callback_function: (text: string) => {
+												if (text) enqueueChunk(text);
+											},
+										}),
+									};
+
+									await backend.pipeline(messages, options);
+									resolve();
+								} catch (e) {
+									reject(e);
+								}
+							})();
+						} else {
+							reject(new Error("Transformers.js backend not initialized"));
+						}
+					});
+
+					const timeoutPromise = new Promise<never>((_, reject) => {
+						timeoutId = setTimeout(
+							() =>
+								reject(
+									new Error(
+										`Generation timed out after ${generationTimeout}ms`,
+									),
+								),
+							generationTimeout,
+						);
+					});
+
+					await Promise.race([streamPromise, timeoutPromise]);
+					enqueueFinal("stop");
 				} catch (error: any) {
 					console.error("[DvAI/Transformers] Stream error:", error.message);
 					controller.enqueue(
-						new TextEncoder().encode(
+						encoder.encode(
 							`data: ${JSON.stringify({ error: error.message })}\n\n`,
 						),
 					);
 				} finally {
-					controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+					if (timeoutId) clearTimeout(timeoutId);
+					controller.enqueue(encoder.encode("data: [DONE]\n\n"));
 					controller.close();
 				}
 			},
 		});
+	}
+
+	/**
+	 * Generate embeddings for one or more text inputs.
+	 * Requires the pipeline to have been initialized with pipelineTask="feature-extraction".
+	 *
+	 * @param inputs - A single string or array of strings to embed
+	 * @returns An array of embedding vectors (one per input)
+	 */
+	async embedding(inputs: string | string[]): Promise<number[][]> {
+		if (this.pipelineTask !== "feature-extraction") {
+			throw new Error(
+				`embedding() requires pipelineTask="feature-extraction". Current task: "${this.pipelineTask}".`,
+			);
+		}
+
+		const inputArray = Array.isArray(inputs) ? inputs : [inputs];
+
+		if (this.usingWorker && this.worker) {
+			const result = await this.withTimeout(
+				this.sendWorkerRequest("embed", {
+					inputs: inputArray,
+					pooling: "mean",
+					normalize: true,
+				}),
+				this.generationTimeout,
+			);
+			return result as number[][];
+		}
+
+		if (!this.pipeline) {
+			throw new Error("Transformers.js pipeline not initialized");
+		}
+
+		const raw = await this.withTimeout(
+			this.pipeline(inputArray, { pooling: "mean", normalize: true }),
+			this.generationTimeout,
+		);
+		return tensorToArray(raw);
 	}
 
 	async unload(): Promise<void> {

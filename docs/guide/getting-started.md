@@ -165,3 +165,32 @@ await dvai.initialize();
 ```
 
 See the [Backends guide](/guide/backends#custom-pipeline-factory-createpipeline) for the full API reference.
+
+## Generating Embeddings
+
+When you need embeddings (e.g., for RAG), initialize DvAI-Bridge with a feature-extraction pipeline and call `embedding()` directly or hit `POST /v1/embeddings`.
+
+```typescript
+const dvai = new DvAI({
+  backend: "transformers",
+  transformersModelId: "Xenova/all-MiniLM-L6-v2",
+  pipelineTask: "feature-extraction",
+});
+await dvai.initialize();
+
+// Direct API
+const vectors = await dvai.embedding(["hello world", "another doc"]);
+// vectors: number[][]
+
+// Or via any OpenAI-compatible client
+const res = await fetch("https://api.openai.local/v1/embeddings", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ input: ["hello world"], model: "any" }),
+});
+```
+
+On the **native** (llama-cpp-capacitor) backend, set `nativeEmbeddingMode: true` and point `nativeModelPath` at a GGUF embedding model. The native chat and embedding contexts are distinct — for both, construct two `DvAI` instances.
+
+**WebLLM does not support embeddings** — `/v1/embeddings` returns 400 on the WebLLM backend.
+

@@ -23,6 +23,7 @@ The main configuration object used to initialize the orchestration layer.
 | `nativeGpuLayers` | `number` | `99` | Number of layers to offload to GPU in Native backend. |
 | `nativeThreads` | `number` | `4` | Number of CPU threads for Native inference. |
 | `nativeContextSize` | `number` | `2048` | Context window size for Native backend. |
+| `nativeEmbeddingMode` | `boolean` | `false` | Initialize the native llama.cpp context in embedding mode. Required for `/v1/embeddings` on the native backend. |
 | `maxRetries` | `number` | `2` | Number of automatic recovery attempts on fatal WebLLM errors. |
 | `generationTimeout` | `number` | `60000` | Maximum time (ms) allowed for generation before timing out. |
 | `maxBlankChunks` | `number` | `20` | Abort streaming after this many consecutive empty chunks. |
@@ -83,10 +84,16 @@ Initializes the selected backend, starts workers, registers MSW handlers, and be
 Returns a standard OpenAI-format response object. Works for both standard pipeline models and custom `createPipeline` models.
 
 ### `createStreamingResponse(options)`
-Returns a `ReadableStream` that yields OpenAI-format SSE chunks.
+Returns a `ReadableStream` that yields OpenAI-format SSE chunks. On the Transformers.js backend, streaming is real token-level streaming via `TextStreamer` (not word-by-word simulation).
+
+### `embedding(inputs)`
+Returns an array of embedding vectors (`number[][]`) for the given string or array of strings.
+- `backend: "transformers"` requires `pipelineTask: "feature-extraction"`.
+- `backend: "native"` requires `nativeEmbeddingMode: true`.
+- Throws when called on the WebLLM backend.
 
 ### `runPipeline(inputs, options?)`
-Runs the underlying Transformers.js pipeline directly with arbitrary inputs. Use for non-chat tasks (embeddings, image generation, ASR, etc.).
+Runs the underlying Transformers.js pipeline directly with arbitrary inputs. Use for non-chat tasks (image generation, ASR, etc.).
 
 ### `unload()`
 Completely unloads the engine and frees memory/workers.
@@ -96,3 +103,16 @@ Returns the currently resolved backend instance.
 
 ### `getWorker()`
 Returns the MSW `SetupWorker` instance (if MSW is active).
+
+---
+
+## OpenAI-Compatible Endpoints
+
+DvAI-Bridge registers MSW handlers for these endpoints, derived from `mockUrl` (defaults to `https://api.openai.local/v1/chat/completions`). If `mockUrl` ends with `/chat/completions`, the base URL is its parent; siblings are registered as:
+
+| Method | Endpoint | Notes |
+| :--- | :--- | :--- |
+| `POST` | `/v1/chat/completions` | Full chat API. Streaming supported on all backends. |
+| `POST` | `/v1/completions` | Legacy OpenAI completion endpoint. The `prompt` field is wrapped into a single user message and forwarded to `/v1/chat/completions`; the response is rewritten to the legacy `text_completion` shape. Streaming supported. |
+| `POST` | `/v1/embeddings` | Returns embeddings. Gated on backend: `transformers` + `pipelineTask: "feature-extraction"`, or `native` + `nativeEmbeddingMode: true`. Returns `400` on WebLLM. |
+| `GET`  | `/v1/models` | Returns a single-entry list with the currently loaded model ID. |

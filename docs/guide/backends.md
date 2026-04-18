@@ -125,7 +125,11 @@ const dvai = new DvAI({
 });
 
 await dvai.initialize();
-// MSW is now active at https://api.openai.local/v1/chat/completions
+// MSW is now active at https://api.openai.local/v1 with the following endpoints:
+//   POST /chat/completions   — full chat API (streaming + non-streaming)
+//   POST /completions        — legacy OpenAI completion (auto-forwards to chat)
+//   POST /embeddings         — embeddings (transformers feature-extraction or native embeddingMode)
+//   GET  /models             — single-entry list
 // Use ChatOpenAI, Vercel AI SDK, or any OpenAI-compatible client
 ```
 
