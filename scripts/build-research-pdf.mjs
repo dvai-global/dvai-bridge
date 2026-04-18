@@ -55,7 +55,7 @@ if (!existsSync(mdPath)) {
 }
 
 const md = readFileSync(mdPath, "utf8");
-const body = marked.parse(md, { gfm: true, breaks: false });
+const body = marked.parse(md, { gfm: true, breaks: true });
 
 const css = `
   @page { size: A4; margin: 22mm 20mm 22mm 20mm; }

@@ -1,9 +1,9 @@
 # DVAI-BRIDGE: A Universal Local Inference Layer for Agentic AI on the Client
 
-**Author:** Deep Chakraborty, CTO, Deep Voice AI Limited
-**Affiliation:** Deep Voice AI Limited, 71–75 Shelton Street, Covent Garden, London, WC2H 9JQ, United Kingdom
-**Correspondence:** Deep Voice AI Limited
-**Date:** April 2026
+**Author:** Deep Chakraborty, CTO, Deep Voice AI Limited  
+**Affiliation:** Deep Voice AI Limited, 71–75 Shelton Street, Covent Garden, London, WC2H 9JQ, United Kingdom  
+**Correspondence:** Deep Voice AI Limited  
+**Date:** April 2026  
 **Keywords:** edge AI, local inference, WebGPU, llama.cpp, OpenAI API, agentic AI, service worker, mock service worker, on-device LLM, privacy-preserving ML
 
 ---
