@@ -1,8 +1,8 @@
-![DvAI-Bridge](/assets/banner.png)
+![DVAI-Bridge](/assets/banner.png)
 
-# DvAI-Bridge
+# DVAI-Bridge
 
-**DvAI-Bridge** is a high-performance, local-first AI orchestration layer that allows you to run robust LLM agents directly in the browser while maintaining a standard OpenAI-compatible API interface using MSW (Mock Service Worker).
+**DVAI-Bridge** is a high-performance, local-first AI orchestration layer that allows you to run robust LLM agents directly in the browser while maintaining a standard OpenAI-compatible API interface using MSW (Mock Service Worker).
 
 Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, zero-latency AI interactions that work offline and across desktop/mobile environments (including Electron/Capacitor).
 
@@ -24,8 +24,8 @@ Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, ze
 
 ## 📦 Packages
 
-| Package              | Description                                                               |
-| -------------------- | ------------------------------------------------------------------------- |
+| Package                | Description                                                               |
+| ---------------------- | ------------------------------------------------------------------------- |
 | `@dvai-bridge/core`    | Core logic: backend engines, MSW orchestration, OpenAI-compatible wrapper |
 | `@dvai-bridge/react`   | React Context Provider and `useDvAI` hook                                 |
 | `@dvai-bridge/vanilla` | Wrapper for non-framework environments (vanilla JS / CDN)                 |
@@ -75,7 +75,7 @@ npm install @dvai-bridge/vanilla
 
 ### As a Git Submodule
 
-If you want to include DvAI-Bridge as a git submodule in your project:
+If you want to include DVAI-Bridge as a git submodule in your project:
 
 1. Add the submodule:
    ```bash
@@ -96,19 +96,22 @@ If you want to include DvAI-Bridge as a git submodule in your project:
 
 ### Initialize Workers
 
-DvAI-Bridge needs worker files in your project's `public` directory to function. You can use the built-in CLI to set this up automatically.
+DVAI-Bridge needs worker files in your project's `public` directory to function. You can use the built-in CLI to set this up automatically.
 
 **If installed via npm:**
+
 ```bash
 npx dvai-bridge init [public-dir]
 ```
 
 **If used as a submodule:**
+
 ```bash
 node packages/dvai-bridge/packages/dvai-bridge-core/bin/dvai-bridge.js init [public-dir]
 ```
 
 This command will:
+
 1. Initialize the **MSW service worker** (`mockServiceWorker.js`).
 2. Copy the **AI inference workers** (`dvai-transformers.worker.js`, etc.) to your public directory.
 
@@ -268,7 +271,7 @@ await ai.initialize(); // Re-initialize
 
 ## 🔑 License Activation
 
-DvAI-Bridge is free for development on `localhost` and `127.0.0.1`. In production, the `LicenseValidator` checks for valid signed keys.
+DVAI-Bridge is free for development on `localhost` and `127.0.0.1`. In production, the `LicenseValidator` checks for valid signed keys.
 
 1. **Mobile Production**: Detects native `DEBUG` flags in Capacitor and Cordova.
 2. **Setup**: Pass your key in the `licenseKey` property.
