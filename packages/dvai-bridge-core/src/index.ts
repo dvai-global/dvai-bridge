@@ -129,6 +129,12 @@ export class DvAI {
 		this.nativeGpuLayers = config.nativeGpuLayers ?? 99;
 		this.nativeThreads = config.nativeThreads ?? 4;
 		this.nativeContextSize = config.nativeContextSize ?? 2048;
+
+		// Resolve explicit backends immediately so getActiveBackend() is correct
+		// before initialize(). "auto" defers to initialize() for runtime env detection.
+		if (this.backend !== "auto") {
+			this.resolvedBackend = this.backend as "webllm" | "transformers" | "native";
+		}
 	}
 
 	/**
