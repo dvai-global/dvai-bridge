@@ -2,12 +2,12 @@
 layout: home
 
 hero:
-  name: "DvAI-Bridge"
+  name: "DVAI-Bridge"
   text: "Local AI Orchestration"
   tagline: "Unified LLM inference for Web, Capacitor, and Electron with zero cloud costs."
   image:
     src: /banner.png
-    alt: DvAI-Bridge Banner
+    alt: DVAI-Bridge Banner
   actions:
     - theme: brand
       text: Get Started
@@ -36,5 +36,3 @@ features:
   - title: 🔒 100% Local & Private
     details: Zero API costs, zero server maintenance, and maximum user privacy. Your data never leaves the device.
 ---
-
-
