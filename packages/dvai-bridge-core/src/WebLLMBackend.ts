@@ -9,205 +9,249 @@
  */
 
 export interface WebLLMBackendConfig {
-  modelId: string;
-  generationTimeout: number;
-  maxBlankChunks: number;
-  workerUrl?: string;
-  onProgress?: (info: any) => void;
+	modelId: string;
+	generationTimeout: number;
+	maxBlankChunks: number;
+	workerUrl?: string;
+	onProgress?: (info: any) => void;
 }
 
 export class WebLLMBackend {
-  private engine: any = null; // MLCEngine | WebWorkerMLCEngine
-  private modelId: string;
-  private generationTimeout: number;
-  private maxBlankChunks: number;
-  private workerUrl?: string;
-  private usingWorker: boolean = false;
+	private engine: any = null; // MLCEngine | WebWorkerMLCEngine
+	private modelId: string;
+	private generationTimeout: number;
+	private maxBlankChunks: number;
+	private workerUrl?: string;
+	private usingWorker: boolean = false;
 
-  /**
-   * Set to a non-null string when a fatal error occurs (blank output, timeout)
-   * that requires a full unload → reload cycle at the orchestrator level.
-   */
-  public lastFatalError: string | null = null;
+	/**
+	 * Set to a non-null string when a fatal error occurs (blank output, timeout)
+	 * that requires a full unload → reload cycle at the orchestrator level.
+	 */
+	public lastFatalError: string | null = null;
 
-  constructor(config: WebLLMBackendConfig) {
-    this.modelId = config.modelId;
-    this.generationTimeout = config.generationTimeout;
-    this.maxBlankChunks = config.maxBlankChunks;
-    this.workerUrl = config.workerUrl;
-  }
+	constructor(config: WebLLMBackendConfig) {
+		this.modelId = config.modelId;
+		this.generationTimeout = config.generationTimeout;
+		this.maxBlankChunks = config.maxBlankChunks;
+		this.workerUrl = config.workerUrl;
+	}
 
-  /** Clear the fatal error flag after a successful recovery. */
-  clearFatalError(): void {
-    this.lastFatalError = null;
-  }
+	/** Clear the fatal error flag after a successful recovery. */
+	clearFatalError(): void {
+		this.lastFatalError = null;
+	}
 
-  async initialize(onProgress?: (info: any) => void): Promise<void> {
-    const webllm = await import("@mlc-ai/web-llm");
+	async initialize(onProgress?: (info: any) => void): Promise<void> {
+		const webllm = await import("@mlc-ai/web-llm");
 
-    // Try worker-based engine first (fully offloads inference from main thread)
-    if (this.workerUrl && typeof Worker !== "undefined") {
-      try {
-        const worker = new Worker(this.workerUrl, { type: "module" });
-        this.engine = new webllm.WebWorkerMLCEngine(worker, {
-          initProgressCallback: onProgress,
-        });
-        await this.engine.reload(this.modelId);
-        this.usingWorker = true;
-        console.log("[DvAI/WebLLM] Initialized with Web Worker (main thread unblocked)");
-        return;
-      } catch (err) {
-        console.warn("[DvAI/WebLLM] Worker initialization failed, falling back to main thread:", err);
-      }
-    }
+		// Try worker-based engine first (fully offloads inference from main thread)
+		if (this.workerUrl && typeof Worker !== "undefined") {
+			try {
+				const worker = new Worker(this.workerUrl, { type: "module" });
+				this.engine = new webllm.WebWorkerMLCEngine(worker, {
+					initProgressCallback: onProgress,
+				});
+				await this.engine.reload(this.modelId);
+				this.usingWorker = true;
+				console.log(
+					"[DVAI/WebLLM] Initialized with Web Worker (main thread unblocked)",
+				);
+				return;
+			} catch (err) {
+				console.warn(
+					"[DVAI/WebLLM] Worker initialization failed, falling back to main thread:",
+					err,
+				);
+			}
+		}
 
-    // Fallback: main-thread engine (WebGPU compute is still async/non-blocking)
-    this.engine = await webllm.CreateMLCEngine(this.modelId, {
-      initProgressCallback: onProgress,
-    });
-    this.usingWorker = false;
-    console.log("[DvAI/WebLLM] Initialized on main thread (WebGPU compute is async)");
-  }
+		// Fallback: main-thread engine (WebGPU compute is still async/non-blocking)
+		this.engine = await webllm.CreateMLCEngine(this.modelId, {
+			initProgressCallback: onProgress,
+		});
+		this.usingWorker = false;
+		console.log(
+			"[DVAI/WebLLM] Initialized on main thread (WebGPU compute is async)",
+		);
+	}
 
-  isWorkerBased(): boolean {
-    return this.usingWorker;
-  }
+	isWorkerBased(): boolean {
+		return this.usingWorker;
+	}
 
-  getEngine(): any {
-    return this.engine;
-  }
+	getEngine(): any {
+		return this.engine;
+	}
 
-  /**
-   * Non-streaming chat completion with timeout protection.
-   */
-  async chatCompletion(requestBody: any): Promise<any> {
-    if (!this.engine) throw new Error("WebLLM engine not initialized");
+	/**
+	 * Non-streaming chat completion with timeout protection.
+	 */
+	async chatCompletion(requestBody: any): Promise<any> {
+		if (!this.engine) throw new Error("WebLLM engine not initialized");
 
-    const result: any = await this.withTimeout(
-      this.engine.chat.completions.create({
-        ...requestBody,
-        stream: false,
-      }),
-      this.generationTimeout
-    );
+		const result: any = await this.withTimeout(
+			this.engine.chat.completions.create({
+				...requestBody,
+				stream: false,
+			}),
+			this.generationTimeout,
+		);
 
-    // Validate response has actual content
-    const content = result?.choices?.[0]?.message?.content;
-    if (content === undefined || content === null || content === "") {
-      console.warn("[DvAI/WebLLM] Warning: Engine returned blank content — flagging for full restart.");
-      this.lastFatalError = "blank_output";
-      try { await this.engine.resetChat(); } catch (_) { /* best effort */ }
-      throw new Error("WebLLM engine returned blank content. A full engine restart is required.");
-    }
+		// Validate response has actual content
+		const content = result?.choices?.[0]?.message?.content;
+		if (content === undefined || content === null || content === "") {
+			console.warn(
+				"[DVAI/WebLLM] Warning: Engine returned blank content — flagging for full restart.",
+			);
+			this.lastFatalError = "blank_output";
+			try {
+				await this.engine.resetChat();
+			} catch (_) {
+				/* best effort */
+			}
+			throw new Error(
+				"WebLLM engine returned blank content. A full engine restart is required.",
+			);
+		}
 
-    return result;
-  }
+		return result;
+	}
 
-  /**
-   * Streaming chat completion with blank-chunk detection, timeout, and finish_reason termination.
-   * Returns a ReadableStream of SSE-formatted data.
-   */
-  createStreamingResponse(requestBody: any): ReadableStream<Uint8Array> {
-    const engine = this.engine;
-    if (!engine) throw new Error("WebLLM engine not initialized");
-    const maxBlankChunks = this.maxBlankChunks;
-    const generationTimeout = this.generationTimeout;
-    // Capture class reference for use inside ReadableStream closure
-    const backend = this;
+	/**
+	 * Streaming chat completion with blank-chunk detection, timeout, and finish_reason termination.
+	 * Returns a ReadableStream of SSE-formatted data.
+	 */
+	createStreamingResponse(requestBody: any): ReadableStream<Uint8Array> {
+		const engine = this.engine;
+		if (!engine) throw new Error("WebLLM engine not initialized");
+		const maxBlankChunks = this.maxBlankChunks;
+		const generationTimeout = this.generationTimeout;
+		// Capture class reference for use inside ReadableStream closure
+		const backend = this;
 
-    return new ReadableStream<Uint8Array>({
-      async start(controller) {
-        let consecutiveBlanks = 0;
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+		return new ReadableStream<Uint8Array>({
+			async start(controller) {
+				let consecutiveBlanks = 0;
+				let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-        try {
-          const asyncChunkGenerator = (await engine.chat.completions.create({
-            ...requestBody,
-            stream: true,
-          })) as unknown as AsyncIterable<any>;
+				try {
+					const asyncChunkGenerator = (await engine.chat.completions.create({
+						...requestBody,
+						stream: true,
+					})) as unknown as AsyncIterable<any>;
 
-          // Set overall generation timeout
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            timeoutId = setTimeout(() => {
-              reject(new Error(`Generation timed out after ${generationTimeout}ms`));
-            }, generationTimeout);
-          });
+					// Set overall generation timeout
+					const timeoutPromise = new Promise<never>((_, reject) => {
+						timeoutId = setTimeout(() => {
+							reject(
+								new Error(`Generation timed out after ${generationTimeout}ms`),
+							);
+						}, generationTimeout);
+					});
 
-          const streamPromise = (async () => {
-            for await (const chunk of asyncChunkGenerator) {
-              const delta = chunk?.choices?.[0]?.delta;
-              const finishReason = chunk?.choices?.[0]?.finish_reason;
+					const streamPromise = (async () => {
+						for await (const chunk of asyncChunkGenerator) {
+							const delta = chunk?.choices?.[0]?.delta;
+							const finishReason = chunk?.choices?.[0]?.finish_reason;
 
-              // Check for blank chunks
-              if (!delta?.content && delta?.content !== undefined) {
-                consecutiveBlanks++;
-                if (consecutiveBlanks >= maxBlankChunks) {
-                  console.warn(`[DvAI/WebLLM] ${maxBlankChunks} consecutive blank chunks detected — flagging for full restart.`);
-                  backend.lastFatalError = "blank_stream";
-                  try { engine.interruptGenerate(); } catch (_) { /* best effort */ }
-                  try { await engine.resetChat(); } catch (_) { /* best effort */ }
-                  controller.enqueue(
-                    new TextEncoder().encode(
-                      `data: ${JSON.stringify({ error: "Stream aborted: too many blank chunks. Engine restart required." })}\n\n`
-                    )
-                  );
-                  break;
-                }
-              } else {
-                consecutiveBlanks = 0;
-              }
+							// Check for blank chunks
+							if (!delta?.content && delta?.content !== undefined) {
+								consecutiveBlanks++;
+								if (consecutiveBlanks >= maxBlankChunks) {
+									console.warn(
+										`[DVAI/WebLLM] ${maxBlankChunks} consecutive blank chunks detected — flagging for full restart.`,
+									);
+									backend.lastFatalError = "blank_stream";
+									try {
+										engine.interruptGenerate();
+									} catch (_) {
+										/* best effort */
+									}
+									try {
+										await engine.resetChat();
+									} catch (_) {
+										/* best effort */
+									}
+									controller.enqueue(
+										new TextEncoder().encode(
+											`data: ${JSON.stringify({ error: "Stream aborted: too many blank chunks. Engine restart required." })}\n\n`,
+										),
+									);
+									break;
+								}
+							} else {
+								consecutiveBlanks = 0;
+							}
 
-              // Emit the chunk
-              controller.enqueue(
-                new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`)
-              );
+							// Emit the chunk
+							controller.enqueue(
+								new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`),
+							);
 
-              // Check if generation is complete
-              if (finishReason === "stop" || finishReason === "length") {
-                break;
-              }
-            }
-          })();
+							// Check if generation is complete
+							if (finishReason === "stop" || finishReason === "length") {
+								break;
+							}
+						}
+					})();
 
-          // Race: stream vs timeout
-          await Promise.race([streamPromise, timeoutPromise]);
-        } catch (error: any) {
-          console.error("[DvAI/WebLLM] Stream error:", error.message);
-          // Flag timeout errors for full restart
-          if (error.message?.includes("timed out")) {
-            backend.lastFatalError = "timeout";
-          }
-          // Try to interrupt and reset on failure
-          try { engine.interruptGenerate(); } catch (_) { /* best effort */ }
-          try { await engine.resetChat(); } catch (_) { /* best effort */ }
-          controller.enqueue(
-            new TextEncoder().encode(
-              `data: ${JSON.stringify({ error: error.message })}\n\n`
-            )
-          );
-        } finally {
-          if (timeoutId) clearTimeout(timeoutId);
-          controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
-          controller.close();
-        }
-      },
-    });
-  }
+					// Race: stream vs timeout
+					await Promise.race([streamPromise, timeoutPromise]);
+				} catch (error: any) {
+					console.error("[DVAI/WebLLM] Stream error:", error.message);
+					// Flag timeout errors for full restart
+					if (error.message?.includes("timed out")) {
+						backend.lastFatalError = "timeout";
+					}
+					// Try to interrupt and reset on failure
+					try {
+						engine.interruptGenerate();
+					} catch (_) {
+						/* best effort */
+					}
+					try {
+						await engine.resetChat();
+					} catch (_) {
+						/* best effort */
+					}
+					controller.enqueue(
+						new TextEncoder().encode(
+							`data: ${JSON.stringify({ error: error.message })}\n\n`,
+						),
+					);
+				} finally {
+					if (timeoutId) clearTimeout(timeoutId);
+					controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+					controller.close();
+				}
+			},
+		});
+	}
 
-  async unload(): Promise<void> {
-    if (this.engine) {
-      await this.engine.unload();
-      this.engine = null;
-    }
-  }
+	async unload(): Promise<void> {
+		if (this.engine) {
+			await this.engine.unload();
+			this.engine = null;
+		}
+	}
 
-  /** Wraps a promise with a timeout. */
-  private withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`Generation timed out after ${ms}ms`)), ms);
-      promise
-        .then((val) => { clearTimeout(timer); resolve(val); })
-        .catch((err) => { clearTimeout(timer); reject(err); });
-    });
-  }
+	/** Wraps a promise with a timeout. */
+	private withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+		return new Promise<T>((resolve, reject) => {
+			const timer = setTimeout(
+				() => reject(new Error(`Generation timed out after ${ms}ms`)),
+				ms,
+			);
+			promise
+				.then((val) => {
+					clearTimeout(timer);
+					resolve(val);
+				})
+				.catch((err) => {
+					clearTimeout(timer);
+					reject(err);
+				});
+		});
+	}
 }

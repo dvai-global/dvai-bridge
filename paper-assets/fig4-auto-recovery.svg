@@ -1,107 +1,135 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 620" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
   <defs>
     <marker id="arr4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#374151"/>
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#374151" />
     </marker>
     <style>
-      .title { font-size: 18px; font-weight: 700; fill: #111827; }
-      .state-label { font-size: 14px; font-weight: 700; fill: #111827; }
-      .state-sub { font-size: 11px; fill: #374151; }
-      .edge { font-size: 11px; fill: #374151; font-weight: 600; }
-      .edge-note { font-size: 10px; fill: #6B7280; font-style: italic; }
-      .hazard { font-size: 11px; font-weight: 700; fill: #991B1B; }
+      .title {
+        font-size: 18px;
+        font-weight: 700;
+        fill: #111827;
+      }
+
+      .state-label {
+        font-size: 14px;
+        font-weight: 700;
+        fill: #111827;
+      }
+
+      .state-sub {
+        font-size: 11px;
+        fill: #374151;
+      }
+
+      .edge {
+        font-size: 11px;
+        fill: #374151;
+        font-weight: 600;
+      }
+
+      .edge-note {
+        font-size: 10px;
+        fill: #6B7280;
+        font-style: italic;
+      }
+
+      .hazard {
+        font-size: 11px;
+        font-weight: 700;
+        fill: #991B1B;
+      }
     </style>
   </defs>
 
   <text x="440" y="30" class="title" text-anchor="middle">Figure 4 — Auto-Recovery State Machine (WebLLM driver)</text>
 
   <!-- Start dot -->
-  <circle cx="100" cy="90" r="8" fill="#111827"/>
-  <line x1="108" y1="90" x2="135" y2="90" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)"/>
+  <circle cx="100" cy="90" r="8" fill="#111827" />
+  <line x1="108" y1="90" x2="135" y2="90" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)" />
 
   <!-- State: Idle -->
-  <rect x="140" y="65" width="140" height="50" rx="10" fill="#F3F4F6" stroke="#374151" stroke-width="1.5"/>
+  <rect x="140" y="65" width="140" height="50" rx="10" fill="#F3F4F6" stroke="#374151" stroke-width="1.5" />
   <text x="210" y="86" class="state-label" text-anchor="middle">Idle</text>
   <text x="210" y="103" class="state-sub" text-anchor="middle">constructed, not loaded</text>
 
   <!-- initialize() arrow -->
-  <line x1="280" y1="90" x2="355" y2="90" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)"/>
+  <line x1="280" y1="90" x2="355" y2="90" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)" />
   <text x="317" y="82" class="edge" text-anchor="middle">initialize()</text>
 
   <!-- State: Initializing -->
-  <rect x="360" y="65" width="160" height="50" rx="10" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5"/>
+  <rect x="360" y="65" width="160" height="50" rx="10" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5" />
   <text x="440" y="86" class="state-label" text-anchor="middle">Initializing</text>
   <text x="440" y="103" class="state-sub" text-anchor="middle">MLCEngine loading</text>
 
-  <line x1="520" y1="90" x2="585" y2="90" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)"/>
+  <line x1="520" y1="90" x2="585" y2="90" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)" />
   <text x="552" y="82" class="edge" text-anchor="middle">onComplete</text>
 
   <!-- State: Ready -->
-  <rect x="590" y="65" width="140" height="50" rx="10" fill="#D1FAE5" stroke="#10B981" stroke-width="1.5"/>
+  <rect x="590" y="65" width="140" height="50" rx="10" fill="#D1FAE5" stroke="#10B981" stroke-width="1.5" />
   <text x="660" y="86" class="state-label" text-anchor="middle">Ready</text>
   <text x="660" y="103" class="state-sub" text-anchor="middle">isReady = true</text>
 
   <!-- Ready → Generating -->
-  <path d="M 660 115 C 660 170 660 210 660 235" fill="none" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)"/>
+  <path d="M 660 115 C 660 170 660 210 660 235" fill="none" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)" />
   <text x="682" y="175" class="edge">request</text>
   <text x="682" y="190" class="edge-note">fetch arrives</text>
 
   <!-- State: Generating -->
-  <rect x="580" y="235" width="160" height="56" rx="10" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5"/>
+  <rect x="580" y="235" width="160" height="56" rx="10" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5" />
   <text x="660" y="258" class="state-label" text-anchor="middle">Generating</text>
   <text x="660" y="275" class="state-sub" text-anchor="middle">streaming tokens,</text>
   <text x="660" y="288" class="state-sub" text-anchor="middle">monitoring blank/timeout</text>
 
   <!-- Generating → Ready (success) -->
-  <path d="M 580 248 C 500 230 500 150 590 110" fill="none" stroke="#10B981" stroke-width="1.5" marker-end="url(#arr4)"/>
+  <path d="M 580 248 C 500 230 500 150 590 110" fill="none" stroke="#10B981" stroke-width="1.5" marker-end="url(#arr4)" />
   <text x="505" y="178" class="edge" fill="#065F46">finish_reason = stop</text>
 
   <!-- Generating → FaultDetected -->
-  <line x1="660" y1="291" x2="660" y2="330" stroke="#EF4444" stroke-width="1.5" marker-end="url(#arr4)"/>
+  <line x1="660" y1="291" x2="660" y2="330" stroke="#EF4444" stroke-width="1.5" marker-end="url(#arr4)" />
   <text x="675" y="315" class="hazard">fault</text>
 
   <!-- State: FaultDetected -->
-  <rect x="540" y="332" width="240" height="60" rx="10" fill="#FEF2F2" stroke="#EF4444" stroke-width="1.5"/>
+  <rect x="540" y="332" width="240" height="60" rx="10" fill="#FEF2F2" stroke="#EF4444" stroke-width="1.5" />
   <text x="660" y="354" class="state-label" text-anchor="middle" fill="#7F1D1D">FaultDetected</text>
   <text x="660" y="372" class="state-sub" text-anchor="middle">blank-chunk threshold · timeout ·</text>
   <text x="660" y="385" class="state-sub" text-anchor="middle">WebLLM engine error → lastFatalError</text>
 
   <!-- Branch: attempts < maxRetries → Unloading -->
-  <line x1="540" y1="362" x2="425" y2="362" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)"/>
+  <line x1="540" y1="362" x2="425" y2="362" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)" />
   <text x="482" y="354" class="edge" text-anchor="middle">attempts &lt; max</text>
 
   <!-- State: Unloading -->
-  <rect x="260" y="335" width="160" height="56" rx="10" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+  <rect x="260" y="335" width="160" height="56" rx="10" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5" />
   <text x="340" y="358" class="state-label" text-anchor="middle">Unloading</text>
   <text x="340" y="375" class="state-sub" text-anchor="middle">backend.unload()</text>
   <text x="340" y="388" class="state-sub" text-anchor="middle">attempts++</text>
 
   <!-- Unloading → Reinitializing -->
-  <line x1="340" y1="335" x2="340" y2="275" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)"/>
+  <line x1="340" y1="335" x2="340" y2="275" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)" />
   <text x="395" y="308" class="edge">reload</text>
 
   <!-- State: Reinitializing -->
-  <rect x="260" y="215" width="160" height="58" rx="10" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5"/>
+  <rect x="260" y="215" width="160" height="58" rx="10" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5" />
   <text x="340" y="238" class="state-label" text-anchor="middle">Reinitializing</text>
   <text x="340" y="255" class="state-sub" text-anchor="middle">initializeBackend()</text>
   <text x="340" y="268" class="state-sub" text-anchor="middle">clearFatalError()</text>
 
   <!-- Reinitializing → Generating (retry request) -->
-  <path d="M 420 244 C 500 244 540 250 580 258" fill="none" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)"/>
+  <path d="M 420 244 C 500 244 540 250 580 258" fill="none" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)" />
   <text x="500" y="236" class="edge" text-anchor="middle">retry request</text>
 
   <!-- Branch: attempts >= maxRetries → Failed -->
-  <line x1="660" y1="392" x2="660" y2="435" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)"/>
+  <line x1="660" y1="392" x2="660" y2="435" stroke="#374151" stroke-width="1.5" marker-end="url(#arr4)" />
   <text x="675" y="418" class="hazard">exhausted</text>
 
   <!-- Failed -->
-  <rect x="570" y="438" width="180" height="50" rx="10" fill="#111827" stroke="#111827" stroke-width="1.5"/>
+  <rect x="570" y="438" width="180" height="50" rx="10" fill="#111827" stroke="#111827" stroke-width="1.5" />
   <text x="660" y="459" class="state-label" text-anchor="middle" fill="#FFFFFF">Failed</text>
   <text x="660" y="476" class="state-sub" text-anchor="middle" fill="#D1D5DB">HTTP 500 to caller</text>
 
   <!-- Legend -->
-  <rect x="40" y="500" width="800" height="100" rx="8" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1"/>
-  <text x="60" y="524" class="state-label" font-size="13">Parameters (from DvAIConfig)</text>
+  <rect x="40" y="500" width="800" height="100" rx="8" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1" />
+  <text x="60" y="524" class="state-label" font-size="13">Parameters (from DVAIConfig)</text>
   <text x="60" y="546" class="state-sub">maxRetries — default 2 — bound on recovery attempts per session</text>
   <text x="60" y="563" class="state-sub">maxBlankChunks — default 20 — consecutive empty deltas before FaultDetected</text>
   <text x="60" y="580" class="state-sub">generationTimeout — default 60000 ms — per-generation wall clock before FaultDetected</text>

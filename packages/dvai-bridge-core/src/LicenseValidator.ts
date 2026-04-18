@@ -10,15 +10,15 @@ export class LicenseValidator {
 	private licenseKey?: string;
 	private isDev: boolean;
 
-	// Public Key for DvAI License Verification (ECDSA P-256)
+	// Public Key for DVAI License Verification (ECDSA P-256)
 	// This is a placeholder public key. In a real scenario, this would be your actual public key.
 	private static readonly PUBLIC_KEY_JWK = {
 		crv: "P-256",
 		ext: true,
 		key_ops: ["verify"],
 		kty: "EC",
-		x: "u36_8X7-Hh3vREf9G1B-F-G7h-K... ( DvAI_PUBLIC_X )", // Placeholder
-		y: "v47_9Y8-Ii4wSFg0H2C-G-H8i-L... ( DvAI_PUBLIC_Y )", // Placeholder
+		x: "u36_8X7-Hh3vREf9G1B-F-G7h-K... ( DVAI_PUBLIC_X )", // Placeholder
+		y: "v47_9Y8-Ii4wSFg0H2C-G-H8i-L... ( DVAI_PUBLIC_Y )", // Placeholder
 	};
 
 	constructor(config: LicenseConfig = {}) {
@@ -72,7 +72,7 @@ export class LicenseValidator {
 	async validate(): Promise<boolean> {
 		if (this.isDev) {
 			console.log(
-				"DvAI: Development environment detected. Bypassing license check.",
+				"DVAI: Development environment detected. Bypassing license check.",
 			);
 			return true;
 		}

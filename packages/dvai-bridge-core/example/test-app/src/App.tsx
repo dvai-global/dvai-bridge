@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DvAI } from "@dvai-bridge/core";
+import { DVAI } from "@dvai-bridge/core";
 import { ChatOpenAI } from "@langchain/openai";
 import { DynamicTool } from "langchain";
 import "./App.css";
@@ -12,10 +12,10 @@ function App() {
 
 	const runTest = async () => {
 		setStatus("loading");
-		console.log("Initializing DvAI (Transformers Backend)...");
+		console.log("Initializing DVAI (Transformers Backend)...");
 
 		try {
-			const dvai = new DvAI({
+			const dvai = new DVAI({
 				backend: "transformers",
 				transformersModelId: "onnx-community/Llama-3.2-1B-Instruct-ONNX",
 				pipelineTask: "text-generation",
@@ -31,7 +31,7 @@ function App() {
 			});
 
 			setStatus("running");
-			console.log("DvAI Ready. Setting up LangChain 1.x logic...");
+			console.log("DVAI Ready. Setting up LangChain 1.x logic...");
 
 			const model = new ChatOpenAI({
 				apiKey: "not-needed",
@@ -98,7 +98,10 @@ When you receive a tool result, use it to provide a final natural language answe
 							continue;
 						}
 					} catch (e) {
-						console.warn("Iteration resulted in invalid JSON, treating as text:", e);
+						console.warn(
+							"Iteration resulted in invalid JSON, treating as text:",
+							e,
+						);
 					}
 				}
 
@@ -120,7 +123,7 @@ When you receive a tool result, use it to provide a final natural language answe
 
 	return (
 		<div className="app-container">
-			<h1>DvAI Transformers Repro</h1>
+			<h1>DVAI Transformers Repro</h1>
 			<div className="controls">
 				<button
 					onClick={runTest}
