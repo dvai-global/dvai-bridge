@@ -1,11 +1,48 @@
 // One-shot converter: RESEARCH.md → RESEARCH.html → RESEARCH.pdf
 // Uses `marked` for HTML rendering and the system Chrome for PDF printing.
+//
+// `marked` is not a committed devDependency — it's only needed to produce
+// the research artifact. This script installs it on demand, runs the build,
+// and removes it again on the way out (but only if it installed it itself;
+// if marked was already present, it is left alone).
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { marked } from "marked";
+
+const IS_WIN = process.platform === "win32";
+const pnpm = (args) =>
+  execFileSync("pnpm", args, { stdio: "inherit", shell: IS_WIN });
+
+let installedMarkedHere = false;
+let marked;
+try {
+  ({ marked } = await import("marked"));
+} catch {
+  console.log("[build-research-pdf] Installing marked temporarily...");
+  pnpm(["add", "-D", "-w", "marked"]);
+  installedMarkedHere = true;
+  ({ marked } = await import("marked"));
+}
+
+try {
+  await main();
+} finally {
+  if (installedMarkedHere) {
+    console.log("[build-research-pdf] Removing marked (installed for this run only)...");
+    try {
+      pnpm(["remove", "-w", "marked"]);
+    } catch (e) {
+      console.warn(
+        "[build-research-pdf] pnpm remove failed; marked may still be installed.",
+        e?.message ?? e,
+      );
+    }
+  }
+}
+
+async function main() {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
@@ -14,8 +51,7 @@ const htmlPath = resolve(repoRoot, "RESEARCH.html");
 const pdfPath = resolve(repoRoot, "RESEARCH.pdf");
 
 if (!existsSync(mdPath)) {
-  console.error(`[build-research-pdf] Not found: ${mdPath}`);
-  process.exit(1);
+  throw new Error(`[build-research-pdf] Not found: ${mdPath}`);
 }
 
 const md = readFileSync(mdPath, "utf8");
@@ -123,8 +159,9 @@ const candidates = [
 ];
 const chrome = candidates.find(existsSync);
 if (!chrome) {
-  console.error("[build-research-pdf] No Chrome/Edge found in standard locations.");
-  process.exit(2);
+  throw new Error(
+    "[build-research-pdf] No Chrome/Edge found in standard locations.",
+  );
 }
 console.log(`[build-research-pdf] Using ${chrome}`);
 
@@ -142,8 +179,11 @@ const args = [
 try {
   execFileSync(chrome, args, { stdio: "inherit" });
 } catch (err) {
-  console.error("[build-research-pdf] Chrome print failed:", err.message);
-  process.exit(3);
+  throw new Error(
+    `[build-research-pdf] Chrome print failed: ${err.message}`,
+  );
 }
 
 console.log(`[build-research-pdf] Wrote ${pdfPath}`);
+}
+
