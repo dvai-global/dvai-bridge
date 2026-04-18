@@ -7,6 +7,7 @@ The **Native** backend enables direct GGUF model execution on mobile devices (iO
 To use the native backend, your project must be a **Capacitor** application.
 
 ### Installation:
+
 ```bash
 pnpm add llama-cpp-capacitor
 ```
@@ -20,17 +21,18 @@ When using the native backend, you must provide the path to your GGUF model file
 
 ```typescript
 const config = {
-  backend: "native", // Or "auto" for automatic detection
-  nativeModelPath: "public/models/mistral-7b-v0.1.Q4_K_M.gguf",
-  nativeGpuLayers: 20, // Optional: Number of layers to offload to GPU
-  nativeThreads: 4,     // Optional: Number of CPU threads to use
-  nativeContextSize: 2048 // Optional: Context window size
+	backend: "native", // Or "auto" for automatic detection
+	nativeModelPath: "public/models/mistral-7b-v0.1.Q4_K_M.gguf",
+	nativeGpuLayers: 20, // Optional: Number of layers to offload to GPU
+	nativeThreads: 4, // Optional: Number of CPU threads to use
+	nativeContextSize: 2048, // Optional: Context window size
 };
 ```
 
 ## Automatic Detection
 
-By setting `backend: "auto"`, DvAI-Bridge will automatically detect the environment:
+By setting `backend: "auto"`, DVAI-Bridge will automatically detect the environment:
+
 - If running as a **Native App (Capacitor)**, it will prioritize the Native backend.
 - If running in a **Web Browser**, it will fall back to WebLLM or Transformers.js.
 

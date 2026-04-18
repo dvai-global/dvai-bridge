@@ -1,7 +1,7 @@
 import { defineConfig } from "vitepress";
 
 export default defineConfig({
-	title: "DvAI-Bridge",
+	title: "DVAI-Bridge",
 	description: "Local AI Orchestration for Web, Capacitor, and Electron",
 	themeConfig: {
 		logo: "/logo.png",
@@ -33,10 +33,10 @@ export default defineConfig({
 		socialLinks: [
 			{ icon: "github", link: "https://github.com/Westenets/dvai-bridge" },
 		],
-		    footer: {
-      message: 'Released under Custom License.',
-      copyright: 'Copyright © 2024-present <a href="https://deepvoiceai.co" target="_blank" rel="noopener">Deep Voice AI Limited</a>'
-    }
-,
+		footer: {
+			message: "Released under Custom License.",
+			copyright:
+				'Copyright © 2024-present <a href="https://deepvoiceai.co" target="_blank" rel="noopener">Deep Voice AI Limited</a>',
+		},
 	},
 });
