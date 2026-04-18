@@ -28,7 +28,7 @@
   <text x="40" y="196" class="layer-label">API-COMPATIBILITY LAYER (MSW)</text>
   <rect x="40" y="206" width="800" height="72" rx="8" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5"/>
   <text x="60" y="231" class="box-title">Service Worker + MSW Handler</text>
-  <text x="60" y="251" class="box-sub">Intercepts fetch to https://api.openai.local/v1/chat/completions</text>
+  <text x="60" y="251" class="box-sub">Intercepts fetch to OpenAI endpoints under https://api.openai.local/v1</text>
   <text x="60" y="268" class="box-sub">Request parsing · streaming vs non-streaming routing · SSE packaging</text>
 
   <line x1="440" y1="278" x2="440" y2="306" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arrow)"/>
@@ -52,7 +52,7 @@
   <rect x="313" y="458" width="253" height="72" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5"/>
   <text x="333" y="482" class="box-title">TransformersBackend</text>
   <text x="333" y="501" class="box-sub">@huggingface/transformers · ONNX</text>
-  <text x="333" y="518" class="box-sub">Multi-modal · simulated streaming</text>
+  <text x="333" y="518" class="box-sub">Multi-modal · true token streaming</text>
 
   <rect x="586" y="458" width="254" height="72" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1.5"/>
   <text x="606" y="482" class="box-title">NativeBackend</text>
