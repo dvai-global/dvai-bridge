@@ -1,12 +1,36 @@
 /**
  * Transformers.js Web Worker Entry Point
  * Runs inference inside a Web Worker to keep the main thread unblocked.
- * Supports any pipeline task (text-generation, text-to-image, ASR, feature-extraction, etc.)
+ * Supports any pipeline task (text-generation, text-to-image, ASR,
+ * feature-extraction, etc.).
+ *
+ * Special case: Gemma-4 multimodal models (detected by modelId pattern
+ * `gemma-4-...`) bypass the generic `pipeline()` init and load
+ * `Gemma4ForConditionalGeneration` + `AutoProcessor` directly so we can
+ * feed audio `Float32Array` through the processor's third positional
+ * argument. The vision_encoder is nulled after load to reclaim ~99 MB
+ * since the worker-invocation flow currently routes via `runPipeline`
+ * (which accepts text + audio content parts). Audio bytes travel from
+ * main thread → worker via `postMessage` structured clone, NOT JSON, so
+ * `Float32Array` survives the hop intact.
+ *
+ * This special-casing keeps the library's promise: "load Gemma-4 in a
+ * worker and it just works" without each host app having to ship a
+ * custom worker file. Other custom-pipeline cases continue to use the
+ * main-thread `createPipeline` factory path.
  *
  * Deploy this file to your public directory via `dvai-bridge init`.
  */
 // @ts-ignore - module resolved at runtime
-import { pipeline, env, TextStreamer } from "@huggingface/transformers";
+import {
+  pipeline,
+  env,
+  TextStreamer,
+  // @ts-ignore - exported at runtime; not always in the package's type defs
+  AutoProcessor,
+  // @ts-ignore - exported at runtime; not always in the package's type defs
+  Gemma4ForConditionalGeneration,
+} from "@huggingface/transformers";
 
 /**
  * Aggressive content flattening to satisfy Jinja2 templates (like Llama 3)
@@ -52,6 +76,32 @@ env.remotePathTemplate = "{model}/resolve/{revision}/";
 let activePipeline: any = null;
 let activeModelId: string = "";
 let currentTask: string = "text-generation";
+
+/**
+ * Detects Gemma-4 multimodal models (e.g. "onnx-community/gemma-4-E2B-it-ONNX",
+ * "onnx-community/gemma-4-E4B-it-ONNX"). These need a custom init path to
+ * load `Gemma4ForConditionalGeneration` + `AutoProcessor` so audio input
+ * can reach the processor's audio arg.
+ */
+function isGemma4Multimodal(modelId: string): boolean {
+  return /\bgemma-4-/i.test(modelId);
+}
+
+/**
+ * Extract the first audio `Float32Array` from a message's content array,
+ * using the dvai-bridge convention `{ type: "audio", data: Float32Array }`.
+ * Returns null if no audio part exists.
+ */
+function extractAudio(messages: any[]): Float32Array | null {
+  const last = messages[messages.length - 1];
+  if (!last || !Array.isArray(last.content)) return null;
+  for (const part of last.content) {
+    if (part && part.type === "audio" && part.data) {
+      return part.data as Float32Array;
+    }
+  }
+  return null;
+}
 
 /**
  * Convert a Transformers.js Tensor (or plain array) into a nested number[][].
@@ -104,6 +154,83 @@ self.onmessage = async (event: MessageEvent) => {
         activeModelId = data.modelId;
         const device = data.device === "cpu" ? "wasm" : data.device;
 
+        if (isGemma4Multimodal(data.modelId)) {
+          // Gemma-4 multimodal custom init: load ForConditionalGeneration +
+          // AutoProcessor directly so we can feed audio. Vision_encoder is
+          // nulled after load to reclaim ~99 MB since the runPipeline flow
+          // only uses text + audio content parts today.
+          const processor = await (AutoProcessor as any).from_pretrained(
+            data.modelId,
+            {
+              progress_callback: (info: any) => {
+                self.postMessage({ type: "progress", id, data: info });
+              },
+            },
+          );
+          const model = await (Gemma4ForConditionalGeneration as any).from_pretrained(
+            data.modelId,
+            {
+              dtype: data.dtype,
+              device: device,
+              progress_callback: (info: any) => {
+                self.postMessage({ type: "progress", id, data: info });
+              },
+            },
+          );
+          try {
+            if (model.vision_encoder) model.vision_encoder = null;
+          } catch {
+            /* ignore */
+          }
+
+          // Wrap model+processor as a pipeline-shaped callable: takes
+          // (messages, options) → [{ generated_text: string }]. Same contract
+          // as the main-thread custom callable so the same message shapes
+          // work against either path (main-thread `createPipeline` or this
+          // worker path).
+          const callable: any = async (messages: any, options: any) => {
+            const prompt = processor.apply_chat_template(messages, {
+              enable_thinking: false,
+              add_generation_prompt: true,
+            });
+            const audio = extractAudio(messages);
+            const inputs = await processor(prompt, null, audio, {
+              add_special_tokens: false,
+            });
+            const genArgs: Record<string, unknown> = {
+              ...inputs,
+              max_new_tokens: options?.max_new_tokens ?? 1024,
+              temperature: options?.temperature ?? 0,
+              do_sample: options?.do_sample ?? false,
+              top_p: options?.top_p ?? 1,
+            };
+            if (options?.streamer) genArgs.streamer = options.streamer;
+            const outputs = await model.generate(genArgs);
+            const promptLen = inputs.input_ids.dims.at(-1);
+            const generated = outputs.slice(null, [promptLen, null]);
+            const decoded = processor.batch_decode(generated, {
+              skip_special_tokens: true,
+            });
+            return [{ generated_text: decoded[0] ?? "" }];
+          };
+
+          // Expose tokenizer for `generate_stream` (TextStreamer needs it).
+          callable.tokenizer = processor.tokenizer;
+          // Dispose hook so the "unload" handler frees VRAM.
+          callable.dispose = async () => {
+            try {
+              await model.dispose?.();
+            } catch {
+              /* ignore */
+            }
+          };
+
+          activePipeline = callable;
+          self.postMessage({ type: "init_complete", id });
+          break;
+        }
+
+        // Default: generic pipeline() for all other models/tasks.
         activePipeline = await pipeline(currentTask as any, data.modelId, {
           device: device,
           progress_callback: (info: any) => {
