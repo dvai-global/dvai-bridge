@@ -138,11 +138,39 @@ export interface DVAIConfig {
 	transformersWorkerUrl?: string;
 	/**
 	 * Custom pipeline factory for Transformers.js backend.
+	 * MAIN-THREAD ONLY — function closures don't cross the Worker boundary.
 	 * When provided, replaces the default pipeline() call with your own
 	 * model loading and inference logic. Must return a callable that accepts
 	 * (messages, options) and returns [{ generated_text: string }].
+	 *
+	 * For multimodal models that should run in the worker (recommended),
+	 * use the declarative `transformersModelClass` / `transformersProcessorClass`
+	 * / `transformersDisableEncoders` config instead.
 	 */
 	createPipeline?: import("./TransformersBackend.js").CreatePipelineFn;
+	/**
+	 * Name of a transformers.js export to use as the model class (loaded via
+	 * `ClassName.from_pretrained(modelId)`). Enables the declarative
+	 * multimodal loader — works in the worker AND on main thread so the
+	 * same config ships correctly regardless of path.
+	 *
+	 * Examples: "Gemma4ForConditionalGeneration", "LlavaForConditionalGeneration",
+	 * "AutoModelForCausalLM". Leave unset to use the generic `pipeline()` factory.
+	 */
+	transformersModelClass?: string;
+	/**
+	 * Processor class name for the declarative loader. Default: "AutoProcessor".
+	 * Only used when `transformersModelClass` is set.
+	 */
+	transformersProcessorClass?: string;
+	/**
+	 * Model submodule fields to null out after load, e.g. `["vision_encoder"]`
+	 * for a voice-only host app using a multimodal checkpoint. Purely
+	 * declarative — dvai-bridge walks the list and nulls each named field
+	 * if present; unknown/absent names are silently ignored. Host apps
+	 * control this based on their own criteria.
+	 */
+	transformersDisableEncoders?: string[];
 
 	// --- Native backend (llama-cpp-capacitor) options ---
 	/** Path to the GGUF model file for native backend. Required when using backend: "native". */
@@ -188,6 +216,9 @@ export class DVAI {
 	public transformersWorkerUrl: string;
 	public dtype?: string;
 	public createPipeline?: import("./TransformersBackend.js").CreatePipelineFn;
+	public transformersModelClass?: string;
+	public transformersProcessorClass?: string;
+	public transformersDisableEncoders?: string[];
 
 	// Native backend options
 	public nativeModelPath: string;
@@ -217,6 +248,9 @@ export class DVAI {
 		this.device = config.device || "auto";
 		this.dtype = config.dtype;
 		this.createPipeline = config.createPipeline;
+		this.transformersModelClass = config.transformersModelClass;
+		this.transformersProcessorClass = config.transformersProcessorClass;
+		this.transformersDisableEncoders = config.transformersDisableEncoders;
 		this.generationTimeout = config.generationTimeout ?? 60000;
 		this.maxBlankChunks = config.maxBlankChunks ?? 20;
 		this.maxRetries = config.maxRetries ?? 2;
@@ -678,6 +712,9 @@ export class DVAI {
 				pipelineTask: this.pipelineTask,
 				dtype: this.dtype,
 				createPipeline: this.createPipeline,
+				modelClass: this.transformersModelClass,
+				processorClass: this.transformersProcessorClass,
+				disableEncoders: this.transformersDisableEncoders,
 			});
 			await backend.initialize(onProgress);
 			this.backendInstance = backend;
