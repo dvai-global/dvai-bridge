@@ -11,7 +11,7 @@ Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, ze
 ## 🚀 Key Features
 
 - **Multi-Backend**: Choose between **WebLLM** (MLC/WebGPU) or **Transformers.js** (ONNX/WebGPU/CPU) for maximum model compatibility.
-- **Multi-Modal**: Transformers.js backend supports text-generation, text-to-image, ASR, TTS, and more via configurable `pipelineTask`.
+- **Multi-Modal**: Transformers.js backend supports text-generation, text-to-image, ASR, TTS, and more via configurable `pipelineTask`. For models like Gemma 4 / LLaVA / Idefics, a **declarative loader** (`transformersModelClass` + `transformersProcessorClass`) runs them in the Web Worker with zero library-side model knowledge — swap models by changing string config.
 - **Local-First**: Runs LLMs entirely in the browser using WebGPU/WebAssembly.
 - **OpenAI Compatible**: Exposes a `mockUrl` that behaves exactly like OpenAI's API — works with any agent SDK.
 - **Worker Offloaded**: Inference runs in Web Workers to keep the main UI thread responsive.
@@ -264,6 +264,10 @@ await ai.initialize(); // Re-initialize
 | `serviceWorkerUrl`      | `string`                      | `"/mockServiceWorker.js"`                        | Path to MSW worker                       |
 | `webllmWorkerUrl`       | `string`                      | `"/dvai-webllm.worker.js"`                       | Path to WebLLM inference worker          |
 | `transformersWorkerUrl` | `string`                      | `"/dvai-transformers.worker.js"`                 | Path to Transformers.js inference worker |
+| `transformersModelClass`      | `string`   | —                 | Name of a transformers.js export to load via `.from_pretrained`. Enables the declarative multimodal loader (e.g. `"Gemma4ForConditionalGeneration"`).      |
+| `transformersProcessorClass`  | `string`   | `"AutoProcessor"` | Processor class name. Only used with `transformersModelClass`.                                                                                             |
+| `transformersDisableEncoders` | `string[]` | `[]`              | Model submodule fields to null out after load (e.g. `["vision_encoder"]`). Host app decides based on modality needs.                                      |
+| `createPipeline`        | `CreatePipelineFn`            | —                                                | Custom pipeline factory (main-thread only). Use the declarative loader above for worker-thread support. |
 | `licenseKey`            | `string`                      | —                                                | License key for production               |
 | `autoInit`              | `boolean`                     | `true`                                           | Auto-initialize on mount                 |
 

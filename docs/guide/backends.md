@@ -58,73 +58,37 @@ const config = {
 	device: "auto", // "webgpu" | "cpu" | "auto"
 	dtype: "q4", // Quantized for speed and memory efficiency
 	pipelineTask: "text-generation",
-	transformersWorkerUrl: "/dvai-transformers.worker.js", // Optional: run in Web Worker
+	// Worker is the default. `transformersWorkerUrl` resolves to
+	// "/dvai-transformers.worker.js" automatically; only override if you
+	// moved the worker file or have a reason to disable it.
 };
 ```
+
+> [!IMPORTANT]
+> **Worker thread is the default, and the library tries hard to keep it that way.** If the worker URL is missing or the script fails to load, dvai-bridge logs a loud error and falls back to running on the main thread — which WILL block your UI during inference. Run `npx dvai-bridge init` once to copy the worker file into your `public/`, and don't override `transformersWorkerUrl: ""` unless you genuinely need main-thread inference.
 
 > [!TIP]
 > **Dealing with "Unknown ArrayValue filter: trim"**: If you encounter this error (common with Llama 3/3.2 models), ensure your input content is a string. `dvai-bridge` automatically flattens structured content blocks (like those from LangChain) into strings to maintain compatibility with the model's Jinja2 templates.
 
 ---
 
-### Custom Pipeline Factory (`createPipeline`)
+### Declarative Multimodal Loader
 
-Many newer models (multimodal models like Gemma 4, or any model whose architecture isn't supported by the `pipeline()` API) require direct model loading. Instead of adding every possible model loader to dvai-bridge, the library exposes a **`createPipeline`** callback that lets you control exactly how the model is loaded and how inference runs.
+Many modern models (Gemma 4, LLaVA, Idefics, Qwen-VL, etc.) don't fit the stock `pipeline()` factory — they expect to be loaded via named model and processor classes, with audio / image inputs passed through the processor's positional arguments. Instead of hardcoding a detection table per model family, dvai-bridge exposes three declarative config fields that tell the library **which transformers.js classes to load, which processor to pair them with, and which submodules to null after load**. Everything else — the worker, the OpenAI endpoint, streaming, `runPipeline()` for binary payloads — just works.
 
-DVAI handles everything else: MSW setup, the OpenAI-compatible endpoint, response formatting, and streaming.
+This is the recommended path for multimodal models. It runs in the worker by default (so the main thread stays unblocked) and on the main-thread fallback path too (so behavior is identical regardless of where the model lands).
 
-#### When to use `createPipeline`:
+#### When to use the declarative loader
 
-- The model's architecture is not supported by `pipeline()` (e.g., `image-text-to-text`, `any-to-any`).
-- You need direct control over model loading, processor/tokenizer setup, or generation options.
-- You want to use model-specific classes like `Gemma4ForConditionalGeneration`.
+- Your model requires a specific `...ForConditionalGeneration` class, not `pipeline()`.
+- Your model needs `AutoProcessor` (or similar) for audio/image/video inputs alongside text.
+- You want to null a specific submodule after load (e.g. drop `vision_encoder` on a voice-only app to reclaim VRAM).
+- You want the worker path to handle it — no framework-specific factory code to cross the worker boundary.
 
-#### Example: Gemma 4 E2B (Multimodal)
+#### Example: Gemma 4 E2B (audio + text, voice-only host)
 
 ```typescript
-import { DVAI, type CreatePipelineFn } from "@dvai-bridge/core";
-
-const createGemma4Pipeline: CreatePipelineFn = async (transformers, ctx) => {
-	const { AutoProcessor, Gemma4ForConditionalGeneration } = transformers;
-
-	// Load model + processor using the HF-recommended approach
-	const processor = await AutoProcessor.from_pretrained(ctx.modelId, {
-		progress_callback: ctx.onProgress,
-	});
-	const model = await Gemma4ForConditionalGeneration.from_pretrained(
-		ctx.modelId,
-		{
-			dtype: ctx.dtype,
-			device: ctx.device,
-			progress_callback: ctx.onProgress,
-		},
-	);
-
-	// Return a pipeline-compatible callable
-	// Must accept (messages, options) and return [{ generated_text: string }]
-	return async (messages, options) => {
-		const prompt = processor.apply_chat_template(messages, {
-			enable_thinking: false,
-			add_generation_prompt: true,
-		});
-		const inputs = await processor(prompt, null, null, {
-			add_special_tokens: false,
-		});
-		const outputs = await model.generate({
-			...inputs,
-			max_new_tokens: options?.max_new_tokens ?? 512,
-			temperature: options?.temperature ?? 1.0,
-			top_p: options?.top_p ?? 0.95,
-			do_sample: options?.do_sample ?? true,
-		});
-		const promptLength = inputs.input_ids.dims.at(-1);
-		const generatedTokens = outputs.slice(null, [promptLength, null]);
-		const decoded = processor.batch_decode(generatedTokens, {
-			skip_special_tokens: true,
-		});
-		return [{ generated_text: decoded[0] ?? "" }];
-	};
-};
+import { DVAI } from "@dvai-bridge/core";
 
 const dvai = new DVAI({
 	backend: "transformers",
@@ -132,24 +96,91 @@ const dvai = new DVAI({
 	pipelineTask: "image-text-to-text",
 	dtype: "q4f16",
 	device: "webgpu",
-	transformersWorkerUrl: "", // Custom pipelines run on main thread
-	createPipeline: createGemma4Pipeline,
+
+	// Worker URL — defaults to this value already; shown for clarity.
+	// dvai-bridge will use the worker path when the file is deployed.
+	transformersWorkerUrl: "/dvai-transformers.worker.js",
+
+	// Declarative loader — dvai-bridge calls
+	//   Gemma4ForConditionalGeneration.from_pretrained(modelId, {...})
+	//   AutoProcessor.from_pretrained(modelId, {...})
+	// and wraps them in a pipeline-shaped callable. Same contract as
+	// `pipeline()`, so chatCompletion / streaming / runPipeline all work.
+	transformersModelClass: "Gemma4ForConditionalGeneration",
+	transformersProcessorClass: "AutoProcessor",
+
+	// Voice-only host app — drop the vision encoder to reclaim ~99 MB of
+	// VRAM after the model loads. dvai-bridge stays modality-agnostic;
+	// this is YOUR policy about which modalities you care about.
+	transformersDisableEncoders: ["vision_encoder"],
 });
 
 await dvai.initialize();
-// MSW is now active at https://api.openai.local/v1 with the following endpoints:
-//   POST /chat/completions   — full chat API (streaming + non-streaming)
-//   POST /completions        — legacy OpenAI completion (auto-forwards to chat)
-//   POST /embeddings         — embeddings (transformers feature-extraction or native embeddingMode)
-//   GET  /models             — single-entry list
-// Use ChatOpenAI, Vercel AI SDK, or any OpenAI-compatible client
 ```
 
-#### Example: Custom Text Generation with Tokenizer
+#### Feeding audio / image inputs
 
-For models that work with `AutoTokenizer` but not `AutoProcessor`:
+The generic multimodal callable uses the common `processor(prompt, images, audio, options)` call signature. Pass media as content parts on the last user message:
 
 ```typescript
+// Audio (e.g. Gemma-4 audio transcription + formatting)
+const pcm = new Float32Array(/* 16kHz mono audio samples */);
+
+const result = await dvai.runPipeline(
+	[
+		{ role: "system", content: "You are a helpful assistant." },
+		{
+			role: "user",
+			content: [
+				{ type: "text", text: "Transcribe this audio:" },
+				{ type: "audio", data: pcm },
+			],
+		},
+	],
+	{ max_new_tokens: 1024 },
+);
+console.log(result[0].generated_text);
+
+// Image content parts use { type: "image", image | url | data }
+// and arrive at the processor as the `images` positional arg.
+```
+
+`runPipeline()` posts the messages to the worker via `postMessage`, so binary payloads like `Float32Array` survive intact — JSON serialization through MSW would turn them into enumerated object keys and explode the tokenizer. Use `runPipeline()` for any call that carries binary content; text-only calls can still go through `chatCompletion()` / MSW.
+
+#### The three declarative config fields
+
+| Field                           | Type       | Default          | Description                                                                                                                                                                                          |
+| :------------------------------ | :--------- | :--------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `transformersModelClass`        | `string`   | —                | Name of a transformers.js export to use as the model class. Loaded via `ClassName.from_pretrained(modelId)`. Enables the declarative loader. Leave unset to use the stock `pipeline()` factory.      |
+| `transformersProcessorClass`    | `string`   | `"AutoProcessor"` | Processor class name. Only used when `transformersModelClass` is set.                                                                                                                                |
+| `transformersDisableEncoders`   | `string[]` | `[]`             | Model submodule fields to null after load (e.g. `["vision_encoder"]`). Purely declarative — the library walks the list and nulls each field if present. Unknown/absent names are silently ignored.   |
+
+#### Generic by design
+
+The library has no hardcoded knowledge of any specific model. If transformers.js exports the class and the processor follows the common `(prompt, images, audio, options)` call signature, it just works. Swapping to a different multimodal checkpoint tomorrow is three string fields in config — no library-side change.
+
+If you hit a model whose processor takes a non-standard call signature (kwargs-style, videos-only, etc.), drop to the `createPipeline` factory below for full control. That's the only escape hatch you'll ever need.
+
+---
+
+### Custom Pipeline Factory (`createPipeline`)
+
+When the declarative loader can't express what your model needs — exotic processor call signatures, bespoke pre/post-processing, a tokenizer-only setup — pass a factory function instead. You supply the model-loading and inference logic; dvai-bridge handles MSW, the OpenAI endpoint, response formatting, and streaming.
+
+> [!IMPORTANT]
+> **`createPipeline` is main-thread only.** Function closures can't cross the Worker boundary. If your model needs to run off the main thread, use the **declarative loader** above — that path runs in the worker.
+
+#### When to use `createPipeline`:
+
+- The model's processor takes kwargs or a non-standard positional order that the generic multimodal callable doesn't match.
+- You need `AutoTokenizer` + `AutoModelForCausalLM` with custom chat-template handling.
+- You want to inject pre/post-processing (e.g. a deduplication pass, a custom streamer).
+
+#### Example: Tokenizer-based text generation
+
+```typescript
+import { DVAI, type CreatePipelineFn } from "@dvai-bridge/core";
+
 const createCustomTextPipeline: CreatePipelineFn = async (
 	transformers,
 	ctx,
@@ -183,6 +214,16 @@ const createCustomTextPipeline: CreatePipelineFn = async (
 		return [{ generated_text: decoded[0] ?? "" }];
 	};
 };
+
+const dvai = new DVAI({
+	backend: "transformers",
+	transformersModelId: "your-custom-model-id",
+	pipelineTask: "text-generation",
+	dtype: "q4f16",
+	device: "webgpu",
+	transformersWorkerUrl: "", // main-thread only when using createPipeline
+	createPipeline: createCustomTextPipeline,
+});
 ```
 
 #### The `CreatePipelineFn` Signature
@@ -201,8 +242,8 @@ type CreatePipelineFn = (
 type PipelineCallable = (messages: any, options?: any) => Promise<any>;
 ```
 
-> [!IMPORTANT]
-> When using `createPipeline`, set `transformersWorkerUrl: ""` to skip the built-in Web Worker. Custom pipelines run on the main thread, but WebGPU compute is async so the UI won't block. The built-in worker only works with standard `pipeline()` models.
+> [!NOTE]
+> Set `transformersWorkerUrl: ""` when using `createPipeline` — it skips the worker init. Custom pipelines run on the main thread, but WebGPU compute is async so the UI won't block on GPU work. (CPU/WASM inference on the main thread WILL block — prefer the declarative loader in that case.)
 
 ---
 

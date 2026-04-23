@@ -37,9 +37,17 @@ Beyond the cost and privacy benefits, DVAI-Bridge solves the fragmentation of lo
 - **Transformers.js (v4)**: Broad compatibility for thousands of ONNX models from Hugging Face — text, vision, audio, embeddings.
 - **Native (Capacitor)**: Direct GGUF model execution via `llama-cpp-capacitor` for iOS and Android.
 
-## Custom Pipeline Factory
+## Any Model Architecture
 
-For models not supported by the built-in `pipeline()` API (e.g., Gemma 4, multimodal architectures, or future model formats), DVAI-Bridge exposes a `createPipeline` callback. You supply the model loading and inference logic; DVAI handles MSW, the OpenAI endpoint, streaming, and response formatting. See the [Backends guide](/guide/backends#custom-pipeline-factory-createpipeline) for details.
+DVAI-Bridge doesn't maintain a hardcoded list of supported models. Three paths, in order of preference:
+
+1. **`pipeline()` default** — for standard tasks (text-generation, feature-extraction, ASR, etc.), just set `transformersModelId` and `pipelineTask`. Thousands of models on the Hugging Face Hub work with zero extra config.
+
+2. **[Declarative multimodal loader](/guide/backends#declarative-multimodal-loader)** — for models that need named classes like `Gemma4ForConditionalGeneration` + `AutoProcessor` (multimodal LLMs, vision-language models, speech-to-text with chat), set `transformersModelClass` and (optionally) `transformersProcessorClass` / `transformersDisableEncoders`. Runs in the Web Worker by default — the main thread stays unblocked during inference.
+
+3. **[Custom Pipeline Factory](/guide/backends#custom-pipeline-factory-createpipeline)** — escape hatch for exotic processor signatures. You supply a factory function; DVAI handles MSW, the OpenAI endpoint, streaming, and response formatting. Main-thread only.
+
+Cutting-edge multimodal models rarely need option 3. Pick 1 or 2.
 
 ## Hybrid Selection
 
