@@ -30,7 +30,7 @@ features:
   - title: 🤖 Agent SDK Ready
     details: Fully compatible with LangChain, Vercel AI SDK, and more via a local OpenAI-compatible API interface.
   - title: 🎨 Multi-Modal
-    details: Support for Text, Image, Audio, and Video tasks via Transformers.js (Multi-modality coming soon for all backends).
+    details: Declarative loader for text + image + audio models (Gemma 4, LLaVA, Idefics, etc.) on Transformers.js — just name the model class, runs in the worker by default.
   - title: 📦 Hybrid Model Handling
     details: Automatic backend selection based on the environment (Web, Mobile, or Electron).
   - title: 🔒 100% Local & Private
