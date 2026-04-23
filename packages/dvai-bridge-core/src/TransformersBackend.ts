@@ -9,7 +9,21 @@
  * - Supports streaming responses for text tasks
  * - Direct pipeline access via runPipeline() for all modalities
  * - Timeout protection on all operations
+ * - Three loader paths, in priority order:
+ *     1. Main-thread `createPipeline` factory (when provided) — gives the
+ *        host complete control; used for models that need a custom
+ *        processor call signature that the declarative path doesn't cover.
+ *     2. Declarative `modelClass` + `processorClass` + `disableEncoders`
+ *        — works in the worker AND on the main thread. Use this for any
+ *        multimodal model that follows the common processor signature.
+ *     3. Generic `pipeline(task, modelId)` — the default, good for 99% of
+ *        transformers.js tasks.
  */
+
+import {
+	buildMultimodalCallable,
+	disableModelEncoders,
+} from "./multimodalCallable.js";
 
 export type DeviceType = "webgpu" | "cpu" | "auto";
 
@@ -110,12 +124,33 @@ export interface TransformersBackendConfig {
 	/** Quantization/DType for the model (e.g. 'q4', 'q8', 'f16'). Default: undefined */
 	dtype?: string;
 	/**
-	 * Optional custom pipeline factory. When provided, replaces the default
-	 * `pipeline()` call during main-thread initialization.
-	 * Use this for models that require direct loading (e.g. Gemma 4, multimodal
-	 * models) or any architecture not supported by the pipeline() API.
+	 * Optional custom pipeline factory. Main-thread only (function closures
+	 * don't cross the Worker boundary — use `modelClass`/`processorClass`
+	 * for the worker path instead). Replaces the default `pipeline()` call.
+	 * Use this when your model's processor takes a non-standard call
+	 * signature that the declarative multimodal callable can't express.
 	 */
 	createPipeline?: CreatePipelineFn;
+	/**
+	 * Name of a transformers.js export to use as the model class, loaded via
+	 * `ClassName.from_pretrained(modelId)`. Enables the declarative
+	 * multimodal loader path (works in the worker and on main thread).
+	 * Examples: "Gemma4ForConditionalGeneration", "LlavaForConditionalGeneration",
+	 * "AutoModelForCausalLM". When unset, falls back to `pipeline()`.
+	 */
+	modelClass?: string;
+	/**
+	 * Name of a transformers.js export to use as the processor class.
+	 * Only used when `modelClass` is set. Default: "AutoProcessor".
+	 */
+	processorClass?: string;
+	/**
+	 * Model submodule fields to null out after `from_pretrained`, e.g.
+	 * `["vision_encoder"]` for a voice-only host app using a multimodal
+	 * checkpoint. Purely declarative — backend walks the list and nulls
+	 * each named field if present. Unknown/absent names are ignored.
+	 */
+	disableEncoders?: string[];
 }
 
 export interface TransformersProgressInfo {
@@ -152,6 +187,9 @@ export class TransformersBackend {
 	private pipelineTask: PipelineTask;
 	private dtype?: string;
 	private createPipelineFn?: CreatePipelineFn;
+	private modelClass?: string;
+	private processorClass?: string;
+	private disableEncoders?: string[];
 	private usingWorker: boolean = false;
 	private pendingRequests: Map<
 		string,
@@ -177,6 +215,9 @@ export class TransformersBackend {
 		this.pipelineTask = config.pipelineTask || "text-generation";
 		this.dtype = config.dtype;
 		this.createPipelineFn = config.createPipeline;
+		this.modelClass = config.modelClass;
+		this.processorClass = config.processorClass;
+		this.disableEncoders = config.disableEncoders;
 	}
 
 	async initialize(onProgress?: (info: any) => void): Promise<void> {
@@ -193,18 +234,34 @@ export class TransformersBackend {
 				this.device === "cpu" ? "wasm" : (this.device as any);
 		}
 
-		// Try worker-based initialization (recommended for CPU mode, good practice for WebGPU too)
+		// Worker-based initialization is the DEFAULT path. Running inference
+		// off the main thread is a baseline guarantee dvai-bridge makes to
+		// every host app — no host should have to worry about Gemma / Llama /
+		// whisper forward-passes stalling their UI. The Worker constructor
+		// auto-falls back to main-thread only in truly broken environments
+		// (Worker unavailable, or the bundled worker file failed to load).
 		if (this.workerUrl && typeof Worker !== "undefined") {
 			try {
 				await this.initializeWithWorker(onProgress);
 				return;
 			} catch (err) {
-				console.warn(
-					"[DVAI/Transformers] Worker initialization failed, falling back to main thread:",
+				// Raised to error level + remediation tip. Silent main-thread
+				// fallback was hiding deployment bugs where the worker file
+				// wasn't copied to public/.
+				console.error(
+					"[DVAI/Transformers] Worker initialization FAILED — falling back to main thread. " +
+						"This WILL block the UI during inference. Check that the worker file is " +
+						`deployed at "${this.workerUrl}" (run \`dvai-bridge init\` to copy it).`,
 					err,
 				);
 				this.worker = null;
 			}
+		} else if (!this.workerUrl) {
+			console.warn(
+				"[DVAI/Transformers] No workerUrl configured — running on main thread. " +
+					"This blocks the UI during inference. Set `transformersWorkerUrl` " +
+					"(defaults to '/dvai-transformers.worker.js') to enable the worker path.",
+			);
 		}
 
 		// Fallback: main-thread pipeline
@@ -279,6 +336,14 @@ export class TransformersBackend {
 				modelId: this.modelId,
 				device: this.resolvedDevice,
 				dtype: this.dtype,
+				// Declarative loader config — worker uses these to pick the
+				// model+processor path when modelClass is set, otherwise it
+				// falls back to pipeline(task, modelId). Host app controls
+				// which class to load, which processor to pair with it, and
+				// which encoder submodules to null after load.
+				modelClass: this.modelClass,
+				processorClass: this.processorClass,
+				disableEncoders: this.disableEncoders,
 			};
 			console.log("[DVAI/Transformers] Sending init to worker:", initParams);
 			worker.postMessage(initParams);
@@ -377,6 +442,37 @@ export class TransformersBackend {
 				dtype: this.dtype,
 				onProgress: progressCallback,
 			});
+		} else if (this.modelClass) {
+			// Declarative model+processor loader — same contract as the
+			// worker path. Keeps behavior consistent regardless of which
+			// path the env ends up on (e.g., a dev running without the
+			// worker file deployed yet).
+			console.log(
+				`[DVAI/Transformers] Using declarative loader: ${this.modelClass} + ${this.processorClass || "AutoProcessor"}`,
+			);
+			const ModelClass = (transformers as any)[this.modelClass];
+			if (!ModelClass) {
+				throw new Error(
+					`transformers.js has no export named "${this.modelClass}". Check your modelClass config.`,
+				);
+			}
+			const processorName = this.processorClass || "AutoProcessor";
+			const ProcessorClass = (transformers as any)[processorName];
+			if (!ProcessorClass) {
+				throw new Error(
+					`transformers.js has no export named "${processorName}". Check your processorClass config.`,
+				);
+			}
+			const processor = await ProcessorClass.from_pretrained(this.modelId, {
+				progress_callback: progressCallback,
+			});
+			const model = await ModelClass.from_pretrained(this.modelId, {
+				dtype: this.dtype as any,
+				device: this.resolvedDevice,
+				progress_callback: progressCallback,
+			});
+			disableModelEncoders(model, this.disableEncoders);
+			this.pipeline = buildMultimodalCallable(model, processor);
 		} else {
 			this.pipeline = await pipelineFn(this.pipelineTask as any, this.modelId, {
 				device: this.resolvedDevice,
