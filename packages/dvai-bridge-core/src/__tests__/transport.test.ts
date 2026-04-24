@@ -39,3 +39,38 @@ describe("HttpTransport (lightweight smoke)", () => {
     expect(t.kind).toBe("http");
   });
 });
+
+describe("selectTransport", () => {
+  it("returns explicit value unchanged when not auto", async () => {
+    const { selectTransport } = await import("../transports/index");
+    expect(selectTransport({ transport: "http" })).toBe("http");
+    expect(selectTransport({ transport: "msw" })).toBe("msw");
+    expect(selectTransport({ transport: "none" })).toBe("none");
+  });
+
+  it("preserves serviceWorkerUrl:'' back-compat escape hatch", async () => {
+    const { selectTransport } = await import("../transports/index");
+    expect(selectTransport({ serviceWorkerUrl: "" })).toBe("none");
+  });
+
+  it("explicit transport wins over empty serviceWorkerUrl", async () => {
+    const { selectTransport } = await import("../transports/index");
+    expect(selectTransport({ transport: "msw", serviceWorkerUrl: "" })).toBe("msw");
+  });
+
+  it("resolves auto to msw when browser globals (incl. serviceWorker) are present", async () => {
+    const { selectTransport } = await import("../transports/index");
+    // happy-dom provides window/document/navigator but not a serviceWorker
+    // registration surface, so stub the one field isBrowserLike() looks at.
+    const nav = globalThis.navigator as any;
+    const hadSw = "serviceWorker" in nav;
+    const prev = nav.serviceWorker;
+    if (!hadSw) nav.serviceWorker = { register: () => {} };
+    try {
+      expect(selectTransport({ transport: "auto" })).toBe("msw");
+    } finally {
+      if (hadSw) nav.serviceWorker = prev;
+      else delete nav.serviceWorker;
+    }
+  });
+});
