@@ -8,11 +8,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
     "paths": {
-      "@dvai-bridge/core": ["packages/dvai-bridge-core/src/index.ts"],
-      "@dvai-bridge/react": ["packages/dvai-bridge-react/src/index.tsx"],
-      "@dvai-bridge/vanilla": ["packages/dvai-bridge-vanilla/src/index.ts"]
+      "@dvai-bridge/core": ["./packages/dvai-bridge-core/src/index.ts"],
+      "@dvai-bridge/react": ["./packages/dvai-bridge-react/src/index.tsx"],
+      "@dvai-bridge/vanilla": ["./packages/dvai-bridge-vanilla/src/index.ts"]
     }
   },
   "exclude": ["**/node_modules", "**/dist"]
