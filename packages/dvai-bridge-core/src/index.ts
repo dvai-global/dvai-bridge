@@ -137,8 +137,11 @@ export interface DVAIConfig {
 
 /**
  * DVAI: Local AI Orchestration
- * Orchestrates WebLLM, Transformers.js, or native llama.cpp for local execution
- * and MSW for intercepting API calls with an OpenAI-compatible endpoint.
+ * Orchestrates WebLLM, Transformers.js, or native llama.cpp for local
+ * inference and selects an MSW or HTTP transport (auto-detected from
+ * environment) to expose the OpenAI-compatible endpoint. Read
+ * `dvai.baseUrl` after initialize() to get the URL to point any OpenAI
+ * SDK at.
  */
 export class DVAI {
 	public modelId: string;
@@ -288,7 +291,8 @@ export class DVAI {
 	}
 
 	/**
-	 * Initializes the MSW Service Worker and the selected backend engine.
+	 * Initializes the selected backend engine and starts the resolved
+	 * transport (MSW in browsers, HTTP server in Node, or none).
 	 * @param onProgress - Callback for model download progress
 	 */
 	async initialize(
