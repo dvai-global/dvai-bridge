@@ -61,6 +61,14 @@ export class VanillaDVAI {
 				this.core.nativeThreads = config.nativeThreads;
 			if (config.nativeContextSize !== undefined)
 				this.core.nativeContextSize = config.nativeContextSize;
+			// Phase 0 transport config
+			if (config.transport) this.core.transport = config.transport;
+			if (config.httpBasePort !== undefined)
+				this.core.httpBasePort = config.httpBasePort;
+			if (config.httpMaxPortAttempts !== undefined)
+				this.core.httpMaxPortAttempts = config.httpMaxPortAttempts;
+			if (config.corsOrigin !== undefined)
+				this.core.corsOrigin = config.corsOrigin;
 		}
 
 		this.mockUrl = this.core.mockUrl;
