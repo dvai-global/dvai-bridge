@@ -49,8 +49,12 @@ export interface DVAIContextValue {
 	runPipeline: (inputs: any, options?: Record<string, any>) => Promise<any>;
 	/** Get the underlying engine/pipeline instance directly. */
 	getEngine: () => any;
-	/** Get the MSW worker instance directly. */
-	getWorker: () => any;
+	/** Base URL to point any OpenAI SDK at. Undefined when transport="none". */
+	baseUrl: string | undefined;
+	/** Bound HTTP port (HTTP transport only). Undefined for MSW/none. */
+	port: number | undefined;
+	/** Resolved transport kind after initialize(). */
+	activeTransport: "msw" | "http" | "none";
 }
 
 const DVAIContext = createContext<DVAIContextValue | null>(null);
@@ -144,7 +148,6 @@ export const DVAIProvider: React.FC<DVAIProviderProps> = ({
 	);
 
 	const getEngine = useCallback(() => dvai.getEngine(), []);
-	const getWorker = useCallback(() => dvai.getWorker(), []);
 
 	const value: DVAIContextValue = {
 		isReady,
@@ -160,7 +163,9 @@ export const DVAIProvider: React.FC<DVAIProviderProps> = ({
 		chatCompletion,
 		runPipeline,
 		getEngine,
-		getWorker,
+		baseUrl: dvai.baseUrl,
+		port: dvai.port,
+		activeTransport: dvai.getActiveTransport(),
 	};
 
 	return <DVAIContext.Provider value={value}>{children}</DVAIContext.Provider>;
