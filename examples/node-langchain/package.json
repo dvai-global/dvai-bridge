@@ -1,0 +1,15 @@
+{
+  "name": "node-langchain",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@dvai-bridge/core": "workspace:*",
+    "@langchain/core": "^1.1.36",
+    "@langchain/openai": "^1.3.1",
+    "@huggingface/transformers": "^4.0.1"
+  }
+}
