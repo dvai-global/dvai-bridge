@@ -1,10 +1,13 @@
 import { setupWorker, type SetupWorker } from "msw/browser";
-import { http, HttpResponse } from "msw";
+import { http } from "msw";
 import { LicenseValidator } from "./LicenseValidator.js";
 import {
-	chatToLegacyCompletion,
-	legacyCompletionStreamAdapter,
-} from "./handlers/completions.js";
+	handleChatCompletion,
+	handleCompletion,
+	handleEmbeddings,
+	handleModels,
+	type HandlerContext,
+} from "./handlers/index.js";
 
 // Re-export types from backends
 export type { TransformersProgressInfo } from "./TransformersBackend.js";
@@ -341,207 +344,55 @@ export class DVAI {
 	}
 
 	/**
+	 * Builds the HandlerContext consumed by all transport-agnostic handlers.
+	 * Captures `this` so state updates (e.g. backendInstance replaced during
+	 * recovery) are visible through the same reference on subsequent requests.
+	 */
+	private getHandlerContext(
+		onProgress: (info: any) => void,
+	): HandlerContext {
+		return {
+			backend: this.backendInstance,
+			resolvedBackend: this.resolvedBackend,
+			modelId:
+				this.resolvedBackend === "transformers"
+					? this.transformersModelId
+					: this.resolvedBackend === "native"
+						? this.nativeModelPath
+						: this.modelId,
+			onRecovery:
+				this.resolvedBackend === "webllm"
+					? async () => {
+							if (
+								this.backendInstance?.lastFatalError &&
+								this.recoveryAttempts < this.maxRetries
+							) {
+								await this.attemptRecovery(onProgress);
+							} else if (this.recoveryAttempts >= this.maxRetries) {
+								throw new Error("Recovery exhausted");
+							}
+						}
+					: undefined,
+		};
+	}
+
+	/**
 	 * Build the list of MSW handlers for all supported OpenAI-compatible endpoints.
 	 */
 	private buildMswHandlers(onProgress: (info: any) => void): any[] {
 		const urls = this.getEndpoints();
-		const self = this;
-
-		const handleChatCompletion = async (
-			request: Request,
-		): Promise<Response> => {
-			if (!self.backendInstance) {
-				return HttpResponse.json(
-					{ error: "AI engine not initialized" },
-					{ status: 503 },
-				);
-			}
-			const requestBody = (await request.json()) as any;
-
-			const runOnce = async (): Promise<Response> => {
-				if (requestBody.stream) {
-					const stream =
-						self.backendInstance.createStreamingResponse(requestBody);
-					return new HttpResponse(stream, {
-						headers: {
-							"Content-Type": "text/event-stream",
-							"Cache-Control": "no-cache",
-							Connection: "keep-alive",
-						},
-					});
-				}
-				const response = await self.backendInstance.chatCompletion(requestBody);
-				return HttpResponse.json(response);
-			};
-
-			try {
-				if (
-					self.resolvedBackend === "webllm" &&
-					self.backendInstance?.lastFatalError &&
-					self.recoveryAttempts < self.maxRetries
-				) {
-					await self.attemptRecovery(onProgress);
-				}
-				return await runOnce();
-			} catch (error: any) {
-				console.error("[DVAI] Error processing request:", error);
-
-				if (
-					self.resolvedBackend === "webllm" &&
-					self.backendInstance?.lastFatalError &&
-					self.recoveryAttempts < self.maxRetries
-				) {
-					console.log(
-						`[DVAI] Attempting auto-recovery (${self.recoveryAttempts + 1}/${self.maxRetries})...`,
-					);
-					try {
-						await self.attemptRecovery(onProgress);
-						return await runOnce();
-					} catch (recoveryError: any) {
-						console.error("[DVAI] Recovery failed:", recoveryError.message);
-					}
-				}
-
-				return HttpResponse.json({ error: error.message }, { status: 500 });
-			}
-		};
-
-		const handleCompletion = async (request: Request): Promise<Response> => {
-			if (!self.backendInstance) {
-				return HttpResponse.json(
-					{ error: "AI engine not initialized" },
-					{ status: 503 },
-				);
-			}
-			const body = (await request.json()) as any;
-			const promptField = body.prompt;
-			const prompt = Array.isArray(promptField)
-				? promptField.join("\n")
-				: (promptField ?? "");
-			const chatBody = {
-				...body,
-				messages: [{ role: "user", content: prompt }],
-			};
-			delete chatBody.prompt;
-
-			try {
-				if (chatBody.stream) {
-					const chatStream =
-						self.backendInstance.createStreamingResponse(chatBody);
-					const legacyStream = legacyCompletionStreamAdapter(
-						chatStream,
-						body.model || self.modelId,
-					);
-					return new HttpResponse(legacyStream, {
-						headers: {
-							"Content-Type": "text/event-stream",
-							"Cache-Control": "no-cache",
-							Connection: "keep-alive",
-						},
-					});
-				}
-				const chatResp = await self.backendInstance.chatCompletion(chatBody);
-				return HttpResponse.json(chatToLegacyCompletion(chatResp));
-			} catch (error: any) {
-				console.error("[DVAI] Error processing /v1/completions:", error);
-				return HttpResponse.json({ error: error.message }, { status: 500 });
-			}
-		};
-
-		const handleEmbeddings = async (request: Request): Promise<Response> => {
-			if (!self.backendInstance) {
-				return HttpResponse.json(
-					{ error: "AI engine not initialized" },
-					{ status: 503 },
-				);
-			}
-			if (self.resolvedBackend === "webllm") {
-				return HttpResponse.json(
-					{
-						error:
-							"Embeddings are not supported on the WebLLM backend. " +
-							"Use backend: 'transformers' with pipelineTask: 'feature-extraction', " +
-							"or backend: 'native' with nativeEmbeddingMode: true.",
-					},
-					{ status: 400 },
-				);
-			}
-			if (typeof self.backendInstance.embedding !== "function") {
-				return HttpResponse.json(
-					{
-						error:
-							"The current backend does not support embeddings. " +
-							"For transformers: use pipelineTask: 'feature-extraction'. " +
-							"For native: set nativeEmbeddingMode: true.",
-					},
-					{ status: 400 },
-				);
-			}
-
-			const body = (await request.json()) as any;
-			const input = body.input;
-			if (input === undefined || input === null) {
-				return HttpResponse.json(
-					{ error: "Missing 'input' field." },
-					{ status: 400 },
-				);
-			}
-
-			try {
-				const vectors: number[][] = await self.backendInstance.embedding(input);
-				return HttpResponse.json({
-					object: "list",
-					data: vectors.map((v, i) => ({
-						object: "embedding",
-						embedding: v,
-						index: i,
-					})),
-					model:
-						body.model ||
-						(self.resolvedBackend === "transformers"
-							? self.transformersModelId
-							: self.resolvedBackend === "native"
-								? self.nativeModelPath
-								: self.modelId),
-					usage: { prompt_tokens: 0, total_tokens: 0 },
-				});
-			} catch (error: any) {
-				console.error("[DVAI] Error processing /v1/embeddings:", error);
-				return HttpResponse.json({ error: error.message }, { status: 500 });
-			}
-		};
-
-		const handleModels = async (): Promise<Response> => {
-			const id =
-				self.resolvedBackend === "transformers"
-					? self.transformersModelId
-					: self.resolvedBackend === "native"
-						? self.nativeModelPath
-						: self.modelId;
-			return HttpResponse.json({
-				object: "list",
-				data: [
-					{
-						id,
-						object: "model",
-						created: Math.floor(Date.now() / 1000),
-						owned_by: "dvai-bridge",
-					},
-				],
-			});
-		};
-
+		const getCtx = () => this.getHandlerContext(onProgress);
 		return [
-			http.post(urls.chat, async ({ request }: { request: Request }) =>
-				handleChatCompletion(request),
+			http.post(urls.chat, async ({ request }) =>
+				handleChatCompletion(await request.json(), getCtx()),
 			),
-			http.post(urls.completions, async ({ request }: { request: Request }) =>
-				handleCompletion(request),
+			http.post(urls.completions, async ({ request }) =>
+				handleCompletion(await request.json(), getCtx()),
 			),
-			http.post(urls.embeddings, async ({ request }: { request: Request }) =>
-				handleEmbeddings(request),
+			http.post(urls.embeddings, async ({ request }) =>
+				handleEmbeddings(await request.json(), getCtx()),
 			),
-			http.get(urls.models, async () => handleModels()),
+			http.get(urls.models, async () => handleModels(getCtx())),
 		];
 	}
 
