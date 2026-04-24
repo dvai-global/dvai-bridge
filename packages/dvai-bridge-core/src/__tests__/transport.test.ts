@@ -27,3 +27,15 @@ describe("MswTransport", () => {
     await t.stop();
   });
 });
+
+describe("HttpTransport (lightweight smoke)", () => {
+  it("reports kind=http", async () => {
+    const { HttpTransport } = await import("../transports/http");
+    const t = new HttpTransport({
+      httpBasePort: 39100,
+      httpMaxPortAttempts: 1,
+      corsOrigin: "*",
+    });
+    expect(t.kind).toBe("http");
+  });
+});
