@@ -1,6 +1,10 @@
 import { setupWorker, type SetupWorker } from "msw/browser";
 import { http, HttpResponse } from "msw";
 import { LicenseValidator } from "./LicenseValidator.js";
+import {
+	chatToLegacyCompletion,
+	legacyCompletionStreamAdapter,
+} from "./handlers/completions.js";
 
 // Re-export types from backends
 export type { TransformersProgressInfo } from "./TransformersBackend.js";
@@ -10,96 +14,12 @@ export { NativeBackend } from "./NativeBackend.js";
 // Re-export InitProgressReport from web-llm for backward compatibility
 export type { InitProgressReport } from "@mlc-ai/web-llm";
 
-/**
- * Convert an OpenAI chat.completion response body into the legacy
- * text_completion shape used by POST /v1/completions.
- * @internal Exported for testing; stable interface not guaranteed.
- */
-export function chatToLegacyCompletion(chatResp: any): any {
-	return {
-		id:
-			(chatResp.id || "").replace("chatcmpl-", "cmpl-") || `cmpl-${Date.now()}`,
-		object: "text_completion",
-		created: chatResp.created ?? Math.floor(Date.now() / 1000),
-		model: chatResp.model,
-		choices: (chatResp.choices || []).map((c: any) => ({
-			text: c.message?.content ?? "",
-			index: c.index ?? 0,
-			finish_reason: c.finish_reason ?? "stop",
-			logprobs: null,
-		})),
-		usage: chatResp.usage ?? {
-			prompt_tokens: 0,
-			completion_tokens: 0,
-			total_tokens: 0,
-		},
-	};
-}
-
-/**
- * Wraps an SSE stream of chat.completion.chunk events and rewrites each
- * event as a legacy text_completion chunk. Preserves event boundaries.
- * @internal Exported for testing; stable interface not guaranteed.
- */
-export function legacyCompletionStreamAdapter(
-	chatStream: ReadableStream<Uint8Array>,
-	model: string,
-): ReadableStream<Uint8Array> {
-	const decoder = new TextDecoder();
-	const encoder = new TextEncoder();
-	let buffer = "";
-
-	return new ReadableStream<Uint8Array>({
-		async start(controller) {
-			const reader = chatStream.getReader();
-			try {
-				while (true) {
-					const { done, value } = await reader.read();
-					if (done) break;
-					buffer += decoder.decode(value, { stream: true });
-
-					let idx: number;
-					while ((idx = buffer.indexOf("\n\n")) !== -1) {
-						const rawEvent = buffer.slice(0, idx);
-						buffer = buffer.slice(idx + 2);
-						const dataLine = rawEvent
-							.split("\n")
-							.find((l) => l.startsWith("data:"));
-						if (!dataLine) continue;
-						const payload = dataLine.slice("data:".length).trim();
-						if (payload === "[DONE]") {
-							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-							continue;
-						}
-						try {
-							const chunk = JSON.parse(payload);
-							const legacyChunk = {
-								id: (chunk.id || "").replace("chatcmpl-", "cmpl-"),
-								object: "text_completion.chunk",
-								created: chunk.created,
-								model: chunk.model || model,
-								choices: (chunk.choices || []).map((c: any) => ({
-									text: c.delta?.content ?? "",
-									index: c.index ?? 0,
-									finish_reason: c.finish_reason ?? null,
-									logprobs: null,
-								})),
-							};
-							controller.enqueue(
-								encoder.encode(`data: ${JSON.stringify(legacyChunk)}\n\n`),
-							);
-						} catch {
-							// Forward raw payload if JSON parsing fails (e.g., error events)
-							controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
-						}
-					}
-				}
-			} finally {
-				controller.close();
-			}
-		},
-	});
-}
+// Re-export legacy helpers from the handlers module for backward compat.
+// Existing tests/consumers import these from "@dvai-bridge/core".
+export {
+	chatToLegacyCompletion,
+	legacyCompletionStreamAdapter,
+} from "./handlers/completions.js";
 
 export type BackendType = "webllm" | "transformers" | "native" | "auto";
 export type DeviceType = "webgpu" | "cpu" | "auto";
