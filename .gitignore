@@ -52,6 +52,8 @@ resources/windows/splash
 www/
 dist/
 packages/*/dist/
+packages/*/README.md
+packages/*/LICENSE
 example/dist/
 example/*/dist/
 .vite/

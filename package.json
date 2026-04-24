@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "prepare": "pnpm run build",
-    "prebuild": "node scripts/sync-versions.js",
+    "prebuild": "node scripts/sync-versions.js && node scripts/sync-package-meta.js",
     "build": "pnpm -r run build",
     "dev": "pnpm -r run dev",
     "test": "vitest run",
