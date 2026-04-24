@@ -59,3 +59,11 @@ When configured with `backend: "auto"`, DVAI-Bridge follows a smart resolution p
 ## Built-in Robustness
 
 If WebLLM fails (e.g., returns a blank output or times out), DVAI-Bridge automatically triggers a recovery cycle: it unloads the engine and reloads it, retrying the request up to a configurable number of times. This ensures your users aren't left with a broken UI.
+
+## Transport Auto-Detection
+
+`DVAI` now auto-selects the right transport for the runtime: MSW in
+browsers, a real HTTP server in Node / Electron main, no transport in
+Web Workers. Host applications simply read `dvai.baseUrl` and hand it
+to any OpenAI SDK — the rest is identical across platforms. See the
+[Transports guide](/guide/transports) for details.

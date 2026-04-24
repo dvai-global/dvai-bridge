@@ -32,6 +32,10 @@ The main configuration object used to initialize the orchestration layer.
 | `maxBlankChunks`        | `number`                                           | `20`                                             | Abort streaming after this many consecutive empty chunks.                                                                                                |
 | `licenseKey`            | `string`                                           | —                                                | Signed key for production environment activation.                                                                                                        |
 | `autoInit`              | `boolean`                                          | `true`                                           | Whether to initialize the backend immediately on mount (React only).                                                                                     |
+| `transport`             | `"auto" \| "msw" \| "http" \| "none"`              | `"auto"`                                         | Transport selection. `"auto"` picks MSW in browser, HTTP in Node.                                                                                        |
+| `httpBasePort`          | `number`                                           | `38883`                                          | HTTP transport base port (retries +1 up to 16 times).                                                                                                    |
+| `httpMaxPortAttempts`   | `number`                                           | `16`                                             | Max HTTP port fallback attempts before throwing.                                                                                                         |
+| `corsOrigin`            | `string \| string[]`                               | `"*"`                                            | HTTP `Access-Control-Allow-Origin` value or allowlist.                                                                                                   |
 
 ---
 
@@ -112,9 +116,16 @@ Completely unloads the engine and frees memory/workers.
 
 Returns the currently resolved backend instance.
 
-### `getWorker()`
+### Instance fields
 
-Returns the MSW `SetupWorker` instance (if MSW is active).
+- `dvai.baseUrl?: string` — URL to hand to OpenAI SDKs. `undefined` when `transport="none"`.
+- `dvai.port?: number` — Bound HTTP port (HTTP transport only).
+
+### Methods
+
+- `dvai.getBaseUrl(): string | undefined` — Method form of `dvai.baseUrl`.
+- `dvai.getPort(): number | undefined` — Method form of `dvai.port`.
+- `dvai.getActiveTransport(): "msw" | "http" | "none"` — Resolved transport after `initialize()`.
 
 ---
 
