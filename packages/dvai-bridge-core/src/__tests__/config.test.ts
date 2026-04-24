@@ -58,7 +58,9 @@ describe("DVAI Config and Defaults", () => {
 	it("should return null engine before initialization", () => {
 		const dvai = new DVAI();
 		expect(dvai.getEngine()).toBeNull();
-		expect(dvai.getWorker()).toBeNull();
+		expect(dvai.getBaseUrl()).toBeUndefined();
+		expect(dvai.getPort()).toBeUndefined();
+		expect(dvai.getActiveTransport()).toBe("none");
 	});
 
 	it("should throw on chatCompletion before initialization", async () => {
