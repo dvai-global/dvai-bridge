@@ -123,11 +123,19 @@ export class VanillaDVAI {
 		return this.core.getEngine();
 	}
 
-	/**
-	 * Get the MSW worker instance directly.
-	 */
-	getWorker(): any {
-		return this.core.getWorker();
+	/** Base URL to point any OpenAI SDK at. Undefined when transport="none". */
+	getBaseUrl(): string | undefined {
+		return this.core.getBaseUrl();
+	}
+
+	/** Bound HTTP port (HTTP transport only). */
+	getPort(): number | undefined {
+		return this.core.getPort();
+	}
+
+	/** Resolved transport kind after initialize(). */
+	getActiveTransport(): "msw" | "http" | "none" {
+		return this.core.getActiveTransport();
 	}
 
 	/**
