@@ -17,9 +17,16 @@ export async function handleChatCompletion(
     );
   }
 
-  const backend = ctx.backend;
-
+  // Always read ctx.backend inside runOnce so that if onRecovery replaces
+  // the underlying backend instance, the retry hits the new one.
   const runOnce = async (): Promise<Response> => {
+    const backend = ctx.backend;
+    if (!backend) {
+      return Response.json(
+        { error: "AI engine not initialized" },
+        { status: 503 },
+      );
+    }
     if (body.stream) {
       const stream = backend.createStreamingResponse(body);
       return new Response(stream, { headers: SSE_HEADERS });
@@ -31,7 +38,7 @@ export async function handleChatCompletion(
   try {
     // Proactive recovery: if the backend is flagged with a prior fatal error,
     // ask DVAI to recover before the attempt.
-    if (backend.lastFatalError && ctx.onRecovery) {
+    if (ctx.backend.lastFatalError && ctx.onRecovery) {
       await ctx.onRecovery();
     }
     return await runOnce();

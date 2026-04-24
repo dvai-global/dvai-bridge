@@ -344,15 +344,20 @@ export class DVAI {
 	}
 
 	/**
-	 * Builds the HandlerContext consumed by all transport-agnostic handlers.
-	 * Captures `this` so state updates (e.g. backendInstance replaced during
-	 * recovery) are visible through the same reference on subsequent requests.
+	 * Builds a HandlerContext consumed by the transport-agnostic handlers.
+	 * `backend` is exposed via a getter so that when recovery replaces
+	 * `this.backendInstance` mid-request, the handler's subsequent reads of
+	 * `ctx.backend` see the new instance (critical for the reactive-recovery
+	 * retry path in handleChatCompletion).
 	 */
 	private getHandlerContext(
 		onProgress: (info: any) => void,
 	): HandlerContext {
+		const self = this;
 		return {
-			backend: this.backendInstance,
+			get backend() {
+				return self.backendInstance;
+			},
 			resolvedBackend: this.resolvedBackend,
 			modelId:
 				this.resolvedBackend === "transformers"
