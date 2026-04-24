@@ -19,6 +19,12 @@
   "bin": {
     "dvai-bridge": "./bin/dvai-bridge.js"
   },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
