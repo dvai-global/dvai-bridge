@@ -3,7 +3,7 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.6.0] — 2026-MM-DD
+## [1.6.0] — 2026-04-24
 
 Phase 0 — Transport Abstraction: extracts the OpenAI-compatible handlers
 into a transport-agnostic module and adds a real HTTP server transport
