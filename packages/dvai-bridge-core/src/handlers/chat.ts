@@ -1,0 +1,52 @@
+import type { HandlerContext } from "./context";
+
+const SSE_HEADERS = {
+  "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache",
+  Connection: "keep-alive",
+};
+
+export async function handleChatCompletion(
+  body: any,
+  ctx: HandlerContext,
+): Promise<Response> {
+  if (!ctx.backend) {
+    return Response.json(
+      { error: "AI engine not initialized" },
+      { status: 503 },
+    );
+  }
+
+  const backend = ctx.backend;
+
+  const runOnce = async (): Promise<Response> => {
+    if (body.stream) {
+      const stream = backend.createStreamingResponse(body);
+      return new Response(stream, { headers: SSE_HEADERS });
+    }
+    const response = await backend.chatCompletion(body);
+    return Response.json(response);
+  };
+
+  try {
+    // Proactive recovery: if the backend is flagged with a prior fatal error,
+    // ask DVAI to recover before the attempt.
+    if (backend.lastFatalError && ctx.onRecovery) {
+      await ctx.onRecovery();
+    }
+    return await runOnce();
+  } catch (error: any) {
+    // Reactive recovery: if the backend flags a fatal error during the attempt,
+    // recover and retry once. DVAI's onRecovery throws when exhausted, which
+    // falls through to the 500 response below.
+    if (ctx.backend?.lastFatalError && ctx.onRecovery) {
+      try {
+        await ctx.onRecovery();
+        return await runOnce();
+      } catch {
+        /* fall through to 500 */
+      }
+    }
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+}
