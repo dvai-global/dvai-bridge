@@ -32,6 +32,7 @@ export default defineConfig({
 					{ text: "Transports", link: "/guide/transports" },
 					{ text: "Native LLM (Capacitor)", link: "/guide/native-backend" },
 					{ text: "Auto-Recovery & Robustness", link: "/guide/auto-recovery" },
+					{ text: "vs. Other Tools", link: "/guide/comparison" },
 				],
 			},
 			{
