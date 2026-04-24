@@ -1,13 +1,5 @@
-import { setupWorker, type SetupWorker } from "msw/browser";
-import { http } from "msw";
 import { LicenseValidator } from "./LicenseValidator.js";
-import {
-	handleChatCompletion,
-	handleCompletion,
-	handleEmbeddings,
-	handleModels,
-	type HandlerContext,
-} from "./handlers/index.js";
+import { type HandlerContext } from "./handlers/index.js";
 
 // Re-export types from backends
 export type { TransformersProgressInfo } from "./TransformersBackend.js";
@@ -194,7 +186,6 @@ export class DVAI {
 
 	private validator: LicenseValidator;
 	private backendInstance: any = null; // WebLLMBackend | TransformersBackend | NativeBackend
-	private worker: SetupWorker | null = null;
 	public isReady: boolean = false;
 	/** Tracks how many consecutive recovery attempts have been made. */
 	private recoveryAttempts: number = 0;
@@ -343,23 +334,75 @@ export class DVAI {
 			// 1. Initialize the selected backend (lazy import)
 			await this.initializeBackend(onProgress);
 
-			// 2. Setup MSW worker to intercept requests.
-			// Skip when inside a Web Worker (navigator.serviceWorker is unavailable)
-			// or when serviceWorkerUrl is explicitly empty (MSW disabled).
-			if (!isWorkerContext && this.serviceWorkerUrl) {
-				const handlers = this.buildMswHandlers(onProgress);
+			// 2. Select transport based on env + config
+			const { selectTransport, MswTransport, HttpTransport } = await import(
+				"./transports/index.js"
+			);
+			this.resolvedTransport = selectTransport({
+				transport: this.transport === "auto" ? undefined : this.transport,
+				serviceWorkerUrl: this.serviceWorkerUrl,
+			});
 
-				this.worker = setupWorker(...handlers);
-				await this.worker.start({
-					onUnhandledRequest: "bypass",
-					serviceWorker: {
-						url: this.serviceWorkerUrl,
-					},
-				} as any);
-			} else {
-				console.log(
-					`[DVAI] Skipping MSW setup (${isWorkerContext ? "Worker context" : "serviceWorkerUrl empty"}).`,
+			// Warn if mockUrl was explicitly customized under HTTP (will be ignored).
+			// The default value is used as the sentinel for "user did not customize".
+			if (
+				this.resolvedTransport === "http" &&
+				this.mockUrl !== "https://api.openai.local/v1/chat/completions"
+			) {
+				console.warn(
+					"[DVAI] mockUrl config is ignored under transport=\"http\". " +
+						"The HTTP server always serves at /v1/*. Use dvai.baseUrl " +
+						"to get the exact endpoint.",
 				);
+			}
+
+			// Warn if serviceWorkerUrl is empty but transport="msw" was forced
+			if (
+				this.resolvedTransport === "msw" &&
+				this.serviceWorkerUrl === "" &&
+				this.transport === "msw"
+			) {
+				console.warn(
+					"[DVAI] serviceWorkerUrl is empty but transport='msw' was requested; MSW will fail to register.",
+				);
+			}
+
+			// Worker-context informational message
+			if (
+				this.resolvedTransport === "none" &&
+				typeof window === "undefined" &&
+				typeof self !== "undefined"
+			) {
+				console.log(
+					"[DVAI] Running in a Web Worker — no transport started. " +
+						"Use dvai.chatCompletion() directly, or register MSW on the main thread.",
+				);
+			}
+
+			// Construct + start the transport
+			if (this.resolvedTransport === "msw") {
+				this.activeTransport = new MswTransport({
+					mockUrl: this.mockUrl,
+					serviceWorkerUrl: this.serviceWorkerUrl,
+				});
+			} else if (this.resolvedTransport === "http") {
+				this.activeTransport = new HttpTransport({
+					httpBasePort: this.httpBasePort,
+					httpMaxPortAttempts: this.httpMaxPortAttempts,
+					corsOrigin: this.corsOrigin,
+				});
+			} else {
+				this.activeTransport = null;
+			}
+
+			if (this.activeTransport) {
+				const ctx = this.getHandlerContext(onProgress);
+				const started = await this.activeTransport.start(ctx);
+				this.baseUrl = started.baseUrl;
+				this.port = started.port;
+			} else {
+				this.baseUrl = undefined;
+				this.port = undefined;
 			}
 
 			this.isReady = true;
@@ -369,41 +412,6 @@ export class DVAI {
 			console.error("[DVAI] Failed to initialize:", error);
 			throw error;
 		}
-	}
-
-	/**
-	 * Computes the set of OpenAI-compatible endpoint URLs, derived from `mockUrl`.
-	 * If `mockUrl` ends with "/chat/completions", the base is taken as its parent;
-	 * otherwise the parent segment of `mockUrl` is used as the base.
-	 */
-	private getEndpoints(): {
-		chat: string;
-		completions: string;
-		embeddings: string;
-		models: string;
-	} {
-		const chat = this.mockUrl;
-		let base = chat;
-		const chatSuffix = "/chat/completions";
-		if (chat.endsWith(chatSuffix)) {
-			base = chat.slice(0, -chatSuffix.length);
-		} else {
-			try {
-				const u = new URL(chat);
-				const parts = u.pathname.split("/").filter(Boolean);
-				parts.pop();
-				u.pathname = "/" + parts.join("/");
-				base = u.toString().replace(/\/$/, "");
-			} catch {
-				/* keep base = chat */
-			}
-		}
-		return {
-			chat,
-			completions: `${base}/completions`,
-			embeddings: `${base}/embeddings`,
-			models: `${base}/models`,
-		};
 	}
 
 	/**
@@ -442,26 +450,6 @@ export class DVAI {
 						}
 					: undefined,
 		};
-	}
-
-	/**
-	 * Build the list of MSW handlers for all supported OpenAI-compatible endpoints.
-	 */
-	private buildMswHandlers(onProgress: (info: any) => void): any[] {
-		const urls = this.getEndpoints();
-		const getCtx = () => this.getHandlerContext(onProgress);
-		return [
-			http.post(urls.chat, async ({ request }) =>
-				handleChatCompletion(await request.json(), getCtx()),
-			),
-			http.post(urls.completions, async ({ request }) =>
-				handleCompletion(await request.json(), getCtx()),
-			),
-			http.post(urls.embeddings, async ({ request }) =>
-				handleEmbeddings(await request.json(), getCtx()),
-			),
-			http.get(urls.models, async () => handleModels(getCtx())),
-		];
 	}
 
 	/**
@@ -603,13 +591,6 @@ export class DVAI {
 	}
 
 	/**
-	 * Gets the MSW worker instance directly if needed.
-	 */
-	getWorker(): SetupWorker | null {
-		return this.worker;
-	}
-
-	/**
 	 * Perform a direct chat completion (bypasses MSW, calls backend directly).
 	 * Useful for programmatic usage without going through the fetch mock.
 	 */
@@ -676,22 +657,22 @@ export class DVAI {
 	}
 
 	/**
-	 * Unloads the AI engine and stops the MSW worker to free up resources.
+	 * Unloads the AI engine and stops the active transport to free up resources.
 	 */
 	async unload(): Promise<void> {
 		if (this.backendInstance) {
 			await this.backendInstance.unload();
 			this.backendInstance = null;
 		}
-
-		if (this.worker) {
-			this.worker.stop();
-			this.worker = null;
+		if (this.activeTransport) {
+			await this.activeTransport.stop();
+			this.activeTransport = null;
 		}
-
+		this.baseUrl = undefined;
+		this.port = undefined;
 		this.isReady = false;
 		this.recoveryAttempts = 0;
-		console.log("[DVAI] Unloaded model and worker.");
+		console.log("[DVAI] Unloaded model and transport.");
 	}
 }
 
