@@ -116,6 +116,31 @@ export interface DVAIConfig {
 	licenseKey?: string;
 	/** Auto-initialize on creation (React/Vanilla). Default: true */
 	autoInit?: boolean;
+
+	/**
+	 * Which transport to use for the OpenAI-compatible surface.
+	 * - "auto"  (default) → msw in browser, http in Node, none in workers
+	 * - "msw"  → force MSW (browser only; errors elsewhere)
+	 * - "http" → force HTTP server (Node only; errors elsewhere)
+	 * - "none" → no transport; use dvai.chatCompletion() directly
+	 */
+	transport?: "auto" | "msw" | "http" | "none";
+
+	/** HTTP-only. Base port. Default: 38883. */
+	httpBasePort?: number;
+
+	/** HTTP-only. Max port-fallback attempts. Default: 16. */
+	httpMaxPortAttempts?: number;
+
+	/**
+	 * HTTP-only. Controls the Access-Control-Allow-Origin response header.
+	 * - "*"               → echo "*" (default; dev-friendly)
+	 * - "https://x.com"   → echo that exact origin
+	 * - ["a.com","b.com"] → match the request's Origin header against the
+	 *                        list; echo the matched value. Requests from
+	 *                        unlisted origins get ACAO omitted.
+	 */
+	corsOrigin?: string | string[];
 }
 
 /**
@@ -149,6 +174,23 @@ export class DVAI {
 	public nativeThreads: number;
 	public nativeContextSize: number;
 	public nativeEmbeddingMode: boolean;
+
+	/** Raw transport config (e.g., "auto"). */
+	public transport: "auto" | "msw" | "http" | "none";
+	public httpBasePort: number;
+	public httpMaxPortAttempts: number;
+	public corsOrigin: string | string[];
+
+	/** Resolved transport kind after selectTransport() runs. */
+	private resolvedTransport: "msw" | "http" | "none" = "none";
+
+	/** Populated after transport.start(). Undefined on "none". */
+	public baseUrl?: string;
+	public port?: number;
+
+	/** Active transport instance; null before initialize() / after unload(). */
+	private activeTransport: import("./transports/index.js").Transport | null =
+		null;
 
 	private validator: LicenseValidator;
 	private backendInstance: any = null; // WebLLMBackend | TransformersBackend | NativeBackend
@@ -193,6 +235,12 @@ export class DVAI {
 		this.nativeContextSize = config.nativeContextSize ?? 2048;
 		this.nativeEmbeddingMode = config.nativeEmbeddingMode ?? false;
 
+		// Transport options
+		this.transport = config.transport ?? "auto";
+		this.httpBasePort = config.httpBasePort ?? 38883;
+		this.httpMaxPortAttempts = config.httpMaxPortAttempts ?? 16;
+		this.corsOrigin = config.corsOrigin ?? "*";
+
 		// Resolve explicit backends immediately so getActiveBackend() is correct
 		// before initialize(). "auto" defers to initialize() for runtime env detection.
 		if (this.backend !== "auto") {
@@ -208,6 +256,21 @@ export class DVAI {
 	 */
 	getActiveBackend(): "webllm" | "transformers" | "native" {
 		return this.resolvedBackend;
+	}
+
+	/** Returns the resolved transport kind (after "auto" resolution). */
+	getActiveTransport(): "msw" | "http" | "none" {
+		return this.resolvedTransport;
+	}
+
+	/** Returns the base URL a host app hands to an OpenAI SDK. */
+	getBaseUrl(): string | undefined {
+		return this.baseUrl;
+	}
+
+	/** Returns the HTTP port bound (http transport only). */
+	getPort(): number | undefined {
+		return this.port;
 	}
 
 	/**
