@@ -10,6 +10,7 @@ Developed by **Deep Voice Ai Limited**, this library enables privacy-focused, ze
 
 ## 🚀 Key Features
 
+- **Platform-Agnostic Transport**: Auto-starts an MSW service worker in browsers or a real HTTP server (127.0.0.1:38883) in Node/Electron. Host apps just read `dvai.baseUrl` and pass it to any OpenAI SDK.
 - **Multi-Backend**: Choose between **WebLLM** (MLC/WebGPU) or **Transformers.js** (ONNX/WebGPU/CPU) for maximum model compatibility.
 - **Multi-Modal**: Transformers.js backend supports text-generation, text-to-image, ASR, TTS, and more via configurable `pipelineTask`. For models like Gemma 4 / LLaVA / Idefics, a **declarative loader** (`transformersModelClass` + `transformersProcessorClass`) runs them in the Web Worker with zero library-side model knowledge — swap models by changing string config.
 - **Local-First**: Runs LLMs entirely in the browser using WebGPU/WebAssembly.
@@ -176,6 +177,24 @@ function ChatComponent() {
 </script>
 ```
 
+### Node / Electron Usage
+
+```javascript
+import { DVAI } from "@dvai-bridge/core";
+import OpenAI from "openai";
+
+const dvai = new DVAI({ backend: "transformers" });
+await dvai.initialize();
+console.log(`DVAI live at ${dvai.baseUrl}`); // http://127.0.0.1:38883/v1
+
+const openai = new OpenAI({ baseURL: dvai.baseUrl, apiKey: "ignored" });
+const r = await openai.chat.completions.create({
+	model: dvai.transformersModelId,
+	messages: [{ role: "user", content: "Hello!" }],
+});
+console.log(r.choices[0].message.content);
+```
+
 ### Direct Inference (No MSW)
 
 ```typescript
@@ -270,6 +289,10 @@ await ai.initialize(); // Re-initialize
 | `createPipeline`        | `CreatePipelineFn`            | —                                                | Custom pipeline factory (main-thread only). Use the declarative loader above for worker-thread support. |
 | `licenseKey`            | `string`                      | —                                                | License key for production               |
 | `autoInit`              | `boolean`                     | `true`                                           | Auto-initialize on mount                 |
+| `transport`             | `"auto" \| "msw" \| "http" \| "none"` | `"auto"`                                 | Transport selection. `"auto"` picks MSW in browser, HTTP in Node. |
+| `httpBasePort`          | `number`                      | `38883`                                          | HTTP transport base port (retries +1 up to 16 times).             |
+| `httpMaxPortAttempts`   | `number`                      | `16`                                             | Max HTTP port fallback attempts before throwing.                  |
+| `corsOrigin`            | `string \| string[]`          | `"*"`                                            | HTTP `Access-Control-Allow-Origin` value or allowlist.            |
 
 ---
 
