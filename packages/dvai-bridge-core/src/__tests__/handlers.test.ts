@@ -247,4 +247,40 @@ describe("handleChatCompletion", () => {
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: "boom" });
   });
+
+  it("reactive recovery retries against the swapped backend (ctx.backend getter)", async () => {
+    const { handleChatCompletion } = await import("../handlers/chat");
+    // Old backend throws AND flags a fatal error — onRecovery will swap it.
+    const oldBackend: BackendInterface = {
+      chatCompletion: async () => { throw new Error("stale engine"); },
+      createStreamingResponse: () => new ReadableStream<Uint8Array>(),
+      lastFatalError: "blank_output",
+    };
+    // New backend succeeds with a distinct id we can assert on.
+    const newBackend: BackendInterface = {
+      chatCompletion: async () => ({
+        id: "chatcmpl-recovered",
+        choices: [{ index: 0, message: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+      }),
+      createStreamingResponse: () => new ReadableStream<Uint8Array>(),
+    };
+
+    // Build a ctx with a getter that flips from oldBackend → newBackend after
+    // onRecovery runs. This mirrors what DVAI.getHandlerContext does in real use.
+    let current: BackendInterface = oldBackend;
+    const ctx: HandlerContext = {
+      get backend() { return current; },
+      resolvedBackend: "webllm",
+      modelId: "test",
+      onRecovery: async () => { current = newBackend; },
+    };
+
+    const res = await handleChatCompletion(
+      { messages: [{ role: "user", content: "hi" }] },
+      ctx,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ id: "chatcmpl-recovered" });
+  });
 });
