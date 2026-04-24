@@ -65,3 +65,6 @@ docs/.vitepress/dist/
 
 # Claude Code local config
 .claude/
+
+# Git worktrees (local-only)
+.worktrees/
