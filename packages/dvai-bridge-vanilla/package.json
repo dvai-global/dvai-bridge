@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/vanilla",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
