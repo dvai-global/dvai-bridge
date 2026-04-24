@@ -1,6 +1,6 @@
 packages:
   - 'packages/*'
-  - 'packages/dvai-bridge-core/example/*'
+  - 'examples/*'
   - 'docs'
 
 onlyBuiltDependencies:
