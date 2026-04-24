@@ -17,6 +17,7 @@ export default defineConfig({
 					{ text: "Introduction", link: "/guide/introduction" },
 					{ text: "Getting Started", link: "/guide/getting-started" },
 					{ text: "Backends", link: "/guide/backends" },
+					{ text: "Transports", link: "/guide/transports" },
 					{ text: "Native LLM (Capacitor)", link: "/guide/native-backend" },
 					{ text: "Auto-Recovery & Robustness", link: "/guide/auto-recovery" },
 				],
