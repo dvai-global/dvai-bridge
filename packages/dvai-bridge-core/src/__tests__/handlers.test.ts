@@ -165,3 +165,86 @@ describe("legacy helpers (re-exported from completions)", () => {
     expect(out.choices[0].text).toBe("x");
   });
 });
+
+describe("handleChatCompletion", () => {
+  const canned = {
+    id: "chatcmpl-fixed",
+    object: "chat.completion",
+    created: 1700000000,
+    model: "m",
+    choices: [{ index: 0, message: { role: "assistant", content: "canned" }, finish_reason: "stop" }],
+    usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+  };
+  const chatBackend: BackendInterface = {
+    chatCompletion: async () => canned,
+    createStreamingResponse: () => {
+      const encoder = new TextEncoder();
+      return new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ id: "chatcmpl-fixed", choices: [{ delta: { content: "hi" }, index: 0 }] })}\n\n`));
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+    },
+  };
+
+  it("returns 503 when backend is null", async () => {
+    const { handleChatCompletion } = await import("../handlers/chat");
+    const res = await handleChatCompletion({ messages: [] }, makeCtx({ backend: null }));
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "AI engine not initialized" });
+  });
+
+  it("returns the canned chat.completion on success (non-stream)", async () => {
+    const { handleChatCompletion } = await import("../handlers/chat");
+    const res = await handleChatCompletion(
+      { messages: [{ role: "user", content: "hi" }] },
+      makeCtx({ backend: chatBackend }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ id: "chatcmpl-fixed" });
+  });
+
+  it("returns SSE response with event-stream headers on stream=true", async () => {
+    const { handleChatCompletion } = await import("../handlers/chat");
+    const res = await handleChatCompletion(
+      { stream: true, messages: [{ role: "user", content: "hi" }] },
+      makeCtx({ backend: chatBackend }),
+    );
+    expect(res.headers.get("content-type")).toBe("text/event-stream");
+    const text = await res.text();
+    expect(text).toContain("data: [DONE]");
+  });
+
+  it("calls onRecovery when backend has lastFatalError pre-request", async () => {
+    const { handleChatCompletion } = await import("../handlers/chat");
+    const backendWithFatal: BackendInterface = {
+      ...chatBackend,
+      lastFatalError: "blank_output",
+    };
+    let recoveryCalls = 0;
+    await handleChatCompletion(
+      { messages: [{ role: "user", content: "hi" }] },
+      makeCtx({
+        backend: backendWithFatal,
+        onRecovery: async () => { recoveryCalls++; },
+      }),
+    );
+    expect(recoveryCalls).toBe(1);
+  });
+
+  it("returns 500 with error.message when backend throws and recovery fails", async () => {
+    const { handleChatCompletion } = await import("../handlers/chat");
+    const throwingBackend: BackendInterface = {
+      ...chatBackend,
+      chatCompletion: async () => { throw new Error("boom"); },
+    };
+    const res = await handleChatCompletion(
+      { messages: [] },
+      makeCtx({ backend: throwingBackend }),
+    );
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "boom" });
+  });
+});
