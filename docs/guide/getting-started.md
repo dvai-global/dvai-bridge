@@ -204,3 +204,27 @@ const res = await fetch("https://api.openai.local/v1/embeddings", {
 On the **native** (llama-cpp-capacitor) backend, set `nativeEmbeddingMode: true` and point `nativeModelPath` at a GGUF embedding model. The native chat and embedding contexts are distinct — for both, construct two `DVAI` instances.
 
 **WebLLM does not support embeddings** — `/v1/embeddings` returns 400 on the WebLLM backend.
+
+## Node quick-start
+
+`dvai-bridge` works in plain Node — the library auto-starts an HTTP
+server on `127.0.0.1:38883` (with port fallback).
+
+```javascript
+import { DVAI } from "@dvai-bridge/core";
+import OpenAI from "openai";
+
+const dvai = new DVAI({ backend: "transformers" });
+await dvai.initialize();
+console.log(dvai.baseUrl); // e.g. "http://127.0.0.1:38883/v1"
+
+const openai = new OpenAI({ baseURL: dvai.baseUrl, apiKey: "ignored" });
+const r = await openai.chat.completions.create({
+  model: dvai.transformersModelId,
+  messages: [{ role: "user", content: "Hello!" }],
+});
+console.log(r.choices[0].message.content);
+```
+
+Point any OpenAI-compatible SDK (Node, .NET, Python, etc.) at
+`dvai.baseUrl` — all talk to the same local endpoint.
