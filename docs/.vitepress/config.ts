@@ -3,6 +3,18 @@ import { defineConfig } from "vitepress";
 export default defineConfig({
 	title: "DVAI-Bridge",
 	description: "Local AI Orchestration for Web, Capacitor, and Electron",
+	// Ignore dead links that point outside the published docs tree:
+	// - `../../CHANGELOG` from `docs/migration/*.md` resolves to the repo-root
+	//   CHANGELOG.md (not a VitePress page).
+	// - Planning docs under `docs/superpowers/` contain illustrative markdown
+	//   samples that reference sibling docs from a different on-disk location;
+	//   they are design artifacts, not part of the published site.
+	ignoreDeadLinks: [
+		/CHANGELOG(\.md)?$/,
+		/^\/?superpowers\//,
+		/^\.\.\/guide\/transports/,
+	],
+	srcExclude: ["superpowers/**"],
 	themeConfig: {
 		logo: "/logo.png",
 		nav: [
