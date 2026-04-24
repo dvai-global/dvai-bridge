@@ -39,26 +39,11 @@ importers:
         specifier: ^3.5.13
         version: 3.5.32(typescript@6.0.3)
 
-  packages/dvai-bridge-core:
-    dependencies:
-      '@huggingface/transformers':
-        specifier: ^4.0.1
-        version: 4.1.0
-      '@mlc-ai/web-llm':
-        specifier: ^0.2.78
-        version: 0.2.82
-      llama-cpp-capacitor:
-        specifier: '>=0.1.0'
-        version: 0.1.5(@capacitor/core@8.3.1)
-      msw:
-        specifier: ^2.12.13
-        version: 2.13.4(@types/node@25.6.0)(typescript@6.0.3)
-
-  packages/dvai-bridge-core/example/test-app:
+  examples/web-react:
     dependencies:
       '@dvai-bridge/core':
         specifier: workspace:*
-        version: link:../..
+        version: link:../../packages/dvai-bridge-core
       '@huggingface/transformers':
         specifier: ^3.8.1
         version: 3.8.1
@@ -117,6 +102,21 @@ importers:
       vite:
         specifier: ^8.0.3
         version: 8.0.8(@types/node@25.6.0)(esbuild@0.27.7)
+
+  packages/dvai-bridge-core:
+    dependencies:
+      '@huggingface/transformers':
+        specifier: ^4.0.1
+        version: 4.1.0
+      '@mlc-ai/web-llm':
+        specifier: ^0.2.78
+        version: 0.2.82
+      llama-cpp-capacitor:
+        specifier: '>=0.1.0'
+        version: 0.1.5(@capacitor/core@8.3.1)
+      msw:
+        specifier: ^2.12.13
+        version: 2.13.4(@types/node@25.6.0)(typescript@6.0.3)
 
   packages/dvai-bridge-react:
     dependencies:
