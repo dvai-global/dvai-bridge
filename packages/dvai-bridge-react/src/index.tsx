@@ -110,6 +110,13 @@ export const DVAIProvider: React.FC<DVAIProviderProps> = ({
 			dvai.nativeThreads = config.nativeThreads;
 		if (config.nativeContextSize !== undefined)
 			dvai.nativeContextSize = config.nativeContextSize;
+		// Phase 0 transport config
+		if (config.transport) dvai.transport = config.transport;
+		if (config.httpBasePort !== undefined)
+			dvai.httpBasePort = config.httpBasePort;
+		if (config.httpMaxPortAttempts !== undefined)
+			dvai.httpMaxPortAttempts = config.httpMaxPortAttempts;
+		if (config.corsOrigin !== undefined) dvai.corsOrigin = config.corsOrigin;
 
 		try {
 			await dvai.initialize((info) => {
