@@ -1,35 +1,44 @@
 # DVAI-Bridge vs. the local-AI landscape
 
-DVAI-Bridge occupies a spot in the local-AI ecosystem that, as of 2026,
-no other project fully covers. This page explains where each tool fits
-so you can pick the right one for your problem — including when that's
-not DVAI-Bridge.
+DVAI-Bridge occupies a spot in the local-AI ecosystem that no other
+project fully covers: **a library, embedded inside your app, speaking
+OpenAI HTTP, across every major client-development language.** This page
+explains where each tool fits — including when the right answer isn't
+DVAI-Bridge.
 
 ## TL;DR
 
-If you're **building and shipping an application** (Electron, mobile,
-native desktop, web) and you want local AI inside it, **without asking
-your users to install anything else**, you want DVAI-Bridge.
+If you're **building and shipping an application** — Electron, Capacitor,
+native mobile (iOS / Android), native desktop (Windows, macOS, Linux via
+.NET) — and you want local AI inside it, **without asking your users to
+install anything else**, you want DVAI-Bridge.
 
 If you're a developer or power user running local models on your own
 machine, you want Ollama, LM Studio, or Jan.ai. That's not what
 DVAI-Bridge is for.
 
-## The two axes that matter
+If your entire stack is Python, use `llama-cpp-python`. We don't ship a
+Python binding.
 
-Local-AI projects usually sit on two axes:
+## The three axes that matter
 
-1. **Is it a library or a product?** A library is something a developer
-   imports. A product is something a user installs.
-2. **Is it cross-platform or single-platform?** Some tools run only on
-   desktop, some only in the browser, some only on one OS.
+Local-AI projects usually sit on three axes:
 
-The gap DVAI-Bridge fills is **library × cross-platform**:
+1. **Library or product?** A library is something a developer imports.
+   A product is something a user installs.
+2. **How many platforms?** Some tools run only on desktop, some only in
+   the browser, some only on one OS.
+3. **How many languages?** Most libraries are single-language. A few are
+   wrapper-based. DVAI-Bridge is the first to ship first-party bindings
+   for every major client language.
 
-|                  | Browser-only         | Desktop-only         | Cross-platform      |
-|------------------|----------------------|----------------------|---------------------|
-| **Library**      | WebLLM, Transformers.js | `node-llama-cpp`, `llama-cpp-python` | **DVAI-Bridge** |
-| **Product**      | — (browser-only products rare) | Ollama, LM Studio, Jan.ai | llamafile (single-file exe) |
+The gap DVAI-Bridge fills is **library × cross-platform × cross-language**:
+
+|                  | Browser-only        | Desktop-only         | Cross-platform      |
+|------------------|---------------------|----------------------|---------------------|
+| **Library (one language)**   | WebLLM, Transformers.js | `node-llama-cpp`, `llama-cpp-python` | — |
+| **Library (multi-language)** | — | — | **DVAI-Bridge** |
+| **Product**      | — (rare)           | Ollama, LM Studio, Jan.ai | llamafile (single-file exe) |
 
 ## Full comparison
 
@@ -48,8 +57,8 @@ Ollama — your users have to install it themselves.
 laptop; we are trying to let you *ship what you prototyped against
 Ollama*. Many DVAI-Bridge users will continue to use Ollama locally for
 development. In fact: if you point the OpenAI SDK at
-`http://localhost:11434/v1` today and at `dvai.baseUrl` in production,
-the code is identical — that's the whole point.
+`http://localhost:11434/v1` during development and at `dvai.baseUrl` in
+production, the code is identical — that's the whole point.
 
 ### llama.cpp + `llama-server`
 
@@ -64,13 +73,13 @@ users running models with fine-grained control.
 binary you run, not code you import. If you want to ship it with your
 app, you become a maintainer of cross-platform binary distribution,
 port management, lifecycle wiring, and model bundling — all the things
-DVAI-Bridge does for you.
+DVAI-Bridge does for you, in every language you care about.
 
 **DVAI-Bridge vs. llama.cpp:** We *consume* llama.cpp. It's the native
-backend across Phases 2-4. Our value-add is everything above it — the
-OpenAI HTTP surface, the cross-platform library packaging, lifecycle,
-the fact that you don't need to think about which accelerator is
-available on which device.
+backend across every non-browser platform. Our value-add is everything
+above it — the OpenAI HTTP surface, the per-language packaging
+(JS / Swift / Kotlin / C#), the lifecycle, and the fact that you don't
+need to think about which accelerator is available on which device.
 
 ### LM Studio, Jan.ai, GPT4All, Msty
 
@@ -81,20 +90,22 @@ endpoint that lives as long as the LM Studio process does.
 **What they're for:** Non-technical users who want ChatGPT-like
 experience offline. Power users who want a polished desktop UI.
 **What they're not for:** Being a dependency your app can rely on. You
-can't bundle LM Studio inside your Electron app.
+can't bundle LM Studio inside your Electron, iOS, or Android app.
 
-**DVAI-Bridge vs. these:** They're products; we're a library. Orthogonal.
-An Electron app built with DVAI-Bridge could easily compete with LM
-Studio's feature set — in fact, we'd love to see it happen.
+**DVAI-Bridge vs. these:** They're products; we're a library.
+Orthogonal. An Electron, iOS, or Android app built with DVAI-Bridge
+could easily compete with LM Studio's feature set — in fact, we'd love
+to see it happen.
 
 ### WebLLM (MLC-AI)
 
 **Category:** JavaScript library (browser-only).
 **What it does:** Runs MLC-compiled models in the browser via WebGPU.
-Has an in-process JS API that looks OpenAI-shaped (`engine.chat.completions.create(...)`),
-but does *not* run a real HTTP server.
-**What it's for:** Browser-only AI apps; the highest-performance in-browser
-inference option for supported models.
+Has an in-process JS API that looks OpenAI-shaped
+(`engine.chat.completions.create(...)`), but does *not* run a real HTTP
+server.
+**What it's for:** Browser-only AI apps; the highest-performance
+in-browser inference option for supported models.
 **What it's not for:** Anything outside a browser tab. Can't run in
 Node or Electron main. Can't be called from a Web Worker the way a real
 HTTP endpoint can. Requires MLC-compiled model artifacts (smaller
@@ -104,8 +115,9 @@ catalog than HuggingFace).
 Our value-add over directly using WebLLM: (1) a real OpenAI HTTP surface
 that any SDK can target (including via MSW in-browser); (2) automatic
 recovery from WebGPU crashes; (3) the same code also works in Node,
-Electron, Capacitor, etc. Use plain WebLLM if your app is browser-only
-and you're comfortable wiring the OpenAI-compat layer yourself.
+Electron, Capacitor, iOS, Android, and .NET. Use plain WebLLM if your
+app is browser-only and you're comfortable wiring the OpenAI-compat
+layer yourself.
 
 ### Transformers.js (Hugging Face)
 
@@ -123,7 +135,8 @@ inputs.
 default cross-browser-and-Node backend. Our value-add: the OpenAI HTTP
 surface so your agent code is framework-standard (LangChain, Vercel AI
 SDK, etc.) instead of Transformers.js-specific. Plus the transport
-abstraction, port management, lifecycle.
+abstraction, port management, lifecycle, and availability in non-JS
+languages through our native SDKs.
 
 ### `node-llama-cpp`
 
@@ -135,12 +148,12 @@ performance.
 **What it's not for:** Exposing OpenAI HTTP. Doesn't run in the browser.
 Doesn't run on mobile. Not shippable inside an Electron renderer.
 
-**DVAI-Bridge vs. `node-llama-cpp`:** We will eventually ship our own
-NAPI bindings (Phase 2) rather than depending on `node-llama-cpp`, for
-IP-discipline reasons. From a developer's perspective, DVAI-Bridge adds
-(1) the OpenAI HTTP surface, (2) cross-platform (same library works in
-browser/mobile/etc), (3) lifecycle + port + recovery. `node-llama-cpp`
-is lower-level and more flexible for pure Node use cases where you're
+**DVAI-Bridge vs. `node-llama-cpp`:** We ship our own first-party NAPI
+bindings for IP-discipline reasons. From a developer's perspective,
+DVAI-Bridge adds (1) the OpenAI HTTP surface, (2) cross-platform + cross-
+language availability (same contract in Swift, Kotlin, and C# apps),
+(3) lifecycle + port + recovery management. `node-llama-cpp` is
+lower-level and more flexible for pure Node use cases where you're
 happy to write against its API directly.
 
 ### `llama-cpp-python` + `llama_cpp.server`
@@ -152,25 +165,27 @@ OpenAI-compatible HTTP server.
 **What it's for:** Python server applications — FastAPI / Flask / Django
 apps that want local inference.
 **What it's not for:** Non-Python apps. Can't embed it inside an iOS
-app or a .NET desktop app.
+app, an Electron app, or a .NET desktop app.
 
-**DVAI-Bridge vs. `llama-cpp-python`:** Closest functional competitor,
-but different language and different deployment shape. If your whole
-stack is Python, use `llama-cpp-python`. If you're shipping client apps
-(Electron, mobile, native desktop), DVAI-Bridge.
+**DVAI-Bridge vs. `llama-cpp-python`:** Closest functional competitor in
+spirit, but different language and different deployment shape. If your
+whole stack is Python, use `llama-cpp-python`. If you're shipping
+client apps in JavaScript, Swift, Kotlin, or C#, DVAI-Bridge.
 
-### `llama-cpp-capacitor`
+### `llama-cpp-capacitor` (Capacitor community plugin)
 
-**Category:** Capacitor plugin (iOS + Android bindings for llama.cpp).
-**What it does:** Lets a Capacitor app call llama.cpp from JS.
+**Category:** Capacitor plugin — community-maintained llama.cpp bindings
+for iOS + Android hybrid apps.
+**What it does:** Lets a Capacitor app call llama.cpp from JavaScript.
 **What it's for:** Mobile hybrid apps wanting on-device inference.
 **What it's not for:** Exposing OpenAI HTTP; cross-platform beyond
 Capacitor; a drop-in OpenAI-surface library.
 
-**DVAI-Bridge vs. `llama-cpp-capacitor`:** DVAI-Bridge v1.5 used
-`llama-cpp-capacitor` as its mobile backend; Phase 1 replaces it with
-first-party bindings and adds the embedded HTTP server story (so you
-point your OpenAI SDK at it instead of using a mobile-specific JS API).
+**DVAI-Bridge vs. `llama-cpp-capacitor`:** DVAI-Bridge now ships its own
+first-party Capacitor plugin (`@dvai-bridge/capacitor`) with an
+embedded HTTP server, so you point your OpenAI SDK at the returned URL
+instead of using a mobile-specific JS API. IP-discipline considerations
+also made first-party bindings necessary.
 
 ### llamafile (Mozilla Ocho)
 
@@ -179,28 +194,28 @@ point your OpenAI SDK at it instead of using a mobile-specific JS API).
 executable that also serves an OpenAI-compatible endpoint.
 **What it's for:** "Run this model as a server, no install, no build."
 Portable demos, single-binary deployments.
-**What it's not for:** Being a dependency of another application.
-You can't `import llamafile` — it's a binary.
+**What it's not for:** Being a dependency of another application. You
+can't `import llamafile` — it's a binary.
 
 **DVAI-Bridge vs. llamafile:** Different tool, different job. Llamafile
 is a *distribution artifact* (one file → one model). DVAI-Bridge is a
-*library* (import → your app spawns a server internally). You might
-use llamafile to share a model with a friend. You use DVAI-Bridge to
-ship a product.
+*library* (import → your app spawns a server internally). You might use
+llamafile to share a model with a friend. You use DVAI-Bridge to ship a
+product.
 
 ### vLLM, TensorRT-LLM, TGI, SGLang
 
 **Category:** Production-grade server stacks.
 **What they do:** High-throughput inference servers for running a fleet
 behind a load balancer. Batch processing, paged attention, speculative
-decoding, etc.
+decoding.
 **What they're for:** Hosting inference at scale for many concurrent
 users.
 **What they're not for:** Embedding inside a client app. They're servers
 you deploy on hardware you control.
 
-**DVAI-Bridge vs. these:** Orthogonal. If you're building a SaaS,
-you probably want vLLM behind your API. If you're building a client-side
+**DVAI-Bridge vs. these:** Orthogonal. If you're building a SaaS, you
+probably want vLLM behind your API. If you're building a client-side
 app that needs AI without a backend, you want DVAI-Bridge. Some orgs
 will use both — vLLM for the bulk tier, DVAI-Bridge for the privacy /
 offline tier.
@@ -233,17 +248,25 @@ Being honest about when we're wrong for a job:
   offline / private AI.** Keep using OpenAI / Anthropic / Google. The
   DVAI-Bridge value proposition assumes on-device is a requirement.
 - **You're writing a browser-only demo and will never need Node /
-  Electron / mobile.** Plain WebLLM or Transformers.js works fine —
-  saves you one dependency.
+  Electron / mobile / native.** Plain WebLLM or Transformers.js works
+  fine — saves you one dependency.
+- **You're writing a React Native or Flutter app and you need a drop-in
+  wrapper today.** Those dedicated wrappers are on the near-term roadmap
+  but not in the initial release. You can use the iOS Swift Package and
+  Android AAR directly via standard native-bridge patterns if you're
+  comfortable writing the bridge code yourself.
 
 ## When DVAI-Bridge is the clear answer
 
-- You're building an Electron, Tauri, Capacitor, React Native, Flutter,
-  native mobile, or native desktop application.
+- You're building an application — Electron, Capacitor hybrid mobile,
+  native iOS (Swift), native Android (Kotlin / Java), or native desktop
+  (.NET / C#).
 - Your users should not have to install anything beyond your app.
 - Your agent code should stay standard (LangChain, OpenAI SDK, Vercel
-  AI SDK) rather than locking into any particular inference engine's API.
-- You want the same code to work across every platform you ship to.
+  AI SDK, or the OpenAI SDK of your language) rather than locking into
+  any particular inference engine's API.
+- You want the same code path to work across every platform you ship to,
+  regardless of the language you write each platform in.
 - Cost per token is zero and privacy is a first-class requirement.
 
 If three or more of the above are true, DVAI-Bridge is the fastest path
