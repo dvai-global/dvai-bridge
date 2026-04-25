@@ -71,20 +71,23 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeLoadModel(
         jint gpuLayers, jint contextSize, jint threads, jboolean embeddingMode) {
     auto* h = reinterpret_cast<LlamaContextHolder*>(handle);
     if (!h) return JNI_FALSE;
-
-    // Always start fresh -- previous load (if any) is freed.
-    unload_holder(h);
-
     if (jPath == nullptr) return JNI_FALSE;
+
     const char* cPath = env->GetStringUTFChars(jPath, nullptr);
     if (cPath == nullptr) return JNI_FALSE;
     std::string path(cPath);
     env->ReleaseStringUTFChars(jPath, cPath);
+
     if (path.empty()) return JNI_FALSE;
 
     // mmproj path is recorded by Kotlin/PluginState; loading the projector
     // happens in Task 35 (multimodal pipeline). Silence the unused warning.
     (void)jMmprojPath;
+
+    // Now safe to free prior state and load fresh -- validation passed so we
+    // won't destroy a previously-loaded model just because the path was bad.
+    // Mirrors LlamaCppBridge.mm on iOS, which returns early before [self unload].
+    unload_holder(h);
 
     llama_backend_init();
 
