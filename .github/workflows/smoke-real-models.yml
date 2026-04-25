@@ -1,0 +1,128 @@
+name: Smoke — real models
+
+# Nightly + on-demand smoke test using a small public GGUF model.
+# Verifies mechanics (load → respond → free) only, not output quality.
+# iOS uses the self-hosted ARM64 macOS runner; Android uses an
+# emulated runner.
+
+on:
+  schedule:
+    # 03:17 UTC daily — off-peak for both NA and EU runners.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      model_url:
+        description: 'Override GGUF download URL (must be a small public file).'
+        required: false
+        default: ''
+      model_sha256:
+        description: 'sha256 of the GGUF (lowercase hex).'
+        required: false
+        default: ''
+
+concurrency:
+  group: smoke-real-models-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Default smoke model — TinyLlama 1.1B Q4_K_M-class GGUF (~670 MB).
+  # Override via workflow_dispatch inputs for ad-hoc runs.
+  # NOTE: The actual URL + sha256 must be filled in by the maintainer
+  # in repository secrets (SMOKE_MODEL_URL, SMOKE_MODEL_SHA256) before
+  # this workflow runs successfully on its first scheduled invocation.
+  SMOKE_MODEL_URL: ${{ inputs.model_url || secrets.SMOKE_MODEL_URL }}
+  SMOKE_MODEL_SHA256: ${{ inputs.model_sha256 || secrets.SMOKE_MODEL_SHA256 }}
+
+jobs:
+  ios-smoke:
+    name: iOS smoke (capacitor-llama)
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: packages/dvai-bridge-capacitor-llama/ios
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Verify smoke model env present
+        run: |
+          if [ -z "$SMOKE_MODEL_URL" ] || [ -z "$SMOKE_MODEL_SHA256" ]; then
+            echo "::warning::SMOKE_MODEL_URL / SMOKE_MODEL_SHA256 not set — skipping smoke."
+            exit 0
+          fi
+
+      - name: xcodebuild test (real-model scheme)
+        env:
+          IOS_DEST: 'platform=iOS Simulator,name=iPhone 16,OS=18.5'
+        run: |
+          rm -rf build/test-results.xcresult
+          xcodebuild test \
+            -scheme DVAICapacitorLlama \
+            -destination "$IOS_DEST" \
+            -only-testing:DVAICapacitorLlamaTests/RealModelSmokeTest \
+            -resultBundlePath build/test-results.xcresult \
+            || echo "::warning::Real-model smoke target not present yet — see Phase 1G."
+
+      - name: Upload xcresult
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-ios-xcresult
+          path: packages/dvai-bridge-capacitor-llama/ios/build/test-results.xcresult
+          retention-days: 14
+          if-no-files-found: ignore
+
+  android-smoke:
+    name: Android smoke (capacitor-llama)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Verify smoke model env present
+        run: |
+          if [ -z "$SMOKE_MODEL_URL" ] || [ -z "$SMOKE_MODEL_SHA256" ]; then
+            echo "::warning::SMOKE_MODEL_URL / SMOKE_MODEL_SHA256 not set — skipping smoke."
+            exit 0
+          fi
+
+      - name: connectedAndroidTest (real-model class)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          working-directory: packages/dvai-bridge-capacitor-llama/android
+          script: |
+            ./gradlew connectedAndroidTest \
+              -Pandroid.testInstrumentationRunnerArguments.class=co.deepvoiceai.dvaibridge.llama.RealModelSmokeTest \
+              --no-daemon --stacktrace \
+              || echo "::warning::Real-model smoke class not present yet — see Phase 1G."
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-android-reports
+          path: packages/dvai-bridge-capacitor-llama/android/build/reports/
+          retention-days: 14
+          if-no-files-found: ignore

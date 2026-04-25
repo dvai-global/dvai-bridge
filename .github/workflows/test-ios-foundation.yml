@@ -1,0 +1,51 @@
+name: iOS — capacitor-foundation
+
+on:
+  pull_request:
+    paths:
+      - 'packages/dvai-bridge-capacitor-foundation/ios/**'
+      - 'packages/dvai-bridge-capacitor/src/**'
+      - 'fixtures/**'
+      - 'scripts/mac-side-*.sh'
+      - '.github/workflows/test-ios-foundation.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/dvai-bridge-capacitor-foundation/ios/**'
+      - 'packages/dvai-bridge-capacitor/src/**'
+      - 'fixtures/**'
+
+concurrency:
+  group: ios-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  xctest:
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/dvai-bridge-capacitor-foundation/ios
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Clear stale xcresult bundle
+        run: rm -rf build/test-results.xcresult
+
+      - name: xcodebuild test
+        env:
+          IOS_DEST: 'platform=iOS Simulator,name=iPhone 16,OS=18.5'
+        run: |
+          xcodebuild test \
+            -scheme DVAICapacitorFoundation \
+            -destination "$IOS_DEST" \
+            -resultBundlePath build/test-results.xcresult
+
+      - name: Upload xcresult on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresult-foundation
+          path: packages/dvai-bridge-capacitor-foundation/ios/build/test-results.xcresult
+          retention-days: 7
