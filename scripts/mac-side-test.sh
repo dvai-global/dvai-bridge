@@ -18,6 +18,9 @@ case "$TARGET" in
   *) echo "Unknown target: $TARGET" >&2; exit 2 ;;
 esac
 
+# xcodebuild aborts with exit 64 if the result bundle already exists; clear it.
+rm -rf build/test-results.xcresult
+
 if [ -n "$FILTER" ]; then
   xcodebuild test \
     -scheme "$SCHEME" \
