@@ -15,7 +15,7 @@ let package = Package(
         .library(name: "DVAICapacitorMediaPipe", targets: ["DVAICapacitorMediaPipe"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Building42/Telegraph.git", from: "0.30.0"),
+        .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
     ],
     targets: [
         .target(

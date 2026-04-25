@@ -23,7 +23,7 @@ let package = Package(
         .library(name: "DVAICapacitorFoundation", targets: ["DVAICapacitorFoundation"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Building42/Telegraph.git", from: "0.30.0"),
+        .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
     ],
     targets: [
         // Swift target. The .m file (PluginProxy.m) is consumed by Capacitor

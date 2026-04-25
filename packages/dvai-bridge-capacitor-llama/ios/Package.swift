@@ -8,7 +8,7 @@ let package = Package(
         .library(name: "DVAICapacitorLlama", targets: ["DVAICapacitorLlama"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Building42/Telegraph.git", from: "0.30.0"),
+        .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
         // Path-based dependency on the vendored llama.cpp submodule. Its
         // bundled Package.swift exposes a `llama` library product that
         // compiles src/*.cpp + ggml/* and links Metal/Accelerate on Darwin.
