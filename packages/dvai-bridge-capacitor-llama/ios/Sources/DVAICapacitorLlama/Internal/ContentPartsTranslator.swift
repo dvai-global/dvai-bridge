@@ -55,6 +55,10 @@ struct DefaultImageDecoder: ImageDecoderProtocol {
 /// `ImageDecoder`, audio base64-decoded then run through `AudioDecoder` to
 /// 16 kHz mono PCM16-LE.
 ///
+/// Audio data contract: `input_audio.data` must be standard base64 (RFC 4648
+/// §4); URL-safe base64 (`-` / `_` chars) is rejected. This matches OpenAI's
+/// documented input format.
+///
 /// Spec reference: §8.1 (content-part shape), §8.2 (image translation), §8.3
 /// (audio translation), §8.5 (error mapping).
 final class ContentPartsTranslator {
@@ -153,8 +157,13 @@ final class ContentPartsTranslator {
                             supported: Self.supportedAudioFormats
                         )
                     }
+                    guard !dataB64.isEmpty else {
+                        throw TranslatorError.malformedRequest("input_audio.data is empty")
+                    }
+                    // Standard base64 only (RFC 4648 §4). URL-safe base64 (-/_ chars) is rejected.
+                    // Matches OpenAI's documented input format.
                     guard let encodedBytes = Data(base64Encoded: dataB64) else {
-                        throw TranslatorError.audioDecodeFailed("base64 decode failed")
+                        throw TranslatorError.malformedRequest("input_audio.data is not valid base64")
                     }
                     do {
                         let pcm = try await audioDecoder(encodedBytes, format)

@@ -62,6 +62,10 @@ sealed class TranslatorError(msg: String) : Exception(msg) {
  * via the injected [imageDecoder] collaborator, audio base64-decoded then
  * run through [audioDecoder] to 16 kHz mono PCM16-LE.
  *
+ * Audio data contract: `input_audio.data` must be standard base64 (RFC 4648
+ * §4); URL-safe base64 (`-` / `_` chars) is rejected. This matches OpenAI's
+ * documented input format.
+ *
  * Spec reference: §8.1 (content-part shape), §8.2 (image translation), §8.3
  * (audio translation), §8.5 (error mapping).
  *
@@ -145,10 +149,15 @@ class ContentPartsTranslator(
                                     // SUPPORTED_AUDIO_FORMATS is the source of truth; this branch only
                                     // fires if the enum diverges from the supported-list table.
                                     ?: throw TranslatorError.UnsupportedAudioFormat(formatStr, SUPPORTED_AUDIO_FORMATS)
+                                if (dataB64.isEmpty()) {
+                                    throw TranslatorError.MalformedRequest("input_audio.data is empty")
+                                }
+                                // Standard base64 only (RFC 4648 §4). URL-safe base64 (-/_ chars) is rejected.
+                                // Matches OpenAI's documented input format.
                                 val encoded = try {
                                     Base64.getDecoder().decode(dataB64)
                                 } catch (e: IllegalArgumentException) {
-                                    throw TranslatorError.AudioDecodeFailed("base64 decode failed: ${e.message}")
+                                    throw TranslatorError.MalformedRequest("input_audio.data is not valid base64")
                                 }
                                 val pcm = try {
                                     audioDecoder(encoded, format)

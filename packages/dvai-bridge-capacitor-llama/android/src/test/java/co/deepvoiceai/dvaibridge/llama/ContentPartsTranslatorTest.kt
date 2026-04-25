@@ -263,5 +263,67 @@ class ContentPartsTranslatorTest {
         Unit
     }
 
+    /**
+     * Empty `input_audio.data` → `MalformedRequest`. The audio decoder must
+     * not be invoked — this is a request-shape error caught before decode.
+     */
+    @Test
+    fun `empty audio data throws MalformedRequest`() = runBlocking {
+        val translator = ContentPartsTranslator(
+            mmprojLoaded = false,
+            modelHasAudioEncoder = true,
+            imageDecoder = { _ -> error("image decoder should not be called") },
+            audioDecoder = { _, _ -> error("audio decoder should not be called for empty data") },
+        )
+        val messages = listOf(
+            mapOf<String, Any?>(
+                "role" to "user",
+                "content" to listOf(
+                    mapOf("type" to "input_audio", "input_audio" to mapOf("data" to "", "format" to "pcm16")),
+                ),
+            ),
+        )
+        try {
+            translator.translate(messages)
+            fail("expected MalformedRequest")
+        } catch (_: TranslatorError.MalformedRequest) {
+            // expected
+        }
+        Unit
+    }
+
+    /**
+     * Malformed base64 in `input_audio.data` → `MalformedRequest` (not
+     * `AudioDecodeFailed`). The audio decoder never runs — this is a
+     * pre-decode request-shape error.
+     */
+    @Test
+    fun `malformed base64 audio data throws MalformedRequest`() = runBlocking {
+        val translator = ContentPartsTranslator(
+            mmprojLoaded = false,
+            modelHasAudioEncoder = true,
+            imageDecoder = { _ -> error("image decoder should not be called") },
+            audioDecoder = { _, _ -> error("audio decoder should not be called for invalid base64") },
+        )
+        val messages = listOf(
+            mapOf<String, Any?>(
+                "role" to "user",
+                "content" to listOf(
+                    mapOf(
+                        "type" to "input_audio",
+                        "input_audio" to mapOf("data" to "!!!not-valid-base64!!!", "format" to "pcm16"),
+                    ),
+                ),
+            ),
+        )
+        try {
+            translator.translate(messages)
+            fail("expected MalformedRequest")
+        } catch (_: TranslatorError.MalformedRequest) {
+            // expected
+        }
+        Unit
+    }
+
     // endregion
 }

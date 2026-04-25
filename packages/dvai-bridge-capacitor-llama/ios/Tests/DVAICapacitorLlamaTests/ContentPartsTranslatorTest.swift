@@ -236,4 +236,63 @@ final class ContentPartsTranslatorTest: XCTestCase {
             XCTFail("unexpected error: \(error)")
         }
     }
+
+    /// Empty `input_audio.data` → `malformedRequest`. The audio decoder must
+    /// not be invoked — this is a request-shape error caught before decode.
+    func testEmptyAudioDataThrowsMalformedRequest() async {
+        let translator = ContentPartsTranslator(
+            mmprojLoaded: false,
+            modelHasAudioEncoder: true,
+            imageDecoder: MockImageDecoder(),
+            audioDecoder: { _, _ in
+                XCTFail("audio decoder should not be invoked for empty data")
+                return Data()
+            }
+        )
+        let messages: [[String: Any]] = [[
+            "role": "user",
+            "content": [[
+                "type": "input_audio",
+                "input_audio": ["data": "", "format": "pcm16"]
+            ]]
+        ]]
+        do {
+            _ = try await translator.translate(messages: messages)
+            XCTFail("Expected throw")
+        } catch TranslatorError.malformedRequest {
+            // OK
+        } catch {
+            XCTFail("Unexpected: \(error)")
+        }
+    }
+
+    /// Malformed base64 in `input_audio.data` → `malformedRequest` (not
+    /// `audioDecodeFailed`). The audio decoder never runs — this is a
+    /// pre-decode request-shape error.
+    func testMalformedBase64ThrowsMalformedRequest() async {
+        let translator = ContentPartsTranslator(
+            mmprojLoaded: false,
+            modelHasAudioEncoder: true,
+            imageDecoder: MockImageDecoder(),
+            audioDecoder: { _, _ in
+                XCTFail("audio decoder should not be invoked for invalid base64")
+                return Data()
+            }
+        )
+        let messages: [[String: Any]] = [[
+            "role": "user",
+            "content": [[
+                "type": "input_audio",
+                "input_audio": ["data": "!!!not-valid-base64!!!", "format": "pcm16"]
+            ]]
+        ]]
+        do {
+            _ = try await translator.translate(messages: messages)
+            XCTFail("Expected throw")
+        } catch TranslatorError.malformedRequest {
+            // OK
+        } catch {
+            XCTFail("Unexpected: \(error)")
+        }
+    }
 }
