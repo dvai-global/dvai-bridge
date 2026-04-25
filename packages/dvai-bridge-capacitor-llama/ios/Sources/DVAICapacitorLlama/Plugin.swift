@@ -52,7 +52,15 @@ public class DVAIBridgeLlamaPlugin: CAPPlugin {
             return
         }
         let destFilename = call.getString("destFilename") ?? url.lastPathComponent
-        let headers = (call.getObject("headers") as? [String: String]) ?? [:]
+        // Capacitor's JSObject is `[String: Any]`, so an `as? [String: String]`
+        // cast returns nil whenever any value isn't already typed as String,
+        // silently dropping ALL headers. Mirror Android's per-key extraction.
+        var headers: [String: String] = [:]
+        if let raw = call.getObject("headers") {
+            for (k, v) in raw {
+                if let s = v as? String { headers[k] = s }
+            }
+        }
 
         Task { [weak self] in
             guard let self else { return }
