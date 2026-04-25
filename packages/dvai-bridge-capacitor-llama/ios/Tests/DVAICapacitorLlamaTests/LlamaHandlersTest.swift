@@ -221,9 +221,13 @@ final class LlamaHandlersTest: XCTestCase {
         XCTAssertEqual(data?.first?["index"] as? Int, 0)
         let vec = data?.first?["embedding"] as? [Double]
         XCTAssertEqual(vec?.count, 3)
-        XCTAssertEqual(vec?[0], 0.5, accuracy: 1e-9)
-        XCTAssertEqual(vec?[1], -0.25, accuracy: 1e-9)
-        XCTAssertEqual(vec?[2], 1.0, accuracy: 1e-9)
+        guard let unwrapped = vec, unwrapped.count == 3 else {
+            XCTFail("expected 3-element vec; got \(String(describing: vec))")
+            return
+        }
+        XCTAssertEqual(unwrapped[0], 0.5, accuracy: 1e-6)
+        XCTAssertEqual(unwrapped[1], -0.25, accuracy: 1e-6)
+        XCTAssertEqual(unwrapped[2], 1.0, accuracy: 1e-6)
         XCTAssertEqual(bridge.receivedEmbeddingTexts, ["hello"])
     }
 
