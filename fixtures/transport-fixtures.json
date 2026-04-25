@@ -1,0 +1,61 @@
+{
+  "CHAT_REQUEST_TEXT": {
+    "model": "test-model",
+    "messages": [{ "role": "user", "content": "hi" }]
+  },
+  "CHAT_REQUEST_IMAGE": {
+    "model": "test-model",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          { "type": "text", "text": "What is in this image?" },
+          { "type": "image_url", "image_url": { "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAQMAAAD+wSzIAAAABlBMVEX///+/v7+jQ3Y5AAAADklEQVQI12P4AIX8EAgALgAD/aNpbtEAAAAASUVORK5CYII=" } }
+        ]
+      }
+    ]
+  },
+  "CHAT_REQUEST_AUDIO_PCM16": {
+    "model": "test-model",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          { "type": "input_audio", "input_audio": { "data": "<replaced-by-loader>", "format": "pcm16" } },
+          { "type": "text", "text": "Transcribe this." }
+        ]
+      }
+    ]
+  },
+  "COMPLETION_REQUEST": {
+    "model": "test-model",
+    "prompt": "hi"
+  },
+  "EMBEDDING_REQUEST": {
+    "model": "test-model",
+    "input": ["hello", "world"]
+  },
+  "CANNED_CHAT_COMPLETION": {
+    "id": "chatcmpl-fixed",
+    "object": "chat.completion",
+    "created": 1700000000,
+    "model": "test-model",
+    "choices": [
+      {
+        "index": 0,
+        "message": { "role": "assistant", "content": "canned" },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
+  },
+  "CANNED_EMBEDDING": {
+    "object": "list",
+    "data": [
+      { "object": "embedding", "embedding": [0, 0.1, 0.2], "index": 0 },
+      { "object": "embedding", "embedding": [0.1, 0.2, 0.3], "index": 1 }
+    ],
+    "model": "test-model",
+    "usage": { "prompt_tokens": 0, "total_tokens": 0 }
+  }
+}
