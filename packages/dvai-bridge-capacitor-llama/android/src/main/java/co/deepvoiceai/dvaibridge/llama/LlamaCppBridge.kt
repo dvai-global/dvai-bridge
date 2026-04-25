@@ -2,11 +2,12 @@ package co.deepvoiceai.dvaibridge.llama
 
 /**
  * Kotlin wrapper around the C++ llama.cpp bridge for Android.
- * Stub implementation -- real llama.cpp integration lands in Task 31.
  *
  * The pure-Kotlin paths (load/unload state tracking) are exercised by
  * JVM unit tests; JNI calls are exercised by instrumented tests on an
- * Android device or emulator.
+ * Android device or emulator. Each native call is guarded with
+ * `try { ... } catch (_: UnsatisfiedLinkError) { ... }` so the JVM tests
+ * (which can't load the .so) keep working on the Kotlin-only fallback.
  */
 class LlamaCppBridge {
     companion object {
@@ -93,6 +94,28 @@ class LlamaCppBridge {
         return "llama.cpp-stub-android-0.1"
     }
 
+    /**
+     * Greedy prompt completion. Returns the generated text on success, or `null`
+     * if the model isn't loaded / native isn't available (JVM tests).
+     *
+     * Temperature and topP are accepted now but ignored by the native side for
+     * Phase 1; Task 36 will extend the sampler chain to honour them.
+     */
+    fun completePrompt(
+        prompt: String,
+        maxTokens: Int,
+        temperature: Float,
+        topP: Float,
+    ): String? {
+        if (!isLoadedFlag) return null
+        if (nativeHandle == 0L) return null // JVM tests: no .so, no completion.
+        return try {
+            nativeCompletePrompt(nativeHandle, prompt, maxTokens, temperature, topP)
+        } catch (_: UnsatisfiedLinkError) {
+            null // JVM-only fallback
+        }
+    }
+
     // JNI smoke ping -- instrumented tests only.
     external fun nativeSmoke()
 
@@ -105,4 +128,7 @@ class LlamaCppBridge {
     ): Boolean
     private external fun nativeUnload(handle: Long)
     private external fun nativeVersionString(handle: Long): String
+    private external fun nativeCompletePrompt(
+        handle: Long, prompt: String, maxTokens: Int, temperature: Float, topP: Float,
+    ): String?
 }
