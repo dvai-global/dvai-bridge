@@ -22,13 +22,16 @@
 //
 // Streaming: 4-frame SSE envelope (role / content* / finish / [DONE]),
 // mirroring `LlamaHandlers`. Multiple content frames are emitted, one per
-// partial response yielded by `LanguageModelSession.responseStream(to:)`.
+// partial response yielded by `LanguageModelSession.streamResponse(to:)`.
 // Telegraph 0.40 buffers the SSE body server-side so per-frame flushing
 // is identical to single-frame to clients today.
 //
 // Concurrency: `LanguageModelSession` is a stateful conversation object;
-// concurrent requests would interleave turns. All session-touching paths
-// are serialized via `sessionLock`, same pattern as `LlamaHandlers`.
+// concurrent requests would interleave turns and corrupt Apple FM state.
+// Concurrent inference calls are serialized via `inferenceLock` (an async
+// semaphore) — an NSLock around an `await` would deadlock because it isn't
+// async-aware. The pre-existing `sessionLock` (NSLock) keeps guarding lazy
+// session creation in `ensureSession()` only.
 //
 // Host-build guard: `#if canImport(FoundationModels)` keeps the file
 // compilable on macOS hosts whose Xcode SDK predates FoundationModels.
@@ -46,6 +49,12 @@ public final class FoundationHandlers: DVAIHandlers, @unchecked Sendable {
     private let modelId: String
     private var session: LanguageModelSession?
     private let sessionLock = NSLock()
+    /// Serializes `session.respond(to:)` / `session.streamResponse(to:)`
+    /// calls so concurrent /v1/chat/completions requests can't interleave
+    /// turns on the same conversational `LanguageModelSession` and corrupt
+    /// Apple FM state. `sessionLock` only guards the lazy-creation path in
+    /// `ensureSession()`; it cannot be held across an `await`.
+    private let inferenceLock = AsyncSemaphore(value: 1)
 
     public init(modelId: String = "apple-foundation-3b") {
         self.modelId = modelId
@@ -60,37 +69,61 @@ public final class FoundationHandlers: DVAIHandlers, @unchecked Sendable {
         return s
     }
 
+    /// Null out the cached session under `sessionLock` so the next request
+    /// lazy-creates a fresh one. Called from inference error paths to avoid
+    /// reusing a (potentially poisoned) conversational session. This does
+    /// NOT touch `inferenceLock` — the in-flight semaphore acquisition is
+    /// independent of which session reference is cached.
+    private func resetSession() {
+        sessionLock.lock()
+        self.session = nil
+        sessionLock.unlock()
+    }
+
     // MARK: - /v1/chat/completions
 
     public func handleChatCompletion(body: [String: Any], ctx: HandlerContext) async throws -> HandlerResponse {
+        // Validate messages field shape up-front. Matches LlamaHandlers' pattern.
+        guard let messages = body["messages"] as? [[String: Any]] else {
+            return .error(400, "Missing 'messages' field")
+        }
+        if messages.isEmpty {
+            return .error(400, "Empty messages array")
+        }
+
         // Reject image / audio content parts up-front (spec §8.5 wording).
-        if let messages = body["messages"] as? [[String: Any]] {
-            for msg in messages {
-                if let parts = msg["content"] as? [[String: Any]] {
-                    for part in parts {
-                        if let type = part["type"] as? String {
-                            if type == "image_url" {
-                                return .error(400, "Image input not supported by Apple Foundation Models in this version.")
-                            }
-                            if type == "input_audio" {
-                                return .error(400, "Audio input not supported by Apple Foundation Models in this version.")
-                            }
+        for msg in messages {
+            if let parts = msg["content"] as? [[String: Any]] {
+                for part in parts {
+                    if let type = part["type"] as? String {
+                        if type == "image_url" {
+                            return .error(400, "Image input not supported by Apple Foundation Models in this version.")
+                        }
+                        if type == "input_audio" {
+                            return .error(400, "Audio input not supported by Apple Foundation Models in this version.")
                         }
                     }
                 }
             }
         }
 
-        let messages = body["messages"] as? [[String: Any]] ?? []
         let prompt = openAIMessagesToPrompt(messages)
         let session = ensureSession()
         let id = "chatcmpl-fm-\(UUID().uuidString.prefix(20).lowercased())"
         let created = Int(Date().timeIntervalSince1970)
 
         if (body["stream"] as? Bool) == true {
+            // Acquire the inference semaphore BEFORE building the stream so the
+            // entire `for try await partial in ...` loop holds it. The Task
+            // releases it in a defer, which is fine because `signal()` is sync.
+            await inferenceLock.wait()
+
             let modelId = self.modelId
-            let stream = AsyncStream<String> { continuation in
-                Task {
+            // `[modelId]` capture: explicit so the Sendable closure can refer
+            // to the immutable string without retaining `self`.
+            let stream = AsyncStream<String> { [inferenceLock] continuation in
+                let task = Task { [modelId, weak self] in
+                    defer { inferenceLock.signal() }
                     do {
                         // Frame 1: role delta
                         let roleChunk: [String: Any] = [
@@ -146,19 +179,50 @@ public final class FoundationHandlers: DVAIHandlers, @unchecked Sendable {
 
                         continuation.yield("data: [DONE]\n\n")
                     } catch {
-                        // Stream errored mid-flight — close cleanly. Clients see
-                        // whatever frames already arrived; no error frame is
-                        // emitted because OpenAI's SSE protocol doesn't define one.
+                        // Stream errored mid-flight. Emit a finish chunk with
+                        // finish_reason: "error" plus an error message so the
+                        // client can distinguish truncation from completion,
+                        // then forward [DONE]. Reset the session afterwards so
+                        // a poisoned conversational instance isn't reused on
+                        // the next request.
+                        let errorChunk: [String: Any] = [
+                            "id": id,
+                            "object": "chat.completion.chunk",
+                            "created": created,
+                            "model": modelId,
+                            "choices": [[
+                                "index": 0,
+                                "delta": [:] as [String: Any],
+                                "finish_reason": "error",
+                            ] as [String: Any]],
+                            "error": ["message": error.localizedDescription],
+                        ]
+                        if let s = Self.serialize(errorChunk) {
+                            continuation.yield("data: \(s)\n\n")
+                        }
+                        continuation.yield("data: [DONE]\n\n")
+                        self?.resetSession()
                     }
                     continuation.finish()
+                }
+
+                // If the HTTP client disconnects (or the stream is otherwise
+                // released) cancel the upstream Task so Apple FM stops
+                // generating tokens nobody will read. `streamResponse(to:)`
+                // is an AsyncSequence and respects Swift Concurrency
+                // cancellation, propagating to Apple FM.
+                continuation.onTermination = { @Sendable _ in
+                    task.cancel()
                 }
             }
             return .sse(stream)
         }
 
         // Non-streaming
+        await inferenceLock.wait()
         do {
             let response = try await session.respond(to: prompt)
+            inferenceLock.signal()
             let json: [String: Any] = [
                 "id": id,
                 "object": "chat.completion",
@@ -173,6 +237,8 @@ public final class FoundationHandlers: DVAIHandlers, @unchecked Sendable {
             ]
             return .json(200, json)
         } catch {
+            inferenceLock.signal()
+            resetSession()
             return .error(500, error.localizedDescription)
         }
     }
