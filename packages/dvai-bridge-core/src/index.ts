@@ -4,7 +4,6 @@ import { type HandlerContext } from "./handlers/index.js";
 // Re-export types from backends
 export type { TransformersProgressInfo } from "./TransformersBackend.js";
 export { detectWebGPU } from "./TransformersBackend.js";
-export { NativeBackend } from "./NativeBackend.js";
 
 // Re-export InitProgressReport from web-llm for backward compatibility
 export type { InitProgressReport } from "@mlc-ai/web-llm";
@@ -16,7 +15,7 @@ export {
 	legacyCompletionStreamAdapter,
 } from "./handlers/completions.js";
 
-export type BackendType = "webllm" | "transformers" | "native" | "auto";
+export type BackendType = "webllm" | "transformers" | "auto";
 export type DeviceType = "webgpu" | "cpu" | "auto";
 export type {
 	PipelineTask,
@@ -27,7 +26,7 @@ export type {
 export interface DVAIConfig {
 	/** The model ID for web-llm backend. Default: "gemma-2-2b-it-q4f16_1-MLC" */
 	modelId?: string;
-	/** The backend engine to use. Default: "webllm". Set to "auto" to auto-detect (native on Capacitor, webllm otherwise). */
+	/** The backend engine to use. Default: "webllm". Set to "auto" to auto-detect. */
 	backend?: BackendType;
 	/** HuggingFace model ID for Transformers.js backend. Default: "onnx-community/gemma-3n-E2B-it-ONNX" */
 	transformersModelId?: string;
@@ -87,20 +86,20 @@ export interface DVAIConfig {
 	 */
 	transformersDisableEncoders?: string[];
 
-	// --- Native backend (llama-cpp-capacitor) options ---
-	/** Path to the GGUF model file for native backend. Required when using backend: "native". */
+	// --- Capacitor native runtime options (forwarded by CapacitorTransport) ---
+	/** Path to the GGUF model file for the Capacitor llama backend. */
 	nativeModelPath?: string;
-	/** Number of GPU layers for native backend (iOS Metal). Default: 99 (max) */
+	/** Number of GPU layers for the Capacitor llama backend (iOS Metal). Default: 99 (max) */
 	nativeGpuLayers?: number;
-	/** Number of CPU threads for native backend. Default: 4 */
+	/** Number of CPU threads for the Capacitor llama backend. Default: 4 */
 	nativeThreads?: number;
-	/** Context window size for native backend. Default: 2048 */
+	/** Context window size for the Capacitor llama backend. Default: 2048 */
 	nativeContextSize?: number;
 	/**
-	 * Initialize the native llama.cpp context in embedding mode. Required for
-	 * `/v1/embeddings` to work on the native backend. When true, the context
-	 * should be a dedicated embedding model and will typically not be usable
-	 * for chat/completion. Default: false.
+	 * Initialize the Capacitor llama context in embedding mode. Required for
+	 * `/v1/embeddings` to work natively. When true, the context should be a
+	 * dedicated embedding model and will typically not be usable for
+	 * chat/completion. Default: false.
 	 */
 	nativeEmbeddingMode?: boolean;
 
@@ -111,12 +110,15 @@ export interface DVAIConfig {
 
 	/**
 	 * Which transport to use for the OpenAI-compatible surface.
-	 * - "auto"  (default) → msw in browser, http in Node, none in workers
-	 * - "msw"  → force MSW (browser only; errors elsewhere)
-	 * - "http" → force HTTP server (Node only; errors elsewhere)
-	 * - "none" → no transport; use dvai.chatCompletion() directly
+	 * - "auto"      (default) → capacitor on Capacitor, msw in browser,
+	 *                            http in Node, none in workers
+	 * - "msw"       → force MSW (browser only; errors elsewhere)
+	 * - "http"      → force HTTP server (Node only; errors elsewhere)
+	 * - "capacitor" → force native Capacitor HTTP server (requires
+	 *                  @dvai-bridge/capacitor + a Capacitor backend plugin)
+	 * - "none"      → no transport; use dvai.chatCompletion() directly
 	 */
-	transport?: "auto" | "msw" | "http" | "none";
+	transport?: "auto" | "msw" | "http" | "none" | "capacitor";
 
 	/** HTTP-only. Base port. Default: 38883. */
 	httpBasePort?: number;
@@ -149,11 +151,12 @@ export interface DVAIConfig {
 
 /**
  * DVAI: Local AI Orchestration
- * Orchestrates WebLLM, Transformers.js, or native llama.cpp for local
- * inference and selects an MSW or HTTP transport (auto-detected from
- * environment) to expose the OpenAI-compatible endpoint. Read
- * `dvai.baseUrl` after initialize() to get the URL to point any OpenAI
- * SDK at.
+ * Orchestrates WebLLM or Transformers.js for local inference and selects
+ * an MSW, HTTP, or Capacitor transport (auto-detected from environment)
+ * to expose the OpenAI-compatible endpoint. On Capacitor, the native
+ * runtime runs in a first-party plugin behind the "capacitor" transport.
+ * Read `dvai.baseUrl` after initialize() to get the URL to point any
+ * OpenAI SDK at.
  */
 export class DVAI {
 	public modelId: string;
@@ -185,7 +188,7 @@ export class DVAI {
 	public nativeMmprojPath?: string;
 
 	/** Raw transport config (e.g., "auto"). */
-	public transport: "auto" | "msw" | "http" | "none";
+	public transport: "auto" | "msw" | "http" | "none" | "capacitor";
 	public httpBasePort: number;
 	public httpMaxPortAttempts: number;
 	public corsOrigin: string | string[];
@@ -202,13 +205,13 @@ export class DVAI {
 		null;
 
 	private validator: LicenseValidator;
-	private backendInstance: any = null; // WebLLMBackend | TransformersBackend | NativeBackend
+	private backendInstance: any = null; // WebLLMBackend | TransformersBackend
 	public isReady: boolean = false;
 	/** Tracks how many consecutive recovery attempts have been made. */
 	private recoveryAttempts: number = 0;
 
 	/** The resolved backend type (after "auto" resolution). */
-	private resolvedBackend: "webllm" | "transformers" | "native" = "webllm";
+	private resolvedBackend: "webllm" | "transformers" = "webllm";
 
 	constructor(config: DVAIConfig = {}) {
 		this.modelId = config.modelId || "gemma-2-2b-it-q4f16_1-MLC";
@@ -254,17 +257,14 @@ export class DVAI {
 		// Resolve explicit backends immediately so getActiveBackend() is correct
 		// before initialize(). "auto" defers to initialize() for runtime env detection.
 		if (this.backend !== "auto") {
-			this.resolvedBackend = this.backend as
-				| "webllm"
-				| "transformers"
-				| "native";
+			this.resolvedBackend = this.backend as "webllm" | "transformers";
 		}
 	}
 
 	/**
 	 * Returns the active backend type (resolved from "auto" if applicable).
 	 */
-	getActiveBackend(): "webllm" | "transformers" | "native" {
+	getActiveBackend(): "webllm" | "transformers" {
 		return this.resolvedBackend;
 	}
 
@@ -285,25 +285,19 @@ export class DVAI {
 
 	/**
 	 * Resolves the "auto" backend to a concrete type based on environment.
+	 *
+	 * On Capacitor, the native runtime is selected via `transport: "capacitor"`
+	 * (which delegates to a native HTTP server in the Capacitor plugin), not
+	 * via the backend. The backend stays in the webview as a thin client.
 	 */
-	private resolveBackend(): "webllm" | "transformers" | "native" {
+	private resolveBackend(): "webllm" | "transformers" {
 		if (this.backend === "auto") {
-			// Auto-detect: use native on Capacitor, webllm on web
-			const isCapacitor =
-				typeof window !== "undefined" &&
-				!!(window as any).Capacitor?.isNativePlatform?.();
-			if (isCapacitor) {
-				console.log(
-					"[DVAI] Auto-detected Capacitor environment → using native backend",
-				);
-				return "native";
-			}
 			console.log(
 				"[DVAI] Auto-detected web environment → using webllm backend",
 			);
 			return "webllm";
 		}
-		return this.backend as "webllm" | "transformers" | "native";
+		return this.backend as "webllm" | "transformers";
 	}
 
 	/**
@@ -328,13 +322,9 @@ export class DVAI {
 			typeof self !== "undefined" &&
 			typeof (self as any).importScripts === "function";
 
-		// 0.1 Verify Service Worker Reachability (Quality of Life) — skip for native backend,
-		// skip when inside a Worker context, and skip when serviceWorkerUrl is empty (MSW disabled).
-		if (
-			this.resolvedBackend !== "native" &&
-			!isWorkerContext &&
-			this.serviceWorkerUrl
-		) {
+		// 0.1 Verify Service Worker Reachability (Quality of Life) — skip when
+		// inside a Worker context, and skip when serviceWorkerUrl is empty (MSW disabled).
+		if (!isWorkerContext && this.serviceWorkerUrl) {
 			try {
 				const swRes = await fetch(this.serviceWorkerUrl, { method: "HEAD" });
 				if (!swRes.ok) {
@@ -465,9 +455,7 @@ export class DVAI {
 			modelId:
 				this.resolvedBackend === "transformers"
 					? this.transformersModelId
-					: this.resolvedBackend === "native"
-						? this.nativeModelPath
-						: this.modelId,
+					: this.modelId,
 			onRecovery:
 				this.resolvedBackend === "webllm"
 					? async () => {
@@ -520,39 +508,7 @@ export class DVAI {
 	private async initializeBackend(
 		onProgress: (info: any) => void,
 	): Promise<void> {
-		if (this.resolvedBackend === "native") {
-			let NativeBackendClass: any;
-			try {
-				const mod = await import("./NativeBackend.js");
-				NativeBackendClass = mod.NativeBackend;
-			} catch {
-				throw new Error(
-					'[DVAI] Native backend selected but "llama-cpp-capacitor" is not available.\n' +
-						"Install it with: npm install llama-cpp-capacitor\n" +
-						"The native backend requires a Capacitor iOS or Android app.",
-				);
-			}
-
-			if (!this.nativeModelPath) {
-				throw new Error(
-					"[DVAI] Native backend requires a model path. Set `nativeModelPath` in config.",
-				);
-			}
-
-			const backend = new NativeBackendClass({
-				modelPath: this.nativeModelPath,
-				contextSize: this.nativeContextSize,
-				threads: this.nativeThreads,
-				gpuLayers: this.nativeGpuLayers,
-				generationTimeout: this.generationTimeout,
-				embeddingMode: this.nativeEmbeddingMode,
-			});
-			await backend.initialize(onProgress);
-			this.backendInstance = backend;
-			console.log(
-				`[DVAI] Native backend ready (llama.cpp, threads: ${this.nativeThreads}, gpu_layers: ${this.nativeGpuLayers})`,
-			);
-		} else if (this.resolvedBackend === "transformers") {
+		if (this.resolvedBackend === "transformers") {
 			let TransformersBackend: any;
 			try {
 				const mod = await import("./TransformersBackend.js");
@@ -609,14 +565,10 @@ export class DVAI {
 	 * Gets the underlying engine instance directly.
 	 * - For WebLLM: returns the MLCEngine
 	 * - For Transformers.js: returns the pipeline
-	 * - For Native: returns the LlamaContext
 	 */
 	getEngine(): any {
 		if (!this.backendInstance) return null;
 		if (this.resolvedBackend === "webllm") {
-			return this.backendInstance.getEngine?.() ?? null;
-		}
-		if (this.resolvedBackend === "native") {
 			return this.backendInstance.getEngine?.() ?? null;
 		}
 		return this.backendInstance.getPipeline?.() ?? null;
@@ -637,9 +589,8 @@ export class DVAI {
 	/**
 	 * Generate embeddings for one or more text inputs.
 	 *
-	 * Supported when:
-	 * - backend is "transformers" with pipelineTask: "feature-extraction"
-	 * - backend is "native" with nativeEmbeddingMode: true
+	 * Supported when backend is "transformers" with
+	 * pipelineTask: "feature-extraction".
 	 *
 	 * Throws when called on the WebLLM backend.
 	 *
@@ -654,8 +605,7 @@ export class DVAI {
 		if (this.resolvedBackend === "webllm") {
 			throw new Error(
 				"[DVAI] Embeddings are not supported on the WebLLM backend. " +
-					"Use backend: 'transformers' with pipelineTask: 'feature-extraction', " +
-					"or backend: 'native' with nativeEmbeddingMode: true.",
+					"Use backend: 'transformers' with pipelineTask: 'feature-extraction'.",
 			);
 		}
 		if (typeof this.backendInstance.embedding !== "function") {

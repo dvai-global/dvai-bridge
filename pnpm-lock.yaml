@@ -138,9 +138,6 @@ importers:
       '@mlc-ai/web-llm':
         specifier: ^0.2.78
         version: 0.2.82
-      llama-cpp-capacitor:
-        specifier: '>=0.1.0'
-        version: 0.1.5(@capacitor/core@8.3.1)
       msw:
         specifier: ^2.12.13
         version: 2.13.4(@types/node@25.6.0)(typescript@6.0.3)
@@ -310,9 +307,6 @@ packages:
 
   '@capacitor/core@7.6.2':
     resolution: {integrity: sha512-8HRKEUlYpCOeRec8bCHZwEA4o/E2q5dhHSd0v/Cr6+ume08fZY/gniF+ZCKF+6DO0T/nRaBeNRQn6Up+45J1mg==}
-
-  '@capacitor/core@8.3.1':
-    resolution: {integrity: sha512-UF8ItlHguU1Z6GXfPTeT2gakf+ctNI8pAS1kwSBQlsJMlfD4OPoto/SmKnOxKCQvnF4WRcdWeg6C0zREUNaAQg==}
 
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
@@ -2180,11 +2174,6 @@ packages:
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
 
-  llama-cpp-capacitor@0.1.5:
-    resolution: {integrity: sha512-81u2ydsd4nO70jrv4XnxgqiPekm4IJD4xX5gVlTKwROpfV8NyQBpBs+7ywG4i0eKQmGuvCkFepaixheJ6FeOgQ==}
-    peerDependencies:
-      '@capacitor/core': '>=8.0.0'
-
   load-tsconfig@0.2.5:
     resolution: {integrity: sha512-IXO6OCs9yg8tMKzfPZ1YmheJbZCiEsnBdcB03l0OcfK9prKnJb96siuHCr5Fl37/yo9DnKU+TLpxzTUspw9shg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
@@ -3184,10 +3173,6 @@ snapshots:
       '@babel/helper-validator-identifier': 7.28.5
 
   '@capacitor/core@7.6.2':
-    dependencies:
-      tslib: 2.8.1
-
-  '@capacitor/core@8.3.1':
     dependencies:
       tslib: 2.8.1
 
@@ -4793,10 +4778,6 @@ snapshots:
   lilconfig@3.1.3: {}
 
   lines-and-columns@1.2.4: {}
-
-  llama-cpp-capacitor@0.1.5(@capacitor/core@8.3.1):
-    dependencies:
-      '@capacitor/core': 8.3.1
 
   load-tsconfig@0.2.5: {}
 

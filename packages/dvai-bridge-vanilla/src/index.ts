@@ -75,9 +75,7 @@ export class VanillaDVAI {
 		this.modelId =
 			this.core.backend === "transformers"
 				? this.core.transformersModelId
-				: this.core.backend === "native"
-					? this.core.nativeModelPath
-					: this.core.modelId;
+				: this.core.modelId;
 		this.backend = this.core.backend;
 	}
 
@@ -142,7 +140,7 @@ export class VanillaDVAI {
 	}
 
 	/** Resolved transport kind after initialize(). */
-	getActiveTransport(): "msw" | "http" | "none" {
+	getActiveTransport(): "msw" | "http" | "none" | "capacitor" {
 		return this.core.getActiveTransport();
 	}
 
