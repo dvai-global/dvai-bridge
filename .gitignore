@@ -75,3 +75,4 @@ docs/.vitepress/dist/
 scripts/mac.local.json
 scripts/*.local.json
 .env.local
+CLAUDE.md
