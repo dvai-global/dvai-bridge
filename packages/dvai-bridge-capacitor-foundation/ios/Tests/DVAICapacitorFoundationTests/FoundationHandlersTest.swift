@@ -1,11 +1,13 @@
 // Tests/DVAICapacitorFoundationTests/FoundationHandlersTest.swift
 //
-// Unit tests for the four `FoundationHandlers` paths that don't require a
-// real `LanguageModelSession`:
+// Unit tests for the `FoundationHandlers` paths that don't require a real
+// `LanguageModelSession`:
 //   1. handleEmbeddings → 400 with spec §8.5 wording.
 //   2. handleModels → 200 with the canned single-entry list.
 //   3. handleChatCompletion (image content part) → 400 with spec §8.5 wording.
 //   4. handleChatCompletion (audio content part) → 400 with spec §8.5 wording.
+//   5. handleChatCompletion (missing 'messages') → 400 short-circuit.
+//   6. handleChatCompletion (empty 'messages' array) → 400 short-circuit.
 //
 // The chat happy path goes through `LanguageModelSession` and is verified
 // on a real iOS device via the instrumented / manual tier (per Task 40
@@ -103,6 +105,40 @@ final class FoundationHandlersTest: XCTestCase {
             XCTAssertTrue(
                 message.contains("Audio input not supported by Apple Foundation Models"),
                 "Expected spec §8.5 audio-rejection wording, got: \(message)"
+            )
+        } else {
+            XCTFail("Expected .error(400, ...), got \(response)")
+        }
+    }
+
+    func testChatCompletionMissingMessagesReturns400() async throws {
+        let handlers = FoundationHandlers()
+        // Body without a 'messages' key — must short-circuit to 400 before
+        // any session work, mirroring LlamaHandlers' behaviour.
+        let response = try await handlers.handleChatCompletion(body: [:], ctx: ctx())
+        if case .error(let status, let message) = response {
+            XCTAssertEqual(status, 400)
+            XCTAssertTrue(
+                message.contains("Missing 'messages'"),
+                "Expected missing-messages 400, got: \(message)"
+            )
+        } else {
+            XCTFail("Expected .error(400, ...), got \(response)")
+        }
+    }
+
+    func testChatCompletionEmptyMessagesReturns400() async throws {
+        let handlers = FoundationHandlers()
+        // Empty messages array — must short-circuit to 400 before any
+        // session work. Without this guard the prompt would be empty and
+        // Apple FM behaviour is undefined.
+        let body: [String: Any] = ["messages": [[String: Any]]()]
+        let response = try await handlers.handleChatCompletion(body: body, ctx: ctx())
+        if case .error(let status, let message) = response {
+            XCTAssertEqual(status, 400)
+            XCTAssertTrue(
+                message.contains("Empty messages"),
+                "Expected empty-messages 400, got: \(message)"
             )
         } else {
             XCTFail("Expected .error(400, ...), got \(response)")
