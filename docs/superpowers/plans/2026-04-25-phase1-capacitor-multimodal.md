@@ -6,7 +6,7 @@
 
 **Architecture:** Webview JS calls `new DVAI({}).initialize()` → DVAI's `selectTransport` resolves to a new `"capacitor"` transport → calls `@dvai-bridge/capacitor`'s `start()` → dispatches to the right backend plugin (`DVAIBridgeLlama` / `DVAIBridgeFoundation` / `DVAIBridgeMediaPipe`) → native plugin spawns Telegraph (iOS) / Ktor (Android) HTTP server on `127.0.0.1:38883` (with port-fallback) → returns bound port. From then on, every OpenAI request from the webview goes via loopback HTTP straight to native handlers, no JS↔native bridge per request.
 
-**Tech Stack:** TypeScript + Capacitor 6 (JS shim), Swift + ObjC++ + Telegraph + llama.cpp via Metal (iOS), Kotlin + JNI + Ktor + llama.cpp via Vulkan/CPU (Android), Apple Foundation Models framework (iOS 18.1+), MediaPipe LLM `tasks-genai` (Android).
+**Tech Stack:** TypeScript + Capacitor 6 (JS shim), Swift + ObjC++ + Telegraph + llama.cpp via Metal (iOS), Kotlin + JNI + Ktor + llama.cpp via Vulkan/CPU (Android), Apple Foundation Models framework (link target iOS 18.1+; runtime requires iOS 26.0+), MediaPipe LLM `tasks-genai` (Android).
 
 **Spec:** [`docs/superpowers/specs/2026-04-25-phase1-capacitor-multimodal-design.md`](../specs/2026-04-25-phase1-capacitor-multimodal-design.md)
 

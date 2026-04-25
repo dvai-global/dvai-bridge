@@ -393,7 +393,9 @@ Streaming via llama.cpp's token-callback API, wrapped as `AsyncStream<String>` (
 
 ### 7.5 `capacitor-foundation` — Apple Foundation Models (iOS only)
 
-iOS 18.1+ exclusive. Uses Apple's `LanguageModelSession`. Smallest plugin (~250 LOC of Swift).
+iOS exclusive. Uses Apple's `LanguageModelSession`. Smallest plugin (~250 LOC of Swift).
+
+**Version targeting:** the SwiftPM/CocoaPods package keeps `.iOS("18.1")` as the **link-time floor** so apps with an 18.1+ deployment target can still install and link `capacitor-foundation`. The FoundationModels public API (`LanguageModelSession`, etc.) is marked `@available(iOS 26.0, *)` in the shipped Xcode 26.4 SDK, so actually invoking the backend is gated at runtime on iOS 26.0+. On 18.1–25.x devices, `start()` rejects with a clear error; the handler class itself is annotated `@available(iOS 26, *)`.
 
 - No model files (Apple curates).
 - No GPU config, no quantization.

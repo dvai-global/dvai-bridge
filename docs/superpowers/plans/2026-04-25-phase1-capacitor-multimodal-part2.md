@@ -1211,14 +1211,14 @@ iOS-only Apple Foundation Models plugin. Smallest plugin (~250 LOC of Swift). Re
 
 ### Task 38: Package scaffolding
 
-Mirror Task 18 with `capacitor-foundation` substitution. Apple FM only, no Android. iOS Package.swift declares iOS 18.1+ deployment target. No llama.cpp submodule.
+Mirror Task 18 with `capacitor-foundation` substitution. Apple FM only, no Android. iOS `Package.swift` declares `.iOS("18.1")` as the **link-time floor** so 18.1+ apps can install the package. The FoundationModels public API ships as `@available(iOS 26.0, *)` in the Xcode 26.4 SDK, so actually invoking the handler is gated at runtime to iOS 26.0+ (see Task 40 / Task 41). No llama.cpp submodule.
 
 - [ ] Create `packages/dvai-bridge-capacitor-foundation/` with `package.json`, `tsconfig.json`, `tsup.config.ts`, `src/index.ts`, `README.md`, `DVAICapacitorFoundation.podspec`
 - [ ] Build clean, commit: `feat(capacitor-foundation): scaffold package`
 
 ### Task 39: iOS plugin skeleton
 
-- [ ] Create `ios/Package.swift` with iOS 18.1 platform requirement; depends on Telegraph
+- [ ] Create `ios/Package.swift` with `.iOS("18.1")` as the link-time floor (runtime use is gated to iOS 26.0+ where `LanguageModelSession` is available); depends on Telegraph
 - [ ] Create `ios/Sources/DVAICapacitorFoundation/Plugin.swift` skeleton + `PluginProxy.m`
 - [ ] Reuse Internal/ types: import `HandlerContext`, `HandlerResponse`, `DVAIHandlers` from a shared local copy (or extract to a tiny private SwiftPM module — for Phase 1, copy the file)
 - [ ] Smoke test passes
@@ -1227,10 +1227,10 @@ Mirror Task 18 with `capacitor-foundation` substitution. Apple FM only, no Andro
 ### Task 40: Real `FoundationHandlers` implementation — TDD
 
 ```swift
-import FoundationModels  // iOS 18.1+
+import FoundationModels  // public API is @available(iOS 26.0, *) in Xcode 26.4 SDK
 import Foundation
 
-@available(iOS 18.1, *)
+@available(iOS 26, *)
 public final class FoundationHandlers: DVAIHandlers {
     private var session: LanguageModelSession?
 
@@ -1328,7 +1328,7 @@ public final class FoundationHandlers: DVAIHandlers {
 ### Task 41: Lifecycle wiring (`Plugin.swift` PluginState similar to Task 28)
 
 - [ ] PluginState that boots HttpServer + FoundationHandlers + handler dispatch, returns baseUrl/port
-- [ ] iOS-availability check: if `iOS < 18.1`, `start()` rejects with clear error
+- [ ] iOS-availability check: gate `FoundationHandlers` instantiation behind `if #available(iOS 26, *)`; on iOS < 26.0, `start()` rejects with a clear error explaining FoundationModels requires iOS 26.0+ at runtime even though the package links against the 18.1 floor
 - [ ] Android stub registers but `start()` rejects: "Foundation Models is iOS-only"
 - [ ] Tests + commit: `feat(capacitor-foundation): lifecycle wiring`
 
