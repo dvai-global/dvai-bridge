@@ -19,12 +19,12 @@ esac
 if [ -n "$FILTER" ]; then
   xcodebuild test \
     -scheme "$SCHEME" \
-    -destination 'platform=iOS Simulator,name=iPhone 16' \
+    -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
     -only-testing:"$FILTER" \
     -resultBundlePath build/test-results.xcresult
 else
   xcodebuild test \
     -scheme "$SCHEME" \
-    -destination 'platform=iOS Simulator,name=iPhone 16' \
+    -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
     -resultBundlePath build/test-results.xcresult
 fi
