@@ -133,6 +133,18 @@ export interface DVAIConfig {
 	 *                        unlisted origins get ACAO omitted.
 	 */
 	corsOrigin?: string | string[];
+
+	/**
+	 * Capacitor-backend selection (when transport resolves to "capacitor").
+	 * Default: "llama".
+	 */
+	capacitorBackend?: "llama" | "foundation" | "mediapipe";
+
+	/**
+	 * Path to the mmproj (vision projector) file when using a multimodal
+	 * llama.cpp model. Optional; only required for vision-capable models.
+	 */
+	nativeMmprojPath?: string;
 }
 
 /**
@@ -169,6 +181,8 @@ export class DVAI {
 	public nativeThreads: number;
 	public nativeContextSize: number;
 	public nativeEmbeddingMode: boolean;
+	public capacitorBackend: "llama" | "foundation" | "mediapipe";
+	public nativeMmprojPath?: string;
 
 	/** Raw transport config (e.g., "auto"). */
 	public transport: "auto" | "msw" | "http" | "none";
@@ -228,6 +242,8 @@ export class DVAI {
 		this.nativeThreads = config.nativeThreads ?? 4;
 		this.nativeContextSize = config.nativeContextSize ?? 2048;
 		this.nativeEmbeddingMode = config.nativeEmbeddingMode ?? false;
+		this.capacitorBackend = config.capacitorBackend ?? "llama";
+		this.nativeMmprojPath = config.nativeMmprojPath;
 
 		// Transport options
 		this.transport = config.transport ?? "auto";
