@@ -3,19 +3,21 @@
 set -euo pipefail
 TARGET="${1:?usage: mac-side-build.sh <target> [filter]}"
 
+DEST="${IOS_DEST:-platform=iOS Simulator,name=iPhone 16,OS=18.5}"
+
 case "$TARGET" in
   capacitor-llama)
     cd "packages/dvai-bridge-capacitor-llama/ios"
     xcodebuild build \
       -scheme DVAICapacitorLlama \
-      -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
+      -destination "$DEST" \
       -configuration Debug
     ;;
   capacitor-foundation)
     cd "packages/dvai-bridge-capacitor-foundation/ios"
     xcodebuild build \
       -scheme DVAICapacitorFoundation \
-      -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
+      -destination "$DEST" \
       -configuration Debug
     ;;
   *) echo "Unknown target: $TARGET" >&2; exit 2 ;;
