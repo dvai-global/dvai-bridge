@@ -127,6 +127,15 @@ importers:
         specifier: ^6.0.0 || ^7.0.0
         version: 7.6.2
 
+  packages/dvai-bridge-capacitor-llama:
+    dependencies:
+      '@capacitor/core':
+        specifier: ^6.0.0 || ^7.0.0
+        version: 7.6.2
+      '@dvai-bridge/capacitor':
+        specifier: workspace:*
+        version: link:../dvai-bridge-capacitor
+
   packages/dvai-bridge-core:
     dependencies:
       '@dvai-bridge/capacitor':
