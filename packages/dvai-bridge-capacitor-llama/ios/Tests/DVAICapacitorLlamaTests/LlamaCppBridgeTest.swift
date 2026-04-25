@@ -11,33 +11,29 @@ final class LlamaCppBridgeTest: XCTestCase {
 
     func testLoadEmptyPathFails() {
         let bridge = LlamaCppBridge()
-        var error: NSError? = nil
-        let ok = bridge.loadModel(
-            atPath: "",
-            mmprojPath: nil,
-            gpuLayers: 99,
-            contextSize: 2048,
-            threads: 4,
-            embeddingMode: false,
-            error: &error
+        XCTAssertThrowsError(
+            try bridge.loadModel(
+                atPath: "",
+                mmprojPath: nil,
+                gpuLayers: 99,
+                contextSize: 2048,
+                threads: 4,
+                embeddingMode: false
+            )
         )
-        XCTAssertFalse(ok)
-        XCTAssertNotNil(error)
+        XCTAssertFalse(bridge.isLoaded)
     }
 
-    func testLoadStubAndUnload() {
+    func testLoadStubAndUnload() throws {
         let bridge = LlamaCppBridge()
-        var error: NSError? = nil
-        let ok = bridge.loadModel(
+        try bridge.loadModel(
             atPath: "/tmp/fake.gguf",
             mmprojPath: nil,
             gpuLayers: 99,
             contextSize: 2048,
             threads: 4,
-            embeddingMode: false,
-            error: &error
+            embeddingMode: false
         )
-        XCTAssertTrue(ok)
         XCTAssertTrue(bridge.isLoaded)
         XCTAssertEqual(bridge.currentModelPath, "/tmp/fake.gguf")
         bridge.unload()
