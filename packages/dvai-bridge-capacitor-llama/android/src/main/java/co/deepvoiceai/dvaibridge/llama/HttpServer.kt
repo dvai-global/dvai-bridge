@@ -1,8 +1,10 @@
 package co.deepvoiceai.dvaibridge.llama
 
+import io.ktor.server.application.*
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.routing.*
 import kotlinx.coroutines.delay
 
 /**
@@ -45,6 +47,47 @@ class HttpServer {
                 return port
             } catch (_: Exception) {
                 // BindException, IOException, or wrapped variant — try next port.
+                runCatching { candidate.stop(0L, 100L) }
+                continue
+            }
+        }
+        throw IllegalStateException(
+            "[DVAI] Could not bind HTTP transport to any port in range " +
+                "$basePort..$lastPort (all in use). " +
+                "Another local AI server may already be running.",
+        )
+    }
+
+    /**
+     * Bind with port-fallback AND install the dispatch routes for the given
+     * handler set. Returns the port that bound successfully. Throws
+     * [IllegalStateException] if all ports in the range are unavailable.
+     */
+    suspend fun startWithRoutes(
+        basePort: Int,
+        maxAttempts: Int,
+        host: String,
+        handlers: DvaiHandlers,
+        ctx: HandlerContext,
+        corsConfig: CorsConfig,
+    ): Int {
+        val lastPort = basePort + maxAttempts - 1
+        for (i in 0 until maxAttempts) {
+            val port = basePort + i
+            val candidate: ApplicationEngine = embeddedServer(CIO, port = port, host = host) {
+                routing { installDispatchRoutes(handlers, ctx, corsConfig) }
+            }
+            try {
+                candidate.start(wait = false)
+                delay(100)
+                if (!isListening(host, port)) {
+                    runCatching { candidate.stop(0L, 100L) }
+                    continue
+                }
+                this.engine = candidate
+                this.boundPort = port
+                return port
+            } catch (_: Exception) {
                 runCatching { candidate.stop(0L, 100L) }
                 continue
             }
