@@ -5,25 +5,49 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 @CapacitorPlugin(name = "DVAIBridgeLlama")
 class DVAIBridgeLlamaPlugin : Plugin() {
+    private val state = PluginState()
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    override fun handleOnDestroy() {
+        super.handleOnDestroy()
+        scope.cancel()
+    }
 
     @PluginMethod
     fun start(call: PluginCall) {
-        call.reject("Not implemented yet -- Task 28")
+        scope.launch {
+            try {
+                val result = state.start(call.data)
+                call.resolve(result)
+            } catch (e: Exception) {
+                call.reject(e.message ?: "Start failed", e)
+            }
+        }
     }
 
     @PluginMethod
     fun stop(call: PluginCall) {
-        call.reject("Not implemented yet -- Task 28")
+        scope.launch {
+            try {
+                state.stop()
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject(e.message ?: "Stop failed", e)
+            }
+        }
     }
 
     @PluginMethod
     fun status(call: PluginCall) {
-        val ret = JSObject()
-        ret.put("running", false)
-        call.resolve(ret)
+        call.resolve(state.statusInfo())
     }
 
     @PluginMethod

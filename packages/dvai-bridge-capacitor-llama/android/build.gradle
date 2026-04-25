@@ -81,4 +81,5 @@ dependencies {
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion"
     testImplementation 'org.robolectric:robolectric:4.11.1'
+    testImplementation "io.ktor:ktor-server-test-host:$ktorVersion"
 }
