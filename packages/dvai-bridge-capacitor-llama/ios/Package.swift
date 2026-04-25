@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "DVAICapacitorLlama",
-    platforms: [.iOS(.v14)],
+    platforms: [.iOS(.v14), .macOS(.v12)],
     products: [
         .library(name: "DVAICapacitorLlama", targets: ["DVAICapacitorLlama"]),
     ],
