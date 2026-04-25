@@ -45,3 +45,28 @@ describe("backend dispatch", () => {
     expect(mockNativePlugin.stop).toHaveBeenCalled();
   });
 });
+
+describe("DVAIBridge public API", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+  });
+
+  it("DVAIBridge.start delegates to dispatch", async () => {
+    const { DVAIBridge } = await import("../index");
+    const result = await DVAIBridge.start({ backend: "llama", modelPath: "/m.gguf" });
+    expect(result).toMatchObject({ port: 38883, backend: "llama" });
+  });
+
+  it("DVAIBridge.status returns running:false before start", async () => {
+    const { DVAIBridge } = await import("../index");
+    const status = await DVAIBridge.status();
+    expect(status.running).toBe(false);
+  });
+
+  it("DVAIBridge.stop is idempotent before start", async () => {
+    const { DVAIBridge } = await import("../index");
+    await expect(DVAIBridge.stop()).resolves.not.toThrow();
+  });
+});
