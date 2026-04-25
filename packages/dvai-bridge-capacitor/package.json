@@ -39,6 +39,6 @@
     "url": "https://github.com/westenets/dvai-bridge.git"
   },
   "peerDependencies": {
-    "@capacitor/core": "^6.0.0 || ^7.0.0"
+    "@capacitor/core": "^6.0.0 || ^7.0.0 || ^8.0.0"
   }
 }

@@ -8,6 +8,12 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    // TS 6.0 deprecates implicit `baseUrl` (derived from the location of
+    // tsconfig.json when `paths` is set without an explicit baseUrl). We rely
+    // on that implicit behaviour for the workspace-relative `paths` map below.
+    // `"6.0"` silences the deprecation warning until we either drop the paths
+    // map or migrate to `ignoreDeprecations: "7.0"` once 7 lands.
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@dvai-bridge/core": ["./packages/dvai-bridge-core/src/index.ts"],
       "@dvai-bridge/react": ["./packages/dvai-bridge-react/src/index.tsx"],
