@@ -24,24 +24,28 @@ final class LlamaCppBridgeTest: XCTestCase {
         XCTAssertFalse(bridge.isLoaded)
     }
 
-    func testLoadStubAndUnload() throws {
+    func testLoadFakePathFails() {
         let bridge = LlamaCppBridge()
-        try bridge.loadModel(
-            atPath: "/tmp/fake.gguf",
-            mmprojPath: nil,
-            gpuLayers: 99,
-            contextSize: 2048,
-            threads: 4,
-            embeddingMode: false
+        XCTAssertThrowsError(
+            try bridge.loadModel(
+                atPath: "/tmp/definitely-does-not-exist.gguf",
+                mmprojPath: nil,
+                gpuLayers: 99,
+                contextSize: 2048,
+                threads: 4,
+                embeddingMode: false
+            )
         )
-        XCTAssertTrue(bridge.isLoaded)
-        XCTAssertEqual(bridge.currentModelPath, "/tmp/fake.gguf")
-        bridge.unload()
         XCTAssertFalse(bridge.isLoaded)
+        XCTAssertNil(bridge.currentModelPath)
     }
 
-    func testVersionStringReturnsStub() {
+    func testVersionStringContainsLlama() {
         let bridge = LlamaCppBridge()
-        XCTAssertEqual(bridge.versionString(), "llama.cpp-stub-0.1")
+        let version = bridge.versionString()
+        XCTAssertTrue(
+            version.contains("llama.cpp"),
+            "expected versionString to contain 'llama.cpp', got: \(version)"
+        )
     }
 }

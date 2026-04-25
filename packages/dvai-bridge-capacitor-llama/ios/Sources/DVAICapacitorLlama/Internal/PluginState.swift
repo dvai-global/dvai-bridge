@@ -36,7 +36,7 @@ actor PluginState {
         let corsRaw = opts["corsOrigin"]
         let corsConfig = parseCors(corsRaw)
 
-        // Load model via bridge (currently stub — real llama.cpp call in Task 30)
+        // Load model via the ObjC++ bridge (real llama.cpp under the hood).
         let bridge = LlamaCppBridge()
         try bridge.loadModel(
             atPath: modelPath,

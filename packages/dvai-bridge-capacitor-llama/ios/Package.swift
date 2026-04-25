@@ -9,27 +9,26 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/Building42/Telegraph.git", from: "0.30.0"),
+        // Path-based dependency on the vendored llama.cpp submodule. Its
+        // bundled Package.swift exposes a `llama` library product that
+        // compiles src/*.cpp + ggml/* and links Metal/Accelerate on Darwin.
+        .package(name: "llama", path: "../native/llama.cpp"),
     ],
     targets: [
-        // ObjC++ target — contains LlamaCppBridge.{h,mm}, exposes headers via publicHeadersPath
+        // ObjC++ target — contains LlamaCppBridge.{h,mm} and links against the
+        // llama.cpp static library exposed via the path-dep above. Public
+        // headers (llama.h, ggml.h, …) come from llama.cpp's own
+        // `publicHeadersPath: "spm-headers"` so we don't need manual
+        // headerSearchPath entries any more.
         .target(
             name: "DVAICapacitorLlamaObjC",
+            dependencies: [
+                .product(name: "llama", package: "llama"),
+            ],
             path: "Sources/DVAICapacitorLlamaObjC",
             publicHeadersPath: "include",
-            cSettings: [
-                .headerSearchPath("../../native/llama.cpp/include"),
-                .headerSearchPath("../../native/llama.cpp/ggml/include"),
-            ],
-            cxxSettings: [
-                .headerSearchPath("../../native/llama.cpp/include"),
-                .headerSearchPath("../../native/llama.cpp/ggml/include"),
-                .define("GGML_USE_METAL"),
-            ],
             linkerSettings: [
-                .linkedFramework("Metal"),
-                .linkedFramework("MetalKit"),
                 .linkedFramework("Foundation"),
-                .linkedFramework("Accelerate"),
             ]
         ),
         // Swift target — depends on the ObjC++ target
