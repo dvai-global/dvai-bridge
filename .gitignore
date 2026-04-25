@@ -70,3 +70,8 @@ docs/.vitepress/dist/
 
 # Git worktrees (local-only)
 .worktrees/
+
+# Mac-remote-build local config (never committed; per-developer)
+scripts/mac.local.json
+scripts/*.local.json
+.env.local
