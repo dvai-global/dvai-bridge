@@ -55,9 +55,9 @@ There is one documented difference in how the three plugins frame SSE
 streams. All three are valid OpenAI-compatible streams; SDK clients
 tolerate both shapes.
 
-### `LlamaHandlers` (Swift + Kotlin)
+### `LlamaHandlers` (Swift + Kotlin) and `FoundationHandlers` (Swift)
 
-Emits a **separate empty-delta finish frame** at the end of the stream:
+Both emit a **separate empty-delta finish frame** at the end of the stream:
 
 ```
 data: {"id":"…","choices":[{"delta":{"content":"final"},"finish_reason":null}]}
@@ -65,19 +65,24 @@ data: {"id":"…","choices":[{"delta":{},"finish_reason":"stop"}]}
 data: [DONE]
 ```
 
-This mirrors `llama.cpp`'s upstream convention.
+`LlamaHandlers` mirrors `llama.cpp`'s upstream convention. `FoundationHandlers`
+emits the synthetic finish frame after the last partial returned by
+`session.streamResponse(to:)` for shape parity with the llama side.
 
-### `MediaPipeHandlers` (Kotlin) and `FoundationHandlers` (Swift)
+### `MediaPipeHandlers` (Kotlin)
 
-Fold the finish reason into the **last content frame**:
+Folds the finish reason into the **last content frame**:
 
 ```
 data: {"id":"…","choices":[{"delta":{"content":"final"},"finish_reason":"stop"}]}
 data: [DONE]
 ```
 
-This mirrors how MediaPipe and Foundation Models surface end-of-turn
-signals (a single boolean on the final partial result).
+This mirrors how MediaPipe surfaces end-of-turn signals: the engine's
+`ProgressListener` callback receives `(partial, done)` where `done == true`
+on the last invocation, so the natural fold point is on that final partial.
+Inserting a synthetic empty-delta frame would mean buffering one partial
+behind, costing one token of latency for no behavioral win.
 
 ### Why we don't normalize
 

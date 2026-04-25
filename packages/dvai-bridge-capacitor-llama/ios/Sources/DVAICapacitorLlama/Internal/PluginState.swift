@@ -47,13 +47,20 @@ actor PluginState {
             embeddingMode: embeddingMode
         )
 
-        // Bind server (with port-fallback)
+        // Bind server (with port-fallback). If bind fails, release the bridge
+        // so the loaded llama context doesn't leak until next start().
         let server = HttpServer()
-        let port = try await server.tryBind(
-            basePort: httpBasePort,
-            maxAttempts: httpMaxPortAttempts,
-            host: "127.0.0.1"
-        )
+        let port: Int
+        do {
+            port = try await server.tryBind(
+                basePort: httpBasePort,
+                maxAttempts: httpMaxPortAttempts,
+                host: "127.0.0.1"
+            )
+        } catch {
+            bridge.unload()
+            throw error
+        }
 
         // Install routes. Phase 1: mmproj / audio-encoder gates stay false until
         // the corresponding loaders land in Phase 2; embeddingMode is mirrored
