@@ -11,11 +11,11 @@ let package = Package(
         .package(url: "https://github.com/Building42/Telegraph.git", from: "0.30.0"),
     ],
     targets: [
+        // ObjC++ target — contains LlamaCppBridge.{h,mm}, exposes headers via publicHeadersPath
         .target(
-            name: "DVAICapacitorLlama",
-            dependencies: ["Telegraph"],
-            path: "Sources/DVAICapacitorLlama",
-            exclude: ["PluginProxy.m"],
+            name: "DVAICapacitorLlamaObjC",
+            path: "Sources/DVAICapacitorLlamaObjC",
+            publicHeadersPath: "include",
             cSettings: [
                 .headerSearchPath("../../native/llama.cpp/include"),
                 .headerSearchPath("../../native/llama.cpp/ggml/include"),
@@ -32,10 +32,18 @@ let package = Package(
                 .linkedFramework("Accelerate"),
             ]
         ),
+        // Swift target — depends on the ObjC++ target
+        .target(
+            name: "DVAICapacitorLlama",
+            dependencies: ["DVAICapacitorLlamaObjC", "Telegraph"],
+            path: "Sources/DVAICapacitorLlama",
+            exclude: ["PluginProxy.m"]
+        ),
         .testTarget(
             name: "DVAICapacitorLlamaTests",
-            dependencies: ["DVAICapacitorLlama"],
+            dependencies: ["DVAICapacitorLlama", "DVAICapacitorLlamaObjC"],
             path: "Tests/DVAICapacitorLlamaTests"
         ),
-    ]
+    ],
+    cxxLanguageStandard: .cxx17
 )
