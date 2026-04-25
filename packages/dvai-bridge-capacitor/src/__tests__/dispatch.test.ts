@@ -8,6 +8,7 @@ const mockNativePlugin = {
 
 vi.mock("@capacitor/core", () => ({
   registerPlugin: vi.fn((_name: string) => mockNativePlugin),
+  Capacitor: { getPlatform: () => "ios" },
 }));
 
 describe("backend dispatch", () => {
@@ -80,6 +81,7 @@ describe("plugin-not-installed errors", () => {
           throw new Error("DVAIBridgeLlama not implemented on android");
         },
       })),
+      Capacitor: { getPlatform: () => "android" },
     }));
     const { dispatch } = await import("../dispatch");
     dispatch.__reset();
@@ -87,5 +89,40 @@ describe("plugin-not-installed errors", () => {
     await expect(
       dispatch.start({ backend: "llama", modelPath: "/m.gguf" }),
     ).rejects.toThrow(/npm install @dvai-bridge\/capacitor-llama && npx cap sync/);
+  });
+});
+
+describe("Android + foundation backend", () => {
+  it("rejects with a clear iOS-only message before touching the native plugin", async () => {
+    vi.resetModules();
+    const registerPluginSpy = vi.fn(() => mockNativePlugin);
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: registerPluginSpy,
+      Capacitor: { getPlatform: () => "android" },
+    }));
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+
+    await expect(dispatch.start({ backend: "foundation" })).rejects.toThrow(
+      /Apple Foundation Models is iOS-only/,
+    );
+    // The dispatcher must short-circuit before registerPlugin is even called.
+    expect(registerPluginSpy).not.toHaveBeenCalled();
+  });
+
+  it("allows backend:'foundation' on iOS platform", async () => {
+    vi.resetModules();
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: vi.fn(() => mockNativePlugin),
+      Capacitor: { getPlatform: () => "ios" },
+    }));
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+
+    await expect(
+      dispatch.start({ backend: "foundation" }),
+    ).resolves.toMatchObject({ backend: "llama" });
+    // (Mock returns "llama" as the canned backend; the test exercises the
+    // platform gate, not the result content.)
   });
 });
