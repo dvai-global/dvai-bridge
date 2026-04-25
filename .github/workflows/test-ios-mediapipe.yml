@@ -1,0 +1,54 @@
+name: iOS — capacitor-mediapipe (smoke)
+
+# capacitor-mediapipe ships an iOS stub plugin that returns a clear
+# "MediaPipe LLM is Android-only" error. This workflow verifies the stub
+# still compiles and the smoke test passes — Android coverage lives in
+# test-android-mediapipe-jvm.yml.
+
+on:
+  pull_request:
+    paths:
+      - 'packages/dvai-bridge-capacitor-mediapipe/ios/**'
+      - 'packages/dvai-bridge-capacitor/src/**'
+      - 'scripts/mac-side-*.sh'
+      - '.github/workflows/test-ios-mediapipe.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/dvai-bridge-capacitor-mediapipe/ios/**'
+      - 'packages/dvai-bridge-capacitor/src/**'
+
+concurrency:
+  group: ios-mediapipe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  xctest:
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/dvai-bridge-capacitor-mediapipe/ios
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Clear stale xcresult bundle
+        run: rm -rf build/test-results.xcresult
+
+      - name: xcodebuild test
+        env:
+          IOS_DEST: 'platform=iOS Simulator,name=iPhone 16,OS=18.5'
+        run: |
+          xcodebuild test \
+            -scheme DVAICapacitorMediaPipe \
+            -destination "$IOS_DEST" \
+            -resultBundlePath build/test-results.xcresult
+
+      - name: Upload xcresult on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresult-mediapipe-ios
+          path: packages/dvai-bridge-capacitor-mediapipe/ios/build/test-results.xcresult
+          retention-days: 7

@@ -1,0 +1,53 @@
+name: iOS — capacitor-llama
+
+on:
+  pull_request:
+    paths:
+      - 'packages/dvai-bridge-capacitor-llama/ios/**'
+      - 'packages/dvai-bridge-capacitor/src/**'
+      - 'fixtures/**'
+      - 'scripts/mac-side-*.sh'
+      - '.github/workflows/test-ios-llama.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/dvai-bridge-capacitor-llama/ios/**'
+      - 'packages/dvai-bridge-capacitor/src/**'
+      - 'fixtures/**'
+
+concurrency:
+  group: ios-llama-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  xctest:
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/dvai-bridge-capacitor-llama/ios
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Clear stale xcresult bundle
+        run: rm -rf build/test-results.xcresult
+
+      - name: xcodebuild test
+        env:
+          IOS_DEST: 'platform=iOS Simulator,name=iPhone 16,OS=18.5'
+        run: |
+          xcodebuild test \
+            -scheme DVAICapacitorLlama \
+            -destination "$IOS_DEST" \
+            -resultBundlePath build/test-results.xcresult
+
+      - name: Upload xcresult on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresult-llama
+          path: packages/dvai-bridge-capacitor-llama/ios/build/test-results.xcresult
+          retention-days: 7
