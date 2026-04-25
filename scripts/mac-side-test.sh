@@ -15,6 +15,10 @@ case "$TARGET" in
     cd "packages/dvai-bridge-capacitor-foundation/ios"
     SCHEME="DVAICapacitorFoundation"
     ;;
+  capacitor-mediapipe)
+    cd "packages/dvai-bridge-capacitor-mediapipe/ios"
+    SCHEME="DVAICapacitorMediaPipe"
+    ;;
   *) echo "Unknown target: $TARGET" >&2; exit 2 ;;
 esac
 

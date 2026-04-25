@@ -1,0 +1,86 @@
+buildscript {
+    ext {
+        kotlinVersion = '1.9.22'
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.4'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+    }
+}
+
+ext {
+    junitVersion = '4.13.2'
+    androidxAppCompatVersion = '1.6.1'
+    capacitorVersion = '6.0.0'
+    coroutinesVersion = '1.7.3'
+    ktorVersion = '2.3.7'
+    // MediaPipe ships its native libs (~100MB per ABI) inside the AAR — we
+    // do NOT use NDK/CMake here. The genai task ABI bundles arm64-v8a +
+    // x86_64 by default. Pin a stable version; bump when a newer one is
+    // verified end-to-end.
+    mediapipeGenaiVersion = '0.10.14'
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'co.deepvoiceai.dvaibridge.mediapipe'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 24
+        targetSdk 34
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+    testOptions {
+        unitTests.includeAndroidResources = true
+    }
+}
+
+dependencies {
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "com.capacitorjs:core:$capacitorVersion"
+    implementation "io.ktor:ktor-server-core:$ktorVersion"
+    implementation "io.ktor:ktor-server-cio:$ktorVersion"
+    implementation "io.ktor:ktor-server-cors:$ktorVersion"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion"
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2'
+    // OkHttp is retained for parity with capacitor-llama's ModelDownloader
+    // path — Phase 1 doesn't ship a downloader for the MediaPipe backend
+    // (users place .task files in filesDir manually), but a thin downloader
+    // wrapper may land later without re-jiggling deps.
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+
+    // Google MediaPipe LLM Inference (Gemma, Phi-3.5, Falcon, StableLM-Zephyr).
+    // ~100MB native libs per ABI — first build will be slow.
+    implementation "com.google.mediapipe:tasks-genai:$mediapipeGenaiVersion"
+
+    testImplementation "junit:junit:$junitVersion"
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion"
+    testImplementation 'org.robolectric:robolectric:4.11.1'
+    testImplementation "io.ktor:ktor-server-test-host:$ktorVersion"
+    testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+
+    androidTestImplementation 'androidx.test:runner:1.5.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+}

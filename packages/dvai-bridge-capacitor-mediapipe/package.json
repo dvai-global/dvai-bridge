@@ -1,0 +1,65 @@
+{
+  "name": "@dvai-bridge/capacitor-mediapipe",
+  "version": "1.6.0",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "description": "DVAI-Bridge Capacitor plugin: Google MediaPipe LLM on Android (Gemma, Phi-3.5, etc.) with embedded HTTP server.",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "ios/Sources",
+    "ios/Tests",
+    "ios/Package.swift",
+    "android/src",
+    "android/build.gradle",
+    "android/gradle.properties",
+    "android/settings.gradle",
+    "DVAICapacitorMediaPipe.podspec",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "mac:build": "pwsh -File ../../scripts/mac-build.ps1 -Action build -Target capacitor-mediapipe",
+    "mac:test": "pwsh -File ../../scripts/mac-build.ps1 -Action test -Target capacitor-mediapipe",
+    "android-test": "cd android && ./gradlew test",
+    "android-test:instrumented": "cd android && ./gradlew connectedAndroidTest",
+    "prepare": "pnpm run build"
+  },
+  "keywords": [
+    "dvai-bridge",
+    "capacitor",
+    "mediapipe",
+    "llm",
+    "on-device"
+  ],
+  "author": "Deep Chakraborty <https://github.com/dk013>",
+  "license": "Custom (See LICENSE)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/westenets/dvai-bridge.git"
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0 || ^7.0.0",
+    "@dvai-bridge/capacitor": "workspace:*"
+  },
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    },
+    "android": {
+      "src": "android"
+    }
+  }
+}
