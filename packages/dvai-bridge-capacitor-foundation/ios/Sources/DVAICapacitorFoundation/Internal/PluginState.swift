@@ -19,9 +19,14 @@ import Foundation
 
 actor PluginState {
     private var server: HttpServer?
-    #if canImport(FoundationModels)
-    private var handlers: FoundationHandlers?
-    #endif
+    /// Type-erased reference to the live `FoundationHandlers` instance.
+    /// Stored as `AnyObject?` rather than `FoundationHandlers?` so we
+    /// don't have to mark the entire actor `@available(iOS 26.0, *)` —
+    /// the concrete type is only ever materialised inside an `#available`
+    /// block in `start()`. We never need to call methods on it from here
+    /// (Telegraph holds the only callable reference, via `installRoutes`),
+    /// so a strong-but-opaque retain is sufficient.
+    private var handlers: AnyObject?
     private(set) var modelId: String = "apple-foundation-3b"
     private(set) var isRunning: Bool = false
     private(set) var baseUrl: String?
@@ -95,9 +100,7 @@ actor PluginState {
     private func stopInternal() async throws {
         await server?.stop()
         server = nil
-        #if canImport(FoundationModels)
         handlers = nil
-        #endif
         modelId = "apple-foundation-3b"
         baseUrl = nil
         port = nil
