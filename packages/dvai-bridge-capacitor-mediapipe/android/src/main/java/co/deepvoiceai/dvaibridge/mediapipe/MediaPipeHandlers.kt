@@ -1,5 +1,8 @@
 package co.deepvoiceai.dvaibridge.mediapipe
 
+import android.graphics.BitmapFactory
+import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.framework.image.MPImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -24,13 +27,30 @@ import kotlinx.serialization.json.putJsonObject
 import java.util.UUID
 
 /**
+ * Default `(ByteArray) -> MPImage` used by [MediaPipeHandlers]: decode the
+ * encoded image payload (PNG/JPEG/etc.) with [BitmapFactory], wrap the
+ * resulting `Bitmap` with [BitmapImageBuilder]. Throws [RuntimeException] if
+ * the bytes are not a recognised image format. Top-level function so the
+ * default can be referenced as `::defaultBytesToImage` in the ctor.
+ */
+private fun defaultBytesToImage(bytes: ByteArray): MPImage {
+    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        ?: throw RuntimeException("BitmapFactory.decodeByteArray returned null")
+    return BitmapImageBuilder(bitmap).build()
+}
+
+/**
  * OpenAI-compatible handler set for the MediaPipe LLM backend on Android.
  * Wires `openAIMessagesToPrompt` -> `bridge.completePrompt` (sync) or
  * `bridge.completePromptAsync` (streaming) -> OpenAI response shape.
  *
- * Phase 1 scope (Task 45): text-only. Image (`image_url`) parts are rejected
- * with a 400 pointing at Task 46 where vision lands. Audio (`input_audio`) is
- * permanently rejected — MediaPipe `tasks-genai` has no audio path.
+ * Phase 1 scope (Task 46): text + optional image input on vision-capable
+ * Gemma tasks (e.g. Gemma 3n vision variants). Audio (`input_audio`) is
+ * permanently rejected — MediaPipe `tasks-genai` has no audio path. Image
+ * support is gated behind [visionCapable]: when `false`, `image_url` parts
+ * return a 400 pointing at the model's lack of vision capability rather than
+ * silently ignoring them. PluginState (Task 48) toggles the flag from the
+ * caller-supplied `visionEnabled` start option.
  *
  * ## Streaming envelope
  *
@@ -66,6 +86,23 @@ import java.util.UUID
 class MediaPipeHandlers(
     private val bridge: MediaPipeBridgeApi,
     private val modelId: String,
+    /**
+     * `true` when the loaded MediaPipe `.task` bundle is a vision-capable
+     * Gemma variant AND PluginState has wired the bridge with
+     * `visionEnabled = true`. Defaults to `false` so non-vision deployments
+     * (the common case) reject image parts with a clear 400.
+     */
+    private val visionCapable: Boolean = false,
+    /**
+     * Test seam: converts decoded image bytes (PNG/JPEG payload) into an
+     * [MPImage] for [MediaPipeBridgeApi.completePrompt]/`...Async`.
+     * Production callers leave this at the default, which decodes via
+     * [BitmapFactory] and wraps the resulting `Bitmap` with
+     * [BitmapImageBuilder]. Unit tests override it because Robolectric's
+     * `BitmapFactory` cannot decode arbitrary PNG bytes into a real `Bitmap`
+     * without device-side libraries.
+     */
+    private val bytesToImage: (ByteArray) -> MPImage = ::defaultBytesToImage,
 ) : DvaiHandlers {
     private val bridgeMutex = Mutex()
 
@@ -73,8 +110,10 @@ class MediaPipeHandlers(
         val messages = body["messages"] as? JsonArray
             ?: return HandlerResponse.Error(400, "Missing 'messages' field")
 
-        // Reject image / audio content parts up-front, before building the prompt.
-        // (Mirrors LlamaHandlers/FoundationHandlers ordering.)
+        // Walk content parts up-front: collect images for vision-capable
+        // models, reject audio (always unsupported), and reject image_url for
+        // non-vision models. Mirrors LlamaHandlers/FoundationHandlers ordering.
+        val images = mutableListOf<MPImage>()
         for (msg in messages) {
             val msgObj = msg as? JsonObject ?: continue
             val content = msgObj["content"] as? JsonArray ?: continue
@@ -82,11 +121,43 @@ class MediaPipeHandlers(
                 val partObj = part as? JsonObject ?: continue
                 val type = (partObj["type"] as? JsonPrimitive)?.contentOrNull
                 if (type == "image_url") {
-                    return HandlerResponse.Error(
-                        400,
-                        "Image input not yet supported on MediaPipe LLM in Phase 1 " +
-                            "(lands in Task 46). Request had image_url part.",
-                    )
+                    if (!visionCapable) {
+                        return HandlerResponse.Error(
+                            400,
+                            "Image input requires a vision-capable MediaPipe model. " +
+                                "Loaded model has no vision capability — pass " +
+                                "`visionEnabled: true` to start() with a Gemma 3n " +
+                                "vision-capable .task bundle to enable image input.",
+                        )
+                    }
+                    val urlStr = (partObj["image_url"] as? JsonObject)
+                        ?.get("url")
+                        ?.let { it as? JsonPrimitive }
+                        ?.contentOrNull
+                    if (urlStr.isNullOrEmpty()) {
+                        return HandlerResponse.Error(
+                            400,
+                            "image_url part missing 'url' field",
+                        )
+                    }
+                    val bytes = try {
+                        withContext(Dispatchers.IO) { ImageDecoder.resolve(urlStr) }
+                    } catch (e: Exception) {
+                        // Fetch / decode failure — 502 per spec §8.5 wording.
+                        return HandlerResponse.Error(
+                            502,
+                            "Failed to fetch image: ${e.message ?: "unknown error"}",
+                        )
+                    }
+                    val mpImage = try {
+                        bytesToImage(bytes)
+                    } catch (e: Exception) {
+                        return HandlerResponse.Error(
+                            400,
+                            "Failed to decode image bytes: ${e.message ?: "unknown error"}",
+                        )
+                    }
+                    images.add(mpImage)
                 }
                 if (type == "input_audio") {
                     return HandlerResponse.Error(
@@ -109,12 +180,14 @@ class MediaPipeHandlers(
         val created = System.currentTimeMillis() / 1000L
 
         if (isStream) {
-            return HandlerResponse.Sse(buildChatStreamFrames(id = id, created = created, prompt = prompt))
+            return HandlerResponse.Sse(
+                buildChatStreamFrames(id = id, created = created, prompt = prompt, images = images),
+            )
         }
 
         val text = try {
             bridgeMutex.withLock {
-                withContext(Dispatchers.IO) { bridge.completePrompt(prompt) }
+                withContext(Dispatchers.IO) { bridge.completePrompt(prompt, images) }
             }
         } catch (e: Exception) {
             return HandlerResponse.Error(500, e.message ?: "Inference failed")
@@ -226,7 +299,12 @@ class MediaPipeHandlers(
      * AND mutex release on either successful completion or coroutine
      * cancellation.
      */
-    private fun buildChatStreamFrames(id: String, created: Long, prompt: String): Flow<String> = callbackFlow {
+    private fun buildChatStreamFrames(
+        id: String,
+        created: Long,
+        prompt: String,
+        images: List<MPImage>,
+    ): Flow<String> = callbackFlow {
         // Serialize against any other bridge use for the entire stream lifetime.
         // Track ownership explicitly via a local flag so we never depend on the
         // racy `Mutex.isLocked` snapshot read for unlock decisions.
@@ -253,7 +331,7 @@ class MediaPipeHandlers(
         trySend("data: $roleChunk\n\n")
 
         val handle: AutoCloseable = try {
-            bridge.completePromptAsync(prompt) { partial, done ->
+            bridge.completePromptAsync(prompt, images) { partial, done ->
                 // Content-delta chunk for every (partial, done) pair. When `done`
                 // is true the final frame carries finish_reason="stop"; otherwise
                 // finish_reason is null.
