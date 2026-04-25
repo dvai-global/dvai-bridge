@@ -36,8 +36,25 @@ android {
     defaultConfig {
         minSdk 24
         targetSdk 34
-        // NDK + CMake configuration lands in Task 22
+        ndk {
+            abiFilters 'arm64-v8a', 'x86_64'  // arm64 is primary; x86_64 for emulator
+        }
+        externalNativeBuild {
+            cmake {
+                cppFlags "-std=c++17 -O3 -fPIC"
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
     }
+
+    externalNativeBuild {
+        cmake {
+            path 'src/main/cpp/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+
+    ndkVersion '26.1.10909125'
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
