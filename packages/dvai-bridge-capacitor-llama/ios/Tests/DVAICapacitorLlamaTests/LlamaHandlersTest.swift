@@ -74,6 +74,21 @@ final class LlamaHandlersTest: XCTestCase {
         XCTAssertEqual(bridge.receivedPrompt, "hi")
     }
 
+    /// Parse a single SSE frame into a `[String: Any]` payload. Returns
+    /// `["__done__": true]` for `data: [DONE]`, `[:]` if the frame isn't a
+    /// `data:` line, or the parsed JSON object otherwise.
+    private func decodeFrame(_ frame: String) -> [String: Any] {
+        let trimmed = frame.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("data: ") else { return [:] }
+        let payload = String(trimmed.dropFirst("data: ".count))
+        if payload == "[DONE]" { return ["__done__": true] }
+        guard let data = payload.data(using: .utf8),
+              let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return [:]
+        }
+        return parsed
+    }
+
     func testChatCompletionStreamingTextEmitsRoleContentFinishDone() async throws {
         let bridge = MockBridge()
         bridge.completionToReturn = "stream-canned"
@@ -92,14 +107,52 @@ final class LlamaHandlersTest: XCTestCase {
             collected.append(chunk)
         }
         XCTAssertEqual(collected.count, 4, "expected 4 SSE frames: role / content / finish / [DONE]")
+
         // Frame 0: role delta
-        XCTAssertTrue(collected[0].contains("\"role\":\"assistant\""), "frame 0 should be role delta: \(collected[0])")
+        let roleFrame = decodeFrame(collected[0])
+        let roleChoices = roleFrame["choices"] as? [[String: Any]]
+        let roleDelta = roleChoices?.first?["delta"] as? [String: Any]
+        XCTAssertEqual(roleDelta?["role"] as? String, "assistant")
+
         // Frame 1: content delta with the canned string
-        XCTAssertTrue(collected[1].contains("stream-canned"), "frame 1 should contain content: \(collected[1])")
+        let contentFrame = decodeFrame(collected[1])
+        let contentChoices = contentFrame["choices"] as? [[String: Any]]
+        let contentDelta = contentChoices?.first?["delta"] as? [String: Any]
+        XCTAssertEqual(contentDelta?["content"] as? String, "stream-canned")
+
         // Frame 2: finish chunk
-        XCTAssertTrue(collected[2].contains("\"finish_reason\":\"stop\""), "frame 2 should have finish_reason: \(collected[2])")
+        let finishFrame = decodeFrame(collected[2])
+        let finishChoices = finishFrame["choices"] as? [[String: Any]]
+        XCTAssertEqual(finishChoices?.first?["finish_reason"] as? String, "stop")
+
         // Frame 3: [DONE]
         XCTAssertEqual(collected[3], "data: [DONE]\n\n")
+        XCTAssertEqual(decodeFrame(collected[3])["__done__"] as? Bool, true)
+    }
+
+    func testChatCompletionBridgeThrowsReturns500() async throws {
+        let bridge = MockBridge()
+        bridge.completionShouldThrow = true
+        let handlers = makeHandlers(bridge: bridge)
+        let body: [String: Any] = ["messages": [["role": "user", "content": "hi"]]]
+        let resp = try await handlers.handleChatCompletion(body: body, ctx: ctx)
+        guard case .error(let status, _) = resp else {
+            XCTFail("expected .error response, got \(resp)")
+            return
+        }
+        XCTAssertEqual(status, 500)
+    }
+
+    func testEmbeddingsBridgeThrowsReturns500() async throws {
+        let bridge = MockBridge()
+        bridge.embeddingShouldThrow = true
+        let handlers = makeHandlers(bridge: bridge, embeddingMode: true)
+        let resp = try await handlers.handleEmbeddings(body: ["input": "hi"], ctx: ctx)
+        guard case .error(let status, _) = resp else {
+            XCTFail("expected .error response, got \(resp)")
+            return
+        }
+        XCTAssertEqual(status, 500)
     }
 
     func testChatCompletionImageWithoutMmprojReturns400() async throws {
