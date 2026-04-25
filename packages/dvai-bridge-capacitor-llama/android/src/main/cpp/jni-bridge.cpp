@@ -40,7 +40,8 @@ void unload_holder(LlamaContextHolder* h) {
         h->ctx = nullptr;
     }
     if (h->model) {
-        llama_free_model(h->model);
+        // llama.cpp b8933: llama_free_model -> llama_model_free.
+        llama_model_free(h->model);
         h->model = nullptr;
     }
     h->model_path.clear();
@@ -94,9 +95,10 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeLoadModel(
     llama_model_params mp = llama_model_default_params();
     mp.n_gpu_layers = gpuLayers;
 
-    h->model = llama_load_model_from_file(path.c_str(), mp);
+    // llama.cpp b8933: llama_load_model_from_file -> llama_model_load_from_file.
+    h->model = llama_model_load_from_file(path.c_str(), mp);
     if (h->model == nullptr) {
-        LOGE("llama_load_model_from_file failed for %s", path.c_str());
+        LOGE("llama_model_load_from_file failed for %s", path.c_str());
         return JNI_FALSE;
     }
 
@@ -106,10 +108,12 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeLoadModel(
     cp.n_threads_batch = threads;
     cp.embeddings      = (embeddingMode == JNI_TRUE);
 
-    h->ctx = llama_new_context_with_model(h->model, cp);
+    // llama.cpp b8933: llama_new_context_with_model -> llama_init_from_model.
+    h->ctx = llama_init_from_model(h->model, cp);
     if (h->ctx == nullptr) {
-        LOGE("llama_new_context_with_model failed");
-        llama_free_model(h->model);
+        LOGE("llama_init_from_model failed");
+        // llama.cpp b8933: llama_free_model -> llama_model_free.
+        llama_model_free(h->model);
         h->model = nullptr;
         return JNI_FALSE;
     }
@@ -168,10 +172,14 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeCompletePrompt(
 
     const int promptLen = static_cast<int>(prompt.size());
 
+    // llama.cpp b8933: tokenize / token_to_piece / token_eos now take a vocab,
+    // not a model. Fetch it once and reuse.
+    const llama_vocab* vocab = llama_model_get_vocab(h->model);
+
     // Two-phase tokenize: probe with a NULL/0 buffer; the negated return is
     // the required token count. This is robust for non-ASCII prompts where
     // (size + 1) is NOT a safe upper bound.
-    int probe = llama_tokenize(h->model, prompt.c_str(), promptLen,
+    int probe = llama_tokenize(vocab, prompt.c_str(), promptLen,
                                /*tokens=*/nullptr, /*n_tokens_max=*/0,
                                /*add_special=*/true, /*parse_special=*/false);
     int needed = probe < 0 ? -probe : probe;
@@ -181,7 +189,7 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeCompletePrompt(
     }
 
     std::vector<llama_token> tokens(static_cast<size_t>(needed));
-    int actual = llama_tokenize(h->model, prompt.c_str(), promptLen,
+    int actual = llama_tokenize(vocab, prompt.c_str(), promptLen,
                                 tokens.data(), needed,
                                 /*add_special=*/true, /*parse_special=*/false);
     if (actual <= 0) {
@@ -191,7 +199,9 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeCompletePrompt(
 
     // Decode the prompt.
     {
-        llama_batch batch = llama_batch_get_one(tokens.data(), actual, 0, 0);
+        // llama.cpp b8933: llama_batch_get_one is now (tokens, n_tokens) only;
+        // pos_0 / seq_id were dropped (positions are tracked by the KV cache).
+        llama_batch batch = llama_batch_get_one(tokens.data(), actual);
         if (llama_decode(h->ctx, batch) != 0) {
             LOGE("nativeCompletePrompt: prompt decode failed");
             return nullptr;
@@ -211,8 +221,8 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeCompletePrompt(
 
     std::string out;
     out.reserve(256);
-    const llama_token eos = llama_token_eos(h->model);
-    int n_cur = actual;
+    // llama.cpp b8933: llama_token_eos -> llama_vocab_eos (vocab arg).
+    const llama_token eos = llama_vocab_eos(vocab);
 
     for (int i = 0; i < maxTokens; i++) {
         llama_token tokenId = llama_sampler_sample(chain, h->ctx, -1);
@@ -221,7 +231,8 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeCompletePrompt(
         if (tokenId == eos) break;
 
         char buf[256] = {0};
-        int wrote = llama_token_to_piece(h->model, tokenId, buf,
+        // llama.cpp b8933: llama_token_to_piece first arg is vocab, not model.
+        int wrote = llama_token_to_piece(vocab, tokenId, buf,
                                          static_cast<int>(sizeof(buf)),
                                          /*lstrip=*/0, /*special=*/false);
         if (wrote > 0) {
@@ -233,12 +244,11 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeCompletePrompt(
         // BPE pieces. Skip and continue.
 
         llama_token next = tokenId;
-        llama_batch nb = llama_batch_get_one(&next, 1, n_cur, 0);
+        llama_batch nb = llama_batch_get_one(&next, 1);
         if (llama_decode(h->ctx, nb) != 0) {
             LOGE("nativeCompletePrompt: per-token decode failed at i=%d", i);
             break;
         }
-        n_cur++;
     }
 
     llama_sampler_free(chain);
@@ -267,7 +277,10 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeEmbedding(
 
     const int textLen = static_cast<int>(text.size());
 
-    int probe = llama_tokenize(h->model, text.c_str(), textLen,
+    // llama.cpp b8933: tokenize takes vocab, not model.
+    const llama_vocab* vocab = llama_model_get_vocab(h->model);
+
+    int probe = llama_tokenize(vocab, text.c_str(), textLen,
                                /*tokens=*/nullptr, /*n_tokens_max=*/0,
                                /*add_special=*/true, /*parse_special=*/false);
     int needed = probe < 0 ? -probe : probe;
@@ -277,7 +290,7 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeEmbedding(
     }
 
     std::vector<llama_token> tokens(static_cast<size_t>(needed));
-    int actual = llama_tokenize(h->model, text.c_str(), textLen,
+    int actual = llama_tokenize(vocab, text.c_str(), textLen,
                                 tokens.data(), needed,
                                 /*add_special=*/true, /*parse_special=*/false);
     if (actual <= 0) {
@@ -286,16 +299,18 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeEmbedding(
     }
 
     {
-        llama_batch batch = llama_batch_get_one(tokens.data(), actual, 0, 0);
+        // llama.cpp b8933: llama_batch_get_one is (tokens, n_tokens) only.
+        llama_batch batch = llama_batch_get_one(tokens.data(), actual);
         if (llama_decode(h->ctx, batch) != 0) {
             LOGE("nativeEmbedding: decode failed");
             return nullptr;
         }
     }
 
-    int n_embd = llama_n_embd(h->model);
+    // llama.cpp b8933: llama_n_embd -> llama_model_n_embd.
+    int n_embd = llama_model_n_embd(h->model);
     if (n_embd <= 0) {
-        LOGE("nativeEmbedding: llama_n_embd returned %d", n_embd);
+        LOGE("nativeEmbedding: llama_model_n_embd returned %d", n_embd);
         return nullptr;
     }
     const float* vec = llama_get_embeddings_seq(h->ctx, 0);

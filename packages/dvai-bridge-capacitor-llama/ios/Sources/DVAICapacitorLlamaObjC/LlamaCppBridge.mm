@@ -55,12 +55,13 @@
 
     struct llama_model_params mp = llama_model_default_params();
     mp.n_gpu_layers = gpuLayers;
-    _model = llama_load_model_from_file([path UTF8String], mp);
+    // llama.cpp b8933: llama_load_model_from_file -> llama_model_load_from_file.
+    _model = llama_model_load_from_file([path UTF8String], mp);
     if (_model == NULL) {
         if (error) {
             *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
                                          code:2
-                                     userInfo:@{NSLocalizedDescriptionKey: @"llama_load_model_from_file failed"}];
+                                     userInfo:@{NSLocalizedDescriptionKey: @"llama_model_load_from_file failed"}];
         }
         return NO;
     }
@@ -71,14 +72,15 @@
     cp.n_threads_batch = threads;
     cp.embeddings = embeddingMode ? true : false;
 
-    _ctx = llama_new_context_with_model(_model, cp);
+    // llama.cpp b8933: llama_new_context_with_model -> llama_init_from_model.
+    _ctx = llama_init_from_model(_model, cp);
     if (_ctx == NULL) {
-        llama_free_model(_model);
+        llama_model_free(_model);
         _model = NULL;
         if (error) {
             *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
                                          code:3
-                                     userInfo:@{NSLocalizedDescriptionKey: @"llama_new_context_with_model failed"}];
+                                     userInfo:@{NSLocalizedDescriptionKey: @"llama_init_from_model failed"}];
         }
         return NO;
     }
@@ -99,7 +101,8 @@
         _ctx = NULL;
     }
     if (_model != NULL) {
-        llama_free_model(_model);
+        // llama.cpp b8933: llama_free_model -> llama_model_free.
+        llama_model_free(_model);
         _model = NULL;
     }
     _currentModelPath = nil;
@@ -131,8 +134,12 @@
     const char *cprompt = prompt ? [prompt UTF8String] : "";
     const int promptLen = (int)strlen(cprompt);
 
+    // llama.cpp b8933: tokenize / token_to_piece / token_eos now take a vocab,
+    // not a model. Fetch it once and reuse.
+    const struct llama_vocab *vocab = llama_model_get_vocab(_model);
+
     // Probe: a negative return is the (negated) required token count.
-    int probe = llama_tokenize(_model, cprompt, promptLen,
+    int probe = llama_tokenize(vocab, cprompt, promptLen,
                                NULL, 0, /*add_special=*/true, /*parse_special=*/false);
     int needed = probe < 0 ? -probe : probe;
     if (needed <= 0) {
@@ -154,7 +161,7 @@
         return nil;
     }
 
-    int actual = llama_tokenize(_model, cprompt, promptLen,
+    int actual = llama_tokenize(vocab, cprompt, promptLen,
                                 tokens, needed, /*add_special=*/true, /*parse_special=*/false);
     if (actual <= 0) {
         free(tokens);
@@ -166,8 +173,10 @@
         return nil;
     }
 
-    // Decode the prompt batch.
-    struct llama_batch batch = llama_batch_get_one(tokens, actual, 0, 0);
+    // llama.cpp b8933: llama_batch_get_one is now (tokens, n_tokens) only -- the
+    // pos_0 / seq_id args were removed. Position is tracked automatically by
+    // llama_decode via the context's KV cache state.
+    struct llama_batch batch = llama_batch_get_one(tokens, actual);
     if (llama_decode(_ctx, batch) != 0) {
         free(tokens);
         if (error) {
@@ -186,8 +195,8 @@
     llama_sampler_chain_add(chain, llama_sampler_init_greedy());
 
     NSMutableString *result = [NSMutableString string];
-    const llama_token eos = llama_token_eos(_model);
-    int n_cur = actual;
+    // llama.cpp b8933: llama_token_eos -> llama_vocab_eos (vocab arg).
+    const llama_token eos = llama_vocab_eos(vocab);
 
     for (int i = 0; i < maxTokens; i++) {
         llama_token tokenId = llama_sampler_sample(chain, _ctx, -1);
@@ -196,7 +205,8 @@
         if (tokenId == eos) break;
 
         char buf[256] = {0};
-        int wrote = llama_token_to_piece(_model, tokenId, buf, (int)sizeof(buf),
+        // llama.cpp b8933: llama_token_to_piece first arg is vocab, not model.
+        int wrote = llama_token_to_piece(vocab, tokenId, buf, (int)sizeof(buf),
                                          /*lstrip=*/0, /*special=*/false);
         if (wrote > 0) {
             NSString *piece = [[NSString alloc] initWithBytes:buf
@@ -207,9 +217,8 @@
             }
         }
 
-        struct llama_batch nb = llama_batch_get_one(&tokenId, 1, n_cur, 0);
+        struct llama_batch nb = llama_batch_get_one(&tokenId, 1);
         if (llama_decode(_ctx, nb) != 0) break;
-        n_cur++;
     }
 
     llama_sampler_free(chain);
@@ -230,7 +239,10 @@
     const char *cText = text ? [text UTF8String] : "";
     const int textLen = (int)strlen(cText);
 
-    int probe = llama_tokenize(_model, cText, textLen,
+    // llama.cpp b8933: tokenize takes a vocab, not a model.
+    const struct llama_vocab *vocab = llama_model_get_vocab(_model);
+
+    int probe = llama_tokenize(vocab, cText, textLen,
                                NULL, 0, /*add_special=*/true, /*parse_special=*/false);
     int needed = probe < 0 ? -probe : probe;
     if (needed <= 0) {
@@ -252,7 +264,7 @@
         return nil;
     }
 
-    int actual = llama_tokenize(_model, cText, textLen,
+    int actual = llama_tokenize(vocab, cText, textLen,
                                 tokens, needed, /*add_special=*/true, /*parse_special=*/false);
     if (actual <= 0) {
         free(tokens);
@@ -264,7 +276,8 @@
         return nil;
     }
 
-    struct llama_batch batch = llama_batch_get_one(tokens, actual, 0, 0);
+    // llama.cpp b8933: llama_batch_get_one is (tokens, n_tokens) only.
+    struct llama_batch batch = llama_batch_get_one(tokens, actual);
     if (llama_decode(_ctx, batch) != 0) {
         free(tokens);
         if (error) {
@@ -276,12 +289,13 @@
     }
     free(tokens);
 
-    int n_embd = llama_n_embd(_model);
+    // llama.cpp b8933: llama_n_embd -> llama_model_n_embd.
+    int n_embd = llama_model_n_embd(_model);
     if (n_embd <= 0) {
         if (error) {
             *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
                                          code:23
-                                     userInfo:@{NSLocalizedDescriptionKey: @"llama_n_embd returned non-positive"}];
+                                     userInfo:@{NSLocalizedDescriptionKey: @"llama_model_n_embd returned non-positive"}];
         }
         return nil;
     }
