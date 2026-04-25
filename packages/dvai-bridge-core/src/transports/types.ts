@@ -1,6 +1,6 @@
 import type { HandlerContext } from "../handlers/context.js";
 
-export type TransportKind = "msw" | "http" | "none";
+export type TransportKind = "msw" | "http" | "none" | "capacitor";
 
 export interface TransportStartResult {
   /** URL a host app hands to an OpenAI SDK (no trailing slash). */

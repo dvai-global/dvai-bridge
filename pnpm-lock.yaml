@@ -129,6 +129,9 @@ importers:
 
   packages/dvai-bridge-core:
     dependencies:
+      '@dvai-bridge/capacitor':
+        specifier: workspace:*
+        version: link:../dvai-bridge-capacitor
       '@huggingface/transformers':
         specifier: ^4.0.1
         version: 4.1.0

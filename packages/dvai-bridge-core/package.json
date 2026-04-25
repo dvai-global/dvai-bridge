@@ -53,7 +53,8 @@
   "peerDependencies": {
     "@huggingface/transformers": "^4.0.1",
     "@mlc-ai/web-llm": "^0.2.78",
-    "llama-cpp-capacitor": ">=0.1.0"
+    "llama-cpp-capacitor": ">=0.1.0",
+    "@dvai-bridge/capacitor": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@mlc-ai/web-llm": {
@@ -63,6 +64,9 @@
       "optional": true
     },
     "llama-cpp-capacitor": {
+      "optional": true
+    },
+    "@dvai-bridge/capacitor": {
       "optional": true
     }
   }
