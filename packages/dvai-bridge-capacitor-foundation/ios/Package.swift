@@ -2,20 +2,25 @@
 import PackageDescription
 
 // NOTE on iOS deployment target:
-// Apple Foundation Models requires iOS 18.1+ at runtime. SwiftPM's
-// `SupportedPlatform.IOSVersion` enum only got a `.v18` case in
-// PackageDescription 6.0 (Swift 6 toolchain), and there is no `.v18_1`
-// case at all. To stay on swift-tools-version 5.9 — matching the rest
-// of the workspace — we use the string-based `.iOS(_:)` initializer,
-// which accepts arbitrary version strings including "18.1". The
-// FoundationModels-using source files (added in Task 40) carry
-// `@available(iOS 18.1, *)` attributes for safety. The podspec
-// separately pins `s.ios.deployment_target = '18.1'` for app
-// integration.
+// `iOS("18.1")` here is the *link-time floor* — apps with an iOS 18.1+
+// deployment target can install and link this package. The actual
+// FoundationModels public API (`LanguageModelSession`, etc.) ships
+// as `@available(iOS 26.0, *)` in the Xcode 26.4 SDK, so invoking
+// the backend is gated *at runtime* on iOS 26.0+. On 18.1–25.x
+// devices, `start()` rejects with a clear error and the handler
+// class itself is `@available(iOS 26, *)` annotated.
 //
-// macOS 14 covers the host-side `swift test` compile. The smoke test does
-// not import FoundationModels, so the host build does not need iOS 18.1+
-// availability.
+// SwiftPM's `SupportedPlatform.IOSVersion` enum only got a `.v18`
+// case in PackageDescription 6.0 (Swift 6 toolchain), and there is
+// no `.v18_1` case at all. To stay on swift-tools-version 5.9 —
+// matching the rest of the workspace — we use the string-based
+// `.iOS(_:)` initializer, which accepts arbitrary version strings
+// including "18.1". The podspec separately pins
+// `s.ios.deployment_target = '18.1'` for app integration.
+//
+// macOS 14 covers the host-side `swift test` compile. The smoke test
+// does not import FoundationModels, so the host build does not need
+// iOS 18.1 / 26 availability.
 let package = Package(
     name: "DVAICapacitorFoundation",
     platforms: [.iOS("18.1"), .macOS(.v14)],
