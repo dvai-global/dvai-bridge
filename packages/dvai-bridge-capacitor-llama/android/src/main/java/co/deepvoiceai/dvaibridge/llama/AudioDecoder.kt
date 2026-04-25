@@ -64,8 +64,13 @@ object AudioDecoder {
             extractor.selectTrack(trackIndex)
 
             val mime = inputFormat!!.getString(MediaFormat.KEY_MIME)!!
-            val srcSampleRate = inputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-            val srcChannels = inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            // These start from the input track's format but may be refreshed
+            // when MediaCodec emits INFO_OUTPUT_FORMAT_CHANGED below — for
+            // codecs like AAC LC / HE-AAC v2 the decoder's actual output rate
+            // and channel layout (post-SBR/PS) are only known after the first
+            // decoded buffer. They must therefore be `var`.
+            var srcSampleRate = inputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            var srcChannels = inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
 
             codec = MediaCodec.createDecoderByType(mime).apply {
                 configure(inputFormat, null, null, 0)
@@ -77,8 +82,14 @@ object AudioDecoder {
             var sawInputEOS = false
             var sawOutputEOS = false
             val timeoutUs = 10_000L
+            // Bound the dequeue loop: if the codec produces no output for
+            // ~10 seconds (driver bug or malformed input that never reaches
+            // EOS), throw rather than spinning forever.
+            val maxNoProgressIterations = 1000
+            var noProgressIterations = 0
 
             while (!sawOutputEOS) {
+                var producedThisIteration = false
                 if (!sawInputEOS) {
                     val inIdx = codec.dequeueInputBuffer(timeoutUs)
                     if (inIdx >= 0) {
@@ -94,25 +105,47 @@ object AudioDecoder {
                             codec.queueInputBuffer(inIdx, 0, n, extractor.sampleTime, 0)
                             extractor.advance()
                         }
+                        producedThisIteration = true
                     }
                 }
                 val outIdx = codec.dequeueOutputBuffer(info, timeoutUs)
-                if (outIdx >= 0) {
-                    if (info.size > 0) {
-                        val outBuf = codec.getOutputBuffer(outIdx)!!
-                        val chunk = ByteArray(info.size)
-                        outBuf.position(info.offset)
-                        outBuf.limit(info.offset + info.size)
-                        outBuf.get(chunk)
-                        pcmBytes.write(chunk)
+                when {
+                    outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        // Refresh the rate / channel count from the codec's
+                        // actual output format — this is the authoritative
+                        // value for HE-AAC and similar codecs that change
+                        // shape after the first decoded buffer.
+                        val newFormat = codec.outputFormat
+                        srcSampleRate = newFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                        srcChannels = newFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                        producedThisIteration = true
                     }
-                    codec.releaseOutputBuffer(outIdx, false)
-                    if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
-                        sawOutputEOS = true
+                    outIdx >= 0 -> {
+                        if (info.size > 0) {
+                            val outBuf = codec.getOutputBuffer(outIdx)!!
+                            val chunk = ByteArray(info.size)
+                            outBuf.position(info.offset)
+                            outBuf.limit(info.offset + info.size)
+                            outBuf.get(chunk)
+                            pcmBytes.write(chunk)
+                        }
+                        codec.releaseOutputBuffer(outIdx, false)
+                        if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                            sawOutputEOS = true
+                        }
+                        producedThisIteration = true
                     }
+                    // INFO_TRY_AGAIN_LATER and INFO_OUTPUT_BUFFERS_CHANGED
+                    // (deprecated) fall through — just loop again.
                 }
-                // outIdx < 0 cases (try-again-later, format-changed,
-                // buffers-changed) are handled implicitly by looping again.
+                if (producedThisIteration) {
+                    noProgressIterations = 0
+                } else if (++noProgressIterations >= maxNoProgressIterations) {
+                    throw IllegalStateException(
+                        "MediaCodec produced no output for " +
+                            "${maxNoProgressIterations * 10}ms — likely hung",
+                    )
+                }
             }
 
             val raw = pcmBytes.toByteArray()
@@ -132,6 +165,8 @@ object AudioDecoder {
         val sb = ByteBuffer.wrap(input).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
         val ob = ByteBuffer.wrap(out).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
         for (f in 0 until frames) {
+            // sum is in 32-bit Int; for PCM16 ±32767 across N channels,
+            // |sum| <= N*32768, division returns valid PCM16 — no clipping needed.
             var sum = 0
             for (c in 0 until channels) sum += sb.get(f * channels + c).toInt()
             ob.put(f, (sum / channels).toShort())

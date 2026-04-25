@@ -90,6 +90,23 @@ struct AudioDecoder {
                 }
             }
         }
+
+        // Drain: tell the converter we're done so any buffered tail samples
+        // (e.g. AAC priming / codec lookahead) are flushed to outputBuf.
+        var drainError: NSError?
+        let drainStatus = converter.convert(to: outputBuf, error: &drainError) { _, status in
+            status.pointee = .endOfStream
+            return nil
+        }
+        if drainStatus == .haveData, drainError == nil, let int16Data = outputBuf.int16ChannelData {
+            let frameLength = Int(outputBuf.frameLength)
+            if frameLength > 0 {
+                let bytes = UnsafeRawPointer(int16Data[0])
+                result.append(Data(bytes: bytes, count: frameLength * 2))
+            }
+        }
+        // drainError on flush is acceptable — some codecs return an error when there's nothing left.
+
         return result
     }
 }
