@@ -41,8 +41,17 @@ class PluginState {
             throw IllegalStateException("Failed to load model at $modelPath")
         }
 
-        // Wire handlers + ctx
-        val handlers = LlamaHandlers(newBridge, modelPath)
+        // Wire handlers + ctx. Phase 1: mmproj / audio-encoder gates stay
+        // false until Phase 2 lands the corresponding loaders; embeddingMode
+        // is mirrored from the start opts so /v1/embeddings can short-circuit
+        // when off.
+        val handlers = LlamaHandlers(
+            bridge = newBridge,
+            modelId = modelPath,
+            mmprojLoaded = false,
+            modelHasAudioEncoder = false,
+            embeddingMode = embeddingMode,
+        )
         val ctx = HandlerContext(modelId = modelPath, backendName = "llama")
 
         // Bind server + install routes

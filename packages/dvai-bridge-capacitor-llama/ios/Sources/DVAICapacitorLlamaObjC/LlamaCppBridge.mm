@@ -216,4 +216,97 @@
     return result;
 }
 
+- (nullable NSArray<NSNumber *> *)embedding:(NSString *)text
+                                      error:(NSError **)error {
+    if (!self.isLoaded) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:20
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Model not loaded"}];
+        }
+        return nil;
+    }
+
+    const char *cText = text ? [text UTF8String] : "";
+    const int textLen = (int)strlen(cText);
+
+    int probe = llama_tokenize(_model, cText, textLen,
+                               NULL, 0, /*add_special=*/true, /*parse_special=*/false);
+    int needed = probe < 0 ? -probe : probe;
+    if (needed <= 0) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:21
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Tokenization produced no tokens"}];
+        }
+        return nil;
+    }
+
+    llama_token *tokens = (llama_token *)calloc((size_t)needed, sizeof(llama_token));
+    if (tokens == NULL) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:21
+                                     userInfo:@{NSLocalizedDescriptionKey: @"calloc failed"}];
+        }
+        return nil;
+    }
+
+    int actual = llama_tokenize(_model, cText, textLen,
+                                tokens, needed, /*add_special=*/true, /*parse_special=*/false);
+    if (actual <= 0) {
+        free(tokens);
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:21
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Tokenization failed"}];
+        }
+        return nil;
+    }
+
+    struct llama_batch batch = llama_batch_get_one(tokens, actual, 0, 0);
+    if (llama_decode(_ctx, batch) != 0) {
+        free(tokens);
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:22
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Decode failed"}];
+        }
+        return nil;
+    }
+    free(tokens);
+
+    int n_embd = llama_n_embd(_model);
+    if (n_embd <= 0) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:23
+                                     userInfo:@{NSLocalizedDescriptionKey: @"llama_n_embd returned non-positive"}];
+        }
+        return nil;
+    }
+    const float *vec = llama_get_embeddings_seq(_ctx, 0);
+    if (!vec) {
+        // Fallback: llama_get_embeddings returns the last-decoded token's
+        // embedding, valid when not in seq-mode. The seq variant prefers a
+        // pooled / sequence-level vector when the context was loaded with
+        // embedding pooling on; the plain variant is the best-effort fallback.
+        vec = llama_get_embeddings(_ctx);
+    }
+    if (!vec) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:23
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Embedding pointer null"}];
+        }
+        return nil;
+    }
+
+    NSMutableArray<NSNumber *> *result = [NSMutableArray arrayWithCapacity:(NSUInteger)n_embd];
+    for (int i = 0; i < n_embd; i++) {
+        [result addObject:@(vec[i])];
+    }
+    return result;
+}
+
 @end

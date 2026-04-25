@@ -1,6 +1,17 @@
 package co.deepvoiceai.dvaibridge.llama
 
 /**
+ * Test seam over the JNI-backed bridge. Concrete [LlamaCppBridge] implements
+ * this; [LlamaHandlers] takes the interface so unit tests can substitute a
+ * canned-response fake without loading a real GGUF model.
+ */
+interface LlamaCppBridgeApi {
+    fun isLoaded(): Boolean
+    fun completePrompt(prompt: String, maxTokens: Int, temperature: Float, topP: Float): String?
+    fun embedding(text: String): FloatArray?
+}
+
+/**
  * Kotlin wrapper around the C++ llama.cpp bridge for Android.
  *
  * The pure-Kotlin paths (load/unload state tracking) are exercised by
@@ -9,7 +20,7 @@ package co.deepvoiceai.dvaibridge.llama
  * `try { ... } catch (_: UnsatisfiedLinkError) { ... }` so the JVM tests
  * (which can't load the .so) keep working on the Kotlin-only fallback.
  */
-class LlamaCppBridge {
+class LlamaCppBridge : LlamaCppBridgeApi {
     companion object {
         private var loaded: Boolean = false
 
@@ -45,7 +56,7 @@ class LlamaCppBridge {
         }
     }
 
-    fun isLoaded(): Boolean = isLoadedFlag
+    override fun isLoaded(): Boolean = isLoadedFlag
 
     fun getCurrentModelPath(): String? = modelPath
 
@@ -101,7 +112,7 @@ class LlamaCppBridge {
      * Temperature and topP are accepted now but ignored by the native side for
      * Phase 1; Task 36 will extend the sampler chain to honour them.
      */
-    fun completePrompt(
+    override fun completePrompt(
         prompt: String,
         maxTokens: Int,
         temperature: Float,
@@ -113,6 +124,24 @@ class LlamaCppBridge {
             nativeCompletePrompt(nativeHandle, prompt, maxTokens, temperature, topP)
         } catch (_: UnsatisfiedLinkError) {
             null // JVM-only fallback
+        }
+    }
+
+    /**
+     * Compute an embedding vector for the given text. Requires the model to
+     * have been loaded with `embeddingMode = true`; otherwise the returned
+     * values are undefined / not meaningful (the handler layer is responsible
+     * for the 400 short-circuit before we get here). Returns the per-dimension
+     * floats (length == llama_n_embd(model)) on success, or null if the model
+     * isn't loaded / native isn't available (JVM tests).
+     */
+    override fun embedding(text: String): FloatArray? {
+        if (!isLoadedFlag) return null
+        if (nativeHandle == 0L) return null // JVM tests: no .so, no embedding.
+        return try {
+            nativeEmbedding(nativeHandle, text)
+        } catch (_: UnsatisfiedLinkError) {
+            null
         }
     }
 
@@ -131,4 +160,5 @@ class LlamaCppBridge {
     private external fun nativeCompletePrompt(
         handle: Long, prompt: String, maxTokens: Int, temperature: Float, topP: Float,
     ): String?
+    private external fun nativeEmbedding(handle: Long, text: String): FloatArray?
 }
