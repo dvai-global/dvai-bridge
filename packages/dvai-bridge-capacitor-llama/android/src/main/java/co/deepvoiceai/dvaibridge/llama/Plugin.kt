@@ -26,10 +26,16 @@ class DVAIBridgeLlamaPlugin : Plugin() {
     @PluginMethod
     fun start(call: PluginCall) {
         scope.launch {
+            notifyListeners("progress", JSObject().apply { put("phase", "load") })
             try {
                 val result = state.start(call.data)
+                notifyListeners("progress", JSObject().apply { put("phase", "ready") })
                 call.resolve(result)
             } catch (e: Exception) {
+                notifyListeners("progress", JSObject().apply {
+                    put("phase", "error")
+                    put("message", e.message ?: "Start failed")
+                })
                 call.reject(e.message ?: "Start failed", e)
             }
         }
@@ -73,7 +79,7 @@ class DVAIBridgeLlamaPlugin : Plugin() {
                     headers = headers,
                 ) { bytesDone, bytesTotal ->
                     val payload = JSObject().apply {
-                        put("phase", "loading")
+                        put("phase", "download")
                         put("bytesReceived", bytesDone)
                         if (bytesTotal != null) {
                             put("bytesTotal", bytesTotal)

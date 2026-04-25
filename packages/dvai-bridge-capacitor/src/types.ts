@@ -45,8 +45,22 @@ export interface StartResult {
   modelId: string;
 }
 
+/**
+ * Lifecycle progress event emitted by `addProgressListener`.
+ *
+ * Phase semantics:
+ * - `"download"`: bytes streaming from a remote URL into the on-disk
+ *   `.partial` file. `bytesReceived` / `bytesTotal` / `percent` populated.
+ * - `"verify"`: final sha256 check after download completes (or after a
+ *   resumed `.partial` is rehashed). Usually no byte fields.
+ * - `"load"`: native plugin loading the model into engine memory
+ *   (mmap / GPU upload / etc.). Usually no byte fields; some backends
+ *   may report `percent`.
+ * - `"ready"`: terminal state, model is live and serving.
+ * - `"error"`: terminal state, populated `message` describes the failure.
+ */
 export interface ProgressEvent {
-  phase: "loading" | "ready" | "error";
+  phase: "download" | "verify" | "load" | "ready" | "error";
   bytesReceived?: number;
   bytesTotal?: number;
   percent?: number;
