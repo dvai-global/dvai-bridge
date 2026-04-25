@@ -15,8 +15,12 @@ import kotlin.math.roundToInt
  * treated as already-decoded raw little-endian 16 kHz mono PCM16 and returned
  * unchanged. All other formats are decoded via `MediaExtractor` + `MediaCodec`,
  * then downmixed to mono and resampled (linear interpolation) to 16 kHz.
+ *
+ * Per spec §8.3 the per-platform OS-supported list is: iOS adds `flac`,
+ * Android adds `ogg` (Vorbis / Opus). FLAC is not on the Android list because
+ * `MediaCodec` doesn't ship a FLAC decoder on all OEM builds.
  */
-enum class AudioFormat { PCM16, WAV, MP3, M4A, AAC, FLAC }
+enum class AudioFormat { PCM16, WAV, MP3, M4A, AAC, OGG }
 
 /**
  * Decodes supported audio formats to 16 kHz mono PCM16 little-endian samples
