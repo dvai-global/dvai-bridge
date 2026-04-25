@@ -1,0 +1,56 @@
+{
+  "name": "@dvai-bridge/capacitor-foundation",
+  "version": "1.6.0",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "description": "DVAI-Bridge Capacitor plugin: Apple Foundation Models on iOS 18.1+ with embedded HTTP server.",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "ios/Sources",
+    "ios/Tests",
+    "ios/Package.swift",
+    "DVAICapacitorFoundation.podspec",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "mac:build": "pwsh -File ../../scripts/mac-build.ps1 -Action build -Target capacitor-foundation",
+    "mac:test": "pwsh -File ../../scripts/mac-build.ps1 -Action test -Target capacitor-foundation",
+    "prepare": "pnpm run build"
+  },
+  "keywords": [
+    "dvai-bridge",
+    "capacitor",
+    "apple-foundation-models",
+    "llm",
+    "on-device"
+  ],
+  "author": "Deep Chakraborty <https://github.com/dk013>",
+  "license": "Custom (See LICENSE)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/westenets/dvai-bridge.git"
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0 || ^7.0.0",
+    "@dvai-bridge/capacitor": "workspace:*"
+  },
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  }
+}
