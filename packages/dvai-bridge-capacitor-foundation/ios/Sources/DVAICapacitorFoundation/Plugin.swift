@@ -5,22 +5,42 @@ import Capacitor
 
 @objc(DVAIBridgeFoundationPlugin)
 public class DVAIBridgeFoundationPlugin: CAPPlugin {
+    private let state = PluginState()
+
     public override func load() {
         super.load()
     }
 
-    // MARK: - Lifecycle (Task 41 will wire these to a real PluginState)
+    // MARK: - Lifecycle
 
     @objc func start(_ call: CAPPluginCall) {
-        call.reject("Not implemented yet — Task 41")
+        let opts = call.options ?? [:]
+        Task {
+            do {
+                let result = try await state.start(opts: opts)
+                call.resolve(result)
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
     }
 
     @objc func stop(_ call: CAPPluginCall) {
-        call.reject("Not implemented yet — Task 41")
+        Task {
+            do {
+                try await state.stop()
+                call.resolve()
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
     }
 
     @objc func status(_ call: CAPPluginCall) {
-        call.reject("Not implemented yet — Task 41")
+        Task {
+            let info = await state.statusInfo()
+            call.resolve(info)
+        }
     }
 
     // MARK: - Model download / cache (not applicable to Apple Foundation Models)

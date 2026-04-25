@@ -1,4 +1,4 @@
-import { registerPlugin } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import type {
   CapacitorBackend,
   NativePluginInterface,
@@ -26,8 +26,32 @@ function isPluginNotImplementedError(err: unknown): boolean {
   return /not implemented|not available|UNIMPLEMENTED/i.test(msg);
 }
 
+/**
+ * Apple Foundation Models is iOS-only. On Android, no amount of plugin-
+ * install will help — surface a clear error rather than the generic
+ * "install the plugin" wording from the not-implemented fallback.
+ */
+function assertBackendCompatibleWithPlatform(backend: CapacitorBackend): void {
+  if (backend === "foundation") {
+    let platform: string | undefined;
+    try {
+      platform = Capacitor?.getPlatform?.();
+    } catch {
+      // Capacitor.getPlatform() can throw in non-runtime contexts (SSR,
+      // unit tests without the Capacitor shim). Fall through silently —
+      // the native call will then surface its own error.
+    }
+    if (platform === "android") {
+      throw new Error(
+        '[DVAI] Apple Foundation Models is iOS-only. Use backend: "llama" or "mediapipe" on Android.',
+      );
+    }
+  }
+}
+
 export const dispatch = {
   async start(opts: StartOptions): Promise<StartResult> {
+    assertBackendCompatibleWithPlatform(opts.backend);
     const native = pluginFor(opts.backend);
     try {
       const result = await native.start(opts);
