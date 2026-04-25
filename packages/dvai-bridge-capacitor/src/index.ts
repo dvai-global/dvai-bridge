@@ -50,28 +50,42 @@ export const DVAIBridge = {
 
   /** Resumable, checksum-verified, app-data-cached download. */
   async downloadModel(opts: DownloadOptions): Promise<{ path: string; cached: boolean }> {
-    const native =
-      dispatch.__activePlugin() ?? (await import("@capacitor/core")).registerPlugin("DVAIBridgeLlama");
-    return (native as any).downloadModel(opts);
+    const native = await modelManagementPlugin();
+    return native.downloadModel(opts);
   },
 
   async listCachedModels(): Promise<CachedModelInfo[]> {
-    const native =
-      dispatch.__activePlugin() ?? (await import("@capacitor/core")).registerPlugin("DVAIBridgeLlama");
-    const result = await (native as any).listCachedModels();
+    const native = await modelManagementPlugin();
+    const result = await native.listCachedModels();
     return result.models;
   },
 
   async deleteCachedModel(filename: string): Promise<void> {
-    const native =
-      dispatch.__activePlugin() ?? (await import("@capacitor/core")).registerPlugin("DVAIBridgeLlama");
-    await (native as any).deleteCachedModel({ filename });
+    const native = await modelManagementPlugin();
+    await native.deleteCachedModel({ filename });
   },
 
   async cacheDir(): Promise<string> {
-    const native =
-      dispatch.__activePlugin() ?? (await import("@capacitor/core")).registerPlugin("DVAIBridgeLlama");
-    const result = await (native as any).cacheDir();
+    const native = await modelManagementPlugin();
+    const result = await native.cacheDir();
     return result.path;
   },
 };
+
+/**
+ * Resolve the plugin that owns model-management methods (downloadModel,
+ * listCachedModels, deleteCachedModel, cacheDir). In Phase 1, only the
+ * `llama` backend implements these — `foundation` rejects (Apple manages
+ * models internally) and `mediapipe` rejects (developer-managed paths).
+ *
+ * If a non-llama plugin is currently active, model management still routes
+ * to the llama plugin (caller can install + use it without `start()`).
+ * The native side may reject if the plugin isn't installed; the resulting
+ * Capacitor "plugin not implemented" error is the right surface.
+ */
+async function modelManagementPlugin(): Promise<NativePluginInterface> {
+  const active = dispatch.__activePlugin();
+  if (active) return active;
+  const { registerPlugin } = await import("@capacitor/core");
+  return registerPlugin<NativePluginInterface>("DVAIBridgeLlama");
+}

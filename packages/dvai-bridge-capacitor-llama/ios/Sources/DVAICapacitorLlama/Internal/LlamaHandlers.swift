@@ -16,11 +16,13 @@ import DVAICapacitorLlamaObjC
 /// 4-chunk vs 1-chunk is identical to the client. Real per-token streaming
 /// lands when Telegraph (or its replacement) supports chunked-encoding flush.
 ///
-/// Note: this 4-frame shape with a separate empty-delta finish frame
-/// intentionally differs from `MediaPipeHandlers` (Android, capacitor-mediapipe),
-/// which folds `finish_reason: "stop"` onto its final content delta and emits
-/// a variable number of frames. See `MediaPipeHandlers`' "Streaming envelope
-/// parity" KDoc section for the full comparison.
+/// Note: this 4-frame shape with a separate empty-delta finish frame matches
+/// `FoundationHandlers` (iOS, capacitor-foundation) but intentionally differs
+/// from `MediaPipeHandlers` (Android, capacitor-mediapipe), which folds
+/// `finish_reason: "stop"` onto its final content delta and emits a variable
+/// number of frames. See `MediaPipeHandlers`' "Streaming envelope parity"
+/// KDoc section, and `docs/development/handler-parity.md`, for the full
+/// comparison.
 ///
 /// All bridge-touching paths are serialized via `bridgeLock` because
 /// llama.cpp's `llama_context` is not thread-safe; concurrent requests
