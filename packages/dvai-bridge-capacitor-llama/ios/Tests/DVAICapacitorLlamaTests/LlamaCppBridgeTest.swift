@@ -43,9 +43,15 @@ final class LlamaCppBridgeTest: XCTestCase {
     func testVersionStringContainsLlama() {
         let bridge = LlamaCppBridge()
         let version = bridge.versionString()
+        let prefix = "llama.cpp "
         XCTAssertTrue(
-            version.contains("llama.cpp"),
-            "expected versionString to contain 'llama.cpp', got: \(version)"
+            version.hasPrefix(prefix),
+            "expected versionString to start with '\(prefix)', got: \(version)"
+        )
+        XCTAssertGreaterThan(
+            version.count,
+            prefix.count,
+            "expected versionString to include system info after prefix, got: \(version)"
         )
     }
 }

@@ -4,6 +4,8 @@ set -euo pipefail
 TARGET="${1:?usage: mac-side-test.sh <target> [filter]}"
 FILTER="${2:-}"
 
+DEST="${IOS_DEST:-platform=iOS Simulator,name=iPhone 16,OS=18.5}"
+
 case "$TARGET" in
   capacitor-llama)
     cd "packages/dvai-bridge-capacitor-llama/ios"
@@ -19,12 +21,12 @@ esac
 if [ -n "$FILTER" ]; then
   xcodebuild test \
     -scheme "$SCHEME" \
-    -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
+    -destination "$DEST" \
     -only-testing:"$FILTER" \
     -resultBundlePath build/test-results.xcresult
 else
   xcodebuild test \
     -scheme "$SCHEME" \
-    -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
+    -destination "$DEST" \
     -resultBundlePath build/test-results.xcresult
 fi
