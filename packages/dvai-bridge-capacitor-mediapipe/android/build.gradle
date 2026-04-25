@@ -22,7 +22,20 @@ ext {
     // do NOT use NDK/CMake here. The genai task ABI bundles arm64-v8a +
     // x86_64 by default. Pin a stable version; bump when a newer one is
     // verified end-to-end.
-    mediapipeGenaiVersion = '0.10.14'
+    //
+    // 0.10.33 is the floor for vision support: it exposes
+    // `LlmInferenceSession` (Task 46), `LlmInferenceSession.addImage(MPImage)`,
+    // `GraphOptions.setEnableVisionModality(true)`, and
+    // `LlmInferenceOptions.setMaxNumImages(int)`. The 0.10.14 baseline used in
+    // Task 45 lacked all of these.
+    //
+    // `MPImage` + `BitmapImageBuilder` live in `tasks-core`, which `tasks-genai`
+    // forgets to declare in its POM (it uses the classes from
+    // `LlmInferenceSession.addImage`). We pin the same version explicitly so
+    // the classes resolve at compile time. Keep `mediapipeCoreVersion` and
+    // `mediapipeGenaiVersion` in sync on every bump.
+    mediapipeGenaiVersion = '0.10.33'
+    mediapipeCoreVersion = '0.10.33'
 }
 
 allprojects {
@@ -74,6 +87,10 @@ dependencies {
     // Google MediaPipe LLM Inference (Gemma, Phi-3.5, Falcon, StableLM-Zephyr).
     // ~100MB native libs per ABI — first build will be slow.
     implementation "com.google.mediapipe:tasks-genai:$mediapipeGenaiVersion"
+    // tasks-core supplies `MPImage` + `BitmapImageBuilder`; required for
+    // vision-capable Gemma tasks (`LlmInferenceSession.addImage`). See the
+    // ext-block comment for why this isn't transitively pulled by tasks-genai.
+    implementation "com.google.mediapipe:tasks-core:$mediapipeCoreVersion"
 
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion"

@@ -1,9 +1,10 @@
 package co.deepvoiceai.dvaibridge.mediapipe
 
 import android.content.Context
-import com.google.mediapipe.tasks.core.OutputHandler
+import com.google.mediapipe.framework.image.MPImage
+import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
-import java.util.concurrent.atomic.AtomicReference
+import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 
 /**
  * Test seam over Google's MediaPipe LLM Inference engine. Concrete
@@ -12,94 +13,137 @@ import java.util.concurrent.atomic.AtomicReference
  * `.task` model bundle.
  *
  * Concurrency: implementations need NOT be thread-safe — [MediaPipeHandlers]
- * serializes all calls behind its own mutex because `LlmInference` itself is
- * single-shot per engine instance.
+ * serializes all calls behind its own mutex. The session-based MediaPipe API
+ * (0.10.16+) tolerates parallel sessions on a shared `LlmInference` engine in
+ * principle, but the handler still serializes for predictable ordering and
+ * to keep the contract identical between the two backends.
  */
 interface MediaPipeBridgeApi {
-    /** Synchronous prompt completion. Returns generated text or throws. */
-    fun completePrompt(prompt: String): String
+    /**
+     * Synchronous prompt completion. If [images] is non-empty the engine must
+     * have been built with `visionEnabled = true`; otherwise MediaPipe will
+     * throw at session-creation time.
+     */
+    fun completePrompt(prompt: String, images: List<MPImage> = emptyList()): String
 
     /**
      * Asynchronous prompt completion. The supplied callback fires per partial
      * chunk; the second arg is `true` on the final fragment. Returns a handle
-     * the caller can [AutoCloseable.close] to drop the per-call listener once
-     * the stream finishes (or is cancelled).
+     * the caller can [AutoCloseable.close] to release the per-call session
+     * once the stream finishes (or is cancelled).
      */
     fun completePromptAsync(
         prompt: String,
+        images: List<MPImage> = emptyList(),
         onPartial: (partial: String, done: Boolean) -> Unit,
     ): AutoCloseable
 }
 
 /**
- * Kotlin wrapper around the MediaPipe `tasks-genai:0.10.14` LLM Inference API.
+ * Kotlin wrapper around the MediaPipe `tasks-genai:0.10.33` LLM Inference API.
  *
- * Key API constraints (deviation from the original plan, which was written
- * against a later MediaPipe release):
+ * Architecture:
  *
- *  - `tasks-genai:0.10.14` does NOT expose `LlmInferenceSession`; everything
- *    runs on a single [LlmInference] engine.
- *  - `generateResponseAsync(prompt)` does NOT take a per-call callback — the
- *    streaming `ProgressListener<String>` must be supplied at creation time
- *    via `LlmInferenceOptions.Builder.setResultListener(...)`.
+ *  - One long-lived [LlmInference] engine per bridge instance (lazy-initialized
+ *    so JVM unit tests using the [MediaPipeBridgeApi] fake never trigger
+ *    native loading).
+ *  - One [LlmInferenceSession] per request — sessions are cheap and isolate
+ *    state (chunks, images) between calls. The session is closed in `finally`
+ *    on the sync path and via the returned [AutoCloseable] on the async path.
+ *  - For vision-capable models, [visionEnabled] wires
+ *    `setMaxNumImages(maxImages)` into the engine and
+ *    `setEnableVisionModality(true)` into the session graph options. Without
+ *    those flags MediaPipe rejects `addImage` calls.
+ *  - `generateResponseAsync` accepts a per-call `(partial, done) -> Unit`
+ *    progress listener directly in 0.10.33 — the AtomicReference<lambda> swap
+ *    workaround required by 0.10.14 is gone.
  *
- * To reconcile that with our per-request callback shape, the bridge installs
- * a single forwarding listener at engine-create time and swaps the *active*
- * per-call lambda in [activeListener] under [MediaPipeHandlers]'s mutex
- * before each async call. The forwarding listener delegates to whichever
- * lambda is current; when a request finishes (or its handle is closed) the
- * lambda is cleared so any straggler callbacks become no-ops.
- *
- * Lazy-initialized so JVM unit tests (which use a [MediaPipeBridgeApi] fake)
- * never trigger native loading; [close] is a no-op if the engine was never
- * touched.
+ * Note on the `@Suppress("DEPRECATION")`: as of `tasks-genai:0.10.27` Google
+ * marks `LlmInference` / `LlmInferenceSession` / `GraphOptions` deprecated in
+ * favour of LiteRT-LM. Phase 1 explicitly targets the MediaPipe APIs because
+ * LiteRT-LM was not stable when the spec was frozen; migration is a separate
+ * task tracked outside this milestone.
  */
+@Suppress("DEPRECATION")
 class MediaPipeBridge(
     private val context: Context,
     private val modelPath: String,
     private val maxTokens: Int = 2048,
+    private val visionEnabled: Boolean = false,
+    private val maxImages: Int = 1,
 ) : MediaPipeBridgeApi, AutoCloseable {
-    private val activeListener = AtomicReference<((String, Boolean) -> Unit)?>(null)
 
     private val inference: LlmInference by lazy {
-        val resultListener = OutputHandler.ProgressListener<String> { partial, done ->
-            activeListener.get()?.invoke(partial, done)
+        val builder = LlmInference.LlmInferenceOptions.builder()
+            .setModelPath(modelPath)
+            .setMaxTokens(maxTokens)
+        if (visionEnabled) {
+            builder.setMaxNumImages(maxImages)
         }
-        LlmInference.createFromOptions(
-            context,
-            LlmInference.LlmInferenceOptions.builder()
-                .setModelPath(modelPath)
-                .setMaxTokens(maxTokens)
-                .setResultListener(resultListener)
-                .build(),
-        )
+        LlmInference.createFromOptions(context, builder.build())
     }
 
     @Volatile private var inferenceInitialized: Boolean = false
 
-    override fun completePrompt(prompt: String): String {
-        // Sync path: clear any leftover listener so the engine doesn't accidentally
-        // double-deliver if something earlier left state in place, then run.
-        activeListener.set(null)
-        val engine = inference.also { inferenceInitialized = true }
-        return engine.generateResponse(prompt)
+    private fun engine(): LlmInference {
+        val ref = inference
+        inferenceInitialized = true
+        return ref
+    }
+
+    private fun sessionOptions(): LlmInferenceSession.LlmInferenceSessionOptions {
+        val builder = LlmInferenceSession.LlmInferenceSessionOptions.builder()
+        if (visionEnabled) {
+            builder.setGraphOptions(
+                GraphOptions.builder().setEnableVisionModality(true).build(),
+            )
+        }
+        return builder.build()
+    }
+
+    override fun completePrompt(prompt: String, images: List<MPImage>): String {
+        val session = LlmInferenceSession.createFromOptions(engine(), sessionOptions())
+        try {
+            // MediaPipe requires the text query chunk to be added before any
+            // images for vision-capable graphs.
+            session.addQueryChunk(prompt)
+            for (img in images) {
+                session.addImage(img)
+            }
+            return session.generateResponse()
+        } finally {
+            try {
+                session.close()
+            } catch (_: Throwable) { /* idempotent */ }
+        }
     }
 
     override fun completePromptAsync(
         prompt: String,
+        images: List<MPImage>,
         onPartial: (String, Boolean) -> Unit,
     ): AutoCloseable {
-        activeListener.set(onPartial)
-        val engine = inference.also { inferenceInitialized = true }
+        val session = LlmInferenceSession.createFromOptions(engine(), sessionOptions())
         try {
-            engine.generateResponseAsync(prompt)
+            session.addQueryChunk(prompt)
+            for (img in images) {
+                session.addImage(img)
+            }
+            // Per-call ProgressListener in 0.10.16+. Lambda matches Kotlin's
+            // SAM conversion for `ProgressListener<String>`: (partial, done).
+            session.generateResponseAsync { partial, done ->
+                onPartial(partial, done)
+            }
         } catch (t: Throwable) {
-            activeListener.set(null)
+            try {
+                session.close()
+            } catch (_: Throwable) { /* idempotent */ }
             throw t
         }
         return AutoCloseable {
-            // Drop the listener slot so any final callbacks post-close are no-ops.
-            activeListener.compareAndSet(onPartial, null)
+            try {
+                session.close()
+            } catch (_: Throwable) { /* idempotent — best-effort cleanup */ }
         }
     }
 
