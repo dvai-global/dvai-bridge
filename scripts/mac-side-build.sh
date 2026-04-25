@@ -20,5 +20,12 @@ case "$TARGET" in
       -destination "$DEST" \
       -configuration Debug
     ;;
+  capacitor-mediapipe)
+    cd "packages/dvai-bridge-capacitor-mediapipe/ios"
+    xcodebuild build \
+      -scheme DVAICapacitorMediaPipe \
+      -destination "$DEST" \
+      -configuration Debug
+    ;;
   *) echo "Unknown target: $TARGET" >&2; exit 2 ;;
 esac
