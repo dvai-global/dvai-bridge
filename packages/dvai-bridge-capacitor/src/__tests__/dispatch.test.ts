@@ -70,3 +70,22 @@ describe("DVAIBridge public API", () => {
     await expect(DVAIBridge.stop()).resolves.not.toThrow();
   });
 });
+
+describe("plugin-not-installed errors", () => {
+  it("wraps Capacitor's UNIMPLEMENTED error with actionable message", async () => {
+    vi.resetModules();
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: vi.fn(() => ({
+        start: async () => {
+          throw new Error("DVAIBridgeLlama not implemented on android");
+        },
+      })),
+    }));
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+
+    await expect(
+      dispatch.start({ backend: "llama", modelPath: "/m.gguf" }),
+    ).rejects.toThrow(/npm install @dvai-bridge\/capacitor-llama && npx cap sync/);
+  });
+});
