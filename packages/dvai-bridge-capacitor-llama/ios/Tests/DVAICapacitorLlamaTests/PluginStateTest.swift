@@ -28,41 +28,24 @@ final class PluginStateTest: XCTestCase {
         XCTAssertEqual(info["running"] as? Bool, false)
     }
 
-    func testStartBindsServerAndReportsBaseUrl() async throws {
+    /// With the real LlamaCppBridge implementation, loading a non-existent GGUF
+    /// fails at `llama_load_model_from_file`. The full `start → server-bind →
+    /// success` happy-path needs a real model file and is exercised by the
+    /// device-level tests in Task 37's milestone. Here we assert that the
+    /// failure surfaces cleanly and the state stays "not running".
+    func testStartFailsOnFakeModelPath() async {
         let state = PluginState()
-        let result = try await state.start(opts: [
-            "modelPath": "/tmp/fake.gguf",
-            "httpBasePort": 39200,
-            "httpMaxPortAttempts": 4,
-        ])
-        XCTAssertEqual(result["backend"] as? String, "llama")
-        XCTAssertEqual(result["modelId"] as? String, "/tmp/fake.gguf")
-        let port = result["port"] as? Int
-        XCTAssertNotNil(port)
-        XCTAssertGreaterThanOrEqual(port!, 39200)
-        XCTAssertLessThanOrEqual(port!, 39203)
-        let baseUrl = result["baseUrl"] as? String
-        XCTAssertEqual(baseUrl, "http://127.0.0.1:\(port!)/v1")
-
-        try await state.stop()
+        do {
+            _ = try await state.start(opts: [
+                "modelPath": "/tmp/definitely-does-not-exist.gguf",
+                "httpBasePort": 39200,
+                "httpMaxPortAttempts": 4,
+            ])
+            XCTFail("expected start() to throw for fake model path")
+        } catch {
+            // expected
+        }
         let info = await state.statusInfo()
         XCTAssertEqual(info["running"] as? Bool, false)
-    }
-
-    func testRestartReplacesPreviousRun() async throws {
-        let state = PluginState()
-        _ = try await state.start(opts: [
-            "modelPath": "/tmp/fake1.gguf",
-            "httpBasePort": 39210,
-            "httpMaxPortAttempts": 4,
-        ])
-        // Calling start again should stop the previous run and start fresh
-        let result2 = try await state.start(opts: [
-            "modelPath": "/tmp/fake2.gguf",
-            "httpBasePort": 39220,
-            "httpMaxPortAttempts": 4,
-        ])
-        XCTAssertEqual(result2["modelId"] as? String, "/tmp/fake2.gguf")
-        try await state.stop()
     }
 }
