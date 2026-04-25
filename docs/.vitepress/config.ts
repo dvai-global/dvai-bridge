@@ -1,8 +1,19 @@
 import { defineConfig } from "vitepress";
+import llmstxt from "vitepress-plugin-llms";
 
 export default defineConfig({
 	title: "DVAI-Bridge",
 	description: "Local AI Orchestration for Web, Capacitor, and Electron",
+	head: [
+		[
+			"script",
+			{
+				defer: "defer",
+				src: "https://app.lemonsqueezy.com/js/lemon.js",
+			},
+		],
+		["link", { rel: "icon", href: "/favicon.png", type: "image/x-png" }],
+	],
 	// Ignore dead links that point outside the published docs tree:
 	// - `../../CHANGELOG` from `docs/migration/*.md` resolves to the repo-root
 	//   CHANGELOG.md (not a VitePress page).
@@ -14,6 +25,16 @@ export default defineConfig({
 		/^\/?superpowers\//,
 		/^\.\.\/guide\/transports/,
 	],
+	cleanUrls: true,
+	vite: {
+		plugins: [llmstxt()],
+	},
+	markdown: {
+		linkify: false,
+		image: {
+			lazyLoading: true,
+		},
+	},
 	srcExclude: ["superpowers/**"],
 	themeConfig: {
 		logo: "/logo.png",
