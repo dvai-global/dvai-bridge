@@ -15,8 +15,7 @@ export async function handleEmbeddings(
       {
         error:
           "Embeddings are not supported on the WebLLM backend. " +
-          "Use backend: 'transformers' with pipelineTask: 'feature-extraction', " +
-          "or backend: 'native' with nativeEmbeddingMode: true.",
+          "Use backend: 'transformers' with pipelineTask: 'feature-extraction'.",
       },
       { status: 400 },
     );
@@ -26,8 +25,7 @@ export async function handleEmbeddings(
       {
         error:
           "The current backend does not support embeddings. " +
-          "For transformers: use pipelineTask: 'feature-extraction'. " +
-          "For native: set nativeEmbeddingMode: true.",
+          "For transformers: use pipelineTask: 'feature-extraction'.",
       },
       { status: 400 },
     );

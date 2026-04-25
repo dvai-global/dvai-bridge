@@ -1,7 +1,7 @@
 /**
  * Duck-typed backend contract consumed by the transport-agnostic handlers.
- * All three existing backends (WebLLMBackend, TransformersBackend, NativeBackend)
- * satisfy this structurally without any backend changes.
+ * Both existing backends (WebLLMBackend, TransformersBackend) satisfy this
+ * structurally without any backend changes.
  */
 export interface BackendInterface {
   chatCompletion(body: any): Promise<any>;
@@ -28,7 +28,7 @@ export interface HandlerContext {
    * phases — handlers must NOT dispatch on this value; always duck-type
    * on backend methods instead.
    */
-  resolvedBackend: "webllm" | "transformers" | "native";
+  resolvedBackend: "webllm" | "transformers";
 
   /** Model identifier echoed back in responses. */
   modelId: string;

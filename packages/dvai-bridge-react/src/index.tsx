@@ -54,7 +54,7 @@ export interface DVAIContextValue {
 	/** Bound HTTP port (HTTP transport only). Undefined for MSW/none. */
 	port: number | undefined;
 	/** Resolved transport kind after initialize(). */
-	activeTransport: "msw" | "http" | "none";
+	activeTransport: "msw" | "http" | "none" | "capacitor";
 }
 
 const DVAIContext = createContext<DVAIContextValue | null>(null);
