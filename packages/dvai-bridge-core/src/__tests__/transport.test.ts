@@ -113,3 +113,22 @@ describe("CapacitorTransport", () => {
     expect(result).toEqual({ baseUrl: "http://127.0.0.1:38883/v1", port: 38883 });
   });
 });
+
+describe("selectTransport — capacitor branch", () => {
+  it("returns 'capacitor' when in Capacitor native context", async () => {
+    const { selectTransport } = await import("../transports/index");
+    const w = globalThis as any;
+    const prevWindow = w.window;
+    w.window = { Capacitor: { isNativePlatform: () => true } };
+    try {
+      expect(selectTransport({ transport: "auto" })).toBe("capacitor");
+    } finally {
+      w.window = prevWindow;
+    }
+  });
+
+  it("returns 'capacitor' when transport: 'capacitor' is forced", async () => {
+    const { selectTransport } = await import("../transports/index");
+    expect(selectTransport({ transport: "capacitor" })).toBe("capacitor");
+  });
+});
