@@ -47,6 +47,57 @@ final class ImageDecoderTest: XCTestCase {
         }
     }
 
+    /// `https://` URL fetches response body bytes verbatim. Mocked at the
+    /// URLSession layer via `URLProtocol.registerClass` so no real network
+    /// is touched.
+    func testHTTPSFetchesBytes() async throws {
+        let payload = try Data(contentsOf: imageFixtureURL("tiny-test.png"))
+        URLProtocol.registerClass(MockURLProtocol.self)
+        defer {
+            URLProtocol.unregisterClass(MockURLProtocol.self)
+            MockURLProtocol.handler = nil
+        }
+        MockURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: nil
+            )!
+            return (response, payload)
+        }
+
+        let bytes = try await ImageDecoder.resolve(url: "https://example.invalid/img.png")
+        XCTAssertEqual(bytes, payload)
+    }
+
+    /// HTTP non-2xx → `ImageSourceError.httpError(status:)` carrying the code.
+    func testHTTPErrorThrowsHttpError() async {
+        URLProtocol.registerClass(MockURLProtocol.self)
+        defer {
+            URLProtocol.unregisterClass(MockURLProtocol.self)
+            MockURLProtocol.handler = nil
+        }
+        MockURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 404,
+                httpVersion: "HTTP/1.1",
+                headerFields: nil
+            )!
+            return (response, Data())
+        }
+
+        do {
+            _ = try await ImageDecoder.resolve(url: "https://example.invalid/missing.png")
+            XCTFail("Expected throw")
+        } catch ImageSourceError.httpError(let status) {
+            XCTAssertEqual(status, 404)
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
+        }
+    }
+
     /// Walks up from this test source file until it finds the repo-root
     /// `fixtures/` directory — same pattern as `AudioDecoderTest`.
     private func imageFixtureURL(_ name: String) -> URL {
@@ -60,4 +111,29 @@ final class ImageDecoderTest: XCTestCase {
         }
         return dir.appendingPathComponent("fixtures").appendingPathComponent("images").appendingPathComponent(name)
     }
+}
+
+/// In-process `URLProtocol` stub that intercepts every URLSession request
+/// and dispatches it to a per-test handler. Registered globally via
+/// `URLProtocol.registerClass`, which `URLSession.shared` consults — so the
+/// production code under test (which uses `URLSession.shared`) is exercised
+/// without any actual network I/O.
+private final class MockURLProtocol: URLProtocol {
+    static var handler: ((URLRequest) -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = MockURLProtocol.handler else {
+            client?.urlProtocol(self, didFailWithError: NSError(domain: "MockURLProtocol", code: -1))
+            return
+        }
+        let (response, data) = handler(request)
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }
