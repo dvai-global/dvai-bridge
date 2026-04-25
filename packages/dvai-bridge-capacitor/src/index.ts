@@ -7,6 +7,7 @@ import type {
   DownloadOptions,
   CachedModelInfo,
   CapacitorBackend,
+  NativePluginInterface,
 } from "./types.js";
 
 export type {
@@ -17,6 +18,7 @@ export type {
   ProgressEvent,
   DownloadOptions,
   CachedModelInfo,
+  NativePluginInterface,
 };
 
 export const DVAIBridge = {
