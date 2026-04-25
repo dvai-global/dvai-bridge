@@ -45,6 +45,9 @@ struct ImageDecoder {
     /// Strict: a missing comma is treated as malformed (we don't try to
     /// guess intent).
     private static func resolveDataURL(_ url: String) throws -> Data {
+        // RFC 2397: data:[<mediatype>][;base64],<data>
+        // Empty header and/or empty body are well-formed and produce an
+        // empty Data result (e.g. `data:,` returns `Data()`).
         guard let commaIdx = url.firstIndex(of: ",") else {
             throw ImageSourceError.malformedDataURL(url)
         }

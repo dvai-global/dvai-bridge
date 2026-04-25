@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit
  */
 sealed class ImageSourceError(msg: String) : Exception(msg) {
     class MalformedDataURL(url: String) : ImageSourceError("malformed data URL: $url")
+    class MalformedURL(url: String) : ImageSourceError("malformed URL: $url")
     class InvalidScheme(scheme: String) : ImageSourceError("unsupported URL scheme: $scheme")
     class HttpError(val status: Int) : ImageSourceError("HTTP $status")
     class Base64DecodeFailed : ImageSourceError("base64 decode failed")
@@ -31,9 +32,11 @@ sealed class ImageSourceError(msg: String) : Exception(msg) {
  */
 object ImageDecoder {
     private val httpClient: OkHttpClient by lazy {
+        // `callTimeout` caps the entire HTTP exchange (DNS + connect + write
+        // + read + redirect) at 30s so worst-case latency matches iOS, where
+        // `URLRequest.timeoutInterval = 30` covers the whole request.
         OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 
@@ -46,6 +49,8 @@ object ImageDecoder {
      *   non-2xx responses throw [ImageSourceError.HttpError].
      * - `file:` URLs are read off disk via [File.readBytes].
      * - Any other scheme throws [ImageSourceError.InvalidScheme].
+     * - URLs that fail to parse, lack a scheme, or have a missing/empty
+     *   `file:` path throw [ImageSourceError.MalformedURL].
      */
     fun resolve(url: String): ByteArray {
         if (url.startsWith("data:")) {
@@ -66,12 +71,16 @@ object ImageDecoder {
         val parsed = try {
             URI(url)
         } catch (_: Exception) {
-            throw ImageSourceError.InvalidScheme(url)
+            throw ImageSourceError.MalformedURL(url)
         }
-        val scheme = parsed.scheme?.lowercase() ?: throw ImageSourceError.InvalidScheme(url)
+        val scheme = parsed.scheme?.lowercase() ?: throw ImageSourceError.MalformedURL(url)
         return when (scheme) {
             "https", "http" -> fetchHttp(url, client)
-            "file" -> File(parsed.path ?: throw ImageSourceError.InvalidScheme("file (no path)")).readBytes()
+            "file" -> {
+                val path = parsed.path
+                if (path.isNullOrEmpty()) throw ImageSourceError.MalformedURL(url)
+                File(path).readBytes()
+            }
             else -> throw ImageSourceError.InvalidScheme(scheme)
         }
     }
