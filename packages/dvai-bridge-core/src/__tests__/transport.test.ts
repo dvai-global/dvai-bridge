@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { HandlerContext, BackendInterface } from "../handlers/context";
 
 const fakeBackend: BackendInterface = {
@@ -72,5 +72,44 @@ describe("selectTransport", () => {
       if (hadSw) nav.serviceWorker = prev;
       else delete nav.serviceWorker;
     }
+  });
+});
+
+describe("CapacitorTransport", () => {
+  it("kind is 'capacitor'", async () => {
+    const { CapacitorTransport } = await import("../transports/capacitor");
+    const t = new CapacitorTransport({
+      capacitorBackend: "llama",
+      nativeModelPath: "/m.gguf",
+      httpBasePort: 38883,
+      httpMaxPortAttempts: 16,
+      corsOrigin: "*",
+    });
+    expect(t.kind).toBe("capacitor");
+  });
+
+  it("start() calls DVAIBridge.start with backend + modelPath", async () => {
+    vi.doMock("@dvai-bridge/capacitor", () => ({
+      DVAIBridge: {
+        start: vi.fn(async (opts: any) => ({
+          baseUrl: "http://127.0.0.1:38883/v1",
+          port: 38883,
+          backend: opts.backend,
+          modelId: opts.modelPath,
+        })),
+        stop: vi.fn(async () => undefined),
+      },
+    }));
+
+    const { CapacitorTransport } = await import("../transports/capacitor");
+    const t = new CapacitorTransport({
+      capacitorBackend: "llama",
+      nativeModelPath: "/test.gguf",
+      httpBasePort: 38883,
+      httpMaxPortAttempts: 16,
+      corsOrigin: "*",
+    });
+    const result = await t.start({} as any);
+    expect(result).toEqual({ baseUrl: "http://127.0.0.1:38883/v1", port: 38883 });
   });
 });
