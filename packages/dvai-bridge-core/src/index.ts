@@ -191,7 +191,7 @@ export class DVAI {
 	public corsOrigin: string | string[];
 
 	/** Resolved transport kind after selectTransport() runs. */
-	private resolvedTransport: "msw" | "http" | "none" = "none";
+	private resolvedTransport: "msw" | "http" | "none" | "capacitor" = "none";
 
 	/** Populated after transport.start(). Undefined on "none". */
 	public baseUrl?: string;
@@ -269,7 +269,7 @@ export class DVAI {
 	}
 
 	/** Returns the resolved transport kind (after "auto" resolution). */
-	getActiveTransport(): "msw" | "http" | "none" {
+	getActiveTransport(): "msw" | "http" | "none" | "capacitor" {
 		return this.resolvedTransport;
 	}
 
@@ -355,9 +355,8 @@ export class DVAI {
 			await this.initializeBackend(onProgress);
 
 			// 2. Select transport based on env + config
-			const { selectTransport, MswTransport, HttpTransport } = await import(
-				"./transports/index.js"
-			);
+			const { selectTransport, MswTransport, HttpTransport, CapacitorTransport } =
+				await import("./transports/index.js");
 			this.resolvedTransport = selectTransport({
 				transport: this.transport === "auto" ? undefined : this.transport,
 				serviceWorkerUrl: this.serviceWorkerUrl,
@@ -407,6 +406,19 @@ export class DVAI {
 				});
 			} else if (this.resolvedTransport === "http") {
 				this.activeTransport = new HttpTransport({
+					httpBasePort: this.httpBasePort,
+					httpMaxPortAttempts: this.httpMaxPortAttempts,
+					corsOrigin: this.corsOrigin,
+				});
+			} else if (this.resolvedTransport === "capacitor") {
+				this.activeTransport = new CapacitorTransport({
+					capacitorBackend: this.capacitorBackend,
+					nativeModelPath: this.nativeModelPath || undefined,
+					nativeMmprojPath: this.nativeMmprojPath,
+					nativeGpuLayers: this.nativeGpuLayers,
+					nativeContextSize: this.nativeContextSize,
+					nativeThreads: this.nativeThreads,
+					nativeEmbeddingMode: this.nativeEmbeddingMode,
 					httpBasePort: this.httpBasePort,
 					httpMaxPortAttempts: this.httpMaxPortAttempts,
 					corsOrigin: this.corsOrigin,
