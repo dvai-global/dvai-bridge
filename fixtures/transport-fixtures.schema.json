@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DVAI-Bridge transport fixtures",
+  "type": "object",
+  "required": [
+    "CHAT_REQUEST_TEXT",
+    "CHAT_REQUEST_IMAGE",
+    "CHAT_REQUEST_AUDIO_PCM16",
+    "COMPLETION_REQUEST",
+    "EMBEDDING_REQUEST",
+    "CANNED_CHAT_COMPLETION",
+    "CANNED_EMBEDDING"
+  ],
+  "properties": {
+    "CHAT_REQUEST_TEXT": {
+      "type": "object",
+      "required": ["model", "messages"],
+      "properties": {
+        "model": { "type": "string" },
+        "messages": {
+          "type": "array",
+          "items": { "type": "object", "required": ["role", "content"] }
+        }
+      }
+    },
+    "CHAT_REQUEST_IMAGE": {
+      "type": "object",
+      "required": ["model", "messages"]
+    },
+    "CHAT_REQUEST_AUDIO_PCM16": {
+      "type": "object",
+      "required": ["model", "messages"]
+    },
+    "COMPLETION_REQUEST": {
+      "type": "object",
+      "required": ["model", "prompt"]
+    },
+    "EMBEDDING_REQUEST": {
+      "type": "object",
+      "required": ["model", "input"]
+    },
+    "CANNED_CHAT_COMPLETION": {
+      "type": "object",
+      "required": ["id", "object", "created", "model", "choices", "usage"]
+    },
+    "CANNED_EMBEDDING": {
+      "type": "object",
+      "required": ["object", "data", "model", "usage"]
+    }
+  }
+}
