@@ -14,7 +14,8 @@ let package = Package(
         .target(
             name: "DVAICapacitorLlama",
             dependencies: ["Telegraph"],
-            path: "Sources/DVAICapacitorLlama"
+            path: "Sources/DVAICapacitorLlama",
+            exclude: ["PluginProxy.m"]
         ),
         .testTarget(
             name: "DVAICapacitorLlamaTests",
