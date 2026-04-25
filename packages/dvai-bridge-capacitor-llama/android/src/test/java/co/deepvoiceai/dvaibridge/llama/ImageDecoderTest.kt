@@ -80,6 +80,12 @@ class ImageDecoderTest {
         ImageDecoder.resolve("data:image/png;base64")
     }
 
+    /** `file:` URL with no path → `MalformedURL` (was previously misreported as `InvalidScheme`). */
+    @Test(expected = ImageSourceError.MalformedURL::class)
+    fun `file URL with no path throws MalformedURL`() {
+        ImageDecoder.resolve("file:")
+    }
+
     /** HTTP non-2xx → `HttpError` carrying the status code. */
     @Test
     fun `http error throws HttpError`() {
