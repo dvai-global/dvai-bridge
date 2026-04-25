@@ -8,14 +8,14 @@ case "$TARGET" in
     cd "packages/dvai-bridge-capacitor-llama/ios"
     xcodebuild build \
       -scheme DVAICapacitorLlama \
-      -destination 'platform=iOS Simulator,name=iPhone 15' \
+      -destination 'platform=iOS Simulator,name=iPhone 16' \
       -configuration Debug
     ;;
   capacitor-foundation)
     cd "packages/dvai-bridge-capacitor-foundation/ios"
     xcodebuild build \
       -scheme DVAICapacitorFoundation \
-      -destination 'platform=iOS Simulator,name=iPhone 15' \
+      -destination 'platform=iOS Simulator,name=iPhone 16' \
       -configuration Debug
     ;;
   *) echo "Unknown target: $TARGET" >&2; exit 2 ;;
