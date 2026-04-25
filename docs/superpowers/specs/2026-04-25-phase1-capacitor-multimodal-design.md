@@ -140,7 +140,17 @@ export interface StartResult {
 }
 
 export interface ProgressEvent {
-  phase: "loading" | "ready" | "error";
+  // Lifecycle phases:
+  //  - "download": bytes streaming from a remote URL into the on-disk
+  //    `.partial` file. `bytesReceived`/`bytesTotal`/`percent` populated.
+  //  - "verify": final sha256 check after download (or after a resumed
+  //    `.partial` is rehashed). Reserved — not currently emitted by any
+  //    backend; ModelDownloader's success-return implies verify passed.
+  //  - "load": native plugin loading the model into engine memory
+  //    (mmap / GPU upload / etc.).
+  //  - "ready": terminal — model is live and serving.
+  //  - "error": terminal — populated `message` describes failure.
+  phase: "download" | "verify" | "load" | "ready" | "error";
   bytesReceived?: number;
   bytesTotal?: number;
   percent?: number;

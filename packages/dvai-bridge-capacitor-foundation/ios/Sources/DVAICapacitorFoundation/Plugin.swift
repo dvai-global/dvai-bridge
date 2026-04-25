@@ -15,11 +15,18 @@ public class DVAIBridgeFoundationPlugin: CAPPlugin {
 
     @objc func start(_ call: CAPPluginCall) {
         let opts = call.options ?? [:]
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
+            self.notifyListeners("progress", data: ["phase": "load"])
             do {
-                let result = try await state.start(opts: opts)
+                let result = try await self.state.start(opts: opts)
+                self.notifyListeners("progress", data: ["phase": "ready"])
                 call.resolve(result)
             } catch {
+                self.notifyListeners("progress", data: [
+                    "phase": "error",
+                    "message": error.localizedDescription,
+                ])
                 call.reject(error.localizedDescription)
             }
         }

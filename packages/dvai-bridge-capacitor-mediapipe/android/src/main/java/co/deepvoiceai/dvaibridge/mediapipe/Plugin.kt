@@ -24,10 +24,16 @@ class DVAIBridgeMediaPipePlugin : Plugin() {
     @PluginMethod
     fun start(call: PluginCall) {
         scope.launch {
+            notifyListeners("progress", JSObject().apply { put("phase", "load") })
             try {
                 val result = state.start(call.data, context)
+                notifyListeners("progress", JSObject().apply { put("phase", "ready") })
                 call.resolve(result)
             } catch (e: Exception) {
+                notifyListeners("progress", JSObject().apply {
+                    put("phase", "error")
+                    put("message", e.message ?: "Start failed")
+                })
                 call.reject(e.message ?: "Start failed", e)
             }
         }
