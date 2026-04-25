@@ -3,19 +3,22 @@ import PackageDescription
 
 // NOTE on iOS deployment target:
 // Apple Foundation Models requires iOS 18.1+ at runtime. SwiftPM's
-// `SupportedPlatform.IOSVersion` enum only goes up to `.v18` (which is
-// iOS 18.0); there is no `.v18_1` enum case at this swift-tools-version.
-// We declare `.iOS(.v18)` here and rely on `@available(iOS 18.1, *)`
-// attributes inside the FoundationModels-using source files to enforce
-// the real minimum at compile/use sites. The podspec separately pins
-// `s.ios.deployment_target = '18.1'` for app integration.
+// `SupportedPlatform.IOSVersion` enum only got a `.v18` case in
+// PackageDescription 6.0 (Swift 6 toolchain), and there is no `.v18_1`
+// case at all. To stay on swift-tools-version 5.9 — matching the rest
+// of the workspace — we use the string-based `.iOS(_:)` initializer,
+// which accepts arbitrary version strings including "18.1". The
+// FoundationModels-using source files (added in Task 40) carry
+// `@available(iOS 18.1, *)` attributes for safety. The podspec
+// separately pins `s.ios.deployment_target = '18.1'` for app
+// integration.
 //
 // macOS 14 covers the host-side `swift test` compile. The smoke test does
 // not import FoundationModels, so the host build does not need iOS 18.1+
 // availability.
 let package = Package(
     name: "DVAICapacitorFoundation",
-    platforms: [.iOS(.v18), .macOS(.v14)],
+    platforms: [.iOS("18.1"), .macOS(.v14)],
     products: [
         .library(name: "DVAICapacitorFoundation", targets: ["DVAICapacitorFoundation"]),
     ],
