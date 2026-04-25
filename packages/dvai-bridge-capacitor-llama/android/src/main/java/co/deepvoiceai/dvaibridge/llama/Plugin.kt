@@ -1,5 +1,6 @@
 package co.deepvoiceai.dvaibridge.llama
 
+import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 class DVAIBridgeLlamaPlugin : Plugin() {
     private val state = PluginState()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val downloader: ModelDownloader by lazy { ModelDownloader(context) }
 
     override fun handleOnDestroy() {
         super.handleOnDestroy()
@@ -52,23 +54,90 @@ class DVAIBridgeLlamaPlugin : Plugin() {
 
     @PluginMethod
     fun downloadModel(call: PluginCall) {
-        call.reject("Not implemented yet -- Task 32")
+        val url = call.getString("url") ?: return call.reject("url is required")
+        val sha = call.getString("sha256")?.takeIf { it.isNotEmpty() }?.lowercase()
+            ?: return call.reject("sha256 is required")
+        val destFilename = call.getString("destFilename") ?: url.substringAfterLast('/')
+        val headers: Map<String, String> = call.getObject("headers")?.let { obj ->
+            val map = mutableMapOf<String, String>()
+            obj.keys().forEachRemaining { k -> obj.getString(k)?.let { map[k] = it } }
+            map
+        } ?: emptyMap()
+
+        scope.launch {
+            try {
+                val (path, cached) = downloader.downloadModel(
+                    url = url,
+                    expectedSha256 = sha,
+                    destFilename = destFilename,
+                    headers = headers,
+                ) { bytesDone, bytesTotal ->
+                    val payload = JSObject().apply {
+                        put("phase", "loading")
+                        put("bytesReceived", bytesDone)
+                        if (bytesTotal != null) {
+                            put("bytesTotal", bytesTotal)
+                            if (bytesTotal > 0) {
+                                put("percent", bytesDone.toDouble() / bytesTotal.toDouble() * 100.0)
+                            }
+                        }
+                    }
+                    notifyListeners("progress", payload)
+                }
+                call.resolve(JSObject().apply {
+                    put("path", path)
+                    put("cached", cached)
+                })
+            } catch (e: Exception) {
+                call.reject(e.message ?: "Download failed", e)
+            }
+        }
     }
 
     @PluginMethod
     fun listCachedModels(call: PluginCall) {
-        val ret = JSObject()
-        ret.put("models", emptyList<Any>())
-        call.resolve(ret)
+        scope.launch {
+            try {
+                val infos = downloader.listCached()
+                val arr = JSArray()
+                infos.forEach { info ->
+                    arr.put(JSObject().apply {
+                        put("filename", info.filename)
+                        put("path", info.path)
+                        put("bytes", info.bytes)
+                        put("sha256", info.sha256)
+                    })
+                }
+                call.resolve(JSObject().apply { put("models", arr) })
+            } catch (e: Exception) {
+                call.reject(e.message ?: "List failed", e)
+            }
+        }
     }
 
     @PluginMethod
     fun deleteCachedModel(call: PluginCall) {
-        call.reject("Not implemented yet -- Task 32")
+        val filename = call.getString("filename")?.takeIf { it.isNotEmpty() }
+            ?: return call.reject("filename is required")
+        scope.launch {
+            try {
+                downloader.deleteCached(filename)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject(e.message ?: "Delete failed", e)
+            }
+        }
     }
 
     @PluginMethod
     fun cacheDir(call: PluginCall) {
-        call.reject("Not implemented yet -- Task 32")
+        scope.launch {
+            try {
+                val path = downloader.cacheDir().absolutePath
+                call.resolve(JSObject().apply { put("path", path) })
+            } catch (e: Exception) {
+                call.reject(e.message ?: "cacheDir failed", e)
+            }
+        }
     }
 }

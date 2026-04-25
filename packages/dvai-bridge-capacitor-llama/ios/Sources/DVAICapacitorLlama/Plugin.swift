@@ -6,6 +6,7 @@ import Capacitor
 @objc(DVAIBridgeLlamaPlugin)
 public class DVAIBridgeLlamaPlugin: CAPPlugin {
     private let state = PluginState()
+    private let downloader = ModelDownloader()
 
     public override func load() {
         super.load()
@@ -42,19 +43,96 @@ public class DVAIBridgeLlamaPlugin: CAPPlugin {
     }
 
     @objc func downloadModel(_ call: CAPPluginCall) {
-        call.reject("Not implemented yet — Task 32")
+        guard let urlStr = call.getString("url"), let url = URL(string: urlStr) else {
+            call.reject("url is required")
+            return
+        }
+        guard let sha = call.getString("sha256"), !sha.isEmpty else {
+            call.reject("sha256 is required")
+            return
+        }
+        let destFilename = call.getString("destFilename") ?? url.lastPathComponent
+        let headers = (call.getObject("headers") as? [String: String]) ?? [:]
+
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let result = try await self.downloader.downloadModel(
+                    url: url,
+                    expectedSha256: sha.lowercased(),
+                    destFilename: destFilename,
+                    headers: headers,
+                    onProgress: { [weak self] bytesDone, bytesTotal in
+                        guard let self else { return }
+                        var payload: [String: Any] = [
+                            "phase": "loading",
+                            "bytesReceived": bytesDone,
+                        ]
+                        if let total = bytesTotal {
+                            payload["bytesTotal"] = total
+                            if total > 0 {
+                                payload["percent"] = Double(bytesDone) / Double(total) * 100.0
+                            }
+                        }
+                        self.notifyListeners("progress", data: payload)
+                    }
+                )
+                call.resolve([
+                    "path": result.path,
+                    "cached": result.cached,
+                ])
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
     }
 
     @objc func listCachedModels(_ call: CAPPluginCall) {
-        call.resolve(["models": []])
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let infos = try await self.downloader.listCachedModels()
+                let models: [[String: Any]] = infos.map {
+                    [
+                        "filename": $0.filename,
+                        "path": $0.path,
+                        "bytes": $0.bytes,
+                        "sha256": $0.sha256,
+                    ]
+                }
+                call.resolve(["models": models])
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
     }
 
     @objc func deleteCachedModel(_ call: CAPPluginCall) {
-        call.reject("Not implemented yet — Task 32")
+        guard let filename = call.getString("filename"), !filename.isEmpty else {
+            call.reject("filename is required")
+            return
+        }
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.downloader.deleteCachedModel(filename: filename)
+                call.resolve()
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
     }
 
     @objc func cacheDir(_ call: CAPPluginCall) {
-        call.reject("Not implemented yet — Task 32")
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let path = try await self.downloader.cacheDirPath()
+                call.resolve(["path": path])
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
     }
 }
 #endif
