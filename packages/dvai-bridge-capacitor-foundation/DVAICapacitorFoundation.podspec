@@ -13,5 +13,5 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '18.1'
   s.swift_version    = '5.9'
   s.dependency 'Capacitor'
-  s.dependency 'Telegraph', '~> 0.30'
+  s.dependency 'Telegraph', '~> 0.40'
 end
