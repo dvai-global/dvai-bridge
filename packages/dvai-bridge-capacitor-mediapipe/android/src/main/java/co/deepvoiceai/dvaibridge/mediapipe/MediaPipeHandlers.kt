@@ -10,19 +10,14 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -37,12 +32,33 @@ import java.util.UUID
  * with a 400 pointing at Task 46 where vision lands. Audio (`input_audio`) is
  * permanently rejected — MediaPipe `tasks-genai` has no audio path.
  *
- * Streaming: emitted as the standard 4-frame envelope (role / content* /
- * finish / `[DONE]`). MediaPipe's `generateResponseAsync` may invoke its
- * progress callback multiple times — each callback emits one content delta.
- * Server-side buffering in [HandlerDispatch] still collects everything before
- * flush in Phase 1, so clients see all frames together; per-token streaming
- * lands when dispatch grows a flush-per-chunk path.
+ * ## Streaming envelope
+ *
+ * Emits one role-only delta frame, then one content delta frame per MediaPipe
+ * progress callback (with `finish_reason: "stop"` on the final frame), then a
+ * literal `[DONE]` terminator. Frame count therefore varies with the number of
+ * tokens generated — there is no fixed envelope size. Server-side buffering in
+ * [HandlerDispatch] still collects everything before flush in Phase 1, so
+ * clients see all frames together; per-token streaming lands when dispatch
+ * grows a flush-per-chunk path.
+ *
+ * ## Streaming envelope parity (with [LlamaHandlers])
+ *
+ * The two backends emit slightly different shapes — both valid per OpenAI's
+ * spec, but worth documenting so readers don't assume identical behavior:
+ *
+ *  - [LlamaHandlers] emits: role / content / **separate empty-delta finish
+ *    frame with `finish_reason: "stop"`** / `[DONE]` (fixed 4-frame shape).
+ *  - [MediaPipeHandlers] emits: role / content₁ … content_N (last frame
+ *    carries `finish_reason: "stop"` alongside its content) / `[DONE]`
+ *    (variable frame count).
+ *
+ * Clients that accumulate `delta.content` see the full text in both cases.
+ * Clients that gate on `finish_reason` see it on the trailing chunk in both
+ * cases — just empty-delta in Llama, content-bearing in MediaPipe. The
+ * asymmetry is intentional: LlamaHandlers wraps a single completePrompt call
+ * with no intra-token signal, while MediaPipe's progress callback already
+ * surfaces the `done` flag inline with the final content chunk.
  *
  * All bridge-touching paths are serialized via [bridgeMutex] because
  * `LlmInferenceSession` is not safe to use from multiple concurrent callers.
@@ -200,7 +216,10 @@ class MediaPipeHandlers(
     // ----- Streaming -----
 
     /**
-     * Build the SSE 4-frame envelope (role / content* / finish / [DONE]).
+     * Build the SSE envelope: role frame + N content frames (last carries
+     * `finish_reason: "stop"`) + `[DONE]` terminator. Frame count varies with
+     * token count — see the "Streaming envelope parity" note in this class's
+     * KDoc for the documented divergence from [LlamaHandlers].
      *
      * Acquires [bridgeMutex] for the lifetime of the stream and releases it
      * in [awaitClose] — guarantees serialization with non-streaming requests
@@ -209,9 +228,18 @@ class MediaPipeHandlers(
      */
     private fun buildChatStreamFrames(id: String, created: Long, prompt: String): Flow<String> = callbackFlow {
         // Serialize against any other bridge use for the entire stream lifetime.
+        // Track ownership explicitly via a local flag so we never depend on the
+        // racy `Mutex.isLocked` snapshot read for unlock decisions.
+        var unlocked = false
         bridgeMutex.lock()
+        fun safeUnlock() {
+            if (!unlocked) {
+                unlocked = true
+                bridgeMutex.unlock()
+            }
+        }
 
-        // Frame 0: role chunk
+        // Role chunk (first frame of the envelope).
         val roleChunk = buildJsonObject {
             put("id", id); put("object", "chat.completion.chunk")
             put("created", created); put("model", modelId)
@@ -254,6 +282,11 @@ class MediaPipeHandlers(
             // Generation failed to start. Emit an error chunk + [DONE] so the
             // client sees a well-formed SSE close, then complete the flow with
             // the exception (collector receives it).
+            //
+            // finish_reason uses the OpenAI-standard "stop" value; the failure
+            // signal is conveyed via the sibling `error` field. (OpenAI's spec
+            // restricts finish_reason to stop|length|tool_calls|content_filter|
+            // function_call|null, so we don't invent an "error" value.)
             val errChunk = buildJsonObject {
                 put("id", id); put("object", "chat.completion.chunk")
                 put("created", created); put("model", modelId)
@@ -261,7 +294,7 @@ class MediaPipeHandlers(
                     addJsonObject {
                         put("index", 0)
                         putJsonObject("delta") { /* empty */ }
-                        put("finish_reason", "error")
+                        put("finish_reason", "stop")
                     }
                 }
                 putJsonObject("error") { put("message", e.message ?: "Inference failed") }
@@ -271,7 +304,7 @@ class MediaPipeHandlers(
             close(e)
             // Release the mutex synchronously — awaitClose still runs but
             // there is no AutoCloseable handle to call close() on.
-            if (bridgeMutex.isLocked) bridgeMutex.unlock()
+            safeUnlock()
             return@callbackFlow
         }
 
@@ -279,7 +312,7 @@ class MediaPipeHandlers(
             try {
                 handle.close()
             } catch (_: Throwable) { /* best-effort */ }
-            if (bridgeMutex.isLocked) bridgeMutex.unlock()
+            safeUnlock()
         }
     }
 
