@@ -1,23 +1,26 @@
 buildscript {
     ext {
-        kotlinVersion = '1.9.22'
+        kotlinVersion = '2.3.21'
     }
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.4'
+        classpath 'com.android.tools.build:gradle:9.2.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
     }
 }
 
 ext {
     junitVersion = '4.13.2'
-    androidxAppCompatVersion = '1.6.1'
-    capacitorVersion = '6.0.0'
-    coroutinesVersion = '1.7.3'
-    ktorVersion = '2.3.7'
+    androidxAppCompatVersion = '1.7.1'
+    capacitorVersion = '8.3.1'
+    coroutinesVersion = '1.10.2'
+    // Pinned within Ktor 2.x — Ktor 3 has breaking API changes around server
+    // configuration that would require non-trivial refactors. Stay on the
+    // latest 2.x patch (2.3.13) until a deliberate Ktor 3 migration.
+    ktorVersion = '2.3.13'
     // MediaPipe ships its native libs (~100MB per ABI) inside the AAR — we
     // do NOT use NDK/CMake here. The genai task ABI bundles arm64-v8a +
     // x86_64 by default. Pin a stable version; bump when a newer one is
@@ -45,16 +48,18 @@ allprojects {
     }
 }
 
+// AGP 9+ ships built-in Kotlin support; the standalone 'kotlin-android'
+// plugin is no longer needed (and is rejected by the build).
+// See https://kotl.in/gradle/agp-built-in-kotlin
 apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
 
 android {
     namespace 'co.deepvoiceai.dvaibridge.mediapipe'
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         minSdk 24
-        targetSdk 34
+        targetSdk 36
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -62,11 +67,17 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = '17'
-    }
     testOptions {
         unitTests.includeAndroidResources = true
+    }
+}
+
+// AGP 9 / Kotlin 2.x: the legacy android.kotlinOptions block is gone. The
+// replacement is the standalone `kotlin { compilerOptions { ... } }` extension
+// (provided by AGP's built-in Kotlin integration).
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
@@ -77,12 +88,12 @@ dependencies {
     implementation "io.ktor:ktor-server-cio:$ktorVersion"
     implementation "io.ktor:ktor-server-cors:$ktorVersion"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion"
-    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2'
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
     // OkHttp is retained for parity with capacitor-llama's ModelDownloader
     // path — Phase 1 doesn't ship a downloader for the MediaPipe backend
     // (users place .task files in filesDir manually), but a thin downloader
     // wrapper may land later without re-jiggling deps.
-    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.squareup.okhttp3:okhttp:5.3.2'
 
     // Google MediaPipe LLM Inference (Gemma, Phi-3.5, Falcon, StableLM-Zephyr).
     // ~100MB native libs per ABI — first build will be slow.
@@ -94,10 +105,10 @@ dependencies {
 
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion"
-    testImplementation 'org.robolectric:robolectric:4.11.1'
+    testImplementation 'org.robolectric:robolectric:4.16.1'
     testImplementation "io.ktor:ktor-server-test-host:$ktorVersion"
-    testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+    testImplementation 'com.squareup.okhttp3:mockwebserver:5.3.2'
 
-    androidTestImplementation 'androidx.test:runner:1.5.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test:runner:1.7.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
 }
