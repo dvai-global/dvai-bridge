@@ -15,7 +15,22 @@ let package = Package(
             name: "DVAICapacitorLlama",
             dependencies: ["Telegraph"],
             path: "Sources/DVAICapacitorLlama",
-            exclude: ["PluginProxy.m"]
+            exclude: ["PluginProxy.m"],
+            cSettings: [
+                .headerSearchPath("../../native/llama.cpp/include"),
+                .headerSearchPath("../../native/llama.cpp/ggml/include"),
+            ],
+            cxxSettings: [
+                .headerSearchPath("../../native/llama.cpp/include"),
+                .headerSearchPath("../../native/llama.cpp/ggml/include"),
+                .define("GGML_USE_METAL"),
+            ],
+            linkerSettings: [
+                .linkedFramework("Metal"),
+                .linkedFramework("MetalKit"),
+                .linkedFramework("Foundation"),
+                .linkedFramework("Accelerate"),
+            ]
         ),
         .testTarget(
             name: "DVAICapacitorLlamaTests",
