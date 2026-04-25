@@ -55,8 +55,16 @@ actor PluginState {
             host: "127.0.0.1"
         )
 
-        // Install routes
-        let handlers = LlamaHandlers(bridge: bridge, modelId: modelPath)
+        // Install routes. Phase 1: mmproj / audio-encoder gates stay false until
+        // the corresponding loaders land in Phase 2; embeddingMode is mirrored
+        // from the start opts so /v1/embeddings can short-circuit when off.
+        let handlers = LlamaHandlers(
+            bridge: bridge,
+            modelId: modelPath,
+            mmprojLoaded: false,
+            modelHasAudioEncoder: false,
+            embeddingMode: embeddingMode
+        )
         let ctx = HandlerContext(modelId: modelPath, backendName: "llama")
         await server.installRoutes(handlers: handlers, ctx: ctx, corsConfig: corsConfig)
 

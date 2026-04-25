@@ -34,6 +34,14 @@ NS_ASSUME_NONNULL_BEGIN
                                  topP:(float)topP
                                 error:(NSError **)error;
 
+/// Compute an embedding vector for the given text. Requires the model to have
+/// been loaded with `embeddingMode:YES`; otherwise the returned values are
+/// undefined / not meaningful (the handler layer is responsible for the 400
+/// short-circuit before we get here). Returns the per-dimension floats (length
+/// == llama_n_embd(model)) wrapped as `NSNumber` doubles.
+- (nullable NSArray<NSNumber *> *)embedding:(NSString *)text
+                                      error:(NSError **)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

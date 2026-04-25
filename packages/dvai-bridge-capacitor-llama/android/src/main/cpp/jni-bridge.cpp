@@ -244,3 +244,74 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeCompletePrompt(
     llama_sampler_free(chain);
     return env->NewStringUTF(out.c_str());
 }
+
+// Compute an embedding vector for the given text. The model must have been
+// loaded with `embedding_mode = true` for the result to be meaningful; the
+// handler layer guards against that on the Kotlin side, so we just call the
+// llama.cpp embedding API here and return the float array.
+extern "C" JNIEXPORT jfloatArray JNICALL
+Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeEmbedding(
+        JNIEnv* env, jobject /*thiz*/, jlong handle, jstring jText) {
+    auto* h = reinterpret_cast<LlamaContextHolder*>(handle);
+    if (!h || !h->ctx || !h->model) {
+        return nullptr;
+    }
+    if (jText == nullptr) {
+        return nullptr;
+    }
+
+    const char* cText = env->GetStringUTFChars(jText, nullptr);
+    if (cText == nullptr) return nullptr;
+    std::string text(cText);
+    env->ReleaseStringUTFChars(jText, cText);
+
+    const int textLen = static_cast<int>(text.size());
+
+    int probe = llama_tokenize(h->model, text.c_str(), textLen,
+                               /*tokens=*/nullptr, /*n_tokens_max=*/0,
+                               /*add_special=*/true, /*parse_special=*/false);
+    int needed = probe < 0 ? -probe : probe;
+    if (needed <= 0) {
+        LOGE("nativeEmbedding: tokenize probe returned %d", probe);
+        return nullptr;
+    }
+
+    std::vector<llama_token> tokens(static_cast<size_t>(needed));
+    int actual = llama_tokenize(h->model, text.c_str(), textLen,
+                                tokens.data(), needed,
+                                /*add_special=*/true, /*parse_special=*/false);
+    if (actual <= 0) {
+        LOGE("nativeEmbedding: tokenize failed (%d)", actual);
+        return nullptr;
+    }
+
+    {
+        llama_batch batch = llama_batch_get_one(tokens.data(), actual, 0, 0);
+        if (llama_decode(h->ctx, batch) != 0) {
+            LOGE("nativeEmbedding: decode failed");
+            return nullptr;
+        }
+    }
+
+    int n_embd = llama_n_embd(h->model);
+    if (n_embd <= 0) {
+        LOGE("nativeEmbedding: llama_n_embd returned %d", n_embd);
+        return nullptr;
+    }
+    const float* vec = llama_get_embeddings_seq(h->ctx, 0);
+    if (!vec) {
+        // Fallback: llama_get_embeddings is the last-decoded token's embedding,
+        // valid when not in seq-mode. The seq variant returns a pooled /
+        // sequence-level vector when embedding pooling is active.
+        vec = llama_get_embeddings(h->ctx);
+    }
+    if (!vec) {
+        LOGE("nativeEmbedding: embedding pointer null");
+        return nullptr;
+    }
+
+    jfloatArray out = env->NewFloatArray(n_embd);
+    if (!out) return nullptr;
+    env->SetFloatArrayRegion(out, 0, n_embd, vec);
+    return out;
+}
