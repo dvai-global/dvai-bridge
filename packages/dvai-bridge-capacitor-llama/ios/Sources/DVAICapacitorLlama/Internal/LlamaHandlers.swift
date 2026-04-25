@@ -15,8 +15,13 @@ import DVAICapacitorLlamaObjC
 /// `[DONE]`). Telegraph 0.40 buffers the whole SSE body server-side anyway, so
 /// 4-chunk vs 1-chunk is identical to the client. Real per-token streaming
 /// lands when Telegraph (or its replacement) supports chunked-encoding flush.
+///
+/// All bridge-touching paths are serialized via `bridgeLock` because
+/// llama.cpp's `llama_context` is not thread-safe; concurrent requests
+/// would corrupt the shared KV cache.
 public final class LlamaHandlers: DVAIHandlers, @unchecked Sendable {
     private let bridge: LlamaCppBridgeProtocol
+    private let bridgeLock = NSLock()
     private let modelId: String
     private let mmprojLoaded: Bool
     private let modelHasAudioEncoder: Bool
@@ -84,6 +89,8 @@ public final class LlamaHandlers: DVAIHandlers, @unchecked Sendable {
             return .error(500, "Multimodal eval path not yet wired")
         }
 
+        // TODO(strict-mode): currently silently defaults if max_tokens/temperature/top_p
+        // arrive as strings instead of numbers; OpenAI rejects this with 400.
         let maxTokens = body["max_tokens"] as? Int ?? 256
         let temperature = body["temperature"] as? Double ?? 1.0
         let topP = body["top_p"] as? Double ?? 1.0
@@ -91,12 +98,14 @@ public final class LlamaHandlers: DVAIHandlers, @unchecked Sendable {
 
         let completion: String
         do {
-            completion = try bridge.completePrompt(
-                promptInput.prompt,
-                maxTokens: Int32(maxTokens),
-                temperature: Float(temperature),
-                topP: Float(topP)
-            )
+            completion = try runOnBridge {
+                try bridge.completePrompt(
+                    promptInput.prompt,
+                    maxTokens: Int32(maxTokens),
+                    temperature: Float(temperature),
+                    topP: Float(topP)
+                )
+            }
         } catch {
             return .error(500, error.localizedDescription)
         }
@@ -194,7 +203,7 @@ public final class LlamaHandlers: DVAIHandlers, @unchecked Sendable {
         var data: [[String: Any]] = []
         for (i, text) in inputs.enumerated() {
             do {
-                let vec = try bridge.embedding(text)
+                let vec = try runOnBridge { try bridge.embedding(text) }
                 let embedding = vec.map { $0.doubleValue }
                 data.append(["object": "embedding", "embedding": embedding, "index": i])
             } catch {
@@ -245,6 +254,9 @@ public final class LlamaHandlers: DVAIHandlers, @unchecked Sendable {
         }
     }
 
+    // Server-side buffering: Telegraph 0.40 does not stream chunks incrementally;
+    // the entire AsyncStream content is gathered before the response is flushed.
+    // 4-chunk vs single-chunk emission is identical to clients.
     /// Build the 4 SSE frames for a streaming chat.completion response.
     /// Each entry is the full `data: <json>\n\n` (or `data: [DONE]\n\n`)
     /// frame. Returned in protocol order: role, content, finish, DONE.
@@ -356,5 +368,15 @@ public final class LlamaHandlers: DVAIHandlers, @unchecked Sendable {
         ]
         if let s = serialize(legacy) { return "data: \(s)\n\n" }
         return chunk
+    }
+}
+
+private extension LlamaHandlers {
+    /// Serialize all bridge-touching paths via `bridgeLock` so concurrent
+    /// requests can't corrupt the shared `llama_context` KV cache.
+    func runOnBridge<T>(_ block: () throws -> T) throws -> T {
+        bridgeLock.lock()
+        defer { bridgeLock.unlock() }
+        return try block()
     }
 }

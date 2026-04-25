@@ -2,6 +2,7 @@ package co.deepvoiceai.dvaibridge.llama
 
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -11,6 +12,9 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -89,6 +93,18 @@ class LlamaHandlersTest {
         assertEquals("hi", bridge.receivedPrompt)
     }
 
+    /**
+     * Parse a single SSE frame's JSON payload. Returns null for `[DONE]`
+     * frames or non-`data:` lines.
+     */
+    private fun decodeFrame(frame: String): JsonObject? {
+        val trimmed = frame.trim()
+        if (!trimmed.startsWith("data: ")) return null
+        val payload = trimmed.removePrefix("data: ")
+        if (payload == "[DONE]") return null
+        return Json.parseToJsonElement(payload).jsonObject
+    }
+
     @Test
     fun `chat completion streaming text emits role content finish done`() = runBlocking {
         val bridge = FakeBridge(completionToReturn = "stream-canned")
@@ -106,10 +122,44 @@ class LlamaHandlersTest {
             ?: error("expected Sse response")
         val frames = resp.flow.toList()
         assertEquals(4, frames.size)
-        assertTrue("frame 0 should be role delta: ${frames[0]}", frames[0].contains("\"role\":\"assistant\""))
-        assertTrue("frame 1 should contain content: ${frames[1]}", frames[1].contains("stream-canned"))
-        assertTrue("frame 2 should have finish_reason: ${frames[2]}", frames[2].contains("\"finish_reason\":\"stop\""))
+
+        // Frame 0: role delta
+        val roleDelta = decodeFrame(frames[0])
+            ?.get("choices")?.jsonArray?.first()?.jsonObject
+            ?.get("delta")?.jsonObject
+        assertEquals("assistant", roleDelta?.get("role")?.jsonPrimitive?.content)
+
+        // Frame 1: content delta
+        val contentDelta = decodeFrame(frames[1])
+            ?.get("choices")?.jsonArray?.first()?.jsonObject
+            ?.get("delta")?.jsonObject
+        assertEquals("stream-canned", contentDelta?.get("content")?.jsonPrimitive?.content)
+
+        // Frame 2: finish chunk
+        val finishChoice = decodeFrame(frames[2])
+            ?.get("choices")?.jsonArray?.first()?.jsonObject
+        assertEquals("stop", finishChoice?.get("finish_reason")?.jsonPrimitive?.content)
+
+        // Frame 3: [DONE]
         assertEquals("data: [DONE]\n\n", frames[3])
+        assertNull(decodeFrame(frames[3]))
+    }
+
+    @Test
+    fun `chat completion returns 500 when bridge returns null`() = runBlocking {
+        val bridge = FakeBridge(completionToReturn = null)
+        val handlers = makeHandlers(bridge = bridge)
+        val body = buildJsonObject {
+            putJsonArray("messages") {
+                addJsonObject {
+                    put("role", "user")
+                    put("content", "hi")
+                }
+            }
+        }
+        val resp = handlers.handleChatCompletion(body, ctx) as? HandlerResponse.Error
+            ?: error("expected Error response")
+        assertEquals(500, resp.status)
     }
 
     @Test

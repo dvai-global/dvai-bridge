@@ -1,6 +1,8 @@
 package co.deepvoiceai.dvaibridge.llama
 
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -35,6 +37,10 @@ import kotlinx.serialization.json.putJsonObject
  * `[DONE]`). Ktor's testApplication buffers the body anyway, so 4-chunk vs
  * 1-chunk is identical to the client. Real per-token streaming lands when the
  * dispatch layer flushes per chunk.
+ *
+ * All bridge-touching paths are serialized via [bridgeMutex] because
+ * llama.cpp's `llama_context` is not thread-safe; concurrent requests would
+ * corrupt the shared KV cache.
  */
 class LlamaHandlers(
     private val bridge: LlamaCppBridgeApi,
@@ -47,6 +53,7 @@ class LlamaHandlers(
         mmprojLoaded = mmprojLoaded,
         modelHasAudioEncoder = modelHasAudioEncoder,
     )
+    private val bridgeMutex = Mutex()
 
     override suspend fun handleChatCompletion(body: JsonObject, ctx: HandlerContext): HandlerResponse {
         val messagesJson = body["messages"] as? JsonArray
@@ -63,13 +70,16 @@ class LlamaHandlers(
             return HandlerResponse.Error(500, "Multimodal eval path not yet wired")
         }
 
+        // TODO(strict-mode): currently silently defaults if max_tokens/temperature/top_p
+        // arrive as strings instead of numbers; OpenAI rejects this with 400.
         val maxTokens = (body["max_tokens"] as? JsonPrimitive)?.intOrNull ?: 256
         val temperature = (body["temperature"] as? JsonPrimitive)?.doubleOrNull?.toFloat() ?: 1.0f
         val topP = (body["top_p"] as? JsonPrimitive)?.doubleOrNull?.toFloat() ?: 1.0f
         val stream = (body["stream"] as? JsonPrimitive)?.booleanOrNull ?: false
 
-        val completion = bridge.completePrompt(promptInput.prompt, maxTokens, temperature, topP)
-            ?: return HandlerResponse.Error(500, "Completion failed (bridge returned null)")
+        val completion = bridgeMutex.withLock {
+            bridge.completePrompt(promptInput.prompt, maxTokens, temperature, topP)
+        } ?: return HandlerResponse.Error(500, "Completion failed (bridge returned null)")
 
         val id = "chatcmpl-" + java.util.UUID.randomUUID().toString().take(24).lowercase()
         val created = System.currentTimeMillis() / 1000L
@@ -174,7 +184,7 @@ class LlamaHandlers(
 
         val data = buildJsonArray {
             for ((i, text) in inputs.withIndex()) {
-                val vec = bridge.embedding(text)
+                val vec = bridgeMutex.withLock { bridge.embedding(text) }
                     ?: return HandlerResponse.Error(500, "Embedding failed (bridge returned null)")
                 addJsonObject {
                     put("object", "embedding")
@@ -222,6 +232,8 @@ class LlamaHandlers(
 
     private fun translatorErrorMessage(e: TranslatorError): String = e.message ?: "translator error"
 
+    // Server-side buffering: Ktor's responseChannel for SSE buffers fully before flush
+    // in our current setup; 4-chunk vs single-chunk emission is identical to clients.
     /**
      * Build the 4 SSE frames for a streaming chat.completion response: role /
      * content / finish / [DONE]. Each entry is a complete `data: <json>\n\n`
