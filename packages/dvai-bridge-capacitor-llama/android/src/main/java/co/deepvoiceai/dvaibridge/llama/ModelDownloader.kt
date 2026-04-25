@@ -101,95 +101,110 @@ class ModelDownloader(
             final.delete()
         }
 
-        // Step 4: resume / fresh download.
-        val sha = MessageDigest.getInstance("SHA-256")
-        var written: Long = 0L
+        // Step 4: resume / fresh download. Loop guards the oversized-partial
+        // restart path: we must exit `response.use { }` (releasing the prior
+        // OkHttp connection) BEFORE issuing the new request, otherwise the
+        // previous connection sits open during the recursive download.
+        var attempt = 0
+        while (attempt < 2) {
+            val sha = MessageDigest.getInstance("SHA-256")
+            var written: Long = 0L
 
-        if (partial.exists()) {
-            // Replay existing bytes through the hash so we can resume.
-            partial.inputStream().use { ins ->
-                val buf = ByteArray(64 * 1024)
-                while (true) {
-                    val n = ins.read(buf)
-                    if (n <= 0) break
-                    sha.update(buf, 0, n)
-                    written += n
-                }
-            }
-        }
-
-        val reqBuilder = Request.Builder().url(url)
-        headers.forEach { (k, v) -> reqBuilder.addHeader(k, v) }
-        if (written > 0) reqBuilder.addHeader("Range", "bytes=$written-")
-
-        httpClient.newCall(reqBuilder.build()).execute().use { resp ->
-            // 200 = full body. 206 = partial. Anything else is an error.
-            if (resp.code !in listOf(200, 206)) {
-                throw DownloadError.HttpError(resp.code)
-            }
-
-            // If we asked for a Range and the server replied 200, it's
-            // sending the whole thing — restart hash + truncate file.
-            var localWritten = written
-            var localSha = sha
-            if (written > 0 && resp.code == 200) {
-                localSha = MessageDigest.getInstance("SHA-256")
-                localWritten = 0
-                partial.delete()
-            }
-
-            val body = resp.body ?: throw DownloadError.HttpError(resp.code)
-            val contentLength = body.contentLength()  // -1 if unknown
-            val totalBytes: Long? = if (contentLength >= 0) localWritten + contentLength else null
-
-            // Edge case: existing partial larger than remote total → corrupt, restart.
-            if (totalBytes != null && localWritten > totalBytes) {
-                partial.delete()
-                // Recurse with no .partial → fresh download.
-                return downloadModel(url, expected, destFilename, headers, onProgress)
-            }
-
-            RandomAccessFile(partial, "rw").use { raf ->
-                raf.seek(localWritten)
-                val src = body.byteStream()
-                val buf = ByteArray(64 * 1024)
-                val debounceMs = 100L
-                // Initial 0% emit so callers see we've started.
-                onProgress(localWritten, totalBytes)
-                var lastEmit = System.currentTimeMillis()
-                while (true) {
-                    val n = src.read(buf)
-                    if (n <= 0) break
-                    raf.write(buf, 0, n)
-                    localSha.update(buf, 0, n)
-                    localWritten += n
-                    val now = System.currentTimeMillis()
-                    if (now - lastEmit >= debounceMs) {
-                        onProgress(localWritten, totalBytes)
-                        lastEmit = now
+            if (partial.exists()) {
+                // Replay existing bytes through the hash so we can resume.
+                partial.inputStream().use { ins ->
+                    val buf = ByteArray(64 * 1024)
+                    while (true) {
+                        val n = ins.read(buf)
+                        if (n <= 0) break
+                        sha.update(buf, 0, n)
+                        written += n
                     }
                 }
             }
-            // Final progress emit.
-            onProgress(localWritten, totalBytes)
 
-            // Step 5: verify.
-            val gotHex = localSha.digest().joinToString("") { "%02x".format(it) }
-            if (gotHex != expected) {
-                partial.delete()
-                final.delete()
-                throw DownloadError.ChecksumMismatch(expected, gotHex)
+            val reqBuilder = Request.Builder().url(url)
+            headers.forEach { (k, v) -> reqBuilder.addHeader(k, v) }
+            if (written > 0) reqBuilder.addHeader("Range", "bytes=$written-")
+
+            var restart = false
+            httpClient.newCall(reqBuilder.build()).execute().use { resp ->
+                // 200 = full body. 206 = partial. Anything else is an error.
+                if (resp.code !in listOf(200, 206)) {
+                    throw DownloadError.HttpError(resp.code)
+                }
+
+                // If we asked for a Range and the server replied 200, it's
+                // sending the whole thing — restart hash + truncate file.
+                var localWritten = written
+                var localSha = sha
+                if (written > 0 && resp.code == 200) {
+                    localSha = MessageDigest.getInstance("SHA-256")
+                    localWritten = 0
+                    partial.delete()
+                }
+
+                val body = resp.body ?: throw DownloadError.HttpError(resp.code)
+                val contentLength = body.contentLength()  // -1 if unknown
+                val totalBytes: Long? = if (contentLength >= 0) localWritten + contentLength else null
+
+                // Edge case: existing partial larger than remote total → corrupt.
+                // Set restart flag, exit `use { }` so the connection is released,
+                // then loop with no `.partial` → fresh download next iteration.
+                if (totalBytes != null && localWritten > totalBytes) {
+                    partial.delete()
+                    restart = true
+                    return@use
+                }
+
+                RandomAccessFile(partial, "rw").use { raf ->
+                    raf.seek(localWritten)
+                    val src = body.byteStream()
+                    val buf = ByteArray(64 * 1024)
+                    val debounceMs = 100L
+                    // Initial 0% emit so callers see we've started.
+                    onProgress(localWritten, totalBytes)
+                    var lastEmit = System.currentTimeMillis()
+                    while (true) {
+                        val n = src.read(buf)
+                        if (n <= 0) break
+                        raf.write(buf, 0, n)
+                        localSha.update(buf, 0, n)
+                        localWritten += n
+                        val now = System.currentTimeMillis()
+                        if (now - lastEmit >= debounceMs) {
+                            onProgress(localWritten, totalBytes)
+                            lastEmit = now
+                        }
+                    }
+                }
+                // Final progress emit.
+                onProgress(localWritten, totalBytes)
+
+                // Step 5: verify.
+                val gotHex = localSha.digest().joinToString("") { "%02x".format(it) }
+                if (gotHex != expected) {
+                    partial.delete()
+                    final.delete()
+                    throw DownloadError.ChecksumMismatch(expected, gotHex)
+                }
             }
-        }
 
-        // Step 6: atomic rename.
-        if (final.exists()) final.delete()
-        if (!partial.renameTo(final)) {
-            // Fallback: copy + delete (cross-device or other rename failure).
-            partial.copyTo(final, overwrite = true)
-            partial.delete()
+            if (restart) {
+                attempt++
+                continue
+            }
+
+            // Step 6: atomic rename.
+            if (final.exists()) final.delete()
+            if (!partial.renameTo(final)) {
+                // Fallback: copy + delete (cross-device or other rename failure).
+                partial.copyTo(final, overwrite = true)
+                partial.delete()
+            }
+            return final.absolutePath to false
         }
-        return final.absolutePath to false
+        throw IllegalStateException("Could not complete download after oversized-partial restart")
     }
 
     // MARK: - Helpers

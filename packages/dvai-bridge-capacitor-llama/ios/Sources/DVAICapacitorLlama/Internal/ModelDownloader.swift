@@ -262,6 +262,21 @@ final class StreamingDownload: NSObject, URLSessionDataDelegate, @unchecked Send
         let runner = StreamingDownload(partial: partial, onProgress: onProgress)
         try runner.replayPartial()
 
+        // Parity with Android: if `.partial` is larger than the remote resource,
+        // a Range request would yield 416 Range Not Satisfiable (opaque to the
+        // caller). HEAD-probe the Content-Length and discard an oversized
+        // partial before issuing the real GET. Any HEAD failure is non-fatal —
+        // we just skip the optimisation and let the GET path proceed.
+        if runner.written > 0 {
+            if let remoteLength = await Self.probeContentLength(url: url, headers: headers),
+               remoteLength >= 0,
+               runner.written > remoteLength {
+                try? FileManager.default.removeItem(at: partial)
+                runner.hasher = SHA256()
+                runner.written = 0
+            }
+        }
+
         var request = URLRequest(url: url)
         for (k, v) in headers {
             request.setValue(v, forHTTPHeaderField: k)
@@ -282,6 +297,29 @@ final class StreamingDownload: NSObject, URLSessionDataDelegate, @unchecked Send
             runner.continuation = cont
             let task = session.dataTask(with: request)
             task.resume()
+        }
+    }
+
+    /// HEAD-probe the URL to learn `Content-Length`. Returns nil on any
+    /// failure (network error, non-2xx, missing/invalid header). Headers are
+    /// forwarded so authenticated endpoints work.
+    private static func probeContentLength(url: URL, headers: [String: String]) async -> Int64? {
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        for (k, v) in headers {
+            request.setValue(v, forHTTPHeaderField: k)
+        }
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse,
+                  (200...299).contains(http.statusCode) else {
+                return nil
+            }
+            // expectedContentLength uses Content-Length when present (-1 if unknown).
+            let len = http.expectedContentLength
+            return len >= 0 ? len : nil
+        } catch {
+            return nil
         }
     }
 

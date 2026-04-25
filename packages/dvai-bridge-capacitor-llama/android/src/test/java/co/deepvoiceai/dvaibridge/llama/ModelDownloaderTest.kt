@@ -1,9 +1,14 @@
 package co.deepvoiceai.dvaibridge.llama
 
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -92,5 +97,75 @@ class ModelDownloaderTest {
         downloader.deleteCached("a.gguf")
         val listed2 = downloader.listCached()
         assertEquals(setOf("b.gguf"), listed2.map { it.filename }.toSet())
+    }
+
+    /**
+     * Happy-path download: MockWebServer serves a payload, downloader writes
+     * it to disk, sha256 verifies, returns `cached=false` and the on-disk
+     * bytes match the served payload.
+     */
+    @Test
+    fun `downloadModel writes file and verifies sha256`() {
+        val payload = "hello dvai bridge".toByteArray()
+        val expected = sha256Hex(payload)
+        val server = MockWebServer().apply {
+            enqueue(MockResponse().setBody(Buffer().apply { write(payload) }))
+            start(0)
+        }
+        try {
+            val (path, cached) = downloader.downloadModel(
+                url = server.url("/test.bin").toString(),
+                expectedSha256 = expected,
+                destFilename = "test.bin",
+                headers = emptyMap(),
+                onProgress = { _, _ -> },
+            )
+            assertFalse("expected fresh download, not cache hit", cached)
+            assertEquals(payload.toList(), File(path).readBytes().toList())
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    /**
+     * Hash mismatch must throw AND clean up both the final file and the
+     * `.partial` so a retry starts fresh — no orphan bytes left on disk.
+     */
+    @Test
+    fun `downloadModel throws on hash mismatch and cleans up`() {
+        val payload = "this won't match".toByteArray()
+        val server = MockWebServer().apply {
+            enqueue(MockResponse().setBody(Buffer().apply { write(payload) }))
+            start(0)
+        }
+        try {
+            try {
+                downloader.downloadModel(
+                    url = server.url("/bad.bin").toString(),
+                    expectedSha256 = "0".repeat(64),  // wrong on purpose
+                    destFilename = "bad.bin",
+                    headers = emptyMap(),
+                    onProgress = { _, _ -> },
+                )
+                fail("Expected ChecksumMismatch exception")
+            } catch (e: ModelDownloader.DownloadError.ChecksumMismatch) {
+                // expected
+            }
+            assertFalse(
+                "final file must not exist after hash mismatch",
+                File(tmpCacheDir, "bad.bin").exists(),
+            )
+            assertFalse(
+                ".partial must not exist after hash mismatch",
+                File(tmpCacheDir, "bad.bin.partial").exists(),
+            )
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    private fun sha256Hex(bytes: ByteArray): String {
+        val md = MessageDigest.getInstance("SHA-256")
+        return md.digest(bytes).joinToString("") { "%02x".format(it) }
     }
 }
