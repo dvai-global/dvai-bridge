@@ -1,5 +1,5 @@
 import XCTest
-@testable import DVAICapacitorLlama
+@testable import DVAILlamaCore
 
 final class SmokeTest: XCTestCase {
     func testHandlerContextInit() {
