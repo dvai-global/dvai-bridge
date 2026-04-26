@@ -20,21 +20,11 @@ ext {
     // configuration that would require non-trivial refactors. Stay on the
     // latest 2.x patch (2.3.13) until a deliberate Ktor 3 migration.
     ktorVersion = '2.3.13'
-    // MediaPipe LLM dependencies — Phase 3B replaces with LiteRT-LM
-    //
-    // 0.10.33 is the floor for vision support: it exposes
-    // `LlmInferenceSession` (Task 46), `LlmInferenceSession.addImage(MPImage)`,
-    // `GraphOptions.setEnableVisionModality(true)`, and
-    // `LlmInferenceOptions.setMaxNumImages(int)`. The 0.10.14 baseline used in
-    // Task 45 lacked all of these.
-    //
-    // `MPImage` + `BitmapImageBuilder` live in `tasks-core`, which `tasks-genai`
-    // forgets to declare in its POM (it uses the classes from
-    // `LlmInferenceSession.addImage`). We pin the same version explicitly so
-    // the classes resolve at compile time. Keep `mediapipeCoreVersion` and
-    // `mediapipeGenaiVersion` in sync on every bump.
-    mediapipeGenaiVersion = '0.10.33'
-    mediapipeCoreVersion = '0.10.33'
+    // LiteRT-LM — replaces the deprecated `com.google.mediapipe:tasks-genai`
+    // (Phase 3B, Tasks 18-19). `litertlm-android` bundles the full runtime;
+    // no separate `tasks-core` companion is required.
+    // Hosted on Google Maven (google() repo, already declared in allprojects).
+    litertLmVersion = '0.10.2'
 }
 
 allprojects {
@@ -86,13 +76,10 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
     implementation 'com.squareup.okhttp3:okhttp:5.3.2'
 
-    // Google MediaPipe LLM Inference (Gemma, Phi-3.5, Falcon, StableLM-Zephyr).
+    // LiteRT-LM: non-deprecated successor to tasks-genai (Phase 3B Task 18-19).
+    // Bundles the full LLM runtime including vision support via EngineConfig.visionBackend.
     // ~100MB native libs per ABI — first build will be slow.
-    implementation "com.google.mediapipe:tasks-genai:$mediapipeGenaiVersion"
-    // tasks-core supplies `MPImage` + `BitmapImageBuilder`; required for
-    // vision-capable Gemma tasks (`LlmInferenceSession.addImage`). See the
-    // ext-block comment for why this isn't transitively pulled by tasks-genai.
-    implementation "com.google.mediapipe:tasks-core:$mediapipeCoreVersion"
+    implementation "com.google.ai.edge.litertlm:litertlm-android:$litertLmVersion"
 
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion"
