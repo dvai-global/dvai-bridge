@@ -29,7 +29,7 @@
 #   FORCE=1   -> rebuild even if both xcframeworks already exist.
 set -euo pipefail
 
-LLAMA_DIR="packages/dvai-bridge-capacitor-llama/native/llama.cpp"
+LLAMA_DIR="packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp"
 LLAMA_XCF_PATH="$LLAMA_DIR/build-apple/llama.xcframework"
 MTMD_XCF_PATH="$LLAMA_DIR/build-apple/mtmd.xcframework"
 
