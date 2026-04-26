@@ -28,13 +28,19 @@ img.save("fixtures/images/tiny-test.png", optimize=True)
 print("wrote fixtures/images/tiny-test.png")
 
 # Also refresh the base64 sibling so anything driving HTTP fixtures stays in
-# sync with the binary asset.
+# sync with the binary asset. The file is a *data URL* —
+# `data:image/png;base64,<payload>` — because that's the exact string the
+# ImageDecoderTest unit test feeds to ImageDecoder.resolve() on both
+# platforms. Writing the raw base64 alone makes the test fail (Android with
+# MalformedURL, iOS with invalidScheme) since the data: prefix is what
+# routes the URL into the base64-decoding branch.
 import base64
 with open("fixtures/images/tiny-test.png", "rb") as f:
     b64 = base64.b64encode(f.read()).decode("ascii")
+data_url = "data:image/png;base64," + b64
 with open("fixtures/images/tiny-test-base64.txt", "w", newline="\n") as f:
-    f.write(b64)
-print("wrote fixtures/images/tiny-test-base64.txt (%d chars)" % len(b64))
+    f.write(data_url)
+print("wrote fixtures/images/tiny-test-base64.txt (%d chars, data URL)" % len(data_url))
 
 # Mirror the binary + base64 into the Android test asset/resource roots.
 # Android's test runners read from src/{androidTest/assets,test/resources},
