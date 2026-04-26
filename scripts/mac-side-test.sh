@@ -2,10 +2,14 @@
 # scripts/mac-side-test.sh — Run on Mac via SSH. Runs XCTest for a target.
 #
 # Sources scripts/smoke.local.env (gitignored, per-developer) for
-# real-model smoke env vars and forwards them to the iOS Simulator
-# child via xcrun's SIMCTL_CHILD_* convention. CI workflow injects the
-# same names directly via GitHub Actions secrets, so the smoke.local.env
-# file is only needed for local Mac development.
+# real-model smoke env vars and forwards them to the test process
+# via Xcode's TEST_RUNNER_<NAME>=<VALUE> build-setting convention.
+# At test runtime, ProcessInfo.processInfo.environment sees each
+# SMOKE_* key with the TEST_RUNNER_ prefix stripped, so the test
+# code reads `env["SMOKE_MODEL_URL"]` etc. unchanged.
+#
+# CI workflow injects the same names directly via GitHub Actions
+# secrets, so smoke.local.env is only needed for local Mac dev.
 set -euo pipefail
 TARGET="${1:?usage: mac-side-test.sh <target> [filter]}"
 FILTER="${2:-}"
@@ -20,12 +24,16 @@ if [ -f "scripts/smoke.local.env" ]; then
     set -a; . "scripts/smoke.local.env"; set +a
 fi
 
-# Forward every SMOKE_* var into the iOS Simulator child process so
-# `ProcessInfo.processInfo.environment` in the test target sees them.
-# xcrun simctl strips the SIMCTL_CHILD_ prefix when launching the app.
-for var in $(compgen -v | grep '^SMOKE_'); do
-    export "SIMCTL_CHILD_${var}"="${!var}"
-done
+# Build the TEST_RUNNER_<NAME>=<VAL> argv list so xcodebuild test
+# injects each SMOKE_* var into the test process at runtime.
+# `set | grep ^SMOKE_` is portable across bash/zsh and works under
+# bash's strict mode (set -euo pipefail).
+RUNNER_ENV_ARGS=()
+while IFS='=' read -r name _; do
+    if [ -n "$name" ]; then
+        RUNNER_ENV_ARGS+=("TEST_RUNNER_${name}=${!name}")
+    fi
+done < <(set | grep '^SMOKE_' || true)
 
 case "$TARGET" in
   capacitor-llama)
@@ -51,10 +59,12 @@ if [ -n "$FILTER" ]; then
     -scheme "$SCHEME" \
     -destination "$DEST" \
     -only-testing:"$FILTER" \
-    -resultBundlePath build/test-results.xcresult
+    -resultBundlePath build/test-results.xcresult \
+    "${RUNNER_ENV_ARGS[@]}"
 else
   xcodebuild test \
     -scheme "$SCHEME" \
     -destination "$DEST" \
-    -resultBundlePath build/test-results.xcresult
+    -resultBundlePath build/test-results.xcresult \
+    "${RUNNER_ENV_ARGS[@]}"
 fi
