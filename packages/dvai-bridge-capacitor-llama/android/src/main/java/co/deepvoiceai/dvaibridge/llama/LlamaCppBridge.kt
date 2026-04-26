@@ -9,6 +9,13 @@ interface LlamaCppBridgeApi {
     fun isLoaded(): Boolean
     fun completePrompt(prompt: String, maxTokens: Int, temperature: Float, topP: Float): String?
     fun embedding(text: String): FloatArray?
+
+    // Phase 2A Pass 1: multimodal projector lifecycle. Pass 1 is stubbed --
+    // `loadMmproj` records the path on the native side but doesn't actually
+    // initialize an mtmd_context. Pass 2 will swap in real mtmd calls.
+    fun loadMmproj(mmprojPath: String): Boolean
+    fun unloadMmproj()
+    fun isMmprojLoaded(): Boolean
 }
 
 /**
@@ -36,6 +43,11 @@ class LlamaCppBridge : LlamaCppBridgeApi {
     private var nativeHandle: Long = 0
     private var modelPath: String? = null
     private var isLoadedFlag: Boolean = false
+    // Phase 2A Pass 1: track mmproj load state in pure Kotlin so the JVM
+    // unit tests can exercise the load/unload state machine even without
+    // the .so loaded. The native side has its own `mmproj_path` field;
+    // we keep these in sync via the JNI calls below.
+    private var mmprojPath: String? = null
 
     init {
         try {
@@ -96,6 +108,9 @@ class LlamaCppBridge : LlamaCppBridgeApi {
         }
         isLoadedFlag = false
         modelPath = null
+        // Native unload tears down mtmd_ctx + clears mmproj_path; mirror
+        // that on the Kotlin state-machine side too.
+        mmprojPath = null
     }
 
     fun versionString(): String {
@@ -145,6 +160,51 @@ class LlamaCppBridge : LlamaCppBridgeApi {
         }
     }
 
+    // -------------------------------------------------------------------
+    // Multimodal (mtmd) — Phase 2A Pass 1 stubs
+    // -------------------------------------------------------------------
+    //
+    // Pass 1 only tracks load state; the native side is also a stub and
+    // does not yet call `mtmd_init_from_file`. Pass 2 will replace both
+    // ends with real mtmd calls. JVM unit tests fall back to the Kotlin-
+    // only state machine via the UnsatisfiedLinkError catch.
+
+    /**
+     * Load a multimodal projector (mmproj). The main model must already be
+     * loaded. Returns true on success. JVM unit tests (no .so loaded) keep
+     * working via the UnsatisfiedLinkError fallback -- they update the
+     * Kotlin state without touching JNI.
+     */
+    override fun loadMmproj(mmprojPath: String): Boolean {
+        if (mmprojPath.isEmpty()) return false
+        // Pass 2: a missing main model is a hard error. Pass 1 enforces it
+        // here too, so the public Kotlin contract stays stable across both
+        // passes.
+        if (!isLoadedFlag) return false
+        val ok: Boolean = if (nativeHandle != 0L) {
+            try {
+                nativeLoadMmproj(nativeHandle, mmprojPath)
+            } catch (_: UnsatisfiedLinkError) {
+                true // JVM-only test fallback
+            }
+        } else {
+            true // JNI not available; pretend success for state-machine tests
+        }
+        if (ok) {
+            this.mmprojPath = mmprojPath
+        }
+        return ok
+    }
+
+    override fun unloadMmproj() {
+        if (nativeHandle != 0L) {
+            try { nativeUnloadMmproj(nativeHandle) } catch (_: UnsatisfiedLinkError) { /* ignore */ }
+        }
+        mmprojPath = null
+    }
+
+    override fun isMmprojLoaded(): Boolean = mmprojPath != null
+
     // JNI smoke ping -- instrumented tests only.
     external fun nativeSmoke()
 
@@ -161,4 +221,9 @@ class LlamaCppBridge : LlamaCppBridgeApi {
         handle: Long, prompt: String, maxTokens: Int, temperature: Float, topP: Float,
     ): String?
     private external fun nativeEmbedding(handle: Long, text: String): FloatArray?
+    // Phase 2A Pass 1: mtmd JNI surface. Pass 2 will keep the same
+    // signatures and only change the native implementations.
+    private external fun nativeLoadMmproj(handle: Long, mmprojPath: String): Boolean
+    private external fun nativeUnloadMmproj(handle: Long)
+    private external fun nativeIsMmprojLoaded(handle: Long): Boolean
 }

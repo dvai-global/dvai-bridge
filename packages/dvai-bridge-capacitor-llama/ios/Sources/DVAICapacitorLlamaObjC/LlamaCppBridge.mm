@@ -4,6 +4,13 @@
 // modulemap re-exports llama.h, ggml.h, ggml-alloc.h, ggml-backend.h,
 // ggml-metal.h, ggml-cpu.h, ggml-blas.h, gguf.h.
 #import <llama/llama.h>
+// Multimodal (mtmd) is shipped as a sibling binaryTarget --
+// build-apple/mtmd.xcframework. The framework's modulemap exposes
+// mtmd.h and mtmd-helper.h; ggml.h / llama.h come from the llama
+// framework imported above. Phase 2A Pass 1: header is reachable but
+// only stub bridge methods are wired (Pass 2 wires real mtmd calls).
+#import <mtmd/mtmd.h>
+#import <mtmd/mtmd-helper.h>
 #import <Foundation/Foundation.h>
 #import <stdlib.h>
 #import <string.h>
@@ -13,6 +20,12 @@
     struct llama_context *_ctx;
     NSString *_currentModelPath;
     BOOL _embeddingMode;
+    // Phase 2A Pass 1: multimodal state. _mtmdCtx stays NULL in Pass 1
+    // (the stub doesn't init the mtmd_context); Pass 2 will populate it
+    // from mtmd_init_from_file(). _currentMmprojPath tracks the loaded
+    // projector for `isMmprojLoaded`.
+    struct mtmd_context *_mtmdCtx;
+    NSString *_currentMmprojPath;
 }
 
 - (instancetype)init {
@@ -21,6 +34,8 @@
         _ctx = NULL;
         _currentModelPath = nil;
         _embeddingMode = NO;
+        _mtmdCtx = NULL;
+        _currentMmprojPath = nil;
     }
     return self;
 }
@@ -100,6 +115,10 @@
 }
 
 - (void)unload {
+    // Multimodal projector outlives nothing past the main model -- if the
+    // text model goes away, the mtmd_context (which holds a reference to
+    // it) must go too. Unload the projector first.
+    [self unloadMmproj];
     if (_ctx != NULL) {
         llama_free(_ctx);
         _ctx = NULL;
@@ -325,6 +344,78 @@
         [result addObject:@(vec[i])];
     }
     return result;
+}
+
+#pragma mark - Multimodal (mtmd) — Phase 2A Pass 1 stubs
+//
+// Pass 1 establishes the bridge surface and verifies that mtmd's headers
+// and library are reachable from this translation unit. The implementations
+// below are intentionally stubbed — they only track path state. Pass 2 will
+// replace each stub with the real mtmd call (signatures verified against
+// tools/mtmd/mtmd.h on llama.cpp b8933):
+//
+//   mtmd_context_params  mtmd_context_params_default(void);
+//   mtmd_context *       mtmd_init_from_file(const char * mmproj_fname,
+//                                            const struct llama_model * text_model,
+//                                            const struct mtmd_context_params ctx_params);
+//   void                 mtmd_free(mtmd_context * ctx);
+//
+// Eval (Pass 2 / mtmd-helper.h):
+//   int32_t  mtmd_helper_eval_chunks(mtmd_context * ctx,
+//                                    struct llama_context * lctx,
+//                                    const mtmd_input_chunks * chunks,
+//                                    llama_pos n_past,
+//                                    llama_seq_id seq_id,
+//                                    int32_t n_batch,
+//                                    bool logits_last,
+//                                    llama_pos * new_n_past);
+
+- (BOOL)isMmprojLoaded {
+    return _currentMmprojPath != nil;
+}
+
+- (BOOL)loadMmprojAtPath:(NSString *)mmprojPath
+                   error:(NSError **)error {
+    if (mmprojPath.length == 0) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:30
+                                     userInfo:@{NSLocalizedDescriptionKey: @"empty mmproj path"}];
+        }
+        return NO;
+    }
+    if (_model == NULL) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:31
+                                     userInfo:@{NSLocalizedDescriptionKey: @"main model must be loaded before mmproj"}];
+        }
+        return NO;
+    }
+    [self unloadMmproj];
+
+    // PASS 1 STUB: don't actually init mtmd_context yet.
+    // Pass 2 will replace with:
+    //     struct mtmd_context_params params = mtmd_context_params_default();
+    //     _mtmdCtx = mtmd_init_from_file([mmprojPath UTF8String], _model, params);
+    //     if (_mtmdCtx == NULL) {
+    //         if (error) {
+    //             *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+    //                                          code:32
+    //                                      userInfo:@{NSLocalizedDescriptionKey:
+    //                                                 @"mtmd_init_from_file failed"}];
+    //         }
+    //         return NO;
+    //     }
+    _currentMmprojPath = [mmprojPath copy];
+    return YES;
+}
+
+- (void)unloadMmproj {
+    // PASS 1 STUB: no mtmd_context to free yet.
+    // Pass 2:
+    //     if (_mtmdCtx != NULL) { mtmd_free(_mtmdCtx); _mtmdCtx = NULL; }
+    _currentMmprojPath = nil;
 }
 
 @end

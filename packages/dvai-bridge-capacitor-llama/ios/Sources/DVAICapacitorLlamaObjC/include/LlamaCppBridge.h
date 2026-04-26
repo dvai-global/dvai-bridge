@@ -42,6 +42,21 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable NSArray<NSNumber *> *)embedding:(NSString *)text
                                       error:(NSError **)error;
 
+/// Whether a multimodal projector (mmproj) has been loaded for this bridge.
+@property (nonatomic, readonly, getter=isMmprojLoaded) BOOL mmprojLoaded;
+
+/// Load a multimodal projector (mmproj). The main model must already be
+/// loaded — the projector is always paired with a text model. Phase 2A Pass 1
+/// is a stub: the path is recorded but the underlying mtmd_context is not yet
+/// initialized. Pass 2 will replace the stub with a real
+/// `mtmd_init_from_file()` call. Returns NO on failure (with `error` populated).
+- (BOOL)loadMmprojAtPath:(NSString *)mmprojPath
+                   error:(NSError **)error;
+
+/// Unload the multimodal projector. Safe to call when nothing is loaded
+/// (idempotent). Pass 2 will free the mtmd_context here.
+- (void)unloadMmproj;
+
 @end
 
 NS_ASSUME_NONNULL_END

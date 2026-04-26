@@ -54,4 +54,32 @@ final class LlamaCppBridgeTest: XCTestCase {
             "expected versionString to include system info after prefix, got: \(version)"
         )
     }
+
+    // MARK: - Multimodal stubs (Phase 2A Pass 1)
+
+    func testInitiallyMmprojNotLoaded() {
+        let bridge = LlamaCppBridge()
+        XCTAssertFalse(bridge.isMmprojLoaded)
+    }
+
+    func testLoadMmprojRequiresMainModel() {
+        let bridge = LlamaCppBridge()
+        // Main model never loaded -> should fail with code 31.
+        XCTAssertThrowsError(try bridge.loadMmproj(atPath: "/tmp/fake-mmproj.gguf"))
+        XCTAssertFalse(bridge.isMmprojLoaded)
+    }
+
+    func testEmptyMmprojPathFails() {
+        let bridge = LlamaCppBridge()
+        XCTAssertThrowsError(try bridge.loadMmproj(atPath: ""))
+        XCTAssertFalse(bridge.isMmprojLoaded)
+    }
+
+    func testUnloadMmprojIsIdempotent() {
+        let bridge = LlamaCppBridge()
+        // Repeated unload calls on a never-loaded bridge must not crash.
+        bridge.unloadMmproj()
+        bridge.unloadMmproj()
+        XCTAssertFalse(bridge.isMmprojLoaded)
+    }
 }

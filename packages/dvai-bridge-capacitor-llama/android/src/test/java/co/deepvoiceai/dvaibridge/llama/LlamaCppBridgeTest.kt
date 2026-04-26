@@ -96,4 +96,54 @@ class LlamaCppBridgeTest {
         val result = bridge.completePrompt("hi", 4, 0.0f, 1.0f)
         assertNull(result)
     }
+
+    // ---- Multimodal stubs (Phase 2A Pass 1) ----
+
+    @Test
+    fun `loadMmproj fails when main model not loaded`() {
+        val bridge = LlamaCppBridge()
+        // No loadModel call -- bridge stays unloaded.
+        val result = bridge.loadMmproj("/tmp/fake-mmproj.gguf")
+        assertFalse(result)
+        assertFalse(bridge.isMmprojLoaded())
+    }
+
+    @Test
+    fun `loadMmproj with empty path returns false`() {
+        val bridge = LlamaCppBridge()
+        bridge.loadModel(
+            path = "/tmp/fake.gguf",
+            mmprojPath = null,
+            gpuLayers = 99,
+            contextSize = 2048,
+            threads = 4,
+            embeddingMode = false,
+        )
+        val result = bridge.loadMmproj("")
+        assertFalse(result)
+        assertFalse(bridge.isMmprojLoaded())
+    }
+
+    @Test
+    fun `loadMmproj + unload cycle updates mmproj state`() {
+        val bridge = LlamaCppBridge()
+        bridge.loadModel(
+            path = "/tmp/fake.gguf",
+            mmprojPath = null,
+            gpuLayers = 99,
+            contextSize = 2048,
+            threads = 4,
+            embeddingMode = false,
+        )
+        // JVM fallback: returns true.
+        val ok = bridge.loadMmproj("/tmp/fake-mmproj.gguf")
+        assertTrue(ok)
+        assertTrue(bridge.isMmprojLoaded())
+
+        bridge.unloadMmproj()
+        assertFalse(bridge.isMmprojLoaded())
+        // Idempotent: a second unload should not throw or flip state back.
+        bridge.unloadMmproj()
+        assertFalse(bridge.isMmprojLoaded())
+    }
 }
