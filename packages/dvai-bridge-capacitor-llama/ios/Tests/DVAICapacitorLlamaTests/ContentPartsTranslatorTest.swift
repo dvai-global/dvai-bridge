@@ -92,13 +92,16 @@ final class ContentPartsTranslatorTest: XCTestCase {
         let translator = ContentPartsTranslator(mmprojLoaded: false, modelHasAudioEncoder: false)
         let result = try await translator.translate(messages: messages(from: fixture))
         XCTAssertEqual(result.prompt, "hi")
-        XCTAssertTrue(result.images.isEmpty)
-        XCTAssertTrue(result.audioPCM.isEmpty)
+        XCTAssertTrue(result.media.isEmpty)
+        XCTAssertEqual(result.messagesWithMarkers.count, 1)
+        XCTAssertEqual(result.messagesWithMarkers[0].role, "user")
+        XCTAssertEqual(result.messagesWithMarkers[0].content, "hi")
     }
 
     /// `CHAT_REQUEST_IMAGE` — text + data-URL image. The image part should be
     /// resolved via the (mocked) ImageDecoder and the bytes appended to
-    /// `images`. The text part populates `prompt`.
+    /// `media`. The rendered content for that message has a single
+    /// `<__media__>` marker substituted in place of the image part.
     func testTextPlusImage() async throws {
         let fixture = try loadFixture("CHAT_REQUEST_IMAGE")
         let mock = MockImageDecoder()
@@ -119,15 +122,19 @@ final class ContentPartsTranslatorTest: XCTestCase {
         )
         let result = try await translator.translate(messages: messages(from: fixture))
         XCTAssertEqual(result.prompt, "What is in this image?")
-        XCTAssertEqual(result.images.count, 1)
-        XCTAssertEqual(result.images[0], cannedPng)
+        XCTAssertEqual(result.media.count, 1)
+        XCTAssertEqual(result.media[0], cannedPng)
         XCTAssertEqual(mock.calls, [urlFromFixture])
-        XCTAssertTrue(result.audioPCM.isEmpty)
+        // Marker count in rendered content == media count.
+        let markerCount = result.messagesWithMarkers
+            .map { $0.content.components(separatedBy: MTMD_MEDIA_MARKER).count - 1 }
+            .reduce(0, +)
+        XCTAssertEqual(markerCount, 1)
     }
 
     /// `CHAT_REQUEST_AUDIO_PCM16` — base64-encoded PCM16 + text. The base64
     /// payload is fed (decoded) into the audio-decoder closure with
-    /// `format == .pcm16`; the canned PCM result lands in `audioPCM`.
+    /// `format == .pcm16`; the canned PCM result lands in `media`.
     func testAudioPCM16PlusText() async throws {
         let fixture = try loadFixture("CHAT_REQUEST_AUDIO_PCM16")
         let recorder = AudioRecorder()
@@ -138,15 +145,64 @@ final class ContentPartsTranslatorTest: XCTestCase {
         )
         let result = try await translator.translate(messages: messages(from: fixture))
         XCTAssertEqual(result.prompt, "Transcribe this.")
-        XCTAssertTrue(result.images.isEmpty)
-        XCTAssertEqual(result.audioPCM.count, 1)
-        XCTAssertEqual(result.audioPCM[0], recorder.pcmOut)
+        XCTAssertEqual(result.media.count, 1)
+        XCTAssertEqual(result.media[0], recorder.pcmOut)
         XCTAssertEqual(recorder.calls.count, 1)
         XCTAssertEqual(recorder.calls[0].1, .pcm16)
         // The recorder receives the raw decoded PCM bytes (the fixture loader
         // base64-encodes the PCM file, the translator base64-decodes it back).
         let pcmFile = try Data(contentsOf: fixturesURL().appendingPathComponent("audio").appendingPathComponent("pcm16-1s-16khz-mono.bin"))
         XCTAssertEqual(recorder.calls[0].0, pcmFile)
+        let markerCount = result.messagesWithMarkers
+            .map { $0.content.components(separatedBy: MTMD_MEDIA_MARKER).count - 1 }
+            .reduce(0, +)
+        XCTAssertEqual(markerCount, 1)
+    }
+
+    /// Interleaved `[text, image, text, audio, text]` → media list preserves
+    /// declaration order (image first, then audio); rendered content has
+    /// exactly two `<__media__>` markers in the right positions.
+    func testInterleavedTextImageAudio() async throws {
+        let imageMock = MockImageDecoder()
+        let imageBytes = Data([0xAA, 0xBB, 0xCC])
+        imageMock.responses["data:image/png;base64,AAAA"] = imageBytes
+        let audioRecorder = AudioRecorder()
+        audioRecorder.pcmOut = Data([0x55, 0x66, 0x77])
+        let translator = ContentPartsTranslator(
+            mmprojLoaded: true,
+            modelHasAudioEncoder: true,
+            imageDecoder: imageMock,
+            audioDecoder: audioRecorder.make()
+        )
+        let messages: [[String: Any]] = [[
+            "role": "user",
+            "content": [
+                ["type": "text", "text": "before"],
+                ["type": "image_url", "image_url": ["url": "data:image/png;base64,AAAA"]] as [String: Any],
+                ["type": "text", "text": "between"],
+                ["type": "input_audio", "input_audio": ["data": "AAAA", "format": "pcm16"]] as [String: Any],
+                ["type": "text", "text": "after"],
+            ],
+        ]]
+        let result = try await translator.translate(messages: messages)
+        XCTAssertEqual(result.media.count, 2)
+        XCTAssertEqual(result.media[0], imageBytes, "image must come first in declaration order")
+        XCTAssertEqual(result.media[1], audioRecorder.pcmOut, "audio must come second")
+        XCTAssertEqual(result.messagesWithMarkers.count, 1)
+        let content = result.messagesWithMarkers[0].content
+        let markerCount = content.components(separatedBy: MTMD_MEDIA_MARKER).count - 1
+        XCTAssertEqual(markerCount, 2)
+        // First marker should appear after "before" and before "between";
+        // second after "between" and before "after".
+        let firstMarker = content.range(of: MTMD_MEDIA_MARKER)!
+        let secondMarker = content.range(of: MTMD_MEDIA_MARKER, range: firstMarker.upperBound..<content.endIndex)!
+        let beforeRange = content.range(of: "before")!
+        let betweenRange = content.range(of: "between")!
+        let afterRange = content.range(of: "after")!
+        XCTAssertLessThan(beforeRange.upperBound, firstMarker.lowerBound)
+        XCTAssertLessThan(firstMarker.upperBound, betweenRange.lowerBound)
+        XCTAssertLessThan(betweenRange.upperBound, secondMarker.lowerBound)
+        XCTAssertLessThan(secondMarker.upperBound, afterRange.lowerBound)
     }
 
     // MARK: - Negative paths

@@ -10,12 +10,36 @@ interface LlamaCppBridgeApi {
     fun completePrompt(prompt: String, maxTokens: Int, temperature: Float, topP: Float): String?
     fun embedding(text: String): FloatArray?
 
-    // Phase 2A Pass 1: multimodal projector lifecycle. Pass 1 is stubbed --
-    // `loadMmproj` records the path on the native side but doesn't actually
-    // initialize an mtmd_context. Pass 2 will swap in real mtmd calls.
+    // Phase 2A Pass 2: real multimodal projector (mmproj) lifecycle +
+    // chat-template + multimodal completion.
     fun loadMmproj(mmprojPath: String): Boolean
     fun unloadMmproj()
     fun isMmprojLoaded(): Boolean
+    /** Whether the loaded model declares an audio encoder. False until mmproj loaded. */
+    fun hasAudioEncoder(): Boolean
+
+    /**
+     * Apply `llama_chat_apply_template`. Empty/null templateOverride falls
+     * back to the model's bundled `tokenizer.chat_template`. Returns the
+     * rendered prompt string, or null if templating fails.
+     */
+    fun applyChatTemplate(
+        templateOverride: String?,
+        messages: List<Map<String, String>>,
+        addAssistant: Boolean,
+    ): String?
+
+    /**
+     * Multimodal completion. The prompt must contain N `<__media__>` markers
+     * matching `media.size`; bytes are auto-detected as image vs audio.
+     */
+    fun completeMultimodalPrompt(
+        prompt: String,
+        media: List<ByteArray>,
+        maxTokens: Int,
+        temperature: Float,
+        topP: Float,
+    ): String?
 }
 
 /**
@@ -43,10 +67,8 @@ class LlamaCppBridge : LlamaCppBridgeApi {
     private var nativeHandle: Long = 0
     private var modelPath: String? = null
     private var isLoadedFlag: Boolean = false
-    // Phase 2A Pass 1: track mmproj load state in pure Kotlin so the JVM
-    // unit tests can exercise the load/unload state machine even without
-    // the .so loaded. The native side has its own `mmproj_path` field;
-    // we keep these in sync via the JNI calls below.
+    // Track mmproj load state in pure Kotlin so JVM unit tests can exercise
+    // the load/unload state machine even without the .so loaded.
     private var mmprojPath: String? = null
 
     init {
@@ -72,11 +94,6 @@ class LlamaCppBridge : LlamaCppBridgeApi {
 
     fun getCurrentModelPath(): String? = modelPath
 
-    /**
-     * Load a GGUF model. Returns true on success.
-     * In JVM unit tests (no .so loaded), this updates Kotlin state without calling JNI
-     * so tests can exercise the load/unload state machine.
-     */
     fun loadModel(
         path: String,
         mmprojPath: String?,
@@ -93,7 +110,7 @@ class LlamaCppBridge : LlamaCppBridgeApi {
                 true // JVM-only test fallback
             }
         } else {
-            true // JNI not available; pretend success for state-machine tests
+            true
         }
         if (ok) {
             isLoadedFlag = true
@@ -108,8 +125,6 @@ class LlamaCppBridge : LlamaCppBridgeApi {
         }
         isLoadedFlag = false
         modelPath = null
-        // Native unload tears down mtmd_ctx + clears mmproj_path; mirror
-        // that on the Kotlin state-machine side too.
         mmprojPath = null
     }
 
@@ -120,13 +135,6 @@ class LlamaCppBridge : LlamaCppBridgeApi {
         return "llama.cpp-stub-android-0.1"
     }
 
-    /**
-     * Greedy prompt completion. Returns the generated text on success, or `null`
-     * if the model isn't loaded / native isn't available (JVM tests).
-     *
-     * Temperature and topP are accepted now but ignored by the native side for
-     * Phase 1; Task 36 will extend the sampler chain to honour them.
-     */
     override fun completePrompt(
         prompt: String,
         maxTokens: Int,
@@ -134,25 +142,17 @@ class LlamaCppBridge : LlamaCppBridgeApi {
         topP: Float,
     ): String? {
         if (!isLoadedFlag) return null
-        if (nativeHandle == 0L) return null // JVM tests: no .so, no completion.
+        if (nativeHandle == 0L) return null
         return try {
             nativeCompletePrompt(nativeHandle, prompt, maxTokens, temperature, topP)
         } catch (_: UnsatisfiedLinkError) {
-            null // JVM-only fallback
+            null
         }
     }
 
-    /**
-     * Compute an embedding vector for the given text. Requires the model to
-     * have been loaded with `embeddingMode = true`; otherwise the returned
-     * values are undefined / not meaningful (the handler layer is responsible
-     * for the 400 short-circuit before we get here). Returns the per-dimension
-     * floats (length == llama_n_embd(model)) on success, or null if the model
-     * isn't loaded / native isn't available (JVM tests).
-     */
     override fun embedding(text: String): FloatArray? {
         if (!isLoadedFlag) return null
-        if (nativeHandle == 0L) return null // JVM tests: no .so, no embedding.
+        if (nativeHandle == 0L) return null
         return try {
             nativeEmbedding(nativeHandle, text)
         } catch (_: UnsatisfiedLinkError) {
@@ -161,25 +161,11 @@ class LlamaCppBridge : LlamaCppBridgeApi {
     }
 
     // -------------------------------------------------------------------
-    // Multimodal (mtmd) — Phase 2A Pass 1 stubs
+    // Multimodal (mtmd) — Phase 2A Pass 2
     // -------------------------------------------------------------------
-    //
-    // Pass 1 only tracks load state; the native side is also a stub and
-    // does not yet call `mtmd_init_from_file`. Pass 2 will replace both
-    // ends with real mtmd calls. JVM unit tests fall back to the Kotlin-
-    // only state machine via the UnsatisfiedLinkError catch.
 
-    /**
-     * Load a multimodal projector (mmproj). The main model must already be
-     * loaded. Returns true on success. JVM unit tests (no .so loaded) keep
-     * working via the UnsatisfiedLinkError fallback -- they update the
-     * Kotlin state without touching JNI.
-     */
     override fun loadMmproj(mmprojPath: String): Boolean {
         if (mmprojPath.isEmpty()) return false
-        // Pass 2: a missing main model is a hard error. Pass 1 enforces it
-        // here too, so the public Kotlin contract stays stable across both
-        // passes.
         if (!isLoadedFlag) return false
         val ok: Boolean = if (nativeHandle != 0L) {
             try {
@@ -188,7 +174,7 @@ class LlamaCppBridge : LlamaCppBridgeApi {
                 true // JVM-only test fallback
             }
         } else {
-            true // JNI not available; pretend success for state-machine tests
+            true
         }
         if (ok) {
             this.mmprojPath = mmprojPath
@@ -204,6 +190,51 @@ class LlamaCppBridge : LlamaCppBridgeApi {
     }
 
     override fun isMmprojLoaded(): Boolean = mmprojPath != null
+
+    override fun hasAudioEncoder(): Boolean {
+        if (!isMmprojLoaded()) return false
+        if (nativeHandle == 0L) return false
+        return try {
+            nativeHasAudioEncoder(nativeHandle)
+        } catch (_: UnsatisfiedLinkError) {
+            false
+        }
+    }
+
+    override fun applyChatTemplate(
+        templateOverride: String?,
+        messages: List<Map<String, String>>,
+        addAssistant: Boolean,
+    ): String? {
+        if (!isLoadedFlag) return null
+        if (messages.isEmpty()) return null
+        val roles = Array(messages.size) { messages[it]["role"] ?: "user" }
+        val contents = Array(messages.size) { messages[it]["content"] ?: "" }
+        if (nativeHandle == 0L) return null
+        return try {
+            nativeApplyChatTemplate(nativeHandle, templateOverride, roles, contents, addAssistant)
+        } catch (_: UnsatisfiedLinkError) {
+            null
+        }
+    }
+
+    override fun completeMultimodalPrompt(
+        prompt: String,
+        media: List<ByteArray>,
+        maxTokens: Int,
+        temperature: Float,
+        topP: Float,
+    ): String? {
+        if (!isLoadedFlag) return null
+        if (!isMmprojLoaded()) return null
+        if (nativeHandle == 0L) return null
+        val mediaArr: Array<ByteArray> = media.toTypedArray()
+        return try {
+            nativeCompleteMultimodalPrompt(nativeHandle, prompt, mediaArr, maxTokens, temperature, topP)
+        } catch (_: UnsatisfiedLinkError) {
+            null
+        }
+    }
 
     // JNI smoke ping -- instrumented tests only.
     external fun nativeSmoke()
@@ -221,9 +252,24 @@ class LlamaCppBridge : LlamaCppBridgeApi {
         handle: Long, prompt: String, maxTokens: Int, temperature: Float, topP: Float,
     ): String?
     private external fun nativeEmbedding(handle: Long, text: String): FloatArray?
-    // Phase 2A Pass 1: mtmd JNI surface. Pass 2 will keep the same
-    // signatures and only change the native implementations.
+    // Phase 2A Pass 2: mtmd JNI surface.
     private external fun nativeLoadMmproj(handle: Long, mmprojPath: String): Boolean
     private external fun nativeUnloadMmproj(handle: Long)
     private external fun nativeIsMmprojLoaded(handle: Long): Boolean
+    private external fun nativeHasAudioEncoder(handle: Long): Boolean
+    private external fun nativeApplyChatTemplate(
+        handle: Long,
+        templateOverride: String?,
+        roles: Array<String>,
+        contents: Array<String>,
+        addAssistant: Boolean,
+    ): String?
+    private external fun nativeCompleteMultimodalPrompt(
+        handle: Long,
+        prompt: String,
+        media: Array<ByteArray>,
+        maxTokens: Int,
+        temperature: Float,
+        topP: Float,
+    ): String?
 }

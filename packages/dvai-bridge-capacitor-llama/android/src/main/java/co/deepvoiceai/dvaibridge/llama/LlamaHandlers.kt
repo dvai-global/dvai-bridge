@@ -55,6 +55,7 @@ class LlamaHandlers(
     private val mmprojLoaded: Boolean = false,
     private val modelHasAudioEncoder: Boolean = false,
     private val embeddingMode: Boolean = false,
+    private val chatTemplate: String? = null,
 ) : DvaiHandlers {
     private val translator = ContentPartsTranslator(
         mmprojLoaded = mmprojLoaded,
@@ -73,10 +74,6 @@ class LlamaHandlers(
             return HandlerResponse.Error(translatorErrorToStatus(e), translatorErrorMessage(e))
         }
 
-        if (promptInput.images.isNotEmpty() || promptInput.audioPCM.isNotEmpty()) {
-            return HandlerResponse.Error(500, "Multimodal eval path not yet wired")
-        }
-
         // TODO(strict-mode): currently silently defaults if max_tokens/temperature/top_p
         // arrive as strings instead of numbers; OpenAI rejects this with 400.
         val maxTokens = (body["max_tokens"] as? JsonPrimitive)?.intOrNull ?: 256
@@ -84,8 +81,30 @@ class LlamaHandlers(
         val topP = (body["top_p"] as? JsonPrimitive)?.doubleOrNull?.toFloat() ?: 1.0f
         val stream = (body["stream"] as? JsonPrimitive)?.booleanOrNull ?: false
 
-        val completion = bridgeMutex.withLock {
-            bridge.completePrompt(promptInput.prompt, maxTokens, temperature, topP)
+        // Apply chat template. Empty/null override -> bundled tokenizer.chat_template.
+        // The translator preserves marker positions inside content fields, so the
+        // rendered prompt has N <__media__> markers matching media.size in
+        // declaration order.
+        val chatPrompt = bridgeMutex.withLock {
+            bridge.applyChatTemplate(
+                templateOverride = chatTemplate,
+                messages = promptInput.messagesWithMarkers.map { mapOf("role" to it.role, "content" to it.content) },
+                addAssistant = true,
+            )
+        } ?: return HandlerResponse.Error(500, "chat template apply failed (bridge returned null)")
+
+        val completion: String = bridgeMutex.withLock {
+            if (promptInput.media.isEmpty()) {
+                bridge.completePrompt(chatPrompt, maxTokens, temperature, topP)
+            } else {
+                bridge.completeMultimodalPrompt(
+                    prompt = chatPrompt,
+                    media = promptInput.media,
+                    maxTokens = maxTokens,
+                    temperature = temperature,
+                    topP = topP,
+                )
+            }
         } ?: return HandlerResponse.Error(500, "Completion failed (bridge returned null)")
 
         val id = "chatcmpl-" + java.util.UUID.randomUUID().toString().take(24).lowercase()

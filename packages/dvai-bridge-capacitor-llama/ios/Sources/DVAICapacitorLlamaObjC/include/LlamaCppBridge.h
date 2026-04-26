@@ -46,16 +46,44 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly, getter=isMmprojLoaded) BOOL mmprojLoaded;
 
 /// Load a multimodal projector (mmproj). The main model must already be
-/// loaded — the projector is always paired with a text model. Phase 2A Pass 1
-/// is a stub: the path is recorded but the underlying mtmd_context is not yet
-/// initialized. Pass 2 will replace the stub with a real
-/// `mtmd_init_from_file()` call. Returns NO on failure (with `error` populated).
+/// loaded — the projector is always paired with a text model. Phase 2A Pass 2
+/// wires the real `mtmd_init_from_file()` call. Returns NO on failure (with
+/// `error` populated).
 - (BOOL)loadMmprojAtPath:(NSString *)mmprojPath
                    error:(NSError **)error;
 
 /// Unload the multimodal projector. Safe to call when nothing is loaded
-/// (idempotent). Pass 2 will free the mtmd_context here.
+/// (idempotent). Frees the underlying mtmd_context.
 - (void)unloadMmproj;
+
+/// Apply a chat template via `llama_chat_apply_template`. If `templateOverride`
+/// is nil/empty, the model's bundled `tokenizer.chat_template` (via
+/// `llama_model_chat_template`) is used. `messages` is an array of
+/// `@{ @"role": @"...", @"content": @"..." }` dicts. Returns the rendered
+/// prompt string with role markers; multimodal callers should pre-populate
+/// `<__media__>` markers in the content fields where image/audio bytes will
+/// splice in.
+- (nullable NSString *)applyChatTemplate:(nullable NSString *)templateOverride
+                                messages:(NSArray<NSDictionary<NSString *, NSString *> *> *)messages
+                            addAssistant:(BOOL)addAssistant
+                                   error:(NSError **)error;
+
+/// Multimodal completion. `prompt` must contain N `<__media__>` markers
+/// matching the count of `media`. Bytes are auto-detected as image or audio
+/// via `mtmd_helper_bitmap_init_from_buf` (magic bytes); the caller must
+/// supply media in declaration order (i.e. the same order the markers
+/// appear in `prompt`). Returns the generated text. Throws on tokenization
+/// / eval / decode failures.
+- (nullable NSString *)completeMultimodalPrompt:(NSString *)prompt
+                                          media:(NSArray<NSData *> *)mediaInOrder
+                                      maxTokens:(int)maxTokens
+                                    temperature:(float)temperature
+                                           topP:(float)topP
+                                          error:(NSError **)error;
+
+/// Returns YES if the loaded model declares an audio encoder (via
+/// `mtmd_support_audio()`). Always NO when no mmproj is loaded.
+- (BOOL)hasAudioEncoder;
 
 @end
 

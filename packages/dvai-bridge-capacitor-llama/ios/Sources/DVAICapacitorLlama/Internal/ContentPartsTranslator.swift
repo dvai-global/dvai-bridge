@@ -1,21 +1,36 @@
 import Foundation
 
-/// Output of `ContentPartsTranslator.translate(messages:)` — the raw inputs
-/// the llama.cpp handler will hand to `mtmd_helper_eval` / `mtmd_helper_eval_audio`.
-///
-/// Phase 1 note: `prompt` is a simple newline-join of every `text` part across
-/// every message, in source order. Task 36 will replace this with a real
-/// chat-template render via `llama_chat_apply_template` against the loaded
-/// model — the prompt here is effectively a debug / fallback string that the
-/// handler may not even use directly.
+/// The canonical media-marker token mtmd uses for image/audio splice points.
+/// Mirrors `mtmd_default_marker()` from `tools/mtmd/mtmd.h`. Substituting this
+/// literal lets us avoid an FFI call from this translation unit.
+let MTMD_MEDIA_MARKER = "<__media__>"
+
+/// One rendered chat message ready for `bridge.applyChatTemplate(...)`.
+/// Content has had image_url / input_audio parts replaced with the
+/// `<__media__>` marker; the corresponding raw bytes live in
+/// `LlamaPromptInput.media` in the same declaration order as the markers.
+struct LlamaTranslatedMessage: Equatable {
+    let role: String
+    let content: String
+}
+
+/// Output of `ContentPartsTranslator.translate(messages:)` — the inputs
+/// the llama.cpp handler will hand to `bridge.applyChatTemplate(...)` and
+/// `bridge.completeMultimodalPrompt(...)`.
 struct LlamaPromptInput: Equatable {
-    /// Concatenation of all `text` parts in order, joined with `"\n"`.
+    /// Per-message rendered content with media replaced by `<__media__>`
+    /// markers, in source order. Pass directly to `applyChatTemplate`.
+    let messagesWithMarkers: [LlamaTranslatedMessage]
+    /// All media bytes (images + decoded audio) in declaration order across
+    /// all messages, matching the order the markers appear in the rendered
+    /// content. mtmd's `tokenize` matches markers to bitmaps by position;
+    /// it auto-detects image vs audio by magic bytes, so a single ordered
+    /// list is sufficient.
+    let media: [Data]
+    /// Legacy: concatenation of all `text` parts for diagnostics. The handler
+    /// no longer feeds this to the model directly — `messagesWithMarkers` +
+    /// `media` is the source of truth — but it stays available for logging.
     let prompt: String
-    /// Encoded image bytes (PNG / JPEG / etc.) per `image_url` part, in source
-    /// order. Image format detection happens downstream inside llama.cpp.
-    let images: [Data]
-    /// 16 kHz mono PCM16-LE samples per `input_audio` part, in source order.
-    let audioPCM: [Data]
 }
 
 /// Errors raised by `ContentPartsTranslator.translate(messages:)`. The HTTP
@@ -51,9 +66,10 @@ struct DefaultImageDecoder: ImageDecoderProtocol {
 }
 
 /// Walks an OpenAI-style `messages` array and produces a `LlamaPromptInput`
-/// bundle: text concatenated into `prompt`, images decoded via
-/// `ImageDecoder`, audio base64-decoded then run through `AudioDecoder` to
-/// 16 kHz mono PCM16-LE.
+/// bundle. Each message's content is rendered into a string with media parts
+/// replaced by `<__media__>` markers; the corresponding bytes (image bytes
+/// from `ImageDecoder` or PCM bytes from `AudioDecoder`) are appended to
+/// `media` in declaration order.
 ///
 /// Audio data contract: `input_audio.data` must be standard base64 (RFC 4648
 /// §4); URL-safe base64 (`-` / `_` chars) is rejected. This matches OpenAI's
@@ -88,17 +104,22 @@ final class ContentPartsTranslator {
     /// per message) into a `LlamaPromptInput`. Walks each message's `content`
     /// in order; legacy string content is treated as a single text part.
     func translate(messages: [[String: Any]]) async throws -> LlamaPromptInput {
+        var translatedMessages: [LlamaTranslatedMessage] = []
+        var media: [Data] = []
         var promptParts: [String] = []
-        var images: [Data] = []
-        var audioPCM: [Data] = []
 
         for (msgIdx, msg) in messages.enumerated() {
-            guard msg["role"] is String else {
+            guard let role = msg["role"] as? String else {
                 throw TranslatorError.malformedRequest("messages[\(msgIdx)] missing string 'role'")
             }
             let content = msg["content"]
+            // Per-message rendered string (text segments + markers in order).
+            var renderedSegments: [String] = []
+
             if let text = content as? String {
                 promptParts.append(text)
+                renderedSegments.append(text)
+                translatedMessages.append(LlamaTranslatedMessage(role: role, content: renderedSegments.joined(separator: " ")))
                 continue
             }
             guard let parts = content as? [[String: Any]] else {
@@ -117,6 +138,7 @@ final class ContentPartsTranslator {
                         throw TranslatorError.malformedRequest("\(path) text part missing string 'text'")
                     }
                     promptParts.append(text)
+                    renderedSegments.append(text)
                 case "image_url":
                     if !mmprojLoaded {
                         throw TranslatorError.noMmprojForImage
@@ -127,10 +149,11 @@ final class ContentPartsTranslator {
                     }
                     do {
                         let bytes = try await imageDecoder.resolve(url: url)
-                        images.append(bytes)
+                        media.append(bytes)
                     } catch {
                         throw TranslatorError.imageFetchFailed(String(describing: error))
                     }
+                    renderedSegments.append(MTMD_MEDIA_MARKER)
                 case "input_audio":
                     if !modelHasAudioEncoder {
                         throw TranslatorError.audioWithoutAudioEncoder
@@ -167,20 +190,27 @@ final class ContentPartsTranslator {
                     }
                     do {
                         let pcm = try await audioDecoder(encodedBytes, format)
-                        audioPCM.append(pcm)
+                        media.append(pcm)
                     } catch {
                         throw TranslatorError.audioDecodeFailed(String(describing: error))
                     }
+                    renderedSegments.append(MTMD_MEDIA_MARKER)
                 default:
                     throw TranslatorError.malformedRequest("unsupported content part type: \(type)")
                 }
             }
+            // Join the rendered segments with spaces so adjacent text+marker
+            // pairs become "before <__media__> after". A single space matches
+            // the canonical mtmd-cli prompt shape.
+            translatedMessages.append(
+                LlamaTranslatedMessage(role: role, content: renderedSegments.joined(separator: " "))
+            )
         }
 
         return LlamaPromptInput(
-            prompt: promptParts.joined(separator: "\n"),
-            images: images,
-            audioPCM: audioPCM
+            messagesWithMarkers: translatedMessages,
+            media: media,
+            prompt: promptParts.joined(separator: "\n")
         )
     }
 }

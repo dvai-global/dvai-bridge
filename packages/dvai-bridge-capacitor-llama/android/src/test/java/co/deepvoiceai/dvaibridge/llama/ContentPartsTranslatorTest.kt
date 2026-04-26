@@ -115,15 +115,16 @@ class ContentPartsTranslatorTest {
         val translator = ContentPartsTranslator(mmprojLoaded = false, modelHasAudioEncoder = false)
         val result = translator.translate(loadMessages("CHAT_REQUEST_TEXT"))
         assertEquals("hi", result.prompt)
-        assertTrue(result.images.isEmpty())
-        assertTrue(result.audioPCM.isEmpty())
+        assertTrue(result.media.isEmpty())
+        assertEquals(1, result.messagesWithMarkers.size)
+        assertEquals("user", result.messagesWithMarkers[0].role)
+        assertEquals("hi", result.messagesWithMarkers[0].content)
     }
 
     /** `CHAT_REQUEST_IMAGE` — text + data-URL image. */
     @Test
-    fun `text plus image part populates images via decoder`() = runBlocking {
+    fun `text plus image part populates media via decoder`() = runBlocking {
         val messages = loadMessages("CHAT_REQUEST_IMAGE")
-        // Pull the image URL from the fixture so the mock can match exactly.
         @Suppress("UNCHECKED_CAST")
         val parts = (messages[0]["content"] as List<Map<String, Any?>>)
         @Suppress("UNCHECKED_CAST")
@@ -139,10 +140,12 @@ class ContentPartsTranslatorTest {
         )
         val result = translator.translate(messages)
         assertEquals("What is in this image?", result.prompt)
-        assertEquals(1, result.images.size)
-        assertArrayEquals(mock.responses[urlFromFixture], result.images[0])
+        assertEquals(1, result.media.size)
+        assertArrayEquals(mock.responses[urlFromFixture], result.media[0])
         assertEquals(listOf(urlFromFixture), mock.calls)
-        assertTrue(result.audioPCM.isEmpty())
+        val markerCount = result.messagesWithMarkers
+            .sumOf { it.content.split(MTMD_MEDIA_MARKER).size - 1 }
+        assertEquals(1, markerCount)
     }
 
     /** `CHAT_REQUEST_AUDIO_PCM16` — base64 PCM + text. */
@@ -157,15 +160,65 @@ class ContentPartsTranslatorTest {
         )
         val result = translator.translate(messages)
         assertEquals("Transcribe this.", result.prompt)
-        assertTrue(result.images.isEmpty())
-        assertEquals(1, result.audioPCM.size)
-        assertArrayEquals(recorder.pcmOut, result.audioPCM[0])
+        assertEquals(1, result.media.size)
+        assertArrayEquals(recorder.pcmOut, result.media[0])
         assertEquals(1, recorder.calls.size)
         assertEquals(AudioFormat.PCM16, recorder.calls[0].second)
-        // Recorder receives the raw decoded PCM bytes (base64-decoded by the
-        // translator), which round-trip back to the source PCM file.
         val pcmFile = File(fixturesDir(), "audio/pcm16-1s-16khz-mono.bin").readBytes()
         assertArrayEquals(pcmFile, recorder.calls[0].first)
+        val markerCount = result.messagesWithMarkers
+            .sumOf { it.content.split(MTMD_MEDIA_MARKER).size - 1 }
+        assertEquals(1, markerCount)
+    }
+
+    /**
+     * Interleaved [text, image, text, audio, text] → media list preserves
+     * declaration order; rendered content has exactly two `<__media__>`
+     * markers in the right positions.
+     */
+    @Test
+    fun `interleaved text image audio preserves order`() = runBlocking {
+        val imageMock = MockImageDecoder().apply {
+            responses["data:image/png;base64,AAAA"] = byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte())
+        }
+        val recorder = AudioRecorder().apply { pcmOut = byteArrayOf(0x55, 0x66, 0x77) }
+        val translator = ContentPartsTranslator(
+            mmprojLoaded = true,
+            modelHasAudioEncoder = true,
+            imageDecoder = { url -> imageMock.resolve(url) },
+            audioDecoder = { data, fmt -> recorder.decode(data, fmt) },
+        )
+        val messages = listOf(
+            mapOf<String, Any?>(
+                "role" to "user",
+                "content" to listOf(
+                    mapOf("type" to "text", "text" to "before"),
+                    mapOf("type" to "image_url", "image_url" to mapOf("url" to "data:image/png;base64,AAAA")),
+                    mapOf("type" to "text", "text" to "between"),
+                    mapOf("type" to "input_audio", "input_audio" to mapOf("data" to "AAAA", "format" to "pcm16")),
+                    mapOf("type" to "text", "text" to "after"),
+                ),
+            ),
+        )
+        val result = translator.translate(messages)
+        assertEquals(2, result.media.size)
+        assertArrayEquals(byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte()), result.media[0])
+        assertArrayEquals(byteArrayOf(0x55, 0x66, 0x77), result.media[1])
+        assertEquals(1, result.messagesWithMarkers.size)
+        val content = result.messagesWithMarkers[0].content
+        val markerCount = content.split(MTMD_MEDIA_MARKER).size - 1
+        assertEquals(2, markerCount)
+        // Position checks: first marker between "before" and "between";
+        // second between "between" and "after".
+        val firstMarker = content.indexOf(MTMD_MEDIA_MARKER)
+        val secondMarker = content.indexOf(MTMD_MEDIA_MARKER, firstMarker + 1)
+        val before = content.indexOf("before")
+        val between = content.indexOf("between")
+        val after = content.indexOf("after")
+        assertTrue(before < firstMarker)
+        assertTrue(firstMarker < between)
+        assertTrue(between < secondMarker)
+        assertTrue(secondMarker < after)
     }
 
     // endregion

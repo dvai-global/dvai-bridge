@@ -35,14 +35,30 @@ class LlamaHandlersTest {
     private class FakeBridge(
         var loaded: Boolean = true,
         var completionToReturn: String? = "canned response",
+        var multimodalCompletionToReturn: String? = "canned multimodal response",
         var embeddingToReturn: FloatArray? = floatArrayOf(0.1f, 0.2f, 0.3f),
     ) : LlamaCppBridgeApi {
         var receivedPrompt: String? = null
+        var receivedMultimodalPrompt: String? = null
+        var receivedMedia: List<ByteArray> = emptyList()
         val receivedEmbeddingTexts = mutableListOf<String>()
-        // Phase 2A Pass 1: mmproj-stub plumbing for the API surface.
         var mmprojLoadedFlag: Boolean = false
         var receivedMmprojPath: String? = null
         var loadMmprojResult: Boolean = true
+        var modelHasAudioEncoder: Boolean = false
+        var receivedChatTemplate: String? = null
+        var receivedChatMessages: List<Map<String, String>> = emptyList()
+        var chatTemplateRenderer: (List<Map<String, String>>, Boolean) -> String? = { msgs, addAssistant ->
+            buildString {
+                for (m in msgs) {
+                    append(m["role"] ?: "user")
+                    append(": ")
+                    append(m["content"] ?: "")
+                    append('\n')
+                }
+                if (addAssistant) append("assistant:")
+            }
+        }
 
         override fun isLoaded(): Boolean = loaded
         override fun completePrompt(prompt: String, maxTokens: Int, temperature: Float, topP: Float): String? {
@@ -62,6 +78,27 @@ class LlamaHandlersTest {
             mmprojLoadedFlag = false
         }
         override fun isMmprojLoaded(): Boolean = mmprojLoadedFlag
+        override fun hasAudioEncoder(): Boolean = modelHasAudioEncoder
+        override fun applyChatTemplate(
+            templateOverride: String?,
+            messages: List<Map<String, String>>,
+            addAssistant: Boolean,
+        ): String? {
+            receivedChatTemplate = templateOverride
+            receivedChatMessages = messages
+            return chatTemplateRenderer(messages, addAssistant)
+        }
+        override fun completeMultimodalPrompt(
+            prompt: String,
+            media: List<ByteArray>,
+            maxTokens: Int,
+            temperature: Float,
+            topP: Float,
+        ): String? {
+            receivedMultimodalPrompt = prompt
+            receivedMedia = media
+            return multimodalCompletionToReturn
+        }
     }
 
     private fun makeHandlers(
@@ -69,12 +106,14 @@ class LlamaHandlersTest {
         mmprojLoaded: Boolean = false,
         modelHasAudioEncoder: Boolean = false,
         embeddingMode: Boolean = false,
+        chatTemplate: String? = null,
     ): LlamaHandlers = LlamaHandlers(
         bridge = bridge,
         modelId = "test-model",
         mmprojLoaded = mmprojLoaded,
         modelHasAudioEncoder = modelHasAudioEncoder,
         embeddingMode = embeddingMode,
+        chatTemplate = chatTemplate,
     )
 
     // ----- Chat completion -----
@@ -103,7 +142,9 @@ class LlamaHandlersTest {
         assertEquals("Hello, world!", (msg["content"] as JsonPrimitive).content)
         assertEquals("assistant", (msg["role"] as JsonPrimitive).content)
         assertEquals("stop", ((choices[0] as JsonObject)["finish_reason"] as JsonPrimitive).content)
-        assertEquals("hi", bridge.receivedPrompt)
+        // The fake renders `<role>: <content>\n[assistant:]` — we just assert
+        // the rendered prompt contains the original user content.
+        assertTrue("receivedPrompt should contain 'hi': ${bridge.receivedPrompt}", bridge.receivedPrompt!!.contains("hi"))
     }
 
     /**
@@ -225,6 +266,116 @@ class LlamaHandlersTest {
         assertTrue("message: ${resp.message}", resp.message.contains("native audio encoder"))
     }
 
+    // ----- Multimodal happy paths (Phase 2A Pass 2) -----
+
+    @Test
+    fun `chat vision happy path`() = runBlocking {
+        val bridge = FakeBridge(multimodalCompletionToReturn = "I see a 1x1 transparent pixel.")
+        val handlers = makeHandlers(bridge = bridge, mmprojLoaded = true)
+        val body = buildJsonObject {
+            putJsonArray("messages") {
+                addJsonObject {
+                    put("role", "user")
+                    putJsonArray("content") {
+                        addJsonObject {
+                            put("type", "text"); put("text", "What's in this image?")
+                        }
+                        addJsonObject {
+                            put("type", "image_url")
+                            putJsonObject("image_url") {
+                                put("url", "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        val resp = handlers.handleChatCompletion(body, ctx) as? HandlerResponse.Json
+            ?: error("expected Json response")
+        assertEquals(200, resp.status)
+        assertEquals(1, bridge.receivedMedia.size)
+        val prompt = bridge.receivedMultimodalPrompt!!
+        val markerCount = prompt.split(MTMD_MEDIA_MARKER).size - 1
+        assertEquals("expected one <__media__> marker, got: $prompt", 1, markerCount)
+    }
+
+    @Test
+    fun `chat audio happy path`() = runBlocking {
+        val bridge = FakeBridge(multimodalCompletionToReturn = "hello world")
+        val handlers = makeHandlers(bridge = bridge, modelHasAudioEncoder = true)
+        val pcm = ByteArray(32) // 32 zero bytes — pcm16 is pass-through, no decode call
+        val pcmB64 = java.util.Base64.getEncoder().encodeToString(pcm)
+        val body = buildJsonObject {
+            putJsonArray("messages") {
+                addJsonObject {
+                    put("role", "user")
+                    putJsonArray("content") {
+                        addJsonObject { put("type", "text"); put("text", "Transcribe:") }
+                        addJsonObject {
+                            put("type", "input_audio")
+                            putJsonObject("input_audio") {
+                                put("data", pcmB64)
+                                put("format", "pcm16")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        val resp = handlers.handleChatCompletion(body, ctx) as? HandlerResponse.Json
+            ?: error("expected Json response")
+        assertEquals(200, resp.status)
+        assertEquals(1, bridge.receivedMedia.size)
+        org.junit.Assert.assertArrayEquals(pcm, bridge.receivedMedia[0])
+        val prompt = bridge.receivedMultimodalPrompt!!
+        val markerCount = prompt.split(MTMD_MEDIA_MARKER).size - 1
+        assertEquals(1, markerCount)
+    }
+
+    @Test
+    fun `chat interleaved image audio preserves order and marker count`() = runBlocking {
+        val bridge = FakeBridge()
+        val handlers = makeHandlers(
+            bridge = bridge,
+            mmprojLoaded = true,
+            modelHasAudioEncoder = true,
+        )
+        val pcm = ByteArray(16) { 0xAB.toByte() }
+        val pcmB64 = java.util.Base64.getEncoder().encodeToString(pcm)
+        val body = buildJsonObject {
+            putJsonArray("messages") {
+                addJsonObject {
+                    put("role", "user")
+                    putJsonArray("content") {
+                        addJsonObject { put("type", "text"); put("text", "alpha") }
+                        addJsonObject {
+                            put("type", "image_url")
+                            putJsonObject("image_url") { put("url", "data:image/png;base64,iVBORw0KGgo=") }
+                        }
+                        addJsonObject { put("type", "text"); put("text", "beta") }
+                        addJsonObject {
+                            put("type", "input_audio")
+                            putJsonObject("input_audio") {
+                                put("data", pcmB64)
+                                put("format", "pcm16")
+                            }
+                        }
+                        addJsonObject { put("type", "text"); put("text", "gamma") }
+                    }
+                }
+            }
+        }
+        val resp = handlers.handleChatCompletion(body, ctx) as? HandlerResponse.Json
+            ?: error("expected Json response")
+        assertEquals(200, resp.status)
+        assertEquals(2, bridge.receivedMedia.size)
+        // Audio is at index 1 (image first, then audio in declaration order).
+        org.junit.Assert.assertArrayEquals(pcm, bridge.receivedMedia[1])
+        val prompt = bridge.receivedMultimodalPrompt!!
+        val markerCount = prompt.split(MTMD_MEDIA_MARKER).size - 1
+        assertEquals("expected two <__media__> markers, got: $prompt", 2, markerCount)
+    }
+
     @Test
     fun `chat completion missing messages returns 400`() = runBlocking {
         val handlers = makeHandlers()
@@ -255,7 +406,7 @@ class LlamaHandlersTest {
         // ID rewritten chatcmpl- → cmpl-
         val idStr = (obj["id"] as JsonPrimitive).content
         assertTrue("id should start with cmpl-: $idStr", idStr.startsWith("cmpl-"))
-        assertEquals("say hi", bridge.receivedPrompt)
+        assertTrue("receivedPrompt should contain 'say hi': ${bridge.receivedPrompt}", bridge.receivedPrompt!!.contains("say hi"))
     }
 
     @Test
@@ -271,7 +422,8 @@ class LlamaHandlersTest {
         val resp = handlers.handleCompletion(body, ctx) as? HandlerResponse.Json
             ?: error("expected Json response")
         assertEquals(200, resp.status)
-        assertEquals("alpha\nbeta", bridge.receivedPrompt)
+        // Prompt is joined alpha\nbeta and then chat-templated by the fake renderer.
+        assertTrue("receivedPrompt should contain 'alpha\\nbeta': ${bridge.receivedPrompt}", bridge.receivedPrompt!!.contains("alpha\nbeta"))
     }
 
     // ----- Embeddings -----

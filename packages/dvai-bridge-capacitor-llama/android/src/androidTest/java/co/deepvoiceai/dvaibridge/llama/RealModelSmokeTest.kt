@@ -40,6 +40,151 @@ class RealModelSmokeTest {
         tempDir = null
     }
 
+    /**
+     * Vision smoke: download model + mmproj, load both, run a multimodal
+     * completion against the tiny test image asset. Skips cleanly if any of
+     * smoke_vision_model_url / smoke_vision_model_sha256 /
+     * smoke_vision_mmproj_url / smoke_vision_mmproj_sha256 are missing.
+     */
+    @Test
+    fun smokeVisionEndToEnd() {
+        val modelUrl = args.getString("smoke_vision_model_url")
+        val modelSha = args.getString("smoke_vision_model_sha256")
+        val mmprojUrl = args.getString("smoke_vision_mmproj_url")
+        val mmprojSha = args.getString("smoke_vision_mmproj_sha256")
+        assumeTrue(
+            "smoke_vision_* not all provided as instrumentation args; skipping",
+            !modelUrl.isNullOrEmpty() && !modelSha.isNullOrEmpty() &&
+                !mmprojUrl.isNullOrEmpty() && !mmprojSha.isNullOrEmpty()
+        )
+
+        val cacheRoot = File(ctx.cacheDir, "dvai-vision-${System.nanoTime()}")
+        cacheRoot.mkdirs()
+        tempDir = cacheRoot
+
+        val downloader = ModelDownloader(ctx, cacheDirOverride = cacheRoot)
+        val (modelPath, _) = downloader.downloadModel(
+            url = modelUrl!!,
+            expectedSha256 = modelSha!!.lowercase(),
+            destFilename = "smoke-vision-model.gguf",
+            headers = emptyMap(),
+            onProgress = { _, _ -> },
+        )
+        val (mmprojPath, _) = downloader.downloadModel(
+            url = mmprojUrl!!,
+            expectedSha256 = mmprojSha!!.lowercase(),
+            destFilename = "smoke-vision-mmproj.gguf",
+            headers = emptyMap(),
+            onProgress = { _, _ -> },
+        )
+
+        val bridge = LlamaCppBridge()
+        this.bridge = bridge
+        val loaded = bridge.loadModel(
+            path = modelPath,
+            mmprojPath = null,
+            gpuLayers = 99,
+            contextSize = 4096,
+            threads = 4,
+            embeddingMode = false,
+        )
+        assertTrue("model load should succeed", loaded)
+        val mmOk = bridge.loadMmproj(mmprojPath)
+        assertTrue("mmproj load should succeed", mmOk)
+        assertTrue("bridge should report mmproj loaded", bridge.isMmprojLoaded())
+
+        // Read the tiny PNG from assets (1x1 transparent pixel).
+        val imageBytes = ctx.assets.open("images/tiny-test.png").use { it.readBytes() }
+
+        val messages = listOf(mapOf("role" to "user", "content" to "Describe this image: $MTMD_MEDIA_MARKER"))
+        val chatPrompt = bridge.applyChatTemplate(
+            templateOverride = null,
+            messages = messages,
+            addAssistant = true,
+        )
+        assertNotNull("chat template should render", chatPrompt)
+
+        val completion = bridge.completeMultimodalPrompt(
+            prompt = chatPrompt!!,
+            media = listOf(imageBytes),
+            maxTokens = 32,
+            temperature = 0.0f,
+            topP = 1.0f,
+        )
+        assertNotNull("vision completion should not be null", completion)
+        assertFalse("vision completion should not be empty", completion!!.isEmpty())
+    }
+
+    /**
+     * Audio smoke: same as vision, but with the WAV fixture. Skipped if the
+     * loaded mmproj has no audio encoder.
+     */
+    @Test
+    fun smokeAudioEndToEnd() {
+        val modelUrl = args.getString("smoke_vision_model_url")
+        val modelSha = args.getString("smoke_vision_model_sha256")
+        val mmprojUrl = args.getString("smoke_vision_mmproj_url")
+        val mmprojSha = args.getString("smoke_vision_mmproj_sha256")
+        assumeTrue(
+            "smoke_vision_* not all provided as instrumentation args; skipping",
+            !modelUrl.isNullOrEmpty() && !modelSha.isNullOrEmpty() &&
+                !mmprojUrl.isNullOrEmpty() && !mmprojSha.isNullOrEmpty()
+        )
+
+        val cacheRoot = File(ctx.cacheDir, "dvai-audio-${System.nanoTime()}")
+        cacheRoot.mkdirs()
+        tempDir = cacheRoot
+
+        val downloader = ModelDownloader(ctx, cacheDirOverride = cacheRoot)
+        val (modelPath, _) = downloader.downloadModel(
+            url = modelUrl!!,
+            expectedSha256 = modelSha!!.lowercase(),
+            destFilename = "smoke-audio-model.gguf",
+            headers = emptyMap(),
+            onProgress = { _, _ -> },
+        )
+        val (mmprojPath, _) = downloader.downloadModel(
+            url = mmprojUrl!!,
+            expectedSha256 = mmprojSha!!.lowercase(),
+            destFilename = "smoke-audio-mmproj.gguf",
+            headers = emptyMap(),
+            onProgress = { _, _ -> },
+        )
+
+        val bridge = LlamaCppBridge()
+        this.bridge = bridge
+        bridge.loadModel(
+            path = modelPath,
+            mmprojPath = null,
+            gpuLayers = 99,
+            contextSize = 4096,
+            threads = 4,
+            embeddingMode = false,
+        )
+        bridge.loadMmproj(mmprojPath)
+        assumeTrue("Loaded mmproj reports no audio encoder; skipping audio smoke", bridge.hasAudioEncoder())
+
+        // mtmd accepts wav/mp3/flac for audio. Use the WAV fixture from assets.
+        val audioBytes = ctx.assets.open("audio/wav-1s-16khz-mono.wav").use { it.readBytes() }
+
+        val messages = listOf(mapOf("role" to "user", "content" to "Transcribe this: $MTMD_MEDIA_MARKER"))
+        val chatPrompt = bridge.applyChatTemplate(
+            templateOverride = null,
+            messages = messages,
+            addAssistant = true,
+        )!!
+
+        val completion = bridge.completeMultimodalPrompt(
+            prompt = chatPrompt,
+            media = listOf(audioBytes),
+            maxTokens = 32,
+            temperature = 0.0f,
+            topP = 1.0f,
+        )
+        assertNotNull("audio completion should not be null", completion)
+        assertFalse("audio completion should not be empty", completion!!.isEmpty())
+    }
+
     @Test
     fun smokeRealModelEndToEnd() {
         val url = args.getString("smoke_model_url")
