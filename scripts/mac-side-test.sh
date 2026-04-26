@@ -46,7 +46,11 @@ done < <(set | grep '^SMOKE_' || true)
 case "$TARGET" in
   ios-llama-core)
     cd "packages/dvai-bridge-ios-llama-core"
-    SCHEME="DVAILlamaCore"
+    # Umbrella `*-Package` scheme includes every target (Swift, ObjC, tests).
+    # The bare `DVAILlamaCore` scheme is library-only and rejects the test
+    # action with "Scheme DVAILlamaCore is not currently configured for the
+    # test action" because the package now exposes multiple library products.
+    SCHEME="DVAILlamaCore-Package"
     ;;
   capacitor-llama)
     cd "packages/dvai-bridge-capacitor-llama/ios"
