@@ -43,7 +43,14 @@ let package = Package(
         ),
         .testTarget(
             name: "DVAICapacitorLlamaTests",
-            dependencies: ["DVAICapacitorLlama"],
+            dependencies: [
+                "DVAICapacitorLlama",
+                // RealModelSmokeTest reaches the core directly (LlamaCppBridge,
+                // ModelDownloader, MTMD_MEDIA_MARKER) — declare both core products
+                // explicitly so Xcode resolves them at link time.
+                .product(name: "DVAILlamaCore", package: "dvai-bridge-ios-llama-core"),
+                .product(name: "DVAILlamaCoreObjC", package: "dvai-bridge-ios-llama-core"),
+            ],
             path: "Tests/DVAICapacitorLlamaTests"
         ),
     ]
