@@ -73,17 +73,30 @@ sealed class TranslatorError(msg: String) : Exception(msg) {
  * bundle: per-message content with media parts replaced by `<__media__>`
  * markers, paired with a flat list of media bytes in declaration order.
  *
+ * mtmd does its own format detection (via miniaudio) inside
+ * `mtmd_helper_bitmap_init_from_buf` by inspecting magic bytes, so the
+ * translator hands it the raw base64-decoded audio bytes — still in their
+ * original WAV/MP3/FLAC envelope — rather than headerless PCM samples.
+ * `mtmd_helper_bitmap_init_from_buf` only recognizes WAV/MP3/FLAC and would
+ * fail silently on raw PCM.
+ *
  * Audio data contract: `input_audio.data` must be standard base64 (RFC 4648
  * §4); URL-safe base64 (`-` / `_` chars) is rejected. This matches OpenAI's
  * documented input format.
  *
  * Spec reference: §8.1 (content-part shape), §8.2 (image translation), §8.3
  * (audio translation), §8.5 (error mapping).
+ *
+ * The [audioDecoder] parameter is currently unused on the production path —
+ * mtmd handles audio decoding internally — but is retained for backward
+ * compatibility with existing tests and as a possible future fallback for
+ * formats mtmd cannot decode itself.
  */
 class ContentPartsTranslator(
     private val mmprojLoaded: Boolean,
     private val modelHasAudioEncoder: Boolean,
     private val imageDecoder: (String) -> ByteArray = { url -> ImageDecoder.resolve(url) },
+    @Suppress("unused")
     private val audioDecoder: (ByteArray, AudioFormat) -> ByteArray = AudioDecoder::decode,
 ) {
     suspend fun translate(messages: List<Map<String, Any?>>): LlamaPromptInput {
@@ -143,7 +156,12 @@ class ContentPartsTranslator(
                                 if (formatStr !in SUPPORTED_AUDIO_FORMATS) {
                                     throw TranslatorError.UnsupportedAudioFormat(formatStr, SUPPORTED_AUDIO_FORMATS)
                                 }
-                                val format = AUDIO_FORMAT_BY_NAME[formatStr]
+                                // Validate the format string against `AudioFormat`
+                                // to keep the supported-format gate honest, but
+                                // the production path no longer calls into
+                                // AudioDecoder — mtmd does its own format
+                                // detection by magic bytes.
+                                AUDIO_FORMAT_BY_NAME[formatStr]
                                     ?: throw TranslatorError.UnsupportedAudioFormat(formatStr, SUPPORTED_AUDIO_FORMATS)
                                 if (dataB64.isEmpty()) {
                                     throw TranslatorError.MalformedRequest("input_audio.data is empty")
@@ -153,12 +171,14 @@ class ContentPartsTranslator(
                                 } catch (e: IllegalArgumentException) {
                                     throw TranslatorError.MalformedRequest("input_audio.data is not valid base64")
                                 }
-                                val pcm = try {
-                                    audioDecoder(encoded, format)
-                                } catch (e: Exception) {
-                                    throw TranslatorError.AudioDecodeFailed(e.message ?: e::class.java.simpleName)
-                                }
-                                media += pcm
+                                // Pass the raw base64-decoded bytes (still in
+                                // their original WAV/MP3/FLAC envelope) straight
+                                // through to mtmd. `mtmd_helper_bitmap_init_from_buf`
+                                // only accepts WAV/MP3/FLAC by magic-byte
+                                // detection — feeding it headerless PCM (e.g.
+                                // via `AudioDecoder.decode`) makes bitmap-init
+                                // fail silently with mtmd error 52.
+                                media += encoded
                                 rendered += MTMD_MEDIA_MARKER
                             }
                             else -> throw TranslatorError.MalformedRequest("unsupported content part type: $type")

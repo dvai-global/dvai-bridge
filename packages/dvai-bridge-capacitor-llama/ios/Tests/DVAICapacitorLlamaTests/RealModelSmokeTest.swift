@@ -266,7 +266,18 @@ final class RealModelSmokeTest: XCTestCase {
             if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
             guard let eq = trimmed.firstIndex(of: "=") else { continue }
             let key = String(trimmed[..<eq]).trimmingCharacters(in: .whitespaces)
-            let value = String(trimmed[trimmed.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
+            var value = String(trimmed[trimmed.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
+            // Strip a single matching pair of leading/trailing quotes so a
+            // developer writing `SMOKE_MODEL_URL="https://..."` in the env
+            // file doesn't end up with the quote chars baked into the URL
+            // (which makes `URL(string:)` return nil and the test silently
+            // skip with a confusing reason).
+            if value.count >= 2 {
+                if (value.first == "\"" && value.last == "\"") ||
+                   (value.first == "'" && value.last == "'") {
+                    value = String(value.dropFirst().dropLast())
+                }
+            }
             if key.hasPrefix("SMOKE_") && !value.isEmpty {
                 env[key] = value
             }
