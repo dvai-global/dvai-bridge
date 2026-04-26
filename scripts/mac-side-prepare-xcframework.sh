@@ -174,37 +174,29 @@ package_mtmd_framework() {
         local install_name="@rpath/${framework_name}.framework/${framework_name}"
     fi
 
-    # Public mtmd headers. mtmd.h does `#include "ggml.h"` / `"llama.h"`
-    # (quoted-include form), which only searches the framework's own
-    # Headers/ dir. Without copies, that #include fails even though
-    # llama.framework re-exports the same symbols at the module level.
-    # We copy the transitive set into mtmd.framework so the quoted
-    # includes resolve locally. (~30 KB total per slice; minor cost.)
+    # Public mtmd headers. Upstream mtmd.h / mtmd-helper.h do
+    # `#include "ggml.h"` and `#include "llama.h"` (quoted form), which
+    # Clang searches only within the framework's own Headers/ — and
+    # finding a copy there would cause symbol redefinitions when the
+    # consumer also imports llama.framework. We patch the quoted
+    # includes to angle-bracket form (`<llama/ggml.h>`, `<llama/llama.h>`)
+    # so they resolve through llama.framework's module instead.
+    # The local mtmd.h <-> mtmd-helper.h reference stays quoted.
     cp tools/mtmd/mtmd.h         "$header_path/"
     cp tools/mtmd/mtmd-helper.h  "$header_path/"
-    cp include/llama.h           "$header_path/"
-    cp ggml/include/ggml.h       "$header_path/"
-    cp ggml/include/ggml-alloc.h "$header_path/"
-    cp ggml/include/ggml-backend.h "$header_path/"
-    cp ggml/include/ggml-cpu.h   "$header_path/"
-    cp ggml/include/ggml-opt.h   "$header_path/"
-    cp ggml/include/gguf.h       "$header_path/"
+    sed -i.bak \
+        -e 's|#include "ggml.h"|#include <llama/ggml.h>|g' \
+        -e 's|#include "llama.h"|#include <llama/llama.h>|g' \
+        "$header_path/mtmd.h" "$header_path/mtmd-helper.h"
+    rm -f "$header_path/mtmd.h.bak" "$header_path/mtmd-helper.h.bak"
 
-    # Modulemap exposes only the mtmd-specific symbols as public API;
-    # the duplicated llama/ggml headers are reachable via local
-    # quoted-include but stay out of the public @import surface so
-    # consumers always go through llama.framework's module for those.
+    # The modulemap declares `use llama` so Clang knows to satisfy the
+    # angle-bracket includes via the sibling llama framework module.
     cat > "${module_path}/module.modulemap" <<'EOF'
 framework module mtmd {
+    use llama
     header "mtmd.h"
     header "mtmd-helper.h"
-    private header "llama.h"
-    private header "ggml.h"
-    private header "ggml-alloc.h"
-    private header "ggml-backend.h"
-    private header "ggml-cpu.h"
-    private header "ggml-opt.h"
-    private header "gguf.h"
 
     link "c++"
 
