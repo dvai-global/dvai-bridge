@@ -165,10 +165,23 @@ final class RealModelSmokeTest: XCTestCase {
         let imageData = try Data(contentsOf: imageURL)
 
         // Build a marker-bearing prompt and apply the model's chat template.
+        // Gemma 4's published GGUFs at ggml-org/gemma-4-E2B-it-GGUF do not
+        // embed a tokenizer.chat_template that llama.cpp's heuristic
+        // recognizes, so passing nil here produces error 41 ("model has no
+        // chat template and none provided"). Production developers using
+        // capacitor-llama are expected to supply their model's template at
+        // start time; for smoke purposes we hardcode Gemma's published
+        // chat-template format inline.
+        let gemmaTemplate = """
+        {% for m in messages %}<start_of_turn>{% if m.role == 'assistant' %}model{% else %}{{ m.role }}{% endif %}
+        {{ m.content }}<end_of_turn>
+        {% endfor %}{% if add_generation_prompt %}<start_of_turn>model
+        {% endif %}
+        """
         let messages: [[String: String]] = [
             ["role": "user", "content": "Describe this image: \(MTMD_MEDIA_MARKER)"]
         ]
-        let chatPrompt = try bridge.applyChatTemplate(nil, messages: messages, addAssistant: true)
+        let chatPrompt = try bridge.applyChatTemplate(gemmaTemplate, messages: messages, addAssistant: true)
         XCTAssertFalse(chatPrompt.isEmpty)
 
         let completion = try bridge.completeMultimodalPrompt(
@@ -245,10 +258,18 @@ final class RealModelSmokeTest: XCTestCase {
         let audioURL = fixturesURL().appendingPathComponent("audio").appendingPathComponent("wav-1s-16khz-mono.wav")
         let audioData = try Data(contentsOf: audioURL)
 
+        // Same Gemma chat template as the vision test — Gemma 4 GGUFs at
+        // ggml-org don't ship a llama.cpp-recognized chat_template.
+        let gemmaTemplate = """
+        {% for m in messages %}<start_of_turn>{% if m.role == 'assistant' %}model{% else %}{{ m.role }}{% endif %}
+        {{ m.content }}<end_of_turn>
+        {% endfor %}{% if add_generation_prompt %}<start_of_turn>model
+        {% endif %}
+        """
         let messages: [[String: String]] = [
             ["role": "user", "content": "Transcribe this: \(MTMD_MEDIA_MARKER)"]
         ]
-        let chatPrompt = try bridge.applyChatTemplate(nil, messages: messages, addAssistant: true)
+        let chatPrompt = try bridge.applyChatTemplate(gemmaTemplate, messages: messages, addAssistant: true)
 
         let completion = try bridge.completeMultimodalPrompt(
             chatPrompt,
