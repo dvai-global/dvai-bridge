@@ -24,16 +24,18 @@
 1. Stand up `packages/dvai-bridge-ios/` with a single SPM package at the package root and a CocoaPods podspec, ready for SPM-by-URL (`https://github.com/Westenets/dvai-bridge-ios.git`) and `pod 'DVAIBridge'` installs once the repo is split / a sub-tree is published.
 2. Public API: `DVAIBridge.shared` singleton that exposes the same 8-method surface the Capacitor JS shim has, plus iOS-native conveniences (Combine publishers, `@Observable` reactive properties, AsyncStream progress).
 3. Backend selection at `start()`-time: `auto` (default), `llama`, `foundation`, `coreml`. `auto` resolves at runtime to the best-available backend for the device.
-4. Three concrete backends:
+4. Three concrete backends, all production-quality:
    - **llama.cpp** via `DVAILlamaCore` — already shipping on Capacitor; lift-and-reuse.
    - **Apple Foundation Models** via `DVAIFoundationCore` — already shipping on Capacitor; lift-and-reuse.
-   - **CoreML** — new in 3C. **Initial scope**: package scaffolding + a stub PluginState that throws `notYetImplemented` from `start()`. Full text-generation lands in a follow-up sub-phase (3C+) with a dedicated spec.
-5. Ship a pure-Swift integration test that proves a non-Capacitor consumer can `import DVAIBridge`, call `start()`, hit `http://127.0.0.1:38883/v1/chat/completions`, and get a response — same behavior as the Capacitor path.
+   - **CoreML** — new in 3C. Full text-generation pipeline: `MLModel` + `MLState` for KV-cached autoregressive decoding, `swift-transformers` for tokenization, greedy + temperature/top-p sampling, AsyncStream-based streaming, and OpenAI ChatCompletion / Completion / Models JSON output via a new `CoreMLHandlers`. See §4 for details.
+5. Ship pure-Swift integration tests that prove a non-Capacitor consumer can `import DVAIBridge`, call `start()` against each backend, hit `http://127.0.0.1:38883/v1/chat/completions`, and get a response — same behavior as the Capacitor path. Three end-to-end tests, one per backend, each gated on availability (iOS 26+ for foundation; env-var-supplied model URLs for llama + coreml).
 6. Reuse the existing xcframework binary distribution (llama.framework + mtmd.framework already produced by `scripts/mac-side-prepare-xcframework.sh`); 3C just hooks new SPM/podspec entries onto them.
 
 ## 2. Non-goals (3C)
 
-- A complete CoreML LLM backend with tokenization, KV-cache, sampling, etc. That's a follow-up sub-phase (call it 3C.2 when the time comes).
+- **CoreML vision / audio / embeddings.** First CoreML implementation handles text chat completions only. Vision-capable CoreML LLMs need their own input pre-processing layer (image tensors); audio likewise. Defer to a follow-up sub-phase once we have a customer demand signal.
+- **CoreML model auto-download.** The SDK consumer supplies a path to a compiled `.mlmodelc` bundle on disk (and a tokenizer file). The user is responsible for sourcing the model. Phase 3C ships with documentation pointing at Apple's official CoreML conversions (e.g. `apple/coreml-Llama-3.2-1B-Instruct-4bit`).
+- **CoreML model-format conversion tooling.** Apple's `coremltools` Python package handles `.gguf` / `.safetensors` → `.mlmodelc` conversion offline. The SDK consumes pre-converted models only.
 - Publishing to Swift Package Index or CocoaPods Trunk — Phase 3H ships the publish flow.
 - Any work on `dvai-bridge-ios-llama-core` or `dvai-bridge-ios-foundation-core` source. They stay frozen except for any **new public symbols** the SDK needs them to expose (those are surgical additions, not refactors).
 - Anything Android, .NET, RN, Flutter, or web. 3C is iOS-only.
@@ -228,41 +230,186 @@ public enum DVAIBridgeError: Error, LocalizedError, Sendable {
 
 Maps cleanly from the underlying core's thrown errors via a small adapter.
 
-## 4. CoreML backend — minimal stub for 3C
+## 4. CoreML backend — full implementation
 
-Phase 3C ships the package shape so a future sub-phase can fill in the LLM logic without restructuring. The stub:
+### 4.1 Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  DVAIBridge.shared.start(.init(backend: .coreml,                │
+│                                modelPath: "/path/to/model.mlmodelc", │
+│                                ...))                            │
+└─────────────────┬───────────────────────────────────────────────┘
+                  ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  CoreMLPluginState (actor)                                      │
+│  ├─ Loads MLModel via MLModel(contentsOf: url, configuration:)  │
+│  ├─ Initializes MLState for KV-cache (per-conversation)         │
+│  ├─ Loads tokenizer via swift-transformers                      │
+│  ├─ Boots Telegraph HTTP server (mirrors llama-core's HttpServer)│
+│  └─ Installs CoreMLHandlers as the handler set                  │
+└─────────────────┬───────────────────────────────────────────────┘
+                  ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  CoreMLHandlers (DVAIHandlers conformer)                        │
+│  ├─ handleChatCompletion(body, ctx)                             │
+│  │     → tokenize(messages) → generate(tokens) → format JSON    │
+│  ├─ handleCompletion(body, ctx)  — legacy /v1/completions       │
+│  ├─ handleModels(ctx) — single-entry list                       │
+│  └─ handleEmbeddings — 501 (CoreML embedding deferred)          │
+└─────────────────┬───────────────────────────────────────────────┘
+                  ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  CoreMLGenerator (orchestrates per-request generation)           │
+│  ├─ Tokenizer.apply_chat_template(messages) → token IDs         │
+│  ├─ MLModel prediction loop:                                    │
+│  │   for step in maxTokens:                                     │
+│  │     output = model.prediction(input: tokens, state: kvCache) │
+│  │     nextToken = sample(logits: output.logits)                │
+│  │     if nextToken == EOS: break                               │
+│  │     tokens.append(nextToken)                                 │
+│  │     yield tokenizer.decode(nextToken)  // for streaming      │
+│  └─ Returns: text (sync) OR AsyncStream<String> (streaming)     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 4.2 Dependencies
+
+`DVAICoreMLCore` declares two new SPM dependencies (in addition to Telegraph for HTTP):
 
 ```swift
-public actor CoreMLPluginState {
-    public init() {}
-    
-    public func start(opts: [String: Any]) async throws -> [String: Any] {
-        throw CoreMLBackendError.notYetImplemented(
-            "CoreML LLM generation is not yet implemented. Use .llama or .foundation instead."
-        )
-    }
-    
-    public func stop() async throws {}
-    public func statusInfo() -> [String: Any] { ["running": false] }
-}
+.package(url: "https://github.com/huggingface/swift-transformers.git", from: "0.1.16"),
+.package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),  // already in cores
+```
 
-public enum CoreMLBackendError: Error, LocalizedError, Sendable {
-    case notYetImplemented(String)
-    
-    public var errorDescription: String? {
-        switch self {
-        case .notYetImplemented(let msg): return msg
-        }
+`swift-transformers` (Apache 2.0, HuggingFace-maintained, Apple-engineering-blessed) provides:
+- `Tokenizers.AutoTokenizer.from(modelFolder:)` — load BPE / SentencePiece / WordPiece tokenizers from a `tokenizer.json` file
+- `Tokenizer.apply_chat_template(messages:)` — apply the model's chat template (Llama, Gemma, Phi, etc. all supported)
+- `Tokenizer.encode(text:)` / `.decode(tokens:)` — round-trip
+- `LLM.LanguageModel` — optional higher-level wrapper if we want it (we don't; we use `MLModel` directly for finer control over `MLState`)
+
+### 4.3 Reference checkpoint
+
+Phase 3C ships tested against **`apple/coreml-Llama-3.2-1B-Instruct-4bit`** (Apple's official CoreML conversion, ~700 MB on disk):
+
+| Source | Path |
+|---|---|
+| HuggingFace model card | https://huggingface.co/apple/coreml-Llama-3.2-1B-Instruct-4bit |
+| Direct download (StatefulModel.mlmodelc.zip) | https://huggingface.co/apple/coreml-Llama-3.2-1B-Instruct-4bit/resolve/main/StatefulModel.mlmodelc.zip |
+| Tokenizer (HF Hub URL) | https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/resolve/main/tokenizer.json |
+
+The implementation works against any CoreML LLM that follows the same input/output convention (single `inputIds: MLMultiArray<Int32>`, single `state: MLState` for KV-cache, single `logits: MLMultiArray<Float32>` output). Other models (Phi-3, Gemma 2 CoreML conversions) work without code changes if their input/output names match; if not, `CoreMLPluginState.start()` accepts an `opts["coremlInputName"]` / `opts["coremlOutputName"]` override.
+
+### 4.4 Tokenizer integration
+
+```swift
+import Tokenizers
+
+// At start():
+let tokenizer = try await AutoTokenizer.from(modelFolder: tokenizerDir)
+//  modelFolder must contain tokenizer.json + tokenizer_config.json (typical HF tokenizer dump)
+
+// At handleChatCompletion():
+let tokens = try tokenizer.applyChatTemplate(messages: messages, addGenerationPrompt: true)
+// tokens: [Int] — the token IDs of the rendered chat template
+```
+
+`applyChatTemplate` handles model-specific chat formatting (Llama 3's `<|begin_of_text|><|start_header_id|>...`, Gemma's `<start_of_turn>...`, etc.) so handlers don't hardcode templates per model.
+
+### 4.5 `MLModel` + `MLState` KV-cache
+
+```swift
+import CoreML
+
+// Engine init:
+let cfg = MLModelConfiguration()
+cfg.computeUnits = .all  // CPU + GPU + ANE
+let model = try MLModel(contentsOf: modelURL, configuration: cfg)
+
+// Per-request KV-cache: stateful CoreML models expose a state via getState()
+let kvCache = model.makeState()
+
+// Decode loop:
+for step in 0 ..< maxNewTokens {
+    let inputArr = try MLMultiArray(shape: [1, 1], dataType: .int32)
+    inputArr[0] = NSNumber(value: tokenIds.last!)
+
+    let input = MLDictionaryFeatureProvider(dictionary: ["inputIds": inputArr])
+    let output = try await model.prediction(from: input, options: opts, state: kvCache)
+    let logits = output.featureValue(for: "logits")?.multiArrayValue
+    let nextToken = sample(from: logits, temperature: temperature, topP: topP)
+    if nextToken == eosTokenId { break }
+    tokenIds.append(nextToken)
+    onToken?(tokenizer.decode(token: nextToken))  // streaming
+}
+```
+
+`MLState` (introduced in iOS 18 / macOS 15) is the canonical Apple API for stateful CoreML inference. Pre-iOS-18 fallback isn't planned for 3C — Apple's CoreML LLM checkpoints all target the new state API.
+
+### 4.6 Sampling
+
+```swift
+internal struct Sampler {
+    let temperature: Float
+    let topP: Float
+
+    func sample(logits: MLMultiArray) -> Int {
+        if temperature <= 0 { return argmax(logits) }  // greedy
+        let probs = softmax(logits, temperature: temperature)
+        if topP < 1.0 { return nucleusSample(probs, topP: topP) }
+        return categoricalSample(probs)
     }
 }
 ```
 
-Why ship the stub instead of just deferring entirely:
-- The package's `Package.swift` declares the target now; future work just edits `CoreMLPluginState.swift` rather than restructuring.
-- The `BackendKind.coreml` enum case exists, so callers writing forward-looking code compile today.
-- A `CoreMLStubTests.swift` test asserts `start()` throws the expected error — regression catches future accidental "false success" implementations that don't actually work.
+Default: greedy (temperature = 0). User-overridable via the OpenAI request's `temperature` + `top_p` fields.
 
-3C+ (the follow-up sub-phase) replaces the stub with real implementation; spec for that gets written when scope is clear (likely depends on which CoreML LLM checkpoints are usable — `apple/coreml-llama-3.1`, `coreml-stable-diffusion`, etc.).
+### 4.7 Streaming via SSE
+
+`CoreMLHandlers.handleChatCompletion` returns either:
+- A buffered JSON `ChatCompletion` object (when `stream: false`)
+- An SSE event stream (when `stream: true`) — same SSE format the existing llama backend produces; `data: {"choices":[{"delta":{"content":"..."}}]}\n\n` per chunk + `data: [DONE]\n\n` at the end
+
+The Telegraph HTTP server already handles SSE response shape; `CoreMLHandlers` produces an `AsyncStream<String>` of pre-formatted SSE chunks.
+
+### 4.8 OpenAI handler conformance
+
+`CoreMLHandlers` conforms to the same `DVAIHandlers` protocol the other cores already implement. The protocol contract (defined in `DVAILlamaCore.HandlerDispatch.swift`):
+
+```swift
+public protocol DVAIHandlers: Sendable {
+    func handleChatCompletion(body: [String: Any], ctx: HandlerContext) async throws -> HandlerResponse
+    func handleCompletion(body: [String: Any], ctx: HandlerContext) async throws -> HandlerResponse
+    func handleEmbeddings(body: [String: Any], ctx: HandlerContext) async throws -> HandlerResponse
+    func handleModels(ctx: HandlerContext) async throws -> HandlerResponse
+}
+```
+
+Phase 3C exposes this protocol publicly from `DVAILlamaCore` (or hoists it into a tiny `DVAIBridgeProtocols` module if cleaner) so `DVAICoreMLCore` can conform without depending on the entire llama core.
+
+`CoreMLHandlers.handleEmbeddings` returns 501 with `{"error": "embeddings not yet supported by the CoreML backend"}`. Embeddings on CoreML LLMs require a separate model output (hidden states) that most checkpoints don't expose — defer until needed.
+
+### 4.9 What's deferred to a follow-up
+
+- Vision modality (image_url content parts) for vision-capable CoreML models. Apple ships a few; integration needs an image-tensor preprocessing path (`CIImage` → `MLMultiArray`).
+- Audio modality (input_audio content parts).
+- Embeddings endpoint (`/v1/embeddings`) for embedding-mode CoreML models.
+- Auto-download / caching of CoreML models. Today the SDK consumes pre-loaded `.mlmodelc` paths; download via `DVAIBridge.shared.downloadModel(...)` works for arbitrary URLs but the developer is responsible for the unzip-and-compile step that turns `.mlmodelc.zip` → `.mlmodelc/`.
+- LoRA adapters / fine-tuning. CoreML supports it; out of scope for the initial release.
+
+### 4.10 Error type
+
+```swift
+public enum CoreMLBackendError: Error, LocalizedError, Sendable {
+    case modelLoadFailed(reason: String)
+    case tokenizerLoadFailed(reason: String)
+    case stateInitFailed(reason: String)
+    case generationFailed(reason: String)
+    case unsupportedModelFormat(reason: String)
+}
+```
+
+Maps cleanly to `DVAIBridgeError.backendError(...)` in the SDK layer.
 
 ## 5. Distribution
 
@@ -372,18 +519,99 @@ Phase 3H wires the `from: "1.7.0"` resolution to point at the `packages/dvai-bri
 ### 6.1 Unit tests (no real model load)
 
 - `DVAIBridgeAPIShapeTests.swift` — purely shape; asserts `DVAIBridge.shared.start(.init(...))` compiles, return type is `BoundServer`, `ProgressEvent` Codable round-trip, etc. Catches API regressions on every PR.
-- `BackendSelectorTests.swift` — exercises every branch of the `auto` heuristic with a fake `FileSystem` injected. Verifies the throwing case ("auto backend requires a hint").
+- `BackendSelectorTests.swift` — exercises every branch of the `auto` heuristic. Verifies the throwing case ("auto backend requires a hint").
 - `ProgressEventTests.swift` — Combine subscriber receives events, AsyncStream `for await` consumes events, callback `addProgressListener` is invoked with a `CancellationToken` that suppresses further events. All three observers see the same broadcast.
-- `CoreMLStubTests.swift` — `try await CoreMLPluginState().start([:])` throws `CoreMLBackendError.notYetImplemented`. Regression test against a future "soft" implementation.
-- `ReactiveStateTests.swift` — `start()` flips `isReady`, populates `baseUrl`, `currentBackend`. `stop()` resets. Verified on the `@Observable` and `ObservableObject` paths (or just one if pre-iOS 17 fallback isn't compiled).
+- `ReactiveStateTests.swift` — `start()` flips `isReady`, populates `baseUrl`, `currentBackend`. `stop()` resets.
+- `CoreMLPluginStateTests.swift` — fake-injected `MLModel` + `Tokenizer` to exercise the plugin lifecycle without loading a real model. Asserts: `start()` rejects bad paths, `stop()` is idempotent, `statusInfo()` reports expected shape.
+- `CoreMLSamplerTests.swift` — greedy returns argmax; temperature=1 returns sampled distribution; top-p truncates the tail correctly.
+- `CoreMLHandlersTests.swift` — fake-injected generator; asserts handleChatCompletion produces correct OpenAI JSON shape, streaming yields SSE-formatted chunks, handleModels returns the configured model id.
 
-### 6.2 Integration tests (real HTTP server)
+### 6.2 Real-model integration tests (`RealModelIntegrationTest.swift`)
 
-- `IntegrationTests.swift` — boots `DVAIBridge.shared` with `.foundation` (no model file required) on iOS 26+ runners, hits `http://127.0.0.1:<port>/v1/models`, asserts non-empty JSON response. On pre-iOS-26 runners, falls back to `.llama` with a `.gguf` fixture if available; otherwise XCTSkip's. The point is to prove the packaging works for non-Capacitor consumers.
+Three end-to-end tests, each gated on the per-backend availability requirement. Pattern follows Phase 2C's `RealModelSmokeTest` — env vars from `scripts/smoke.local.env` (read via the same `loadSmokeEnv()` helper), `XCTSkip` cleanly when prerequisites missing.
+
+#### 6.2.1 `testLlamaBackendIntegration`
+
+```
+Reads:  SMOKE_MODEL_URL, SMOKE_MODEL_SHA256
+Skips:  if either env var is empty
+Flow:   download → DVAIBridge.shared.start(backend: .llama, modelPath: ...)
+        → URLSession.shared.data(for: URL("\(baseUrl)/chat/completions"))
+        → assert non-empty completion text
+        → DVAIBridge.shared.stop()
+```
+
+Uses the same Llama-3.2-1B-Instruct GGUF the existing Phase 2C smoke uses; no new model needed.
+
+#### 6.2.2 `testFoundationBackendIntegration`
+
+```
+Reads:  nothing — no model file required
+Skips:  if iOS < 26.0 (or macOS < 26.0) at runtime
+Flow:   DVAIBridge.shared.start(backend: .foundation)
+        → POST /chat/completions with simple prompt
+        → assert non-empty completion text
+        → stop()
+```
+
+Apple manages the model. No download needed.
+
+#### 6.2.3 `testCoreMLBackendIntegration`
+
+```
+Reads:  SMOKE_COREML_MODEL_URL          (e.g. .../StatefulModel.mlmodelc.zip)
+        SMOKE_COREML_MODEL_SHA256
+        SMOKE_COREML_TOKENIZER_URL      (HF tokenizer.json)
+        SMOKE_COREML_TOKENIZER_SHA256
+Skips:  if any env var is empty
+Flow:   download model zip → unzip to .mlmodelc/ →
+        download tokenizer.json + tokenizer_config.json (a sibling URL pattern) →
+        DVAIBridge.shared.start(backend: .coreml,
+                                modelPath: "<unzipped>.mlmodelc",
+                                tokenizerPath: "<dir with tokenizer.json>")
+        → POST /chat/completions
+        → assert non-empty completion
+        → stop()
+```
+
+#### 6.2.4 Manual setup (one-time)
+
+Tell the developer running the tests:
+
+1. Already-set env vars from Phase 2C (no change): `SMOKE_MODEL_URL`, `SMOKE_MODEL_SHA256` populate `scripts/smoke.local.env` for the llama integration test.
+
+2. **New env vars to add to `scripts/smoke.local.env` for the CoreML integration test**:
+
+```
+# Phase 3C — CoreML smoke (StatefulModel.mlmodelc + tokenizer.json)
+SMOKE_COREML_MODEL_URL=https://huggingface.co/apple/coreml-Llama-3.2-1B-Instruct-4bit/resolve/main/StatefulModel.mlmodelc.zip
+SMOKE_COREML_MODEL_SHA256=<sha256 of the .zip — compute with `shasum -a 256 <file>` after first download>
+SMOKE_COREML_TOKENIZER_URL=https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/resolve/main/tokenizer.json
+SMOKE_COREML_TOKENIZER_SHA256=<sha256 of tokenizer.json>
+```
+
+3. The `meta-llama/Llama-3.2-1B-Instruct` repo is gated on HuggingFace. The test passes a `Authorization: Bearer <HF_TOKEN>` header if `SMOKE_HF_TOKEN` is set in the env. Add to `smoke.local.env`:
+
+```
+SMOKE_HF_TOKEN=hf_<your_token>
+```
+
+(Optional — Apple's CoreML repo is public; only the tokenizer at meta-llama needs auth.)
+
+4. The Foundation Models integration test needs nothing — Apple's model is on-device and free. iOS 26+ runtime gates the test via `if #available`.
+
+5. First run: the test downloads ~700 MB (CoreML model) + a few MB (tokenizer). Cached on disk; subsequent runs reuse the cache (`<App Support>/dvai-models/`).
+
+#### 6.2.5 What runs automatically vs. what you trigger
+
+- **Automatic on every PR / push:** `xctest` invocation — runs all unit tests + the foundation integration test (no setup needed). The llama and coreml integration tests `XCTSkip` because the env vars aren't present in CI.
+- **Manual / nightly:** the smoke test workflow (`smoke-real-models.yml`, already exists from Phase 2C) extends to also invoke the bridge SDK's RealModelIntegrationTest. The same SMOKE secrets plus the new SMOKE_COREML_* secrets need to be populated in repo settings before the nightly cron picks them up.
 
 ### 6.3 CI
 
-`.github/workflows/test-ios-bridge.yml` — runs `xcodebuild test -scheme DVAIBridge -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5'`. Triggers on changes to `packages/dvai-bridge-ios/**` or to either core. Uploads xcresult on failure.
+`.github/workflows/test-ios-bridge.yml` — runs `xcodebuild test -scheme DVAIBridge-Package -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5'`, plus a `pod lib lint` job. Triggers on changes to `packages/dvai-bridge-ios/**` or to either core. Uploads xcresult on failure.
+
+`.github/workflows/smoke-real-models.yml` — extended to add a new step that invokes `RealModelIntegrationTest` against the real CoreML and llama models when the appropriate secrets are populated.
 
 ## 7. Risk register
 
@@ -409,14 +637,19 @@ Phase 3H wires the `from: "1.7.0"` resolution to point at the `packages/dvai-bri
 
 - [ ] `packages/dvai-bridge-ios/` exists and `Package.swift` resolves on Mac.
 - [ ] `xcodebuild build -scheme DVAIBridge` succeeds.
-- [ ] `xcodebuild test -scheme DVAIBridge` passes, with at least:
-  - 8 unit tests covering API shape + backend selector + progress + reactive state + CoreML stub.
-  - 1 integration test that boots `DVAIBridge.shared` and hits `/v1/models`.
-- [ ] `pod lib lint DVAIBridge.podspec --allow-warnings --use-libraries` passes (or the Swift-only equivalent).
+- [ ] `xcodebuild test -scheme DVAIBridge-Package` passes, with at least:
+  - **Unit tests** (no real model load): API shape, backend selector, progress, reactive state, CoreMLPluginState lifecycle, CoreMLSampler greedy/temperature/top-p, CoreMLHandlers JSON output. Target ~40 unit tests.
+  - **Real-model integration tests** (3 tests, each with `XCTSkip` if prereqs missing):
+    - `testLlamaBackendIntegration` — uses the existing Phase 2C `SMOKE_MODEL_URL` env var
+    - `testFoundationBackendIntegration` — runs unconditionally on iOS 26+, skips otherwise
+    - `testCoreMLBackendIntegration` — uses new `SMOKE_COREML_*` env vars
+- [ ] `pod lib lint DVAIBridge.podspec --allow-warnings` passes.
 - [ ] `DVAIBridge.shared` exposes the 8-method surface that mirrors the Capacitor JS shim.
-- [ ] `BackendKind.coreml` is a valid enum case; the stub throws `notYetImplemented` cleanly.
+- [ ] `BackendKind.coreml` is a working backend — `start(backend: .coreml, modelPath: ...)` boots the HTTP server, serves OpenAI-formatted responses for chat completions, supports streaming via SSE.
 - [ ] `DVAIBridgeReactiveState` observable updates on lifecycle transitions.
 - [ ] `progressPublisher`, `progressStream`, and `addProgressListener` all observe the same broadcast.
+- [ ] `swift-transformers` declared as a SPM dependency at version `from: "0.1.16"` (latest stable as of 3C planning).
 - [ ] CI workflow `test-ios-bridge.yml` is green.
+- [ ] `smoke-real-models.yml` extended to run the bridge SDK's `RealModelIntegrationTest` when the `SMOKE_COREML_*` and `SMOKE_HF_TOKEN` secrets land in repo settings.
 - [ ] CHANGELOG entry for `1.8.0` documents the new SDK.
 - [ ] Branch merged to main with a clean rebase + fast-forward.
