@@ -21,14 +21,14 @@ public struct CachedModelInfoSwift: Sendable {
 /// serialised. The download path delegates to a private `URLSessionDataDelegate`
 /// (compatible with iOS 14+, unlike the iOS-15 `bytes(for:)` API).
 public actor ModelDownloader {
-    enum DownloadError: LocalizedError {
+    public enum DownloadError: LocalizedError {
         case checksumMismatch(expected: String, got: String)
         case httpError(status: Int)
         case missingApplicationSupport
         case sha256Required
         case ioError(String)
 
-        var errorDescription: String? {
+        public var errorDescription: String? {
             switch self {
             case .checksumMismatch(let expected, let got):
                 return "ChecksumMismatchError: expected \(expected), got \(got)"
