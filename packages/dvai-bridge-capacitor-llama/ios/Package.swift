@@ -9,22 +9,30 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
-        // Path-based dependency on the vendored llama.cpp submodule. Its
-        // bundled Package.swift exposes a `llama` library product that
-        // compiles src/*.cpp + ggml/* and links Metal/Accelerate on Darwin.
-        .package(name: "llama", path: "../native/llama.cpp"),
     ],
     targets: [
+        // Prebuilt llama.xcframework produced by upstream's
+        // native/llama.cpp/build-xcframework.sh. Upstream removed
+        // Package.swift after tag b4823 (March 2025), so we can no longer do
+        // a path-based SPM dependency on the submodule. Run
+        // `bash scripts/mac-side-prepare-xcframework.sh` on a Mac after every
+        // submodule SHA bump to (re)build this artifact. The xcframework is
+        // gitignored; CI must run the prepare step before iOS jobs.
+        //
+        // The xcframework's modulemap re-exports llama.h, ggml.h, ggml-alloc.h,
+        // ggml-backend.h, ggml-metal.h, ggml-cpu.h, ggml-blas.h and gguf.h so
+        // existing `#import "llama.h"` etc. in LlamaCppBridge.mm continue to
+        // resolve. Metal / Accelerate / Foundation are linked from inside the
+        // framework's modulemap.
+        .binaryTarget(
+            name: "llama",
+            path: "../native/llama.cpp/build-apple/llama.xcframework"
+        ),
         // ObjC++ target — contains LlamaCppBridge.{h,mm} and links against the
-        // llama.cpp static library exposed via the path-dep above. Public
-        // headers (llama.h, ggml.h, …) come from llama.cpp's own
-        // `publicHeadersPath: "spm-headers"` so we don't need manual
-        // headerSearchPath entries any more.
+        // llama.xcframework binary target above.
         .target(
             name: "DVAICapacitorLlamaObjC",
-            dependencies: [
-                .product(name: "llama", package: "llama"),
-            ],
+            dependencies: ["llama"],
             path: "Sources/DVAICapacitorLlamaObjC",
             publicHeadersPath: "include",
             linkerSettings: [

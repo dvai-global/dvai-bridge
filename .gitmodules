@@ -1,3 +1,7 @@
 [submodule "packages/dvai-bridge-capacitor-llama/native/llama.cpp"]
 	path = packages/dvai-bridge-capacitor-llama/native/llama.cpp
 	url = https://github.com/ggml-org/llama.cpp.git
+	# Don't flag the outer repo as dirty when build-xcframework.sh
+	# leaves build-apple/, build-ios/, build-macos/, build-tvos/,
+	# build-visionos/ etc. inside the submodule.
+	ignore = untracked

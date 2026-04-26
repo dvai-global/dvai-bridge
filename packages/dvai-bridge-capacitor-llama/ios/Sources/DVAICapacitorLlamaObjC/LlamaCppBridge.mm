@@ -1,5 +1,9 @@
 #import "LlamaCppBridge.h"
-#import "llama.h"
+// Consumed via SPM .binaryTarget against build-apple/llama.xcframework
+// (built by scripts/mac-side-prepare-xcframework.sh). Framework
+// modulemap re-exports llama.h, ggml.h, ggml-alloc.h, ggml-backend.h,
+// ggml-metal.h, ggml-cpu.h, ggml-blas.h, gguf.h.
+#import <llama/llama.h>
 #import <Foundation/Foundation.h>
 #import <stdlib.h>
 #import <string.h>
