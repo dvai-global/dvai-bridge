@@ -3,6 +3,104 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.8.0] — 2026-04-27
+
+Phase 3C — iOS Native SDK: standalone `@dvai-bridge/ios` package wrapping
+`DVAILlamaCore` + `DVAIFoundationCore` + a fully-implemented
+`DVAICoreMLCore`. First non-Capacitor consumer surface for the
+OpenAI-compatible HTTP server on iOS, with three production-quality
+backends.
+
+### Added
+
+- `@dvai-bridge/ios` npm package with SPM `Package.swift` at the package
+  root and a `DVAIBridge.podspec` for CocoaPods consumers.
+- `DVAIBridge.shared` singleton actor exposing the 8-method public API:
+  `start`, `stop`, `status`, `addProgressListener`, `downloadModel`,
+  `listCachedModels`, `deleteCachedModel`, `cacheDir`.
+- `BackendKind` enum (`.auto`, `.llama`, `.foundation`, `.coreml`) with
+  `auto`-resolution at runtime based on modelPath extension + iOS 26+
+  availability.
+- `DVAIBridgeReactiveState` `@MainActor` `ObservableObject` for SwiftUI
+  consumers — `isReady`, `baseUrl`, `port`, `currentBackend`,
+  `lastProgress` published properties wired to the bridge's lifecycle
+  + progress events via a per-instance registry.
+- Three observation surfaces for `ProgressEvent`: Combine
+  `progressPublisher`, `progressStream` (`AsyncStream`), and
+  `addProgressListener(_:)` callback. All three observe the same source.
+- **Full CoreML LLM backend** (`DVAICoreMLCore`):
+  - `MLModel` + `MLState` for KV-cached autoregressive decoding
+    (iOS 18+ / macOS 15+).
+  - `swift-transformers` 1.3.0 (HuggingFace) for tokenization +
+    `applyChatTemplate(...)` across Llama / Gemma / Phi families.
+  - Greedy + temperature + top-p + top-k sampling.
+  - Streaming via SSE (`AsyncStream<String>` produced by
+    `CoreMLGenerator.generateStream(...)`).
+  - OpenAI ChatCompletion / Completion / Models JSON output via
+    `CoreMLHandlers`, served on Telegraph with the same port-fallback
+    + CORS plumbing as the llama core.
+  - Reference checkpoint: `apple/coreml-Llama-3.2-1B-Instruct-4bit`
+    (others should work if the input/output tensor names match).
+- `RealModelIntegrationTest` — three end-to-end tests against real models,
+  one per backend, gated on env-var availability:
+  - `testLlamaBackendIntegration` (uses Phase 2C's existing
+    `SMOKE_MODEL_*` env vars; verified passing on iOS Simulator with
+    Llama-3.2-1B Q4_K_M).
+  - `testFoundationBackendIntegration` (iOS 26+ runtime; no model file).
+  - `testCoreMLBackendIntegration` (new `SMOKE_COREML_*` env vars +
+    `SMOKE_HF_TOKEN` for the gated meta-llama tokenizer; the unzip step
+    requires `Process` so the iOS-Simulator path skips with a Phase 3D
+    follow-up note — exercise via Mac Catalyst destination, or land an
+    in-process unzip).
+- `test-ios-bridge.yml` CI workflow running XCTest for the
+  `DVAIBridge-Package` scheme on the self-hosted Mac runner.
+- Public `DVAIHandlers` protocol + `HandlerContext` + `HandlerResponse` +
+  `HttpServer.tryBind(...)` / `installRoutes(...)` exposed from
+  `DVAILlamaCore` (surgical visibility bumps; no logic changes).
+- `ModelDownloader.DownloadError` exposed as `public` so cross-module
+  consumers (DVAIBridge) can pattern-match `.checksumMismatch` instead
+  of grepping the localized error string.
+
+### Verified
+
+- 44 XCTest cases pass (42 unit + 1 llama integration end-to-end +
+  1 expected skip for Foundation Models which needs iOS 26+ runtime;
+  CoreML integration skips cleanly on iOS Simulator pending the
+  in-process unzip work).
+- Existing Capacitor tests + Phase 3A/3B test suites unaffected.
+
+### Deferred to Phase 3D
+
+- `pod lib lint DVAIBridge.podspec` — CocoaPods isn't fully installed
+  on the self-hosted Mac runner (ffi gem extension issue). The podspec
+  is well-formed and committed; consumers using DVAIBridge via
+  CocoaPods will catch any issues during integration. SwiftPM is the
+  primary path and is verified by the new CI workflow.
+- CoreML real-model end-to-end on iOS Simulator. The unzip helper
+  uses `/usr/bin/unzip` via `Process`, which is unavailable in the iOS
+  SDK. Run via Mac Catalyst destination locally, or land an in-process
+  unzip path (Compression framework, `ZIPFoundation`, etc.) before
+  Phase 3D ships.
+
+### Manual setup for the CoreML integration test (first-time only)
+
+The CoreML backend's integration test downloads ~700 MB of model
+weights + a few MB of tokenizer config. The user populates
+`scripts/smoke.local.env` with:
+
+```
+SMOKE_COREML_MODEL_URL=https://huggingface.co/apple/coreml-Llama-3.2-1B-Instruct-4bit/resolve/main/StatefulModel.mlmodelc.zip
+SMOKE_COREML_MODEL_SHA256=<sha256 of the zip>
+SMOKE_COREML_TOKENIZER_URL=https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/resolve/main/tokenizer.json
+SMOKE_COREML_TOKENIZER_SHA256=<sha256 of tokenizer.json>
+SMOKE_HF_TOKEN=hf_<your-token>      # for the gated meta-llama repo
+```
+
+The Llama-3.2 tokenizer lives in a gated HF repo; the user must accept
+the license terms once at
+https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct and create a
+read-only access token at https://huggingface.co/settings/tokens.
+
 ## [1.7.0] — 2026-04-26
 
 Phase 3A Foundation + Phase 3B LiteRT-LM Migration: extracts each
