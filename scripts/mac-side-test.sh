@@ -44,6 +44,12 @@ while IFS='=' read -r name _; do
 done < <(set | grep '^SMOKE_' || true)
 
 case "$TARGET" in
+  ios-bridge)
+    cd "packages/dvai-bridge-ios"
+    # Multi-product package — use the `*-Package` umbrella scheme that includes
+    # the test target. Same lesson learned in Phase 3A's ios-llama-core.
+    SCHEME="DVAIBridge-Package"
+    ;;
   ios-foundation-core)
     cd "packages/dvai-bridge-ios-foundation-core"
     # Single-library packages don't get a `-Package` umbrella scheme; the
