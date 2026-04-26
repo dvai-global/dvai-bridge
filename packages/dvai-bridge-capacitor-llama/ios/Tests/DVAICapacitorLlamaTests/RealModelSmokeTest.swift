@@ -17,6 +17,16 @@ import XCTest
 @testable import DVAICapacitorLlama
 import DVAICapacitorLlamaObjC
 
+/// Unbuffered breadcrumb. NSLog flushes per call to stderr / oslog, so
+/// even if the test process dies mid-step (jetsam SIGKILL on simulator,
+/// for example) the most recent step still appears in xcresult /
+/// `log show`. Plain `print(...)` buffers on stdout and silently
+/// disappears when the process is killed.
+@inline(__always)
+fileprivate func smokeStep(_ msg: String) {
+    NSLog("DVAI-SMOKE: %@", msg)
+}
+
 final class RealModelSmokeTest: XCTestCase {
     private var tempDir: URL!
     private var bridge: LlamaCppBridge?
@@ -113,6 +123,7 @@ final class RealModelSmokeTest: XCTestCase {
             throw XCTSkip("SMOKE_VISION_* env vars not all set; skipping vision smoke")
         }
 
+        smokeStep("vision: downloading main model")
         let downloader = ModelDownloader(cacheDirOverride: tempDir)
         let modelResult = try await downloader.downloadModel(
             url: modelUrl,
@@ -122,6 +133,7 @@ final class RealModelSmokeTest: XCTestCase {
             onProgress: { _, _ in /* no-op for smoke */ }
         )
         XCTAssertTrue(FileManager.default.fileExists(atPath: modelResult.path))
+        smokeStep("vision: model downloaded; downloading mmproj")
         let mmprojResult = try await downloader.downloadModel(
             url: mmprojUrl,
             expectedSha256: mmprojSha.lowercased(),
@@ -130,6 +142,7 @@ final class RealModelSmokeTest: XCTestCase {
             onProgress: { _, _ in /* no-op for smoke */ }
         )
         XCTAssertTrue(FileManager.default.fileExists(atPath: mmprojResult.path))
+        smokeStep("vision: mmproj downloaded")
 
         let bridge = LlamaCppBridge()
         self.bridge = bridge
@@ -144,6 +157,7 @@ final class RealModelSmokeTest: XCTestCase {
         #else
         let mainGPULayers: Int32 = 99
         #endif
+        smokeStep("vision: loading main model (gpuLayers=\(mainGPULayers))")
         try bridge.loadModel(
             atPath: modelResult.path,
             mmprojPath: nil,
@@ -157,6 +171,7 @@ final class RealModelSmokeTest: XCTestCase {
             embeddingMode: false
         )
         XCTAssertTrue(bridge.isLoaded)
+        smokeStep("vision: main model loaded")
         // useGPU=false on simulator: iOS Simulator's MTLSimDevice aborts in
         // _xpc_shmem_create_with_prot when CLIP tries to allocate the
         // ~60 MiB position-embedding tensor (gemma4v has shape [768, 10240, 2]).
@@ -168,8 +183,10 @@ final class RealModelSmokeTest: XCTestCase {
         #else
         let useGPUForMmproj = true
         #endif
+        smokeStep("vision: loading mmproj (useGPU=\(useGPUForMmproj))")
         try bridge.loadMmproj(atPath: mmprojResult.path, useGPU: useGPUForMmproj)
         XCTAssertTrue(bridge.isMmprojLoaded)
+        smokeStep("vision: mmproj loaded")
 
         // Read the smoke PNG fixture. tiny-test.png is a 256x256 image with
         // three primary-colour squares + a yellow ellipse — picked so a
@@ -199,6 +216,7 @@ final class RealModelSmokeTest: XCTestCase {
         ]
         let chatPrompt = try bridge.applyChatTemplate(gemmaTemplate, messages: messages, addAssistant: true)
         XCTAssertFalse(chatPrompt.isEmpty)
+        smokeStep("vision: chat template applied; running multimodal eval")
 
         let completion = try bridge.completeMultimodalPrompt(
             chatPrompt,
@@ -207,6 +225,7 @@ final class RealModelSmokeTest: XCTestCase {
             temperature: 0.0,
             topP: 1.0
         )
+        smokeStep("vision: eval done — completion=\(completion.prefix(80))")
         XCTAssertFalse(completion.isEmpty, "vision completion should not be empty")
     }
 
@@ -226,6 +245,7 @@ final class RealModelSmokeTest: XCTestCase {
             throw XCTSkip("SMOKE_VISION_* env vars not all set; skipping audio smoke")
         }
 
+        smokeStep("audio: downloading main model")
         let downloader = ModelDownloader(cacheDirOverride: tempDir)
         let modelResult = try await downloader.downloadModel(
             url: modelUrl,
@@ -234,6 +254,7 @@ final class RealModelSmokeTest: XCTestCase {
             headers: [:],
             onProgress: { _, _ in /* no-op for smoke */ }
         )
+        smokeStep("audio: model downloaded; downloading mmproj")
         let mmprojResult = try await downloader.downloadModel(
             url: mmprojUrl,
             expectedSha256: mmprojSha.lowercased(),
@@ -241,6 +262,7 @@ final class RealModelSmokeTest: XCTestCase {
             headers: [:],
             onProgress: { _, _ in /* no-op for smoke */ }
         )
+        smokeStep("audio: mmproj downloaded")
 
         let bridge = LlamaCppBridge()
         self.bridge = bridge
@@ -253,6 +275,7 @@ final class RealModelSmokeTest: XCTestCase {
         #else
         let mainGPULayers: Int32 = 99
         #endif
+        smokeStep("audio: loading main model (gpuLayers=\(mainGPULayers))")
         try bridge.loadModel(
             atPath: modelResult.path,
             mmprojPath: nil,
@@ -261,6 +284,7 @@ final class RealModelSmokeTest: XCTestCase {
             threads: 4,
             embeddingMode: false
         )
+        smokeStep("audio: main model loaded")
         // useGPU=false on simulator: iOS Simulator's MTLSimDevice aborts in
         // _xpc_shmem_create_with_prot when CLIP tries to allocate the
         // ~60 MiB position-embedding tensor (gemma4v has shape [768, 10240, 2]).
@@ -272,13 +296,16 @@ final class RealModelSmokeTest: XCTestCase {
         #else
         let useGPUForMmproj = true
         #endif
+        smokeStep("audio: loading mmproj (useGPU=\(useGPUForMmproj))")
         try bridge.loadMmproj(atPath: mmprojResult.path, useGPU: useGPUForMmproj)
+        smokeStep("audio: mmproj loaded")
 
         // Skip cleanly if the loaded mmproj has no audio encoder (e.g. when
         // SMOKE_VISION_* points at a vision-only projector).
         guard bridge.hasAudioEncoder() else {
             throw XCTSkip("Loaded mmproj reports no audio encoder; skipping audio smoke")
         }
+        smokeStep("audio: hasAudioEncoder=true; running multimodal eval")
 
         let audioURL = fixturesURL().appendingPathComponent("audio").appendingPathComponent("wav-1s-16khz-mono.wav")
         let audioData = try Data(contentsOf: audioURL)
@@ -314,6 +341,7 @@ final class RealModelSmokeTest: XCTestCase {
             temperature: 0.0,
             topP: 1.0
         )
+        smokeStep("audio: eval done")
     }
 
     /// Walks up from #file to find the repo-root `fixtures/` dir.
