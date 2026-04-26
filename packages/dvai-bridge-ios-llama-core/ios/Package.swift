@@ -26,10 +26,13 @@ let package = Package(
             path: "../../dvai-bridge-capacitor-llama/native/llama.cpp/build-apple/mtmd.xcframework"
         ),
         // ObjC++ target — LlamaCppBridge.{h,mm}, links against the binary targets above.
+        // Target paths are relative to Package.swift, which lives inside `ios/`,
+        // so paths drop the leading `ios/` segment that would be needed if the
+        // manifest sat at the package root.
         .target(
             name: "DVAILlamaCoreObjC",
             dependencies: ["llama", "mtmd"],
-            path: "ios/Sources/DVAILlamaCoreObjC",
+            path: "Sources/DVAILlamaCoreObjC",
             publicHeadersPath: "include",
             linkerSettings: [
                 .linkedFramework("Foundation"),
@@ -39,12 +42,12 @@ let package = Package(
         .target(
             name: "DVAILlamaCore",
             dependencies: ["DVAILlamaCoreObjC", "Telegraph"],
-            path: "ios/Sources/DVAILlamaCore"
+            path: "Sources/DVAILlamaCore"
         ),
         .testTarget(
             name: "DVAILlamaCoreTests",
             dependencies: ["DVAILlamaCore", "DVAILlamaCoreObjC"],
-            path: "ios/Tests/DVAILlamaCoreTests"
+            path: "Tests/DVAILlamaCoreTests"
         ),
     ],
     cxxLanguageStandard: .cxx17
