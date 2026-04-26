@@ -133,6 +133,17 @@ final class RealModelSmokeTest: XCTestCase {
 
         let bridge = LlamaCppBridge()
         self.bridge = bridge
+        // gpuLayers=0 on simulator: same MTLSimDevice allocation cap that
+        // hits the mmproj also bites the main model when mtmd_helper_decode
+        // builds image-embedding tensors and llama_decode runs them on
+        // Metal. Falling back to CPU for the main model avoids the abort.
+        // Real iPhone hardware uses Metal end-to-end → gpuLayers=99 is the
+        // production default.
+        #if targetEnvironment(simulator)
+        let mainGPULayers: Int32 = 0
+        #else
+        let mainGPULayers: Int32 = 99
+        #endif
         try bridge.loadModel(
             atPath: modelResult.path,
             mmprojPath: nil,
@@ -140,7 +151,7 @@ final class RealModelSmokeTest: XCTestCase {
             // the simulator's per-process budget. We sample at most 32
             // tokens, so 1024 leaves plenty of headroom for the prompt
             // + image chunk + completion without paging.
-            gpuLayers: 99,
+            gpuLayers: mainGPULayers,
             contextSize: 1024,
             threads: 4,
             embeddingMode: false
@@ -228,10 +239,19 @@ final class RealModelSmokeTest: XCTestCase {
 
         let bridge = LlamaCppBridge()
         self.bridge = bridge
+        // gpuLayers=0 on simulator: same MTLSimDevice allocation cap that
+        // hits the mmproj also bites the main model when mtmd_helper_decode
+        // builds audio-embedding tensors and llama_decode runs them on
+        // Metal. Falling back to CPU for the main model avoids the abort.
+        #if targetEnvironment(simulator)
+        let mainGPULayers: Int32 = 0
+        #else
+        let mainGPULayers: Int32 = 99
+        #endif
         try bridge.loadModel(
             atPath: modelResult.path,
             mmprojPath: nil,
-            gpuLayers: 99,
+            gpuLayers: mainGPULayers,
             contextSize: 1024,
             threads: 4,
             embeddingMode: false
