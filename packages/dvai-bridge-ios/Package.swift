@@ -3,7 +3,12 @@ import PackageDescription
 
 let package = Package(
     name: "DVAIBridge",
-    platforms: [.iOS(.v14), .macOS(.v12)],
+    // iOS 18.1 link-time floor: DVAIFoundationCore requires it (the
+    // FoundationModels SDK is `@available(iOS 26, *)` at runtime; 18.1 is
+    // its link-time minimum). DVAILlamaCore allows 14.0, but the package
+    // as a whole takes the highest minimum. CoreML's MLState requires
+    // iOS 18 too, so 18.1 covers everything.
+    platforms: [.iOS("18.1"), .macOS(.v14)],
     products: [
         .library(name: "DVAIBridge", targets: ["DVAIBridge"]),
         .library(name: "DVAICoreMLCore", targets: ["DVAICoreMLCore"]),
