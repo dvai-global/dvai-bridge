@@ -17,7 +17,7 @@
 
 import Foundation
 
-actor PluginState {
+public actor PluginState {
     private var server: HttpServer?
     /// Type-erased reference to the live `FoundationHandlers` instance.
     /// Stored as `AnyObject?` rather than `FoundationHandlers?` so we
@@ -32,9 +32,11 @@ actor PluginState {
     private(set) var baseUrl: String?
     private(set) var port: Int?
 
+    public init() {}
+
     /// Start the plugin: gate on iOS 26.0+, bind server, install routes.
     /// - Returns dictionary suitable for Capacitor's `call.resolve(...)`.
-    func start(opts: [String: Any]) async throws -> [String: Any] {
+    public func start(opts: [String: Any]) async throws -> [String: Any] {
         if isRunning { try await stopInternal() }
 
         // Compile-time guard: on hosts where the FoundationModels framework
@@ -93,7 +95,7 @@ actor PluginState {
     }
 
     /// Stop the plugin: drop handlers, stop server. Idempotent.
-    func stop() async throws {
+    public func stop() async throws {
         try await stopInternal()
     }
 
@@ -108,7 +110,7 @@ actor PluginState {
     }
 
     /// Snapshot of the current running state, suitable for `call.resolve(...)`.
-    func statusInfo() -> [String: Any] {
+    public func statusInfo() -> [String: Any] {
         var dict: [String: Any] = ["running": isRunning]
         if let baseUrl = baseUrl { dict["baseUrl"] = baseUrl }
         if isRunning { dict["backend"] = "foundation" }
