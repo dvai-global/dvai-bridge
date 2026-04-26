@@ -1,0 +1,66 @@
+name: iOS — DVAIBridge SDK
+
+on:
+  pull_request:
+    paths:
+      - 'packages/dvai-bridge-ios/**'
+      - 'packages/dvai-bridge-ios-llama-core/**'
+      - 'packages/dvai-bridge-ios-foundation-core/**'
+      - 'packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/**'
+      - 'fixtures/**'
+      - 'scripts/mac-side-*.sh'
+      - '.github/workflows/test-ios-bridge.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/dvai-bridge-ios/**'
+      - 'packages/dvai-bridge-ios-llama-core/**'
+      - 'packages/dvai-bridge-ios-foundation-core/**'
+      - 'packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/**'
+      - 'fixtures/**'
+
+concurrency:
+  group: ios-bridge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  xctest:
+    name: XCTest — DVAIBridge SDK
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/dvai-bridge-ios
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Build xcframework if absent
+        run: |
+          XCF_DIR="$GITHUB_WORKSPACE/packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple"
+          if [ ! -d "$XCF_DIR/llama.xcframework" ] || [ ! -d "$XCF_DIR/mtmd.xcframework" ]; then
+            cd "$GITHUB_WORKSPACE"
+            bash scripts/mac-side-prepare-xcframework.sh
+          fi
+
+      - name: Clear stale xcresult bundle
+        run: rm -rf build/test-results.xcresult
+
+      - name: xcodebuild test
+        env:
+          IOS_DEST: 'platform=iOS Simulator,name=iPhone 16,OS=18.5'
+        run: |
+          xcodebuild test \
+            -scheme DVAIBridge-Package \
+            -destination "$IOS_DEST" \
+            -resultBundlePath build/test-results.xcresult
+
+      - name: Upload xcresult on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresult-ios-bridge
+          path: packages/dvai-bridge-ios/build/test-results.xcresult
+          retention-days: 7
