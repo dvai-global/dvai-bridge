@@ -35,4 +35,25 @@ with open("fixtures/images/tiny-test.png", "rb") as f:
 with open("fixtures/images/tiny-test-base64.txt", "w", newline="\n") as f:
     f.write(b64)
 print("wrote fixtures/images/tiny-test-base64.txt (%d chars)" % len(b64))
+
+# Mirror the binary + base64 into the Android test asset/resource roots.
+# Android's test runners read from src/{androidTest/assets,test/resources},
+# not from the repo-root fixtures/ dir, so they need their own copy. The
+# files are byte-identical to the canonical fixtures/images/ versions.
+import shutil, os
+android_root = "packages/dvai-bridge-capacitor-llama/android"
+android_dests = [
+    f"{android_root}/src/androidTest/assets/images/tiny-test.png",
+    f"{android_root}/src/test/resources/images/tiny-test.png",
+]
+for dest in android_dests:
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    shutil.copyfile("fixtures/images/tiny-test.png", dest)
+    print(f"wrote {dest}")
+
+# Only the unit-test resources path needs the base64 sibling — that's the
+# location ImageDecoderTest reads via classpath getResourceAsStream.
+b64_dest = f"{android_root}/src/test/resources/images/tiny-test-base64.txt"
+shutil.copyfile("fixtures/images/tiny-test-base64.txt", b64_dest)
+print(f"wrote {b64_dest}")
 PY
