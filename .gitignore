@@ -76,3 +76,15 @@ scripts/mac.local.json
 scripts/*.local.json
 .env.local
 CLAUDE.md
+
+# llama.cpp prebuilt xcframework — rebuilt on demand via
+# scripts/mac-side-prepare-xcframework.sh after a submodule SHA bump.
+# Output is hundreds of MB and platform-specific, so we never commit it.
+packages/dvai-bridge-capacitor-llama/native/llama.cpp/build-apple/
+packages/dvai-bridge-capacitor-llama/native/llama.cpp/build-ios-sim/
+packages/dvai-bridge-capacitor-llama/native/llama.cpp/build-ios-device/
+packages/dvai-bridge-capacitor-llama/native/llama.cpp/build-macos/
+packages/dvai-bridge-capacitor-llama/native/llama.cpp/build-visionos/
+packages/dvai-bridge-capacitor-llama/native/llama.cpp/build-visionos-sim/
+packages/dvai-bridge-capacitor-llama/native/llama.cpp/build-tvos-sim/
+packages/dvai-bridge-capacitor-llama/native/llama.cpp/build-tvos-device/
