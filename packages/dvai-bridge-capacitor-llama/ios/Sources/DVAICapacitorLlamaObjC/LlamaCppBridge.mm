@@ -357,6 +357,12 @@
 
 - (BOOL)loadMmprojAtPath:(NSString *)mmprojPath
                    error:(NSError **)error {
+    return [self loadMmprojAtPath:mmprojPath useGPU:YES error:error];
+}
+
+- (BOOL)loadMmprojAtPath:(NSString *)mmprojPath
+                  useGPU:(BOOL)useGPU
+                   error:(NSError **)error {
     if (mmprojPath.length == 0) {
         if (error) {
             *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
@@ -376,6 +382,7 @@
     [self unloadMmproj];
 
     struct mtmd_context_params params = mtmd_context_params_default();
+    params.use_gpu = useGPU ? true : false;
     _mtmdCtx = mtmd_init_from_file([mmprojPath UTF8String], _model, params);
     if (_mtmdCtx == NULL) {
         if (error) {

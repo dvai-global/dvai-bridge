@@ -47,8 +47,19 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Load a multimodal projector (mmproj). The main model must already be
 /// loaded — the projector is always paired with a text model. Phase 2A Pass 2
-/// wires the real `mtmd_init_from_file()` call. Returns NO on failure (with
-/// `error` populated).
+/// wires the real `mtmd_init_from_file()` call.
+///
+/// `useGPU` controls `mtmd_context_params.use_gpu`. Pass `YES` for production
+/// (Metal-accelerated CLIP / vision-encoder pass on real iPhone). Pass `NO`
+/// in environments where Metal allocation can't accommodate the projector's
+/// position-embedding tensor — most commonly the iOS Simulator, where
+/// `_xpc_shmem_create_with_prot` aborts on tensors >~ 60 MiB. The bridge
+/// uses YES by default. Returns NO on failure (with `error` populated).
+- (BOOL)loadMmprojAtPath:(NSString *)mmprojPath
+                  useGPU:(BOOL)useGPU
+                   error:(NSError **)error;
+
+/// Convenience wrapper that defaults `useGPU:YES`. Most callers want this.
 - (BOOL)loadMmprojAtPath:(NSString *)mmprojPath
                    error:(NSError **)error;
 
