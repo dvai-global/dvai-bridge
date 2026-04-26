@@ -1,5 +1,5 @@
 import XCTest
-@testable import DVAICapacitorLlama
+@testable import DVAILlamaCore
 
 final class ImageDecoderTest: XCTestCase {
     /// `data:image/png;base64,...` round-trips to bytes whose first 8 bytes

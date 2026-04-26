@@ -1,6 +1,6 @@
 import XCTest
 import CryptoKit
-@testable import DVAICapacitorLlama
+@testable import DVAILlamaCore
 
 final class ModelDownloaderTest: XCTestCase {
     /// Per-test cache dir so tests don't pollute the real App Support folder.

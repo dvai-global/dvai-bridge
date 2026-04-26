@@ -1,6 +1,6 @@
 import XCTest
-@testable import DVAICapacitorLlama
-import DVAICapacitorLlamaObjC
+@testable import DVAILlamaCore
+import DVAILlamaCoreObjC
 
 /// Mock bridge so handler tests don't need a real GGUF model loaded.
 /// Records the prompt that was passed in and returns canned values.
