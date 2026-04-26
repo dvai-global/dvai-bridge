@@ -171,7 +171,12 @@ final class RealModelSmokeTest: XCTestCase {
         try bridge.loadMmproj(atPath: mmprojResult.path, useGPU: useGPUForMmproj)
         XCTAssertTrue(bridge.isMmprojLoaded)
 
-        // Read the tiny PNG fixture (1x1 transparent pixel).
+        // Read the smoke PNG fixture. tiny-test.png is a 256x256 image with
+        // three primary-colour squares + a yellow ellipse — picked so a
+        // captioner has unambiguous content to describe (a blank canvas
+        // tends to make Gemma 4 emit `<end_of_turn>` as its first sample,
+        // which the greedy sampler treats as a clean exit and returns "").
+        // Regenerate via `scripts/generate-image-fixtures.sh`.
         let imageURL = fixturesURL().appendingPathComponent("images").appendingPathComponent("tiny-test.png")
         let imageData = try Data(contentsOf: imageURL)
 
