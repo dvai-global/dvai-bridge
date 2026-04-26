@@ -34,6 +34,7 @@ public final class LlamaHandlers: DVAIHandlers, @unchecked Sendable {
     private let mmprojLoaded: Bool
     private let modelHasAudioEncoder: Bool
     private let embeddingMode: Bool
+    private let chatTemplate: String?
     private let translator: ContentPartsTranslator
 
     /// Public initializer used by `PluginState`. Wraps a concrete
@@ -43,14 +44,16 @@ public final class LlamaHandlers: DVAIHandlers, @unchecked Sendable {
         modelId: String,
         mmprojLoaded: Bool = false,
         modelHasAudioEncoder: Bool = false,
-        embeddingMode: Bool = false
+        embeddingMode: Bool = false,
+        chatTemplate: String? = nil
     ) {
         self.init(
             bridgeProtocol: bridge,
             modelId: modelId,
             mmprojLoaded: mmprojLoaded,
             modelHasAudioEncoder: modelHasAudioEncoder,
-            embeddingMode: embeddingMode
+            embeddingMode: embeddingMode,
+            chatTemplate: chatTemplate
         )
     }
 
@@ -62,6 +65,7 @@ public final class LlamaHandlers: DVAIHandlers, @unchecked Sendable {
         mmprojLoaded: Bool = false,
         modelHasAudioEncoder: Bool = false,
         embeddingMode: Bool = false,
+        chatTemplate: String? = nil,
         translator: ContentPartsTranslator? = nil
     ) {
         self.bridge = bridgeProtocol
@@ -69,6 +73,7 @@ public final class LlamaHandlers: DVAIHandlers, @unchecked Sendable {
         self.mmprojLoaded = mmprojLoaded
         self.modelHasAudioEncoder = modelHasAudioEncoder
         self.embeddingMode = embeddingMode
+        self.chatTemplate = chatTemplate
         self.translator = translator ?? ContentPartsTranslator(
             mmprojLoaded: mmprojLoaded,
             modelHasAudioEncoder: modelHasAudioEncoder
@@ -89,14 +94,6 @@ public final class LlamaHandlers: DVAIHandlers, @unchecked Sendable {
             return .error(translatorErrorToStatus(e), translatorErrorMessage(e))
         }
 
-        // Phase 1 only handles text-only prompts. If the translator surfaced
-        // images / audio that means a downstream eval path is required, which
-        // doesn't land until Phase 2 — guard with 500 since the translator
-        // gates should have caught the corresponding 400 already.
-        if !promptInput.images.isEmpty || !promptInput.audioPCM.isEmpty {
-            return .error(500, "Multimodal eval path not yet wired")
-        }
-
         // TODO(strict-mode): currently silently defaults if max_tokens/temperature/top_p
         // arrive as strings instead of numbers; OpenAI rejects this with 400.
         let maxTokens = body["max_tokens"] as? Int ?? 256
@@ -104,15 +101,45 @@ public final class LlamaHandlers: DVAIHandlers, @unchecked Sendable {
         let topP = body["top_p"] as? Double ?? 1.0
         let stream = body["stream"] as? Bool ?? false
 
+        // Render the chat template. The bridge falls back to the model's
+        // bundled tokenizer.chat_template when our override is nil/empty.
+        // Marker positions inside content fields are preserved by the
+        // translator, so the rendered prompt has N <__media__> markers
+        // matching media.count in declaration order.
+        let chatPrompt: String
+        do {
+            chatPrompt = try runOnBridge {
+                try bridge.applyChatTemplate(
+                    chatTemplate,
+                    messages: promptInput.messagesWithMarkers.map { ["role": $0.role, "content": $0.content] },
+                    addAssistant: true
+                )
+            }
+        } catch {
+            return .error(500, "chat template apply failed: \(error.localizedDescription)")
+        }
+
         let completion: String
         do {
-            completion = try runOnBridge {
-                try bridge.completePrompt(
-                    promptInput.prompt,
-                    maxTokens: Int32(maxTokens),
-                    temperature: Float(temperature),
-                    topP: Float(topP)
-                )
+            if promptInput.media.isEmpty {
+                completion = try runOnBridge {
+                    try bridge.completePrompt(
+                        chatPrompt,
+                        maxTokens: Int32(maxTokens),
+                        temperature: Float(temperature),
+                        topP: Float(topP)
+                    )
+                }
+            } else {
+                completion = try runOnBridge {
+                    try bridge.completeMultimodalPrompt(
+                        chatPrompt,
+                        media: promptInput.media,
+                        maxTokens: Int32(maxTokens),
+                        temperature: Float(temperature),
+                        topP: Float(topP)
+                    )
+                }
             }
         } catch {
             return .error(500, error.localizedDescription)

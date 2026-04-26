@@ -3,22 +3,34 @@ package co.deepvoiceai.dvaibridge.llama
 import java.util.Base64
 
 /**
+ * The canonical media-marker token mtmd uses for image/audio splice points.
+ * Mirrors `mtmd_default_marker()` from `tools/mtmd/mtmd.h`.
+ */
+const val MTMD_MEDIA_MARKER: String = "<__media__>"
+
+/** One rendered chat message ready for `bridge.applyChatTemplate(...)`. */
+data class LlamaTranslatedMessage(
+    val role: String,
+    val content: String,
+)
+
+/**
  * Output of [ContentPartsTranslator.translate] — the raw inputs the llama.cpp
- * handler will hand to `mtmd_helper_eval` / `mtmd_helper_eval_audio`.
- *
- * Phase 1 note: [prompt] is a simple newline-join of every `text` part across
- * every message, in source order. Task 36 will replace this with a real
- * chat-template render via `llama_chat_apply_template` against the loaded
- * model — the prompt here is effectively a debug / fallback string that the
- * handler may not even use directly.
+ * handler will hand to `bridge.applyChatTemplate(...)` and
+ * `bridge.completeMultimodalPrompt(...)`.
  */
 data class LlamaPromptInput(
-    /** Concatenation of all `text` parts in order, joined with `"\n"`. */
+    /** Per-message rendered content with media replaced by `<__media__>` markers. */
+    val messagesWithMarkers: List<LlamaTranslatedMessage>,
+    /**
+     * All media bytes (images + decoded audio) in declaration order across
+     * all messages, matching the order the markers appear. mtmd's tokenize
+     * matches markers to bitmaps by position; auto-detection of image vs
+     * audio happens via magic bytes inside `mtmd_helper_bitmap_init_from_buf`.
+     */
+    val media: List<ByteArray>,
+    /** Legacy: concatenation of all `text` parts for diagnostics. */
     val prompt: String,
-    /** Encoded image bytes per `image_url` part, in source order. */
-    val images: List<ByteArray>,
-    /** 16 kHz mono PCM16-LE samples per `input_audio` part, in source order. */
-    val audioPCM: List<ByteArray>,
 )
 
 /**
@@ -58,9 +70,8 @@ sealed class TranslatorError(msg: String) : Exception(msg) {
 
 /**
  * Walks an OpenAI-style `messages` list and produces a [LlamaPromptInput]
- * bundle: text concatenated into [LlamaPromptInput.prompt], images decoded
- * via the injected [imageDecoder] collaborator, audio base64-decoded then
- * run through [audioDecoder] to 16 kHz mono PCM16-LE.
+ * bundle: per-message content with media parts replaced by `<__media__>`
+ * markers, paired with a flat list of media bytes in declaration order.
  *
  * Audio data contract: `input_audio.data` must be standard base64 (RFC 4648
  * §4); URL-safe base64 (`-` / `_` chars) is rejected. This matches OpenAI's
@@ -68,20 +79,6 @@ sealed class TranslatorError(msg: String) : Exception(msg) {
  *
  * Spec reference: §8.1 (content-part shape), §8.2 (image translation), §8.3
  * (audio translation), §8.5 (error mapping).
- *
- * @param mmprojLoaded whether a multimodal projector is available — gates
- *   image parts (no mmproj → throw [TranslatorError.NoMmprojForImage]).
- * @param modelHasAudioEncoder whether the loaded model has a native audio
- *   encoder — gates audio parts (no encoder → throw
- *   [TranslatorError.AudioWithoutAudioEncoder]).
- * @param imageDecoder injected image-resolve function (defaults to
- *   [ImageDecoder.resolve]). Tests substitute a canned-bytes mock so they
- *   don't have to round-trip the real data-URL / file / HTTP pipelines —
- *   those are covered by `ImageDecoderTest`.
- * @param audioDecoder injected audio-decode function (defaults to
- *   [AudioDecoder.decode]). Tests inject a recorder closure to assert what
- *   was passed in without exercising MediaCodec (which is unavailable in
- *   JVM unit tests).
  */
 class ContentPartsTranslator(
     private val mmprojLoaded: Boolean,
@@ -89,22 +86,21 @@ class ContentPartsTranslator(
     private val imageDecoder: (String) -> ByteArray = { url -> ImageDecoder.resolve(url) },
     private val audioDecoder: (ByteArray, AudioFormat) -> ByteArray = AudioDecoder::decode,
 ) {
-    /**
-     * Translate an OpenAI `messages` list (decoded JSON: `Map<String, Any?>`
-     * per message) into a [LlamaPromptInput]. Walks each message's `content`
-     * in order; legacy string content is treated as a single text part.
-     */
     suspend fun translate(messages: List<Map<String, Any?>>): LlamaPromptInput {
+        val translated = mutableListOf<LlamaTranslatedMessage>()
+        val media = mutableListOf<ByteArray>()
         val promptParts = mutableListOf<String>()
-        val images = mutableListOf<ByteArray>()
-        val audioPCM = mutableListOf<ByteArray>()
 
         for ((msgIdx, msg) in messages.withIndex()) {
-            if (msg["role"] !is String) {
-                throw TranslatorError.MalformedRequest("messages[$msgIdx] missing string 'role'")
-            }
+            val role = msg["role"] as? String
+                ?: throw TranslatorError.MalformedRequest("messages[$msgIdx] missing string 'role'")
+            val rendered = mutableListOf<String>()
+
             when (val content = msg["content"]) {
-                is String -> promptParts += content
+                is String -> {
+                    promptParts += content
+                    rendered += content
+                }
                 is List<*> -> {
                     for ((partIdx, rawPart) in content.withIndex()) {
                         val path = "messages[$msgIdx].content[$partIdx]"
@@ -118,6 +114,7 @@ class ContentPartsTranslator(
                                 val text = part["text"] as? String
                                     ?: throw TranslatorError.MalformedRequest("$path text part missing string 'text'")
                                 promptParts += text
+                                rendered += text
                             }
                             "image_url" -> {
                                 if (!mmprojLoaded) throw TranslatorError.NoMmprojForImage()
@@ -131,7 +128,8 @@ class ContentPartsTranslator(
                                 } catch (e: Exception) {
                                     throw TranslatorError.ImageFetchFailed(e.message ?: e::class.java.simpleName)
                                 }
-                                images += bytes
+                                media += bytes
+                                rendered += MTMD_MEDIA_MARKER
                             }
                             "input_audio" -> {
                                 if (!modelHasAudioEncoder) throw TranslatorError.AudioWithoutAudioEncoder()
@@ -146,14 +144,10 @@ class ContentPartsTranslator(
                                     throw TranslatorError.UnsupportedAudioFormat(formatStr, SUPPORTED_AUDIO_FORMATS)
                                 }
                                 val format = AUDIO_FORMAT_BY_NAME[formatStr]
-                                    // SUPPORTED_AUDIO_FORMATS is the source of truth; this branch only
-                                    // fires if the enum diverges from the supported-list table.
                                     ?: throw TranslatorError.UnsupportedAudioFormat(formatStr, SUPPORTED_AUDIO_FORMATS)
                                 if (dataB64.isEmpty()) {
                                     throw TranslatorError.MalformedRequest("input_audio.data is empty")
                                 }
-                                // Standard base64 only (RFC 4648 §4). URL-safe base64 (-/_ chars) is rejected.
-                                // Matches OpenAI's documented input format.
                                 val encoded = try {
                                     Base64.getDecoder().decode(dataB64)
                                 } catch (e: IllegalArgumentException) {
@@ -164,7 +158,8 @@ class ContentPartsTranslator(
                                 } catch (e: Exception) {
                                     throw TranslatorError.AudioDecodeFailed(e.message ?: e::class.java.simpleName)
                                 }
-                                audioPCM += pcm
+                                media += pcm
+                                rendered += MTMD_MEDIA_MARKER
                             }
                             else -> throw TranslatorError.MalformedRequest("unsupported content part type: $type")
                         }
@@ -174,12 +169,14 @@ class ContentPartsTranslator(
                     "messages[$msgIdx].content must be a string or array of content parts",
                 )
             }
+
+            translated += LlamaTranslatedMessage(role = role, content = rendered.joinToString(" "))
         }
 
         return LlamaPromptInput(
+            messagesWithMarkers = translated.toList(),
+            media = media.toList(),
             prompt = promptParts.joinToString("\n"),
-            images = images.toList(),
-            audioPCM = audioPCM.toList(),
         )
     }
 

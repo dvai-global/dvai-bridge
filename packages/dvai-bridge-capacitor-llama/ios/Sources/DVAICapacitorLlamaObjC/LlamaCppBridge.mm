@@ -7,8 +7,7 @@
 // Multimodal (mtmd) is shipped as a sibling binaryTarget --
 // build-apple/mtmd.xcframework. The framework's modulemap exposes
 // mtmd.h and mtmd-helper.h; ggml.h / llama.h come from the llama
-// framework imported above. Phase 2A Pass 1: header is reachable but
-// only stub bridge methods are wired (Pass 2 wires real mtmd calls).
+// framework imported above.
 #import <mtmd/mtmd.h>
 #import <mtmd/mtmd-helper.h>
 #import <Foundation/Foundation.h>
@@ -20,10 +19,7 @@
     struct llama_context *_ctx;
     NSString *_currentModelPath;
     BOOL _embeddingMode;
-    // Phase 2A Pass 1: multimodal state. _mtmdCtx stays NULL in Pass 1
-    // (the stub doesn't init the mtmd_context); Pass 2 will populate it
-    // from mtmd_init_from_file(). _currentMmprojPath tracks the loaded
-    // projector for `isMmprojLoaded`.
+    // Phase 2A Pass 2: real mtmd state.
     struct mtmd_context *_mtmdCtx;
     NSString *_currentMmprojPath;
 }
@@ -105,8 +101,9 @@
     }
 
     // mmproj path is just recorded for now. The multimodal projector is loaded
-    // on-demand by the multimodal eval path (Task 35); the path lives on the
-    // PluginState so handlers can pick it up.
+    // on-demand via -loadMmprojAtPath:error: by PluginState after the main
+    // model is up. We don't auto-load here so that text-only flows keep their
+    // simple init shape.
     (void)mmprojPath;
 
     _currentModelPath = [path copy];
@@ -135,6 +132,46 @@
 - (NSString *)versionString {
     const char *info = llama_print_system_info();
     return [NSString stringWithFormat:@"llama.cpp %s", info ? info : ""];
+}
+
+#pragma mark - Internal sampling helper
+
+// Greedy-sample up to maxTokens tokens starting from the current KV-cache
+// state (n_past tokens already evaled). Returns the generated text. Used by
+// both completePrompt: and completeMultimodalPrompt:.
+- (NSString *)sampleGreedyUpToMaxTokens:(int)maxTokens
+                                  vocab:(const struct llama_vocab *)vocab {
+    struct llama_sampler_chain_params sp = llama_sampler_chain_default_params();
+    struct llama_sampler *chain = llama_sampler_chain_init(sp);
+    llama_sampler_chain_add(chain, llama_sampler_init_greedy());
+
+    NSMutableString *result = [NSMutableString string];
+    const llama_token eos = llama_vocab_eos(vocab);
+
+    for (int i = 0; i < maxTokens; i++) {
+        llama_token tokenId = llama_sampler_sample(chain, _ctx, -1);
+        llama_sampler_accept(chain, tokenId);
+
+        if (tokenId == eos) break;
+
+        char buf[256] = {0};
+        int wrote = llama_token_to_piece(vocab, tokenId, buf, (int)sizeof(buf),
+                                         /*lstrip=*/0, /*special=*/false);
+        if (wrote > 0) {
+            NSString *piece = [[NSString alloc] initWithBytes:buf
+                                                       length:(NSUInteger)wrote
+                                                     encoding:NSUTF8StringEncoding];
+            if (piece != nil) {
+                [result appendString:piece];
+            }
+        }
+
+        struct llama_batch nb = llama_batch_get_one(&tokenId, 1);
+        if (llama_decode(_ctx, nb) != 0) break;
+    }
+
+    llama_sampler_free(chain);
+    return result;
 }
 
 - (nullable NSString *)completePrompt:(NSString *)prompt
@@ -211,41 +248,7 @@
     }
     free(tokens);
 
-    // Build a simple greedy sampler chain. Temperature and top-p will be wired
-    // in Task 36 by extending this chain.
-    struct llama_sampler_chain_params sp = llama_sampler_chain_default_params();
-    struct llama_sampler *chain = llama_sampler_chain_init(sp);
-    llama_sampler_chain_add(chain, llama_sampler_init_greedy());
-
-    NSMutableString *result = [NSMutableString string];
-    // llama.cpp b8933: llama_token_eos -> llama_vocab_eos (vocab arg).
-    const llama_token eos = llama_vocab_eos(vocab);
-
-    for (int i = 0; i < maxTokens; i++) {
-        llama_token tokenId = llama_sampler_sample(chain, _ctx, -1);
-        llama_sampler_accept(chain, tokenId);
-
-        if (tokenId == eos) break;
-
-        char buf[256] = {0};
-        // llama.cpp b8933: llama_token_to_piece first arg is vocab, not model.
-        int wrote = llama_token_to_piece(vocab, tokenId, buf, (int)sizeof(buf),
-                                         /*lstrip=*/0, /*special=*/false);
-        if (wrote > 0) {
-            NSString *piece = [[NSString alloc] initWithBytes:buf
-                                                       length:(NSUInteger)wrote
-                                                     encoding:NSUTF8StringEncoding];
-            if (piece != nil) {
-                [result appendString:piece];
-            }
-        }
-
-        struct llama_batch nb = llama_batch_get_one(&tokenId, 1);
-        if (llama_decode(_ctx, nb) != 0) break;
-    }
-
-    llama_sampler_free(chain);
-    return result;
+    return [self sampleGreedyUpToMaxTokens:maxTokens vocab:vocab];
 }
 
 - (nullable NSArray<NSNumber *> *)embedding:(NSString *)text
@@ -346,32 +349,10 @@
     return result;
 }
 
-#pragma mark - Multimodal (mtmd) — Phase 2A Pass 1 stubs
-//
-// Pass 1 establishes the bridge surface and verifies that mtmd's headers
-// and library are reachable from this translation unit. The implementations
-// below are intentionally stubbed — they only track path state. Pass 2 will
-// replace each stub with the real mtmd call (signatures verified against
-// tools/mtmd/mtmd.h on llama.cpp b8933):
-//
-//   mtmd_context_params  mtmd_context_params_default(void);
-//   mtmd_context *       mtmd_init_from_file(const char * mmproj_fname,
-//                                            const struct llama_model * text_model,
-//                                            const struct mtmd_context_params ctx_params);
-//   void                 mtmd_free(mtmd_context * ctx);
-//
-// Eval (Pass 2 / mtmd-helper.h):
-//   int32_t  mtmd_helper_eval_chunks(mtmd_context * ctx,
-//                                    struct llama_context * lctx,
-//                                    const mtmd_input_chunks * chunks,
-//                                    llama_pos n_past,
-//                                    llama_seq_id seq_id,
-//                                    int32_t n_batch,
-//                                    bool logits_last,
-//                                    llama_pos * new_n_past);
+#pragma mark - Multimodal (mtmd) — Phase 2A Pass 2
 
 - (BOOL)isMmprojLoaded {
-    return _currentMmprojPath != nil;
+    return _mtmdCtx != NULL;
 }
 
 - (BOOL)loadMmprojAtPath:(NSString *)mmprojPath
@@ -394,28 +375,268 @@
     }
     [self unloadMmproj];
 
-    // PASS 1 STUB: don't actually init mtmd_context yet.
-    // Pass 2 will replace with:
-    //     struct mtmd_context_params params = mtmd_context_params_default();
-    //     _mtmdCtx = mtmd_init_from_file([mmprojPath UTF8String], _model, params);
-    //     if (_mtmdCtx == NULL) {
-    //         if (error) {
-    //             *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
-    //                                          code:32
-    //                                      userInfo:@{NSLocalizedDescriptionKey:
-    //                                                 @"mtmd_init_from_file failed"}];
-    //         }
-    //         return NO;
-    //     }
+    struct mtmd_context_params params = mtmd_context_params_default();
+    _mtmdCtx = mtmd_init_from_file([mmprojPath UTF8String], _model, params);
+    if (_mtmdCtx == NULL) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:32
+                                     userInfo:@{NSLocalizedDescriptionKey:
+                                                @"mtmd_init_from_file failed (mmproj incompatible with model?)"}];
+        }
+        return NO;
+    }
     _currentMmprojPath = [mmprojPath copy];
     return YES;
 }
 
 - (void)unloadMmproj {
-    // PASS 1 STUB: no mtmd_context to free yet.
-    // Pass 2:
-    //     if (_mtmdCtx != NULL) { mtmd_free(_mtmdCtx); _mtmdCtx = NULL; }
+    if (_mtmdCtx != NULL) {
+        mtmd_free(_mtmdCtx);
+        _mtmdCtx = NULL;
+    }
     _currentMmprojPath = nil;
+}
+
+- (BOOL)hasAudioEncoder {
+    if (_mtmdCtx == NULL) return NO;
+    return mtmd_support_audio(_mtmdCtx);
+}
+
+- (nullable NSString *)applyChatTemplate:(nullable NSString *)templateOverride
+                                messages:(NSArray<NSDictionary<NSString *, NSString *> *> *)messages
+                            addAssistant:(BOOL)addAssistant
+                                   error:(NSError **)error {
+    if (!self.isLoaded) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:40
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Model not loaded"}];
+        }
+        return nil;
+    }
+    NSUInteger n = messages.count;
+    if (n == 0) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:43
+                                     userInfo:@{NSLocalizedDescriptionKey: @"messages array is empty"}];
+        }
+        return nil;
+    }
+
+    // Build llama_chat_message array. We strdup() each role/content so the
+    // C-string lifetime is independent of any autorelease pool draining
+    // mid-call. NSString.UTF8String returns a pointer with autorelease
+    // lifetime, which is unsafe to hold across this multi-step call.
+    struct llama_chat_message *chat = (struct llama_chat_message *)calloc(n, sizeof(struct llama_chat_message));
+    if (!chat) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:44
+                                     userInfo:@{NSLocalizedDescriptionKey: @"calloc failed"}];
+        }
+        return nil;
+    }
+    for (NSUInteger i = 0; i < n; i++) {
+        NSDictionary *msg = messages[i];
+        NSString *role = msg[@"role"];
+        NSString *content = msg[@"content"];
+        if (![role isKindOfClass:[NSString class]]) role = @"user";
+        if (![content isKindOfClass:[NSString class]]) content = @"";
+        chat[i].role = strdup([role UTF8String]);
+        chat[i].content = strdup([content UTF8String]);
+    }
+
+    // Resolve template: explicit override > model's own > NULL (= built-in
+    // default heuristic; may fail for unknown architectures).
+    const char *tmpl = NULL;
+    if (templateOverride.length > 0) {
+        tmpl = [templateOverride UTF8String];
+    } else {
+        const char *modelTmpl = llama_model_chat_template(_model, NULL);
+        if (modelTmpl) tmpl = modelTmpl;
+    }
+
+    // Probe size. llama_chat_apply_template returns the required bytes
+    // (positive) when buf is too small, or a negative error code.
+    int needed = llama_chat_apply_template(tmpl, chat, n, addAssistant, NULL, 0);
+    if (needed <= 0) {
+        for (NSUInteger i = 0; i < n; i++) {
+            free((void *)chat[i].role);
+            free((void *)chat[i].content);
+        }
+        free(chat);
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:41
+                                     userInfo:@{NSLocalizedDescriptionKey:
+                                                @"llama_chat_apply_template probe failed (model has no chat template and none provided?)"}];
+        }
+        return nil;
+    }
+    char *buf = (char *)calloc((size_t)needed + 1, sizeof(char));
+    if (!buf) {
+        for (NSUInteger i = 0; i < n; i++) {
+            free((void *)chat[i].role);
+            free((void *)chat[i].content);
+        }
+        free(chat);
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:44
+                                     userInfo:@{NSLocalizedDescriptionKey: @"calloc failed"}];
+        }
+        return nil;
+    }
+    int actual = llama_chat_apply_template(tmpl, chat, n, addAssistant, buf, needed + 1);
+    NSString *result = nil;
+    if (actual > 0) {
+        result = [[NSString alloc] initWithBytes:buf length:(NSUInteger)actual encoding:NSUTF8StringEncoding];
+    }
+    for (NSUInteger i = 0; i < n; i++) {
+        free((void *)chat[i].role);
+        free((void *)chat[i].content);
+    }
+    free(chat);
+    free(buf);
+
+    if (!result) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:42
+                                     userInfo:@{NSLocalizedDescriptionKey: @"llama_chat_apply_template failed"}];
+        }
+        return nil;
+    }
+    return result;
+}
+
+- (nullable NSString *)completeMultimodalPrompt:(NSString *)prompt
+                                          media:(NSArray<NSData *> *)mediaInOrder
+                                      maxTokens:(int)maxTokens
+                                    temperature:(float)temperature
+                                           topP:(float)topP
+                                          error:(NSError **)error {
+    (void)temperature;
+    (void)topP;
+
+    if (!self.isLoaded) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:50
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Model not loaded"}];
+        }
+        return nil;
+    }
+    if (_mtmdCtx == NULL) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:51
+                                     userInfo:@{NSLocalizedDescriptionKey: @"mmproj not loaded"}];
+        }
+        return nil;
+    }
+
+    NSUInteger nMedia = mediaInOrder.count;
+
+    // 1. Build bitmaps in declaration order. Each bitmap is auto-detected as
+    //    image vs audio by mtmd_helper_bitmap_init_from_buf via magic bytes.
+    mtmd_bitmap **bitmaps = NULL;
+    if (nMedia > 0) {
+        bitmaps = (mtmd_bitmap **)calloc(nMedia, sizeof(mtmd_bitmap *));
+        if (!bitmaps) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                             code:55
+                                         userInfo:@{NSLocalizedDescriptionKey: @"calloc failed"}];
+            }
+            return nil;
+        }
+    }
+    for (NSUInteger i = 0; i < nMedia; i++) {
+        NSData *bytes = mediaInOrder[i];
+        bitmaps[i] = mtmd_helper_bitmap_init_from_buf(_mtmdCtx,
+                                                     (const unsigned char *)bytes.bytes,
+                                                     (size_t)bytes.length);
+        if (bitmaps[i] == NULL) {
+            for (NSUInteger j = 0; j < i; j++) mtmd_bitmap_free(bitmaps[j]);
+            free(bitmaps);
+            if (error) {
+                *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                             code:52
+                                         userInfo:@{NSLocalizedDescriptionKey:
+                                                    [NSString stringWithFormat:@"mtmd_helper_bitmap_init_from_buf failed for media[%lu]",
+                                                     (unsigned long)i]}];
+            }
+            return nil;
+        }
+    }
+
+    // 2. Tokenize. mtmd_tokenize matches markers in the prompt against the
+    //    bitmap array in order.
+    mtmd_input_chunks *chunks = mtmd_input_chunks_init();
+    if (!chunks) {
+        for (NSUInteger i = 0; i < nMedia; i++) mtmd_bitmap_free(bitmaps[i]);
+        free(bitmaps);
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:55
+                                     userInfo:@{NSLocalizedDescriptionKey: @"mtmd_input_chunks_init failed"}];
+        }
+        return nil;
+    }
+    struct mtmd_input_text input_text;
+    input_text.text = prompt ? [prompt UTF8String] : "";
+    // The chat template already added BOS; don't add it again.
+    input_text.add_special = false;
+    input_text.parse_special = true;
+    int32_t tok_rc = mtmd_tokenize(_mtmdCtx, chunks, &input_text,
+                                   (const mtmd_bitmap **)bitmaps, (size_t)nMedia);
+    // Per mtmd.h: mtmd_tokenize copies what it needs out of bitmaps; safe to
+    // free immediately after the call returns.
+    for (NSUInteger i = 0; i < nMedia; i++) mtmd_bitmap_free(bitmaps[i]);
+    free(bitmaps);
+    if (tok_rc != 0) {
+        mtmd_input_chunks_free(chunks);
+        if (error) {
+            NSString *msg = (tok_rc == 1)
+                ? @"mtmd_tokenize: marker count does not match media count"
+                : (tok_rc == 2)
+                    ? @"mtmd_tokenize: image preprocessing error"
+                    : [NSString stringWithFormat:@"mtmd_tokenize failed (rc=%d)", tok_rc];
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:53
+                                     userInfo:@{NSLocalizedDescriptionKey: msg}];
+        }
+        return nil;
+    }
+
+    // 3. Eval all chunks.
+    llama_pos n_past = 0;
+    llama_pos new_n_past = 0;
+    int32_t eval_rc = mtmd_helper_eval_chunks(_mtmdCtx, _ctx, chunks,
+                                              n_past,
+                                              /*seq_id=*/0,
+                                              /*n_batch=*/512,
+                                              /*logits_last=*/true,
+                                              &new_n_past);
+    mtmd_input_chunks_free(chunks);
+    if (eval_rc != 0) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"DVAIBridgeLlama"
+                                         code:54
+                                     userInfo:@{NSLocalizedDescriptionKey:
+                                                [NSString stringWithFormat:@"mtmd_helper_eval_chunks failed (rc=%d)",
+                                                 eval_rc]}];
+        }
+        return nil;
+    }
+
+    // 4. Sampling loop (greedy). The KV cache now reflects all evaled chunks;
+    //    each sampled token is appended as a 1-token batch via the helper.
+    const struct llama_vocab *vocab = llama_model_get_vocab(_model);
+    return [self sampleGreedyUpToMaxTokens:maxTokens vocab:vocab];
 }
 
 @end

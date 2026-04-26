@@ -81,4 +81,154 @@ final class RealModelSmokeTest: XCTestCase {
         // Don't assert specific content — that's quality testing, not smoke.
         XCTAssertFalse(completion.isEmpty, "completion should not be empty")
     }
+
+    /// Vision smoke: download model + mmproj, load both, run a chat
+    /// completion against the tiny test image fixture. Skips cleanly if any
+    /// of SMOKE_VISION_MODEL_URL / SMOKE_VISION_MODEL_SHA256 /
+    /// SMOKE_VISION_MMPROJ_URL / SMOKE_VISION_MMPROJ_SHA256 are unset.
+    func testSmokeVisionEndToEnd() async throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let modelUrlStr = env["SMOKE_VISION_MODEL_URL"], !modelUrlStr.isEmpty,
+              let modelSha = env["SMOKE_VISION_MODEL_SHA256"], !modelSha.isEmpty,
+              let mmprojUrlStr = env["SMOKE_VISION_MMPROJ_URL"], !mmprojUrlStr.isEmpty,
+              let mmprojSha = env["SMOKE_VISION_MMPROJ_SHA256"], !mmprojSha.isEmpty,
+              let modelUrl = URL(string: modelUrlStr),
+              let mmprojUrl = URL(string: mmprojUrlStr)
+        else {
+            throw XCTSkip("SMOKE_VISION_* env vars not all set; skipping vision smoke")
+        }
+
+        let downloader = ModelDownloader(cacheDirOverride: tempDir)
+        let modelResult = try await downloader.downloadModel(
+            url: modelUrl,
+            expectedSha256: modelSha.lowercased(),
+            destFilename: "smoke-vision-model.gguf",
+            headers: [:],
+            onProgress: { _, _ in /* no-op for smoke */ }
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: modelResult.path))
+        let mmprojResult = try await downloader.downloadModel(
+            url: mmprojUrl,
+            expectedSha256: mmprojSha.lowercased(),
+            destFilename: "smoke-vision-mmproj.gguf",
+            headers: [:],
+            onProgress: { _, _ in /* no-op for smoke */ }
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: mmprojResult.path))
+
+        let bridge = LlamaCppBridge()
+        self.bridge = bridge
+        try bridge.loadModel(
+            atPath: modelResult.path,
+            mmprojPath: nil,
+            gpuLayers: 99,
+            contextSize: 4096,
+            threads: 4,
+            embeddingMode: false
+        )
+        XCTAssertTrue(bridge.isLoaded)
+        try bridge.loadMmproj(atPath: mmprojResult.path)
+        XCTAssertTrue(bridge.isMmprojLoaded)
+
+        // Read the tiny PNG fixture (1x1 transparent pixel).
+        let imageURL = fixturesURL().appendingPathComponent("images").appendingPathComponent("tiny-test.png")
+        let imageData = try Data(contentsOf: imageURL)
+
+        // Build a marker-bearing prompt and apply the model's chat template.
+        let messages: [[String: String]] = [
+            ["role": "user", "content": "Describe this image: \(MTMD_MEDIA_MARKER)"]
+        ]
+        let chatPrompt = try bridge.applyChatTemplate(nil, messages: messages, addAssistant: true)
+        XCTAssertFalse(chatPrompt.isEmpty)
+
+        let completion = try bridge.completeMultimodalPrompt(
+            chatPrompt,
+            media: [imageData],
+            maxTokens: 32,
+            temperature: 0.0,
+            topP: 1.0
+        )
+        XCTAssertFalse(completion.isEmpty, "vision completion should not be empty")
+    }
+
+    /// Audio smoke: same as vision, but with the WAV fixture instead of PNG.
+    /// mtmd's `mtmd_helper_bitmap_init_from_buf` accepts wav/mp3/flac for
+    /// audio (per mtmd-helper.h docs). Skips when the model declared no
+    /// audio encoder (e.g. vision-only mmproj).
+    func testSmokeAudioEndToEnd() async throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let modelUrlStr = env["SMOKE_VISION_MODEL_URL"], !modelUrlStr.isEmpty,
+              let modelSha = env["SMOKE_VISION_MODEL_SHA256"], !modelSha.isEmpty,
+              let mmprojUrlStr = env["SMOKE_VISION_MMPROJ_URL"], !mmprojUrlStr.isEmpty,
+              let mmprojSha = env["SMOKE_VISION_MMPROJ_SHA256"], !mmprojSha.isEmpty,
+              let modelUrl = URL(string: modelUrlStr),
+              let mmprojUrl = URL(string: mmprojUrlStr)
+        else {
+            throw XCTSkip("SMOKE_VISION_* env vars not all set; skipping audio smoke")
+        }
+
+        let downloader = ModelDownloader(cacheDirOverride: tempDir)
+        let modelResult = try await downloader.downloadModel(
+            url: modelUrl,
+            expectedSha256: modelSha.lowercased(),
+            destFilename: "smoke-audio-model.gguf",
+            headers: [:],
+            onProgress: { _, _ in /* no-op for smoke */ }
+        )
+        let mmprojResult = try await downloader.downloadModel(
+            url: mmprojUrl,
+            expectedSha256: mmprojSha.lowercased(),
+            destFilename: "smoke-audio-mmproj.gguf",
+            headers: [:],
+            onProgress: { _, _ in /* no-op for smoke */ }
+        )
+
+        let bridge = LlamaCppBridge()
+        self.bridge = bridge
+        try bridge.loadModel(
+            atPath: modelResult.path,
+            mmprojPath: nil,
+            gpuLayers: 99,
+            contextSize: 4096,
+            threads: 4,
+            embeddingMode: false
+        )
+        try bridge.loadMmproj(atPath: mmprojResult.path)
+
+        // Skip cleanly if the loaded mmproj has no audio encoder (e.g. when
+        // SMOKE_VISION_* points at a vision-only projector).
+        guard bridge.hasAudioEncoder() else {
+            throw XCTSkip("Loaded mmproj reports no audio encoder; skipping audio smoke")
+        }
+
+        let audioURL = fixturesURL().appendingPathComponent("audio").appendingPathComponent("wav-1s-16khz-mono.wav")
+        let audioData = try Data(contentsOf: audioURL)
+
+        let messages: [[String: String]] = [
+            ["role": "user", "content": "Transcribe this: \(MTMD_MEDIA_MARKER)"]
+        ]
+        let chatPrompt = try bridge.applyChatTemplate(nil, messages: messages, addAssistant: true)
+
+        let completion = try bridge.completeMultimodalPrompt(
+            chatPrompt,
+            media: [audioData],
+            maxTokens: 32,
+            temperature: 0.0,
+            topP: 1.0
+        )
+        XCTAssertFalse(completion.isEmpty, "audio completion should not be empty")
+    }
+
+    /// Walks up from #file to find the repo-root `fixtures/` dir.
+    private func fixturesURL() -> URL {
+        var dir = URL(fileURLWithPath: #file).deletingLastPathComponent()
+        while !FileManager.default.fileExists(atPath: dir.appendingPathComponent("fixtures").path) {
+            let parent = dir.deletingLastPathComponent()
+            if parent.path == dir.path {
+                fatalError("fixtures dir not found walking up from \(#file)")
+            }
+            dir = parent
+        }
+        return dir.appendingPathComponent("fixtures")
+    }
 }

@@ -124,6 +124,47 @@ class LlamaCppBridgeTest {
         assertFalse(bridge.isMmprojLoaded())
     }
 
+    // ---- Phase 2A Pass 2 ----
+
+    @Test
+    fun `hasAudioEncoder is false without mmproj`() {
+        val bridge = LlamaCppBridge()
+        assertFalse(bridge.hasAudioEncoder())
+    }
+
+    @Test
+    fun `applyChatTemplate returns null when not loaded`() {
+        val bridge = LlamaCppBridge()
+        val result = bridge.applyChatTemplate(
+            templateOverride = null,
+            messages = listOf(mapOf("role" to "user", "content" to "hi")),
+            addAssistant = true,
+        )
+        assertNull(result)
+    }
+
+    @Test
+    fun `completeMultimodalPrompt returns null when mmproj not loaded`() {
+        val bridge = LlamaCppBridge()
+        bridge.loadModel(
+            path = "/tmp/fake.gguf",
+            mmprojPath = null,
+            gpuLayers = 99,
+            contextSize = 2048,
+            threads = 4,
+            embeddingMode = false,
+        )
+        // Loaded but no mmproj -> bridge returns null without invoking JNI.
+        val result = bridge.completeMultimodalPrompt(
+            prompt = "hi <__media__>",
+            media = listOf(byteArrayOf(0x00, 0x01)),
+            maxTokens = 8,
+            temperature = 0.0f,
+            topP = 1.0f,
+        )
+        assertNull(result)
+    }
+
     @Test
     fun `loadMmproj + unload cycle updates mmproj state`() {
         val bridge = LlamaCppBridge()

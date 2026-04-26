@@ -7,15 +7,36 @@ import DVAICapacitorLlamaObjC
 final class MockBridge: LlamaCppBridgeProtocol {
     var loaded: Bool = true
     var completionToReturn: String = "canned response"
+    var multimodalCompletionToReturn: String = "canned multimodal response"
     var embeddingToReturn: [NSNumber] = [NSNumber(value: 0.1), NSNumber(value: 0.2), NSNumber(value: 0.3)]
     var receivedPrompt: String?
+    var receivedMultimodalPrompt: String?
+    var receivedMedia: [Data] = []
     var receivedEmbeddingTexts: [String] = []
     var completionShouldThrow: Bool = false
+    var multimodalShouldThrow: Bool = false
     var embeddingShouldThrow: Bool = false
-    // Phase 2A Pass 1: mmproj-stub plumbing for the protocol surface.
+    // Phase 2A Pass 2: real mmproj surface.
     var mmprojLoaded: Bool = false
+    var modelHasAudioEncoder: Bool = false
     var receivedMmprojPath: String?
     var loadMmprojShouldThrow: Bool = false
+    // Chat template: identity-with-markers by default so tests can assert
+    // marker count from the rendered string.
+    var receivedChatTemplate: String?
+    var receivedChatMessages: [[String: String]] = []
+    var chatTemplateShouldThrow: Bool = false
+    /// Closure that builds the rendered template from the messages. Default
+    /// concatenates `<role>: <content>\n` for each message — preserves marker
+    /// positions inside content fields so handler tests can verify marker count.
+    var chatTemplateRenderer: ([[String: String]], Bool) -> String = { msgs, addAssistant in
+        var s = ""
+        for m in msgs {
+            s += "\(m["role"] ?? "user"): \(m["content"] ?? "")\n"
+        }
+        if addAssistant { s += "assistant:" }
+        return s
+    }
 
     var isLoaded: Bool { loaded }
     var isMmprojLoaded: Bool { mmprojLoaded }
@@ -46,6 +67,36 @@ final class MockBridge: LlamaCppBridgeProtocol {
 
     func unloadMmproj() {
         mmprojLoaded = false
+    }
+
+    func hasAudioEncoder() -> Bool { modelHasAudioEncoder }
+
+    func applyChatTemplate(
+        _ templateOverride: String?,
+        messages: [[String: String]],
+        addAssistant: Bool
+    ) throws -> String {
+        receivedChatTemplate = templateOverride
+        receivedChatMessages = messages
+        if chatTemplateShouldThrow {
+            throw NSError(domain: "MockBridge", code: 102, userInfo: [NSLocalizedDescriptionKey: "template boom"])
+        }
+        return chatTemplateRenderer(messages, addAssistant)
+    }
+
+    func completeMultimodalPrompt(
+        _ prompt: String,
+        media: [Data],
+        maxTokens: Int32,
+        temperature: Float,
+        topP: Float
+    ) throws -> String {
+        receivedMultimodalPrompt = prompt
+        receivedMedia = media
+        if multimodalShouldThrow {
+            throw NSError(domain: "MockBridge", code: 103, userInfo: [NSLocalizedDescriptionKey: "multimodal boom"])
+        }
+        return multimodalCompletionToReturn
     }
 }
 
@@ -209,6 +260,115 @@ final class LlamaHandlersTest: XCTestCase {
         }
         XCTAssertEqual(status, 400)
         XCTAssertTrue(message.contains("native audio encoder"), "message: \(message)")
+    }
+
+    // MARK: - Multimodal happy paths (Phase 2A Pass 2)
+
+    /// Image happy path: mmprojLoaded=true, body contains a tiny PNG data URL.
+    /// The mock bridge records the call to completeMultimodalPrompt with
+    /// media.count == 1; the rendered prompt has exactly one <__media__>
+    /// marker; assert the OpenAI chat.completion shape on response.
+    func testChatVisionHappyPath() async throws {
+        let bridge = MockBridge()
+        bridge.multimodalCompletionToReturn = "I see a 1x1 transparent pixel."
+        let handlers = makeHandlers(bridge: bridge, mmprojLoaded: true)
+        let body: [String: Any] = [
+            "messages": [[
+                "role": "user",
+                "content": [
+                    ["type": "text", "text": "What's in this image?"],
+                    ["type": "image_url", "image_url": ["url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="]] as [String: Any],
+                ],
+            ] as [String: Any]],
+        ]
+        let resp = try await handlers.handleChatCompletion(body: body, ctx: ctx)
+        guard case .json(let status, let bodyAny) = resp else {
+            XCTFail("expected .json response, got \(resp)")
+            return
+        }
+        XCTAssertEqual(status, 200)
+        XCTAssertEqual(bridge.receivedMedia.count, 1)
+        // The chat-template renderer in the mock concatenates `<role>: <content>\n`,
+        // so the rendered prompt should contain exactly one <__media__> marker.
+        let prompt = bridge.receivedMultimodalPrompt ?? ""
+        let markerCount = prompt.components(separatedBy: MTMD_MEDIA_MARKER).count - 1
+        XCTAssertEqual(markerCount, 1, "expected exactly one <__media__> marker, got prompt: \(prompt)")
+        let json = bodyAny as? [String: Any]
+        XCTAssertEqual(json?["object"] as? String, "chat.completion")
+        let choices = json?["choices"] as? [[String: Any]]
+        let msg = choices?.first?["message"] as? [String: Any]
+        XCTAssertEqual(msg?["content"] as? String, "I see a 1x1 transparent pixel.")
+    }
+
+    /// Audio happy path: modelHasAudioEncoder=true, body contains a tiny
+    /// pcm16 base64. Bridge records the call to completeMultimodalPrompt;
+    /// media.count == 1.
+    func testChatAudioHappyPath() async throws {
+        let bridge = MockBridge()
+        bridge.multimodalCompletionToReturn = "hello world"
+        let handlers = makeHandlers(bridge: bridge, modelHasAudioEncoder: true)
+        // 8 zero-bytes — the pcm16 path is pass-through (no decode), so the
+        // translator does not need to call AudioDecoder for this format.
+        let pcm = Data(repeating: 0, count: 32)
+        let body: [String: Any] = [
+            "messages": [[
+                "role": "user",
+                "content": [
+                    ["type": "text", "text": "Transcribe:"],
+                    ["type": "input_audio", "input_audio": ["data": pcm.base64EncodedString(), "format": "pcm16"]] as [String: Any],
+                ],
+            ] as [String: Any]],
+        ]
+        let resp = try await handlers.handleChatCompletion(body: body, ctx: ctx)
+        guard case .json(let status, _) = resp else {
+            XCTFail("expected .json response, got \(resp)")
+            return
+        }
+        XCTAssertEqual(status, 200)
+        XCTAssertEqual(bridge.receivedMedia.count, 1)
+        XCTAssertEqual(bridge.receivedMedia[0], pcm)
+        let prompt = bridge.receivedMultimodalPrompt ?? ""
+        let markerCount = prompt.components(separatedBy: MTMD_MEDIA_MARKER).count - 1
+        XCTAssertEqual(markerCount, 1)
+    }
+
+    /// Interleaved [text, image, text, audio, text]: media list is
+    /// [imageBytes, audioBytes] in declaration order; rendered prompt has
+    /// exactly two <__media__> markers in the right positions.
+    func testChatInterleavedImageAudio() async throws {
+        let bridge = MockBridge()
+        let handlers = makeHandlers(
+            bridge: bridge,
+            mmprojLoaded: true,
+            modelHasAudioEncoder: true
+        )
+        let pcm = Data(repeating: 0xAB, count: 16)
+        let body: [String: Any] = [
+            "messages": [[
+                "role": "user",
+                "content": [
+                    ["type": "text", "text": "alpha"],
+                    ["type": "image_url", "image_url": ["url": "data:image/png;base64,iVBORw0KGgo="]] as [String: Any],
+                    ["type": "text", "text": "beta"],
+                    ["type": "input_audio", "input_audio": ["data": pcm.base64EncodedString(), "format": "pcm16"]] as [String: Any],
+                    ["type": "text", "text": "gamma"],
+                ],
+            ] as [String: Any]],
+        ]
+        let resp = try await handlers.handleChatCompletion(body: body, ctx: ctx)
+        guard case .json(let status, _) = resp else {
+            XCTFail("expected .json response, got \(resp)")
+            return
+        }
+        XCTAssertEqual(status, 200)
+        XCTAssertEqual(bridge.receivedMedia.count, 2)
+        // Audio bytes should match (image bytes are the data-URL-decoded PNG
+        // header — we don't assert exact bytes, just that the audio is at
+        // index 1 after the image).
+        XCTAssertEqual(bridge.receivedMedia[1], pcm)
+        let prompt = bridge.receivedMultimodalPrompt ?? ""
+        let markerCount = prompt.components(separatedBy: MTMD_MEDIA_MARKER).count - 1
+        XCTAssertEqual(markerCount, 2, "expected exactly two markers, got prompt: \(prompt)")
     }
 
     func testChatCompletionMissingMessagesReturns400() async throws {

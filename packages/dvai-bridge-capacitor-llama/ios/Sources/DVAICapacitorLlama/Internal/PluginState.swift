@@ -27,6 +27,7 @@ actor PluginState {
         }
 
         let mmprojPath = opts["mmprojPath"] as? String
+        let chatTemplate = opts["chatTemplate"] as? String
         let gpuLayers = opts["gpuLayers"] as? Int ?? 99
         let contextSize = opts["contextSize"] as? Int ?? 2048
         let threads = opts["threads"] as? Int ?? 4
@@ -47,6 +48,22 @@ actor PluginState {
             embeddingMode: embeddingMode
         )
 
+        // Phase 2A Pass 2: load mmproj (if provided) so multimodal handlers
+        // can light up. A failed mmproj load is fatal for this start() call —
+        // the caller asked for a multimodal model and we couldn't deliver.
+        if let mmprojPath = mmprojPath, !mmprojPath.isEmpty {
+            do {
+                try bridge.loadMmproj(atPath: mmprojPath)
+            } catch {
+                bridge.unload()
+                throw error
+            }
+        }
+        let mmprojLoaded = bridge.isMmprojLoaded
+        // Audio encoder support implies mmproj is loaded AND mtmd reports
+        // an audio encoder is present in the projector.
+        let modelHasAudioEncoder = mmprojLoaded && bridge.hasAudioEncoder()
+
         // Bind server (with port-fallback). If bind fails, release the bridge
         // so the loaded llama context doesn't leak until next start().
         let server = HttpServer()
@@ -62,15 +79,18 @@ actor PluginState {
             throw error
         }
 
-        // Install routes. Phase 1: mmproj / audio-encoder gates stay false until
-        // the corresponding loaders land in Phase 2; embeddingMode is mirrored
-        // from the start opts so /v1/embeddings can short-circuit when off.
+        // Install routes. Phase 2A Pass 2: real flags mirrored from the
+        // bridge state. embeddingMode comes straight from the start opts so
+        // /v1/embeddings can short-circuit when off. chatTemplate is an
+        // optional Jinja-compatible override; nil/empty falls through to
+        // the model's bundled `tokenizer.chat_template`.
         let handlers = LlamaHandlers(
             bridge: bridge,
             modelId: modelPath,
-            mmprojLoaded: false,
-            modelHasAudioEncoder: false,
-            embeddingMode: embeddingMode
+            mmprojLoaded: mmprojLoaded,
+            modelHasAudioEncoder: modelHasAudioEncoder,
+            embeddingMode: embeddingMode,
+            chatTemplate: chatTemplate
         )
         let ctx = HandlerContext(modelId: modelPath, backendName: "llama")
         await server.installRoutes(handlers: handlers, ctx: ctx, corsConfig: corsConfig)

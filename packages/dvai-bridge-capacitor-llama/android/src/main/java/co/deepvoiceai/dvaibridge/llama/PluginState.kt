@@ -26,6 +26,7 @@ class PluginState {
         if (modelPath.isEmpty()) throw IllegalArgumentException("modelPath is required for llama backend")
 
         val mmprojPath = opts.getString("mmprojPath")
+        val chatTemplate = opts.getString("chatTemplate")
         val gpuLayers = opts.getInteger("gpuLayers") ?: 99
         val contextSize = opts.getInteger("contextSize") ?: 2048
         val threads = opts.getInteger("threads") ?: 4
@@ -34,23 +35,36 @@ class PluginState {
         val httpMaxPortAttempts = opts.getInteger("httpMaxPortAttempts") ?: 16
         val corsConfig = parseCors(opts.opt("corsOrigin"))
 
-        // Load model via bridge (currently stub — real llama.cpp call in Task 31)
+        // Load model via bridge.
         val newBridge = LlamaCppBridge()
         val ok = newBridge.loadModel(modelPath, mmprojPath, gpuLayers, contextSize, threads, embeddingMode)
         if (!ok) {
             throw IllegalStateException("Failed to load model at $modelPath")
         }
 
-        // Wire handlers + ctx. Phase 1: mmproj / audio-encoder gates stay
-        // false until Phase 2 lands the corresponding loaders; embeddingMode
-        // is mirrored from the start opts so /v1/embeddings can short-circuit
-        // when off.
+        // Phase 2A Pass 2: load mmproj if provided. Failure is fatal — the
+        // caller asked for a multimodal model and we couldn't deliver.
+        if (!mmprojPath.isNullOrEmpty()) {
+            val mmprojOk = newBridge.loadMmproj(mmprojPath)
+            if (!mmprojOk) {
+                newBridge.unload()
+                throw IllegalStateException("Failed to load mmproj at $mmprojPath")
+            }
+        }
+        val mmprojLoaded = newBridge.isMmprojLoaded()
+        val modelHasAudioEncoder = mmprojLoaded && newBridge.hasAudioEncoder()
+
+        // Wire handlers + ctx. Phase 2A Pass 2: real flags mirrored from the
+        // bridge state. embeddingMode mirrors start opts so /v1/embeddings
+        // can short-circuit when off. chatTemplate is optional Jinja override;
+        // null/empty falls through to the model's bundled chat template.
         val handlers = LlamaHandlers(
             bridge = newBridge,
             modelId = modelPath,
-            mmprojLoaded = false,
-            modelHasAudioEncoder = false,
+            mmprojLoaded = mmprojLoaded,
+            modelHasAudioEncoder = modelHasAudioEncoder,
             embeddingMode = embeddingMode,
+            chatTemplate = chatTemplate,
         )
         val ctx = HandlerContext(modelId = modelPath, backendName = "llama")
 
