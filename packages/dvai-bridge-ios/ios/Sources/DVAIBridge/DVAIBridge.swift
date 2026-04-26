@@ -90,6 +90,11 @@ public actor DVAIBridge {
         self.activeBaseUrl = server.baseUrl
 
         progressBroadcaster.emit(ProgressEvent(phase: .ready))
+
+        let serverCopy = server
+        await MainActor.run {
+            DVAIBridgeReactiveStateRegistry.shared.state(for: self).didStart(serverCopy)
+        }
         return server
     }
 
@@ -119,11 +124,17 @@ public actor DVAIBridge {
             self.active = nil
             self.activeKind = nil
             self.activeBaseUrl = nil
+            await MainActor.run {
+                DVAIBridgeReactiveStateRegistry.shared.state(for: self).didStop()
+            }
             throw DVAIBridgeError.backendError(underlying: error.localizedDescription)
         }
         self.active = nil
         self.activeKind = nil
         self.activeBaseUrl = nil
+        await MainActor.run {
+            DVAIBridgeReactiveStateRegistry.shared.state(for: self).didStop()
+        }
     }
 
     // MARK: - Status
