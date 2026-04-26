@@ -1,13 +1,18 @@
 package co.deepvoiceai.bridge.llama.core
 
-import com.getcapacitor.JSObject
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Owns the running state of the capacitor-llama plugin: the model bridge,
- * the HTTP server, and the model metadata. All access serialized through
- * the Mutex (Kotlin's actor-equivalent for this use case).
+ * Owns the running state of the llama core: the model bridge, the HTTP
+ * server, and the model metadata. All access serialized through the Mutex
+ * (Kotlin's actor-equivalent for this use case).
+ *
+ * Capacitor neutrality: this class takes plain `Map<String, Any?>` for
+ * `start(opts:)` and returns the same shape from `start` / `statusInfo` so
+ * the core compiles without a Capacitor dependency. The Capacitor wrapper
+ * (Plugin.kt in dvai-bridge-capacitor-llama) translates JSObject ↔ Map at
+ * the JS-bridge boundary.
  */
 class PluginState {
     private val mutex = Mutex()
@@ -18,22 +23,22 @@ class PluginState {
     private var baseUrl: String? = null
     private var port: Int? = null
 
-    suspend fun start(opts: JSObject): JSObject = mutex.withLock {
+    suspend fun start(opts: Map<String, Any?>): Map<String, Any?> = mutex.withLock {
         if (isRunning) stopInternal()
 
-        val modelPath = opts.getString("modelPath")
+        val modelPath = (opts["modelPath"] as? String)
             ?: throw IllegalArgumentException("modelPath is required for llama backend")
         if (modelPath.isEmpty()) throw IllegalArgumentException("modelPath is required for llama backend")
 
-        val mmprojPath = opts.getString("mmprojPath")
-        val chatTemplate = opts.getString("chatTemplate")
-        val gpuLayers = opts.getInteger("gpuLayers") ?: 99
-        val contextSize = opts.getInteger("contextSize") ?: 2048
-        val threads = opts.getInteger("threads") ?: 4
-        val embeddingMode = opts.getBoolean("embeddingMode", false) ?: false
-        val httpBasePort = opts.getInteger("httpBasePort") ?: 38883
-        val httpMaxPortAttempts = opts.getInteger("httpMaxPortAttempts") ?: 16
-        val corsConfig = parseCors(opts.opt("corsOrigin"))
+        val mmprojPath = opts["mmprojPath"] as? String
+        val chatTemplate = opts["chatTemplate"] as? String
+        val gpuLayers = (opts["gpuLayers"] as? Number)?.toInt() ?: 99
+        val contextSize = (opts["contextSize"] as? Number)?.toInt() ?: 2048
+        val threads = (opts["threads"] as? Number)?.toInt() ?: 4
+        val embeddingMode = opts["embeddingMode"] as? Boolean ?: false
+        val httpBasePort = (opts["httpBasePort"] as? Number)?.toInt() ?: 38883
+        val httpMaxPortAttempts = (opts["httpMaxPortAttempts"] as? Number)?.toInt() ?: 16
+        val corsConfig = parseCors(opts["corsOrigin"])
 
         // Load model via bridge.
         val newBridge = LlamaCppBridge()
@@ -86,12 +91,12 @@ class PluginState {
         this.baseUrl = "http://127.0.0.1:$boundPort/v1"
         this.isRunning = true
 
-        return@withLock JSObject().apply {
-            put("baseUrl", "http://127.0.0.1:$boundPort/v1")
-            put("port", boundPort)
-            put("backend", "llama")
-            put("modelId", modelPath)
-        }
+        return@withLock mapOf(
+            "baseUrl" to "http://127.0.0.1:$boundPort/v1",
+            "port" to boundPort,
+            "backend" to "llama",
+            "modelId" to modelPath,
+        )
     }
 
     suspend fun stop() = mutex.withLock { stopInternal() }
@@ -107,7 +112,7 @@ class PluginState {
         isRunning = false
     }
 
-    fun statusInfo(): JSObject = JSObject().apply {
+    fun statusInfo(): Map<String, Any?> = buildMap {
         put("running", isRunning)
         baseUrl?.let { put("baseUrl", it) }
         if (isRunning) put("backend", "llama")
