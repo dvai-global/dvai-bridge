@@ -206,12 +206,7 @@ public actor DVAIBridge {
             return DownloadResult(path: coreResult.path, cached: coreResult.cached)
         } catch {
             progressBroadcaster.emit(ProgressEvent(phase: .error, message: error.localizedDescription))
-            // ModelDownloader.DownloadError is internal to DVAILlamaCore so we
-            // can't pattern-match the case across modules. Match on the
-            // localized description prefix produced by the enum's
-            // `errorDescription` (see ModelDownloader.swift line 34).
-            let desc = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            if desc.contains("ChecksumMismatch") {
+            if case ModelDownloader.DownloadError.checksumMismatch = error {
                 throw DVAIBridgeError.checksumMismatch
             }
             throw DVAIBridgeError.downloadFailed(reason: error.localizedDescription)
