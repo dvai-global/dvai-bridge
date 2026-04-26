@@ -7,16 +7,16 @@ import Telegraph
 /// Telegraph 0.40 exposes a synchronous, throwing `start(port:interface:)`
 /// and a synchronous `stop(immediately:)`. We wrap those in an `actor` so
 /// concurrent callers see consistent state.
-actor HttpServer {
+public actor HttpServer {
     private var server: Server?
-    private(set) var boundPort: Int?
+    public private(set) var boundPort: Int?
 
-    init() {}
+    public init() {}
 
     /// Try to bind to `basePort`, falling back to `basePort+1`, ..., up to
     /// `maxAttempts` ports. Returns the port that bound successfully.
     /// Throws if all ports in the range are unavailable.
-    func tryBind(basePort: Int, maxAttempts: Int, host: String) async throws -> Int {
+    public func tryBind(basePort: Int, maxAttempts: Int, host: String) async throws -> Int {
         let lastPort = basePort + maxAttempts - 1
 
         for i in 0..<maxAttempts {
@@ -47,7 +47,7 @@ actor HttpServer {
 
     /// Stops the server. Idempotent — safe to call multiple times,
     /// including before any successful bind.
-    func stop() {
+    public func stop() {
         if let s = server {
             s.stop(immediately: true)
             server = nil
@@ -62,7 +62,7 @@ actor HttpServer {
     /// (the protocol is async). We bridge sync→async via a semaphore.
     /// Acceptable for Phase 1; real-time streaming will need a different
     /// pattern.
-    func installRoutes(handlers: DVAIHandlers, ctx: HandlerContext, corsConfig: CORSConfig) {
+    public func installRoutes(handlers: DVAIHandlers, ctx: HandlerContext, corsConfig: CORSConfig) {
         guard let s = server else { return }
 
         let dispatchClosure: HTTPRequest.Handler = { request in
