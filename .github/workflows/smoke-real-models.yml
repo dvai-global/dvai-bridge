@@ -25,13 +25,21 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Default smoke model — TinyLlama 1.1B Q4_K_M-class GGUF (~670 MB).
-  # Override via workflow_dispatch inputs for ad-hoc runs.
-  # NOTE: The actual URL + sha256 must be filled in by the maintainer
-  # in repository secrets (SMOKE_MODEL_URL, SMOKE_MODEL_SHA256) before
-  # this workflow runs successfully on its first scheduled invocation.
+  # Default smoke model — small text-only GGUF (~670 MB) used by the
+  # text-only end-to-end smoke. Override via workflow_dispatch inputs for
+  # ad-hoc runs. NOTE: maintainer must populate the matching repository
+  # secrets before the first scheduled invocation; the workflow will warn
+  # and skip when SMOKE_MODEL_* are missing.
   SMOKE_MODEL_URL: ${{ inputs.model_url || secrets.SMOKE_MODEL_URL }}
   SMOKE_MODEL_SHA256: ${{ inputs.model_sha256 || secrets.SMOKE_MODEL_SHA256 }}
+  # Vision/audio smoke uses a vision-capable model + mmproj pair (e.g.
+  # gemma 4 + gemma4v mmproj). Optional — vision/audio smoke methods
+  # XCTSkip / Assume.skip when these are unset, so the workflow stays
+  # green even before the secrets land.
+  SMOKE_VISION_MODEL_URL: ${{ secrets.SMOKE_VISION_MODEL_URL }}
+  SMOKE_VISION_MODEL_SHA256: ${{ secrets.SMOKE_VISION_MODEL_SHA256 }}
+  SMOKE_VISION_MMPROJ_URL: ${{ secrets.SMOKE_VISION_MMPROJ_URL }}
+  SMOKE_VISION_MMPROJ_SHA256: ${{ secrets.SMOKE_VISION_MMPROJ_SHA256 }}
 
 jobs:
   ios-smoke:
@@ -54,23 +62,34 @@ jobs:
           fi
 
       - name: xcodebuild test (real-model scheme)
-        # `xcodebuild test` runs the test bundle inside the iOS simulator. The
-        # simulator child process only inherits env vars whose names start with
-        # `SIMCTL_CHILD_`, with that prefix stripped before they reach the test
-        # process. So we forward the secrets under those prefixed names — the
-        # test reads `SMOKE_MODEL_URL` / `SMOKE_MODEL_SHA256` via
-        # `ProcessInfo.processInfo.environment`.
+        # xcodebuild forwards env vars to the simulator-hosted unit-test
+        # process via the `TEST_RUNNER_<NAME>=<VAL>` build-setting
+        # convention; at runtime the prefix is stripped, so the test code
+        # reads `ProcessInfo.processInfo.environment["SMOKE_MODEL_URL"]`
+        # unchanged. The earlier `SIMCTL_CHILD_*` channel only reaches
+        # XCUITest runner processes, not the unit-test bundle, which is
+        # why local mac-side-test.sh switched off it (commit e9b4846).
+        # SMOKE_* env vars come from the workflow-level `env:` block.
         env:
           IOS_DEST: 'platform=iOS Simulator,name=iPhone 16,OS=18.5'
-          SIMCTL_CHILD_SMOKE_MODEL_URL: ${{ inputs.model_url || secrets.SMOKE_MODEL_URL }}
-          SIMCTL_CHILD_SMOKE_MODEL_SHA256: ${{ inputs.model_sha256 || secrets.SMOKE_MODEL_SHA256 }}
         run: |
           rm -rf build/test-results.xcresult
+          # Construct TEST_RUNNER_<NAME>=<VAL> args from any SMOKE_* env
+          # var present, mirroring scripts/mac-side-test.sh. Empty values
+          # are skipped so the test still skips cleanly via XCTSkip when a
+          # secret isn't configured.
+          RUNNER_ENV_ARGS=()
+          while IFS='=' read -r name value; do
+            if [ -n "$name" ] && [ -n "$value" ]; then
+              RUNNER_ENV_ARGS+=("TEST_RUNNER_${name}=${value}")
+            fi
+          done < <(env | grep '^SMOKE_' || true)
           xcodebuild test \
             -scheme DVAICapacitorLlama \
             -destination "$IOS_DEST" \
             -only-testing:DVAICapacitorLlamaTests/RealModelSmokeTest \
-            -resultBundlePath build/test-results.xcresult
+            -resultBundlePath build/test-results.xcresult \
+            "${RUNNER_ENV_ARGS[@]}"
 
       - name: Upload xcresult
         if: always()
@@ -119,17 +138,23 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           working-directory: packages/dvai-bridge-capacitor-llama/android
-          # Forward the SMOKE_MODEL_URL / SMOKE_MODEL_SHA256 secrets to the
-          # instrumentation runner as `smoke_model_url` / `smoke_model_sha256`
-          # arguments. The test reads them via
-          # `InstrumentationRegistry.getArguments().getString(...)` and skips
-          # cleanly via `Assume.assumeTrue` when either is empty.
+          # Forward the SMOKE_* secrets to the instrumentation runner as
+          # `smoke_*` arguments. The tests read them via
+          # `InstrumentationRegistry.getArguments().getString(...)` and skip
+          # cleanly via `Assume.assumeTrue` when an arg is missing — that
+          # lets vision/audio smoke be opt-in based on which secrets are
+          # actually configured.
           script: |
-            ./gradlew connectedAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=co.deepvoiceai.dvaibridge.llama.RealModelSmokeTest \
-              -Pandroid.testInstrumentationRunnerArguments.smoke_model_url=$SMOKE_MODEL_URL \
-              -Pandroid.testInstrumentationRunnerArguments.smoke_model_sha256=$SMOKE_MODEL_SHA256 \
-              --no-daemon --stacktrace
+            ARGS=(
+              "-Pandroid.testInstrumentationRunnerArguments.class=co.deepvoiceai.dvaibridge.llama.RealModelSmokeTest"
+            )
+            [ -n "$SMOKE_MODEL_URL" ] && ARGS+=("-Pandroid.testInstrumentationRunnerArguments.smoke_model_url=$SMOKE_MODEL_URL")
+            [ -n "$SMOKE_MODEL_SHA256" ] && ARGS+=("-Pandroid.testInstrumentationRunnerArguments.smoke_model_sha256=$SMOKE_MODEL_SHA256")
+            [ -n "$SMOKE_VISION_MODEL_URL" ] && ARGS+=("-Pandroid.testInstrumentationRunnerArguments.smoke_vision_model_url=$SMOKE_VISION_MODEL_URL")
+            [ -n "$SMOKE_VISION_MODEL_SHA256" ] && ARGS+=("-Pandroid.testInstrumentationRunnerArguments.smoke_vision_model_sha256=$SMOKE_VISION_MODEL_SHA256")
+            [ -n "$SMOKE_VISION_MMPROJ_URL" ] && ARGS+=("-Pandroid.testInstrumentationRunnerArguments.smoke_vision_mmproj_url=$SMOKE_VISION_MMPROJ_URL")
+            [ -n "$SMOKE_VISION_MMPROJ_SHA256" ] && ARGS+=("-Pandroid.testInstrumentationRunnerArguments.smoke_vision_mmproj_sha256=$SMOKE_VISION_MMPROJ_SHA256")
+            ./gradlew connectedAndroidTest "${ARGS[@]}" --no-daemon --stacktrace
 
       - name: Upload reports
         if: always()
