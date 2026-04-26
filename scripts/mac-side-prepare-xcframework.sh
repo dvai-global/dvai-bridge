@@ -174,18 +174,37 @@ package_mtmd_framework() {
         local install_name="@rpath/${framework_name}.framework/${framework_name}"
     fi
 
-    # Public mtmd headers. mtmd.h transitively #include <ggml.h> and
-    # <llama.h>, which are re-exported by llama.framework -- the consuming
-    # bridge code must import both. The modulemap below does NOT declare
-    # those headers (they're in the sibling module), so the consumer's
-    # @import resolves them via the llama framework module.
-    cp tools/mtmd/mtmd.h        "$header_path/"
-    cp tools/mtmd/mtmd-helper.h "$header_path/"
+    # Public mtmd headers. mtmd.h does `#include "ggml.h"` / `"llama.h"`
+    # (quoted-include form), which only searches the framework's own
+    # Headers/ dir. Without copies, that #include fails even though
+    # llama.framework re-exports the same symbols at the module level.
+    # We copy the transitive set into mtmd.framework so the quoted
+    # includes resolve locally. (~30 KB total per slice; minor cost.)
+    cp tools/mtmd/mtmd.h         "$header_path/"
+    cp tools/mtmd/mtmd-helper.h  "$header_path/"
+    cp include/llama.h           "$header_path/"
+    cp ggml/include/ggml.h       "$header_path/"
+    cp ggml/include/ggml-alloc.h "$header_path/"
+    cp ggml/include/ggml-backend.h "$header_path/"
+    cp ggml/include/ggml-cpu.h   "$header_path/"
+    cp ggml/include/ggml-opt.h   "$header_path/"
+    cp ggml/include/gguf.h       "$header_path/"
 
+    # Modulemap exposes only the mtmd-specific symbols as public API;
+    # the duplicated llama/ggml headers are reachable via local
+    # quoted-include but stay out of the public @import surface so
+    # consumers always go through llama.framework's module for those.
     cat > "${module_path}/module.modulemap" <<'EOF'
 framework module mtmd {
     header "mtmd.h"
     header "mtmd-helper.h"
+    private header "llama.h"
+    private header "ggml.h"
+    private header "ggml-alloc.h"
+    private header "ggml-backend.h"
+    private header "ggml-cpu.h"
+    private header "ggml-opt.h"
+    private header "gguf.h"
 
     link "c++"
 
