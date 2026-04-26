@@ -36,7 +36,7 @@ final class RealModelSmokeTest: XCTestCase {
     }
 
     func testSmokeRealModelEndToEnd() async throws {
-        let env = ProcessInfo.processInfo.environment
+        let env = Self.loadSmokeEnv()
         guard let urlStr = env["SMOKE_MODEL_URL"], !urlStr.isEmpty,
               let sha = env["SMOKE_MODEL_SHA256"], !sha.isEmpty,
               let url = URL(string: urlStr)
@@ -87,7 +87,7 @@ final class RealModelSmokeTest: XCTestCase {
     /// of SMOKE_VISION_MODEL_URL / SMOKE_VISION_MODEL_SHA256 /
     /// SMOKE_VISION_MMPROJ_URL / SMOKE_VISION_MMPROJ_SHA256 are unset.
     func testSmokeVisionEndToEnd() async throws {
-        let env = ProcessInfo.processInfo.environment
+        let env = Self.loadSmokeEnv()
         guard let modelUrlStr = env["SMOKE_VISION_MODEL_URL"], !modelUrlStr.isEmpty,
               let modelSha = env["SMOKE_VISION_MODEL_SHA256"], !modelSha.isEmpty,
               let mmprojUrlStr = env["SMOKE_VISION_MMPROJ_URL"], !mmprojUrlStr.isEmpty,
@@ -156,7 +156,7 @@ final class RealModelSmokeTest: XCTestCase {
     /// audio (per mtmd-helper.h docs). Skips when the model declared no
     /// audio encoder (e.g. vision-only mmproj).
     func testSmokeAudioEndToEnd() async throws {
-        let env = ProcessInfo.processInfo.environment
+        let env = Self.loadSmokeEnv()
         guard let modelUrlStr = env["SMOKE_VISION_MODEL_URL"], !modelUrlStr.isEmpty,
               let modelSha = env["SMOKE_VISION_MODEL_SHA256"], !modelSha.isEmpty,
               let mmprojUrlStr = env["SMOKE_VISION_MMPROJ_URL"], !mmprojUrlStr.isEmpty,
@@ -230,5 +230,47 @@ final class RealModelSmokeTest: XCTestCase {
             dir = parent
         }
         return dir.appendingPathComponent("fixtures")
+    }
+
+    /// Reads SMOKE_* env vars from the test process's environment first,
+    /// then falls back to the per-developer `scripts/smoke.local.env`
+    /// file on the host filesystem. The fallback exists because
+    /// `xcodebuild test` does not propagate parent-process env vars
+    /// (or `SIMCTL_CHILD_*` / `TEST_RUNNER_*`) to the unit-test bundle's
+    /// `ProcessInfo.processInfo.environment` — that's an XCUITest-only
+    /// channel. Reading the file directly works reliably both locally
+    /// (via the gitignored smoke.local.env) and in CI (which actually
+    /// does inject env vars at the workflow level — `ProcessInfo` sees
+    /// those because the Mac runner inherits the GitHub Actions step env
+    /// before xcodebuild starts).
+    fileprivate static func loadSmokeEnv() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment.filter { $0.key.hasPrefix("SMOKE_") }
+        if !env.isEmpty {
+            return env
+        }
+        // Walk up from this file to find `scripts/smoke.local.env`.
+        var dir = URL(fileURLWithPath: #file).deletingLastPathComponent()
+        while !FileManager.default.fileExists(atPath: dir.appendingPathComponent("scripts/smoke.local.env").path) {
+            let parent = dir.deletingLastPathComponent()
+            if parent.path == dir.path {
+                return env  // empty
+            }
+            dir = parent
+        }
+        let envFile = dir.appendingPathComponent("scripts/smoke.local.env")
+        guard let contents = try? String(contentsOf: envFile, encoding: .utf8) else {
+            return env
+        }
+        for line in contents.split(separator: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
+            guard let eq = trimmed.firstIndex(of: "=") else { continue }
+            let key = String(trimmed[..<eq]).trimmingCharacters(in: .whitespaces)
+            let value = String(trimmed[trimmed.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
+            if key.hasPrefix("SMOKE_") && !value.isEmpty {
+                env[key] = value
+            }
+        }
+        return env
     }
 }
