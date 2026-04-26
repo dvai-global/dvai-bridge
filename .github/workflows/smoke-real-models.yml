@@ -54,16 +54,23 @@ jobs:
           fi
 
       - name: xcodebuild test (real-model scheme)
+        # `xcodebuild test` runs the test bundle inside the iOS simulator. The
+        # simulator child process only inherits env vars whose names start with
+        # `SIMCTL_CHILD_`, with that prefix stripped before they reach the test
+        # process. So we forward the secrets under those prefixed names — the
+        # test reads `SMOKE_MODEL_URL` / `SMOKE_MODEL_SHA256` via
+        # `ProcessInfo.processInfo.environment`.
         env:
           IOS_DEST: 'platform=iOS Simulator,name=iPhone 16,OS=18.5'
+          SIMCTL_CHILD_SMOKE_MODEL_URL: ${{ inputs.model_url || secrets.SMOKE_MODEL_URL }}
+          SIMCTL_CHILD_SMOKE_MODEL_SHA256: ${{ inputs.model_sha256 || secrets.SMOKE_MODEL_SHA256 }}
         run: |
           rm -rf build/test-results.xcresult
           xcodebuild test \
             -scheme DVAICapacitorLlama \
             -destination "$IOS_DEST" \
             -only-testing:DVAICapacitorLlamaTests/RealModelSmokeTest \
-            -resultBundlePath build/test-results.xcresult \
-            || echo "::warning::Real-model smoke target not present yet — see Phase 1G."
+            -resultBundlePath build/test-results.xcresult
 
       - name: Upload xcresult
         if: always()
@@ -112,11 +119,17 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           working-directory: packages/dvai-bridge-capacitor-llama/android
+          # Forward the SMOKE_MODEL_URL / SMOKE_MODEL_SHA256 secrets to the
+          # instrumentation runner as `smoke_model_url` / `smoke_model_sha256`
+          # arguments. The test reads them via
+          # `InstrumentationRegistry.getArguments().getString(...)` and skips
+          # cleanly via `Assume.assumeTrue` when either is empty.
           script: |
             ./gradlew connectedAndroidTest \
               -Pandroid.testInstrumentationRunnerArguments.class=co.deepvoiceai.dvaibridge.llama.RealModelSmokeTest \
-              --no-daemon --stacktrace \
-              || echo "::warning::Real-model smoke class not present yet — see Phase 1G."
+              -Pandroid.testInstrumentationRunnerArguments.smoke_model_url=$SMOKE_MODEL_URL \
+              -Pandroid.testInstrumentationRunnerArguments.smoke_model_sha256=$SMOKE_MODEL_SHA256 \
+              --no-daemon --stacktrace
 
       - name: Upload reports
         if: always()
