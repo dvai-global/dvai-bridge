@@ -9,7 +9,10 @@ public final class CoreMLHandlers: DVAIHandlers {
     private let generator: CoreMLGenerator
     private let modelId: String
 
-    public init(generator: CoreMLGenerator, modelId: String) {
+    // Internal init — `CoreMLGenerator` is an implementation detail of
+    // DVAICoreMLCore and stays internal. The only construction site is
+    // `CoreMLPluginState.start()` inside the same module.
+    internal init(generator: CoreMLGenerator, modelId: String) {
         self.generator = generator
         self.modelId = modelId
     }
