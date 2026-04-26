@@ -146,7 +146,18 @@ final class RealModelSmokeTest: XCTestCase {
             embeddingMode: false
         )
         XCTAssertTrue(bridge.isLoaded)
-        try bridge.loadMmproj(atPath: mmprojResult.path)
+        // useGPU=false on simulator: iOS Simulator's MTLSimDevice aborts in
+        // _xpc_shmem_create_with_prot when CLIP tries to allocate the
+        // ~60 MiB position-embedding tensor (gemma4v has shape [768, 10240, 2]).
+        // CPU-only projection is slow but lets the smoke run end-to-end.
+        // Real iPhone hardware uses Metal without issue → useGPU=true is the
+        // production default.
+        #if targetEnvironment(simulator)
+        let useGPUForMmproj = false
+        #else
+        let useGPUForMmproj = true
+        #endif
+        try bridge.loadMmproj(atPath: mmprojResult.path, useGPU: useGPUForMmproj)
         XCTAssertTrue(bridge.isMmprojLoaded)
 
         // Read the tiny PNG fixture (1x1 transparent pixel).
@@ -212,7 +223,18 @@ final class RealModelSmokeTest: XCTestCase {
             threads: 4,
             embeddingMode: false
         )
-        try bridge.loadMmproj(atPath: mmprojResult.path)
+        // useGPU=false on simulator: iOS Simulator's MTLSimDevice aborts in
+        // _xpc_shmem_create_with_prot when CLIP tries to allocate the
+        // ~60 MiB position-embedding tensor (gemma4v has shape [768, 10240, 2]).
+        // CPU-only projection is slow but lets the smoke run end-to-end.
+        // Real iPhone hardware uses Metal without issue → useGPU=true is the
+        // production default.
+        #if targetEnvironment(simulator)
+        let useGPUForMmproj = false
+        #else
+        let useGPUForMmproj = true
+        #endif
+        try bridge.loadMmproj(atPath: mmprojResult.path, useGPU: useGPUForMmproj)
 
         // Skip cleanly if the loaded mmproj has no audio encoder (e.g. when
         // SMOKE_VISION_* points at a vision-only projector).
