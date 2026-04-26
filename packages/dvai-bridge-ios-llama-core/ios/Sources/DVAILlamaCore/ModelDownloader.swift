@@ -20,7 +20,7 @@ public struct CachedModelInfoSwift: Sendable {
 /// Concurrency: an `actor` so cache-list / cache-delete operations are
 /// serialised. The download path delegates to a private `URLSessionDataDelegate`
 /// (compatible with iOS 14+, unlike the iOS-15 `bytes(for:)` API).
-actor ModelDownloader {
+public actor ModelDownloader {
     enum DownloadError: LocalizedError {
         case checksumMismatch(expected: String, got: String)
         case httpError(status: Int)
@@ -46,7 +46,7 @@ actor ModelDownloader {
 
     private let cacheDirOverride: URL?
 
-    init(cacheDirOverride: URL? = nil) {
+    public init(cacheDirOverride: URL? = nil) {
         self.cacheDirOverride = cacheDirOverride
     }
 
@@ -72,7 +72,7 @@ actor ModelDownloader {
         return dir
     }
 
-    func cacheDirPath() throws -> String {
+    public func cacheDirPath() throws -> String {
         try cacheDirURL().path
     }
 
@@ -80,7 +80,7 @@ actor ModelDownloader {
 
     /// Enumerate files in the cache dir (skipping `.partial` and dotfiles),
     /// sha256 each, return one entry per file.
-    func listCachedModels() throws -> [CachedModelInfoSwift] {
+    public func listCachedModels() throws -> [CachedModelInfoSwift] {
         let dir = try cacheDirURL()
         let fm = FileManager.default
         let names = (try? fm.contentsOfDirectory(atPath: dir.path)) ?? []
@@ -103,7 +103,7 @@ actor ModelDownloader {
         return out
     }
 
-    func deleteCachedModel(filename: String) throws {
+    public func deleteCachedModel(filename: String) throws {
         let dir = try cacheDirURL()
         let url = dir.appendingPathComponent(filename)
         if FileManager.default.fileExists(atPath: url.path) {
@@ -125,7 +125,7 @@ actor ModelDownloader {
     ///     ~10/sec internally; do not throttle again here.
     /// - Returns: (final-path, cached). `cached: true` means the file was already
     ///   present with a matching hash and no network request was made.
-    func downloadModel(
+    public func downloadModel(
         url: URL,
         expectedSha256: String,
         destFilename: String,
