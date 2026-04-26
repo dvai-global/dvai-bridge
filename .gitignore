@@ -85,5 +85,10 @@ packages/*/ios/.build/
 # Swift Package Manager lockfile — for a library, consumers resolve their own
 packages/*/ios/Package.resolved
 
+# Android Gradle build output — disposable, regenerated on every build
+packages/*/android/.gradle/
+packages/*/android/build/
+packages/*/android/local.properties
+
 # Marketing scripts + blog drafts — private, not for the public repo
 docs/marketing/

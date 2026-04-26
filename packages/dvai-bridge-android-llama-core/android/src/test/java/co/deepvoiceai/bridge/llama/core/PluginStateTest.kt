@@ -1,6 +1,5 @@
 package co.deepvoiceai.bridge.llama.core
 
-import com.getcapacitor.JSObject
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -22,7 +21,7 @@ class PluginStateTest {
     fun `start fails when modelPath missing`() = runBlocking {
         val state = PluginState().also { states.add(it) }
         try {
-            state.start(JSObject())
+            state.start(emptyMap())
             fail("Expected exception")
         } catch (e: IllegalArgumentException) {
             assertTrue(e.message!!.contains("modelPath is required"))
@@ -33,7 +32,7 @@ class PluginStateTest {
     fun `start fails when modelPath empty`() = runBlocking {
         val state = PluginState().also { states.add(it) }
         try {
-            state.start(JSObject().apply { put("modelPath", "") })
+            state.start(mapOf("modelPath" to ""))
             fail("Expected exception")
         } catch (e: IllegalArgumentException) {
             // expected
@@ -44,42 +43,42 @@ class PluginStateTest {
     fun `statusInfo reports not running initially`() {
         val state = PluginState().also { states.add(it) }
         val info = state.statusInfo()
-        assertEquals(false, info.getBoolean("running"))
+        assertEquals(false, info["running"])
     }
 
     @Test
     fun `start binds server and reports baseUrl`() = runBlocking {
         val state = PluginState().also { states.add(it) }
-        val opts = JSObject().apply {
-            put("modelPath", "/tmp/fake.gguf")
-            put("httpBasePort", 39300)
-            put("httpMaxPortAttempts", 4)
-        }
+        val opts = mapOf(
+            "modelPath" to "/tmp/fake.gguf",
+            "httpBasePort" to 39300,
+            "httpMaxPortAttempts" to 4,
+        )
         val result = state.start(opts)
-        assertEquals("llama", result.getString("backend"))
-        assertEquals("/tmp/fake.gguf", result.getString("modelId"))
-        val port = result.getInteger("port")!!
+        assertEquals("llama", result["backend"])
+        assertEquals("/tmp/fake.gguf", result["modelId"])
+        val port = result["port"] as Int
         assertTrue(port in 39300..39303)
-        assertEquals("http://127.0.0.1:$port/v1", result.getString("baseUrl"))
+        assertEquals("http://127.0.0.1:$port/v1", result["baseUrl"])
 
         state.stop()
         val info = state.statusInfo()
-        assertEquals(false, info.getBoolean("running"))
+        assertEquals(false, info["running"])
     }
 
     @Test
     fun `restart replaces previous run`() = runBlocking {
         val state = PluginState().also { states.add(it) }
-        state.start(JSObject().apply {
-            put("modelPath", "/tmp/fake1.gguf")
-            put("httpBasePort", 39310)
-            put("httpMaxPortAttempts", 4)
-        })
-        val result2 = state.start(JSObject().apply {
-            put("modelPath", "/tmp/fake2.gguf")
-            put("httpBasePort", 39320)
-            put("httpMaxPortAttempts", 4)
-        })
-        assertEquals("/tmp/fake2.gguf", result2.getString("modelId"))
+        state.start(mapOf(
+            "modelPath" to "/tmp/fake1.gguf",
+            "httpBasePort" to 39310,
+            "httpMaxPortAttempts" to 4,
+        ))
+        val result2 = state.start(mapOf(
+            "modelPath" to "/tmp/fake2.gguf",
+            "httpBasePort" to 39320,
+            "httpMaxPortAttempts" to 4,
+        ))
+        assertEquals("/tmp/fake2.gguf", result2["modelId"])
     }
 }
