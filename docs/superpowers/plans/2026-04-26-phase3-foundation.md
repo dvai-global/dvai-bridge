@@ -614,11 +614,11 @@ The Android side is parallel to iOS but differs in two ways:
 - Move: `packages/dvai-bridge-capacitor-llama/android/src/main/cpp/*` → `packages/dvai-bridge-android-llama-core/android/src/main/cpp/`
 - Move: `packages/dvai-bridge-capacitor-llama/android/src/main/java/co/deepvoiceai/dvaibridge/llama/{HttpServer,HandlerDispatch,LlamaHandlers,ContentPartsTranslator,PluginState,ModelDownloader,ImageDecoder,AudioDecoder,LlamaCppBridge}.kt` → `packages/dvai-bridge-android-llama-core/android/src/main/java/co/deepvoiceai/dvaibridge/llama/core/`
 
-- [ ] **Step 1: Make directory structure**
+- [ ] **Step 1: Make directory structure (note new `co.deepvoiceai.bridge.*` package id — drops "dvai")**
 
 ```bash
-mkdir -p packages/dvai-bridge-android-llama-core/android/src/main/{cpp,java/co/deepvoiceai/dvaibridge/llama/core,res/xml}
-mkdir -p packages/dvai-bridge-android-llama-core/android/src/test/java/co/deepvoiceai/dvaibridge/llama/core
+mkdir -p packages/dvai-bridge-android-llama-core/android/src/main/{cpp,java/co/deepvoiceai/bridge/llama/core,res/xml}
+mkdir -p packages/dvai-bridge-android-llama-core/android/src/test/java/co/deepvoiceai/bridge/llama/core
 mkdir -p packages/dvai-bridge-android-llama-core/android/gradle/wrapper
 ```
 
@@ -668,7 +668,7 @@ allprojects {
 apply plugin: 'com.android.library'
 
 android {
-    namespace 'co.deepvoiceai.dvaibridge.llama.core'
+    namespace 'co.deepvoiceai.bridge.llama.core'
     compileSdk 36
     ndkVersion '27.0.12077973'  // r27+ defaults to 16 KB-aligned .so
 
@@ -766,58 +766,85 @@ git submodule update --init packages/dvai-bridge-android-llama-core/android/src/
 
 Update CMakeLists.txt's `add_subdirectory(...)` line to point at the new submodule path (relative paths inside the CMakeLists need adjusting if they referenced `../../native/llama.cpp`).
 
-- [ ] **Step 7: Move the Kotlin source files**
+- [ ] **Step 7: Move the Kotlin source files into the new `co/deepvoiceai/bridge/llama/core/` path**
 
 ```bash
 for f in HttpServer HandlerDispatch LlamaHandlers ContentPartsTranslator PluginState ModelDownloader ImageDecoder AudioDecoder LlamaCppBridge; do
     git mv "packages/dvai-bridge-capacitor-llama/android/src/main/java/co/deepvoiceai/dvaibridge/llama/${f}.kt" \
-           "packages/dvai-bridge-android-llama-core/android/src/main/java/co/deepvoiceai/dvaibridge/llama/core/${f}.kt"
+           "packages/dvai-bridge-android-llama-core/android/src/main/java/co/deepvoiceai/bridge/llama/core/${f}.kt"
 done
 ```
 
-- [ ] **Step 8: Update package declarations in moved Kotlin files**
+- [ ] **Step 8: Update package declarations + imports across moved source**
+
+The package id changes twice in this rename:
+
+1. `co.deepvoiceai.dvaibridge.*` → `co.deepvoiceai.bridge.*` (drop the "dvai" segment)
+2. `co.deepvoiceai.bridge.llama` → `co.deepvoiceai.bridge.llama.core` (extraction-induced)
+
+Single sed pass that handles both:
 
 ```bash
-sed -i 's|^package co.deepvoiceai.dvaibridge.llama$|package co.deepvoiceai.dvaibridge.llama.core|g' \
-    packages/dvai-bridge-android-llama-core/android/src/main/java/co/deepvoiceai/dvaibridge/llama/core/*.kt
+# Package declarations
+sed -i 's|^package co\.deepvoiceai\.dvaibridge\.llama$|package co.deepvoiceai.bridge.llama.core|g' \
+    packages/dvai-bridge-android-llama-core/android/src/main/java/co/deepvoiceai/bridge/llama/core/*.kt
+
+# Cross-file imports within the core
+sed -i 's|^import co\.deepvoiceai\.dvaibridge\.llama\.|import co.deepvoiceai.bridge.llama.core.|g' \
+    packages/dvai-bridge-android-llama-core/android/src/main/java/co/deepvoiceai/bridge/llama/core/*.kt
 ```
 
-Cross-file references within the core need their imports updated; same regex.
+- [ ] **Step 9: Regenerate JNI symbol names in `jni-bridge.cpp`**
 
-- [ ] **Step 9: Move the JVM unit tests**
+`LlamaCppBridge` is registered with JNI via long-form symbol names (`Java_<package>_<class>_<method>`). Today every JNI export is named `Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_*`; the rename means every symbol becomes `Java_co_deepvoiceai_bridge_llama_core_LlamaCppBridge_*`.
 
 ```bash
-mkdir -p packages/dvai-bridge-android-llama-core/android/src/test/java/co/deepvoiceai/dvaibridge/llama/core
-git mv packages/dvai-bridge-capacitor-llama/android/src/test/java/co/deepvoiceai/dvaibridge/llama/*Test.kt \
-       packages/dvai-bridge-android-llama-core/android/src/test/java/co/deepvoiceai/dvaibridge/llama/core/
+sed -i 's|Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_|Java_co_deepvoiceai_bridge_llama_core_LlamaCppBridge_|g' \
+    packages/dvai-bridge-android-llama-core/android/src/main/cpp/jni-bridge.cpp
+```
 
-# Update package declarations + imports in tests
-sed -i 's|^package co.deepvoiceai.dvaibridge.llama$|package co.deepvoiceai.dvaibridge.llama.core|g' \
-    packages/dvai-bridge-android-llama-core/android/src/test/java/co/deepvoiceai/dvaibridge/llama/core/*.kt
-sed -i 's|^import co.deepvoiceai.dvaibridge.llama\.|import co.deepvoiceai.dvaibridge.llama.core.|g' \
-    packages/dvai-bridge-android-llama-core/android/src/test/java/co/deepvoiceai/dvaibridge/llama/core/*.kt
+Verify nothing else in jni-bridge.cpp references the old package via string:
+
+```bash
+grep -n 'dvaibridge' packages/dvai-bridge-android-llama-core/android/src/main/cpp/jni-bridge.cpp
+```
+
+Expected: zero matches.
+
+- [ ] **Step 10: Move the JVM unit tests**
+
+```bash
+mkdir -p packages/dvai-bridge-android-llama-core/android/src/test/java/co/deepvoiceai/bridge/llama/core
+git mv packages/dvai-bridge-capacitor-llama/android/src/test/java/co/deepvoiceai/dvaibridge/llama/*Test.kt \
+       packages/dvai-bridge-android-llama-core/android/src/test/java/co/deepvoiceai/bridge/llama/core/
+
+# Same dual-rename sed as Step 8
+sed -i 's|^package co\.deepvoiceai\.dvaibridge\.llama$|package co.deepvoiceai.bridge.llama.core|g' \
+    packages/dvai-bridge-android-llama-core/android/src/test/java/co/deepvoiceai/bridge/llama/core/*.kt
+sed -i 's|^import co\.deepvoiceai\.dvaibridge\.llama\.|import co.deepvoiceai.bridge.llama.core.|g' \
+    packages/dvai-bridge-android-llama-core/android/src/test/java/co/deepvoiceai/bridge/llama/core/*.kt
 ```
 
 The androidTest tree (instrumented tests) follows in Step 10 — for the core, instrumented tests would just be ImageDecoder/AudioDecoder format-handling. The real-model smoke test stays in capacitor-llama.
 
-- [ ] **Step 10: Move instrumented tests for the core (decoders, etc.) but keep RealModelSmokeTest in capacitor-llama**
+- [ ] **Step 11: Move instrumented tests for the core (decoders, etc.) but keep RealModelSmokeTest in capacitor-llama**
 
-Inspect `packages/dvai-bridge-capacitor-llama/android/src/androidTest/`. Move tests that exercise core code; keep those that exercise the Capacitor wrapper.
+Inspect `packages/dvai-bridge-capacitor-llama/android/src/androidTest/`. Move tests that exercise core code with the same dual-rename sed; keep those that exercise the Capacitor wrapper. RealModelSmokeTest stays in capacitor-llama.
 
-- [ ] **Step 11: Run the JVM tests on Windows directly**
+- [ ] **Step 12: Run the JVM tests on Windows directly**
 
 ```bash
 cd packages/dvai-bridge-android-llama-core/android
 ./gradlew.bat testDebugUnitTest --no-daemon 2>&1 | tail -20
 ```
 
-Expected: same test count as ran inside capacitor-llama before (53+ JVM tests).
+Expected: same test count as ran inside capacitor-llama before (53+ JVM tests). If the JNI bridge is exercised at JVM-test time (e.g. integration tests that load the .so), the new symbol names must match the renamed Kotlin class — Step 9 already aligned them.
 
-- [ ] **Step 12: Commit**
+- [ ] **Step 13: Commit**
 
 ```bash
 git add -A
-git commit -m "refactor(android): move llama core sources into dvai-bridge-android-llama-core (incl. submodule + JNI)"
+git commit -m "refactor(android): extract llama core into dvai-bridge-android-llama-core; rename co.deepvoiceai.dvaibridge.* -> co.deepvoiceai.bridge.*"
 ```
 
 ### Task 10: Wire Capacitor llama Android wrapper to consume the core
@@ -825,7 +852,7 @@ git commit -m "refactor(android): move llama core sources into dvai-bridge-andro
 **Files:**
 - Modify: `packages/dvai-bridge-capacitor-llama/android/build.gradle`
 - Modify: `packages/dvai-bridge-capacitor-llama/android/settings.gradle`
-- Modify: `packages/dvai-bridge-capacitor-llama/android/src/main/java/co/deepvoiceai/dvaibridge/llama/Plugin.kt`
+- Move: `packages/dvai-bridge-capacitor-llama/android/src/main/java/co/deepvoiceai/dvaibridge/llama/Plugin.kt` → `packages/dvai-bridge-capacitor-llama/android/src/main/java/co/deepvoiceai/bridge/llama/Plugin.kt`
 - Modify: `packages/dvai-bridge-capacitor-llama/package.json`
 
 - [ ] **Step 1: Update settings.gradle to include the core as a project dependency**
@@ -843,7 +870,7 @@ project(':dvai-bridge-android-llama-core').projectDir = file('../../dvai-bridge-
 
 ```gradle
 android {
-    namespace 'co.deepvoiceai.dvaibridge.llama'
+    namespace 'co.deepvoiceai.bridge.llama'
     compileSdk 36
 
     defaultConfig {
@@ -863,24 +890,53 @@ dependencies {
 
 The Capacitor wrapper has no NDK / CMake / cpp/ tree of its own anymore.
 
-- [ ] **Step 3: Update Plugin.kt imports**
+- [ ] **Step 3: Move Plugin.kt to the new package path**
+
+```bash
+mkdir -p packages/dvai-bridge-capacitor-llama/android/src/main/java/co/deepvoiceai/bridge/llama
+git mv packages/dvai-bridge-capacitor-llama/android/src/main/java/co/deepvoiceai/dvaibridge/llama/Plugin.kt \
+       packages/dvai-bridge-capacitor-llama/android/src/main/java/co/deepvoiceai/bridge/llama/Plugin.kt
+rmdir packages/dvai-bridge-capacitor-llama/android/src/main/java/co/deepvoiceai/dvaibridge/llama 2>/dev/null || true
+rmdir packages/dvai-bridge-capacitor-llama/android/src/main/java/co/deepvoiceai/dvaibridge 2>/dev/null || true
+```
+
+- [ ] **Step 4: Update Plugin.kt — package declaration + imports from the renamed core**
 
 ```kotlin
-package co.deepvoiceai.dvaibridge.llama
+package co.deepvoiceai.bridge.llama                       // <-- renamed (drop "dvai")
 
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.annotation.CapacitorPlugin
-import co.deepvoiceai.dvaibridge.llama.core.PluginState  // <-- new package
-import co.deepvoiceai.dvaibridge.llama.core.ProgressEvent  // <-- new package
-// ... etc
+import co.deepvoiceai.bridge.llama.core.PluginState       // <-- core's renamed package
+import co.deepvoiceai.bridge.llama.core.ProgressEvent     // <-- core's renamed package
+// ... every `co.deepvoiceai.dvaibridge.llama.*` import becomes `co.deepvoiceai.bridge.llama.core.*`
 
-@CapacitorPlugin(name = "DVAIBridgeLlama")
+@CapacitorPlugin(name = "DVAIBridgeLlama")  // plugin ID stays — independent of JVM package
 class Plugin : Plugin() {
     private val state = PluginState(...)
     // ... rest of class unchanged at the call-site level
 }
 ```
+
+A targeted sed pass for any remaining old-package references inside the moved file:
+
+```bash
+sed -i 's|^package co\.deepvoiceai\.dvaibridge\.llama$|package co.deepvoiceai.bridge.llama|g' \
+    packages/dvai-bridge-capacitor-llama/android/src/main/java/co/deepvoiceai/bridge/llama/Plugin.kt
+sed -i 's|co\.deepvoiceai\.dvaibridge\.llama\.|co.deepvoiceai.bridge.llama.core.|g' \
+    packages/dvai-bridge-capacitor-llama/android/src/main/java/co/deepvoiceai/bridge/llama/Plugin.kt
+```
+
+- [ ] **Step 5: Update AndroidManifest.xml `package=` attribute (if present) — defensive cleanup**
+
+```bash
+grep -n 'package=' packages/dvai-bridge-capacitor-llama/android/src/main/AndroidManifest.xml || true
+sed -i 's|co\.deepvoiceai\.dvaibridge\.llama|co.deepvoiceai.bridge.llama|g' \
+    packages/dvai-bridge-capacitor-llama/android/src/main/AndroidManifest.xml
+```
+
+AGP 7+ deprecates the manifest `package` attribute in favor of `namespace` in build.gradle, so this may be a no-op on a modern config — still cheap to run.
 
 - [ ] **Step 4: Update package.json with peerDep**
 
@@ -933,8 +989,8 @@ The mediapipe Android plugin doesn't have JNI / NDK / CMakeLists — MediaPipe s
 - [ ] **Step 1: Make directory structure**
 
 ```bash
-mkdir -p packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/dvaibridge/mediapipe/core
-mkdir -p packages/dvai-bridge-android-mediapipe-core/android/src/test/java/co/deepvoiceai/dvaibridge/mediapipe/core
+mkdir -p packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/bridge/mediapipe/core
+mkdir -p packages/dvai-bridge-android-mediapipe-core/android/src/test/java/co/deepvoiceai/bridge/mediapipe/core
 mkdir -p packages/dvai-bridge-android-mediapipe-core/android/src/test/resources
 mkdir -p packages/dvai-bridge-android-mediapipe-core/android/gradle/wrapper
 ```
@@ -987,7 +1043,7 @@ allprojects {
 apply plugin: 'com.android.library'
 
 android {
-    namespace 'co.deepvoiceai.dvaibridge.mediapipe.core'
+    namespace 'co.deepvoiceai.bridge.mediapipe.core'
     compileSdk 36
 
     defaultConfig {
@@ -1039,7 +1095,7 @@ rootProject.name = 'dvai-bridge-android-mediapipe-core'
 ```bash
 for f in HttpServer HandlerDispatch MediaPipeHandlers MediaPipeBridge ContentPartsTranslator PluginState ImageDecoder; do
     git mv "packages/dvai-bridge-capacitor-mediapipe/android/src/main/java/co/deepvoiceai/dvaibridge/mediapipe/${f}.kt" \
-           "packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/dvaibridge/mediapipe/core/${f}.kt"
+           "packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/bridge/mediapipe/core/${f}.kt"
 done
 ```
 
@@ -1048,27 +1104,27 @@ If your install of capacitor-mediapipe contains additional Kotlin files (check w
 - [ ] **Step 6: Update package declarations + imports in moved source**
 
 ```bash
-sed -i 's|^package co.deepvoiceai.dvaibridge.mediapipe$|package co.deepvoiceai.dvaibridge.mediapipe.core|g' \
-    packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/dvaibridge/mediapipe/core/*.kt
-sed -i 's|^import co.deepvoiceai.dvaibridge.mediapipe\.\([A-Z]\)|import co.deepvoiceai.dvaibridge.mediapipe.core.\1|g' \
-    packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/dvaibridge/mediapipe/core/*.kt
+sed -i 's|^package co.deepvoiceai.bridge.mediapipe$|package co.deepvoiceai.bridge.mediapipe.core|g' \
+    packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/bridge/mediapipe/core/*.kt
+sed -i 's|^import co.deepvoiceai.bridge.mediapipe\.\([A-Z]\)|import co.deepvoiceai.bridge.mediapipe.core.\1|g' \
+    packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/bridge/mediapipe/core/*.kt
 ```
 
 - [ ] **Step 7: Move the JVM tests**
 
 ```bash
 git mv packages/dvai-bridge-capacitor-mediapipe/android/src/test/java/co/deepvoiceai/dvaibridge/mediapipe/*Test.kt \
-       packages/dvai-bridge-android-mediapipe-core/android/src/test/java/co/deepvoiceai/dvaibridge/mediapipe/core/
+       packages/dvai-bridge-android-mediapipe-core/android/src/test/java/co/deepvoiceai/bridge/mediapipe/core/
 
 # Test resources (image fixtures, etc.) follow the tests
 git mv packages/dvai-bridge-capacitor-mediapipe/android/src/test/resources/* \
        packages/dvai-bridge-android-mediapipe-core/android/src/test/resources/ 2>/dev/null || true
 
 # Update package + imports in tests
-sed -i 's|^package co.deepvoiceai.dvaibridge.mediapipe$|package co.deepvoiceai.dvaibridge.mediapipe.core|g' \
-    packages/dvai-bridge-android-mediapipe-core/android/src/test/java/co/deepvoiceai/dvaibridge/mediapipe/core/*.kt
-sed -i 's|^import co.deepvoiceai.dvaibridge.mediapipe\.\([A-Z]\)|import co.deepvoiceai.dvaibridge.mediapipe.core.\1|g' \
-    packages/dvai-bridge-android-mediapipe-core/android/src/test/java/co/deepvoiceai/dvaibridge/mediapipe/core/*.kt
+sed -i 's|^package co.deepvoiceai.bridge.mediapipe$|package co.deepvoiceai.bridge.mediapipe.core|g' \
+    packages/dvai-bridge-android-mediapipe-core/android/src/test/java/co/deepvoiceai/bridge/mediapipe/core/*.kt
+sed -i 's|^import co.deepvoiceai.bridge.mediapipe\.\([A-Z]\)|import co.deepvoiceai.bridge.mediapipe.core.\1|g' \
+    packages/dvai-bridge-android-mediapipe-core/android/src/test/java/co/deepvoiceai/bridge/mediapipe/core/*.kt
 ```
 
 - [ ] **Step 8: Run JVM tests**
@@ -1120,15 +1176,15 @@ The `ext { mediapipeGenaiVersion = ... }` block can stay in capacitor-mediapipe'
 - [ ] **Step 3: Update Plugin.kt imports**
 
 ```kotlin
-package co.deepvoiceai.dvaibridge.mediapipe
+package co.deepvoiceai.bridge.mediapipe
 
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.annotation.CapacitorPlugin
-import co.deepvoiceai.dvaibridge.mediapipe.core.PluginState        // <-- new package
-import co.deepvoiceai.dvaibridge.mediapipe.core.ProgressEvent      // <-- new package
-// ... etc — every type that used to come from `co.deepvoiceai.dvaibridge.mediapipe`
-//   now comes from `co.deepvoiceai.dvaibridge.mediapipe.core`
+import co.deepvoiceai.bridge.mediapipe.core.PluginState        // <-- new package
+import co.deepvoiceai.bridge.mediapipe.core.ProgressEvent      // <-- new package
+// ... etc — every type that used to come from `co.deepvoiceai.bridge.mediapipe`
+//   now comes from `co.deepvoiceai.bridge.mediapipe.core`
 
 @CapacitorPlugin(name = "DVAIBridgeMediaPipe")
 class Plugin : Plugin() {
@@ -1409,12 +1465,12 @@ git commit -m "docs(litert-lm): inventory + mapping for the migration"
 ### Task 17: Neutralize `MediaPipeBridgeApi` interface (replace `MPImage` with `ByteArray`)
 
 **Files:**
-- Modify: `packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/dvaibridge/mediapipe/core/MediaPipeBridge.kt`
+- Modify: `packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/bridge/mediapipe/core/MediaPipeBridge.kt`
 
 - [ ] **Step 1: Identify all interface methods that take `MPImage`**
 
 ```bash
-grep -n "MPImage" packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/dvaibridge/mediapipe/core/MediaPipeBridge.kt
+grep -n "MPImage" packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/bridge/mediapipe/core/MediaPipeBridge.kt
 ```
 
 Most likely the `MediaPipeBridgeApi` interface declares `completePrompt(prompt: String, images: List<MPImage>)` and a streaming variant.
@@ -1460,7 +1516,7 @@ override fun completePrompt(prompt: String, images: List<ByteArray>): String {
 - [ ] **Step 4: Update `MediaPipeHandlers` if it was passing `MPImage` directly**
 
 ```bash
-grep -n "MPImage" packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/dvaibridge/mediapipe/core/MediaPipeHandlers.kt
+grep -n "MPImage" packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/bridge/mediapipe/core/MediaPipeHandlers.kt
 ```
 
 If MediaPipeHandlers builds `MPImage` instances, that conversion logic moves into `MediaPipeBridge.completePrompt`. Handlers now pass raw `ByteArray` (from `ContentPartsTranslator`).
@@ -1520,7 +1576,7 @@ git commit -m "chore(mediapipe-core): swap tasks-genai for LiteRT-LM — compile
 ### Task 19: Rewrite `MediaPipeBridge` against LiteRT-LM
 
 **Files:**
-- Modify: `packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/dvaibridge/mediapipe/core/MediaPipeBridge.kt`
+- Modify: `packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepvoiceai/bridge/mediapipe/core/MediaPipeBridge.kt`
 
 - [ ] **Step 1: Replace imports with LiteRT-LM equivalents (per Task 16's mapping)**
 

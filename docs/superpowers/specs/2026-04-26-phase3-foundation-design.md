@@ -229,7 +229,18 @@ packages/dvai-bridge-android-llama-core/
 └── (no native llama.cpp submodule — that stays in capacitor-llama for now and is consumed via NDK source path)
 ```
 
-**Package rename:** Kotlin source moves from `co.deepvoiceai.dvaibridge.llama` to `co.deepvoiceai.dvaibridge.llama.core`. The class names (`HttpServer`, `LlamaHandlers`, `PluginState`, etc.) are unchanged. Existing imports in the Capacitor wrapper update to the new package.
+**Package rename:** the entire Android codebase moves off `co.deepvoiceai.dvaibridge.*` onto a tighter `co.deepvoiceai.bridge.*` (drops the "dvai" segment — that's already in the org and in the npm package names). After Phase 3A:
+
+| Module | Kotlin package |
+|---|---|
+| `android-llama-core` | `co.deepvoiceai.bridge.llama.core` |
+| `android-mediapipe-core` | `co.deepvoiceai.bridge.mediapipe.core` |
+| `capacitor-llama` (wrapper) | `co.deepvoiceai.bridge.llama` |
+| `capacitor-mediapipe` (wrapper) | `co.deepvoiceai.bridge.mediapipe` |
+
+The class names (`HttpServer`, `LlamaHandlers`, `PluginState`, etc.) are unchanged. The Capacitor plugin IDs (`DVAIBridgeLlama`, `DVAIBridgeMediaPipe` — registered via `@CapacitorPlugin(name = ...)`) are also unchanged because they're independent of the JVM package.
+
+**JNI symbol regen:** `jni-bridge.cpp` declares JNI methods using the long-form `Java_<package>_<class>_<method>` convention. Today every JNI function is named `Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_native*`. After 3A the class lives at `co.deepvoiceai.bridge.llama.core.LlamaCppBridge`, so every JNI symbol regenerates as `Java_co_deepvoiceai_bridge_llama_core_LlamaCppBridge_native*`. Plan Task 9 includes a step that sed-rewrites every match in `jni-bridge.cpp`.
 
 The llama.cpp submodule and the NDK build live in the core package now. The Capacitor wrapper has no native code path of its own.
 
@@ -282,9 +293,13 @@ For the core package's source to flow through, two options:
 - Pro: host app only installs the Capacitor package.
 - Con: the core source is duplicated at publish time; risk of stale published copies; CI must verify sync.
 
-**Decision: Option A.** Cleaner, no publish-time duplication, and the core package is the canonical npm location for native-SDK consumers in 3C+ anyway. The "two npm packages" cost is minor and discoverable via the Capacitor plugin's documented install command (`npm install @dvai-bridge/capacitor-llama @dvai-bridge/ios-llama-core @dvai-bridge/android-llama-core`).
+**Decision: Option A.** Cleaner, no publish-time duplication, and the core package is the canonical npm location for native-SDK consumers in 3C+ anyway.
 
-The plugin's npm package's README documents the install command. The Capacitor JS shim already wraps "plugin not installed" into an actionable error; we extend that to mention missing core packages too.
+**Slim install policy:** each Capacitor wrapper's `package.json` declares **only the cores it actually uses** as `peerDependencies`. A host app that wants llama-only installs `@dvai-bridge/capacitor + @dvai-bridge/capacitor-llama + @dvai-bridge/ios-llama-core + @dvai-bridge/android-llama-core` — nothing more. They don't pull foundation or mediapipe transitively. This is what keeps app footprint small (no gigabyte-class transitive llama.cpp dropped on a foundation-only consumer, no MediaPipe AAR pulled into a llama-only consumer, etc.).
+
+The Capacitor JS shim already wraps "plugin not installed" into an actionable error; we extend that error message in 3A's wrapper updates to also call out missing core packages, with the exact `npm install` command the developer needs to run.
+
+3H polishes README's Installation section to document the slim install per-backend (today it just says `npm install @dvai-bridge/capacitor` — outdated since Phase 1 introduced the per-backend split).
 
 ### 3.8 Test relocation
 
