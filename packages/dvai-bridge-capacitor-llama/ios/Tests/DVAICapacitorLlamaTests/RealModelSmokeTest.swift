@@ -21,6 +21,21 @@ final class RealModelSmokeTest: XCTestCase {
     private var tempDir: URL!
     private var bridge: LlamaCppBridge?
 
+    /// Vision + audio smoke involves downloading a 5 GB GGUF + 557 MB
+    /// mmproj plus loading both into the simulator's Metal context and
+    /// running an eval pass. The combined runtime can easily exceed
+    /// Xcode's default 10-minute per-test allowance, after which xctest
+    /// kills and "Restarts" the test bundle. We ask for 45 minutes per
+    /// test to absorb slow networks + model load + first-Metal-shader
+    /// compile.
+    override class var defaultTestSuite: XCTestSuite {
+        let suite = super.defaultTestSuite
+        for case let testCase as XCTestCase in suite.tests {
+            testCase.executionTimeAllowance = 45 * 60
+        }
+        return suite
+    }
+
     override func setUpWithError() throws {
         let base = FileManager.default.temporaryDirectory
             .appendingPathComponent("dvai-smoke-\(UUID().uuidString)")
@@ -121,8 +136,12 @@ final class RealModelSmokeTest: XCTestCase {
         try bridge.loadModel(
             atPath: modelResult.path,
             mmprojPath: nil,
+            // Smoke: small context to keep KV-cache memory well under
+            // the simulator's per-process budget. We sample at most 32
+            // tokens, so 1024 leaves plenty of headroom for the prompt
+            // + image chunk + completion without paging.
             gpuLayers: 99,
-            contextSize: 4096,
+            contextSize: 1024,
             threads: 4,
             embeddingMode: false
         )
@@ -189,7 +208,7 @@ final class RealModelSmokeTest: XCTestCase {
             atPath: modelResult.path,
             mmprojPath: nil,
             gpuLayers: 99,
-            contextSize: 4096,
+            contextSize: 1024,
             threads: 4,
             embeddingMode: false
         )
