@@ -1,40 +1,38 @@
 package co.deepvoiceai.bridge.mediapipe.core
 
 import android.content.Context
-import android.graphics.BitmapFactory
-import com.google.mediapipe.framework.image.BitmapImageBuilder
-import com.google.mediapipe.framework.image.MPImage
-import com.google.mediapipe.tasks.genai.llminference.GraphOptions
-import com.google.mediapipe.tasks.genai.llminference.LlmInference
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
+import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.Conversation
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.MessageCallback
 
 /**
- * Test seam over Google's MediaPipe LLM Inference engine. Concrete
- * [MediaPipeBridge] implements this; [MediaPipeHandlers] takes the interface
- * so unit tests can substitute a canned-response fake without loading a real
- * `.task` model bundle.
+ * Test seam over Google's LiteRT-LM Engine. Concrete [MediaPipeBridge]
+ * implements this; [MediaPipeHandlers] takes the interface so unit tests can
+ * substitute a canned-response fake without loading a real `.litertlm` model.
  *
  * Concurrency: implementations need NOT be thread-safe — [MediaPipeHandlers]
- * serializes all calls behind its own mutex. The session-based MediaPipe API
- * (0.10.16+) tolerates parallel sessions on a shared `LlmInference` engine in
- * principle, but the handler still serializes for predictable ordering and
- * to keep the contract identical between the two backends.
+ * serializes all calls behind its own mutex.
  */
 interface MediaPipeBridgeApi {
     /**
      * Synchronous prompt completion. If [images] is non-empty the engine must
-     * have been built with `visionEnabled = true`; otherwise MediaPipe will
-     * throw at session-creation time. Images are supplied as raw encoded bytes
-     * (PNG/JPEG/etc.); the implementation converts them to [MPImage] internally.
+     * have been built with `visionEnabled = true`; otherwise LiteRT-LM will
+     * throw at conversation creation or message-send time. Images are supplied
+     * as raw encoded bytes (PNG/JPEG/etc.).
      */
     fun completePrompt(prompt: String, images: List<ByteArray> = emptyList()): String
 
     /**
      * Asynchronous prompt completion. The supplied callback fires per partial
      * chunk; the second arg is `true` on the final fragment. Returns a handle
-     * the caller can [AutoCloseable.close] to release the per-call session
+     * the caller can [AutoCloseable.close] to release the per-call conversation
      * once the stream finishes (or is cancelled). Images are supplied as raw
-     * encoded bytes (PNG/JPEG/etc.); the implementation converts internally.
+     * encoded bytes (PNG/JPEG/etc.).
      */
     fun completePromptAsync(
         prompt: String,
@@ -44,94 +42,111 @@ interface MediaPipeBridgeApi {
 }
 
 /**
- * Kotlin wrapper around the MediaPipe `tasks-genai:0.10.33` LLM Inference API.
+ * Kotlin wrapper around the LiteRT-LM `litertlm-android:0.10.2` Engine API.
+ * Replaces the deprecated `com.google.mediapipe:tasks-genai` MediaPipe bridge
+ * (Phase 3B, Tasks 18-19).
  *
  * Architecture:
  *
- *  - One long-lived [LlmInference] engine per bridge instance (lazy-initialized
- *    so JVM unit tests using the [MediaPipeBridgeApi] fake never trigger
- *    native loading).
- *  - One [LlmInferenceSession] per request — sessions are cheap and isolate
- *    state (chunks, images) between calls. The session is closed in `finally`
- *    on the sync path and via the returned [AutoCloseable] on the async path.
- *  - For vision-capable models, [visionEnabled] wires
- *    `setMaxNumImages(maxImages)` into the engine and
- *    `setEnableVisionModality(true)` into the session graph options. Without
- *    those flags MediaPipe rejects `addImage` calls.
- *  - `generateResponseAsync` accepts a per-call `(partial, done) -> Unit`
- *    progress listener directly in 0.10.33 — the AtomicReference<lambda> swap
- *    workaround required by 0.10.14 is gone.
+ *  - One long-lived [Engine] per bridge instance (lazy-initialized so JVM unit
+ *    tests using the [MediaPipeBridgeApi] fake never trigger native loading).
+ *    [engine.initialize()] is called inside the lazy block; this is the heavy
+ *    model-load step (~10 s) and must be called off the main thread.
+ *  - One [Conversation] per request — LiteRT-LM Conversations are stateful and
+ *    multi-turn, so we create a fresh one per call and close it after to
+ *    maintain the same stateless-request semantics as the old session model.
+ *  - Vision is enabled at the engine level via [EngineConfig.visionBackend].
+ *    There is no per-conversation vision flag (unlike the old
+ *    `GraphOptions.setEnableVisionModality`).
  *
- * Note on the `@Suppress("DEPRECATION")`: as of `tasks-genai:0.10.27` Google
- * marks `LlmInference` / `LlmInferenceSession` / `GraphOptions` deprecated in
- * favour of LiteRT-LM. Phase 1 explicitly targets the MediaPipe APIs because
- * LiteRT-LM was not stable when the spec was frozen; migration is a separate
- * task tracked outside this milestone.
+ * API deviations from the migration doc (§3) based on actual bytecode inspection:
+ *  - [Message] has no `.text` property — text is accessed through
+ *    `message.contents.contents`, which is a `List<Content>`. Text parts are
+ *    `Content.Text` items; their text fields are joined to form the response.
+ *  - [EngineConfig] DOES have `maxNumImages: Int?` and `maxNumTokens: Int?`
+ *    fields in the actual 0.10.2 artifact — the migration doc §5 risk for
+ *    setMaxNumImages is not applicable; the field exists and is used here.
+ *  - [Engine] does not accept Android `Context` — per migration doc §4, Context
+ *    is only needed for optional path derivation. The constructor keeps `context`
+ *    for API compatibility and future use (e.g. `context.cacheDir.path`).
+ *
+ * Model file format: LiteRT-LM uses `.litertlm` bundles, not `.task`. Existing
+ * `.task` models must be re-converted; see the migration notes for details.
  */
-@Suppress("DEPRECATION")
 class MediaPipeBridge(
-    private val context: Context,
+    @Suppress("UNUSED_PARAMETER") private val context: Context,
     private val modelPath: String,
     private val maxTokens: Int = 2048,
     private val visionEnabled: Boolean = false,
     private val maxImages: Int = 1,
 ) : MediaPipeBridgeApi, AutoCloseable {
 
-    private val inference: LlmInference by lazy {
-        val builder = LlmInference.LlmInferenceOptions.builder()
-            .setModelPath(modelPath)
-            .setMaxTokens(maxTokens)
-        if (visionEnabled) {
-            builder.setMaxNumImages(maxImages)
-        }
-        LlmInference.createFromOptions(context, builder.build())
+    private val engine: Engine by lazy {
+        val cfg = EngineConfig(
+            modelPath = modelPath,
+            // Vision is enabled at the engine level by supplying a visionBackend.
+            // GPU() is the standard choice; null disables vision modality.
+            visionBackend = if (visionEnabled) Backend.GPU() else null,
+            // maxNumImages: EngineConfig does have this field in 0.10.2
+            // (migration doc §5 TBD is resolved — field exists in actual artifact).
+            maxNumImages = if (visionEnabled) maxImages else null,
+            // maxNumTokens maps to the old setMaxTokens(int) option.
+            maxNumTokens = maxTokens,
+        )
+        val e = Engine(cfg)
+        e.initialize()
+        e
     }
 
-    @Volatile private var inferenceInitialized: Boolean = false
+    @Volatile private var engineInitialized: Boolean = false
 
-    private fun engine(): LlmInference {
-        val ref = inference
-        inferenceInitialized = true
+    private fun engine(): Engine {
+        val ref = engine
+        engineInitialized = true
         return ref
     }
 
-    private fun sessionOptions(): LlmInferenceSession.LlmInferenceSessionOptions {
-        val builder = LlmInferenceSession.LlmInferenceSessionOptions.builder()
-        if (visionEnabled) {
-            builder.setGraphOptions(
-                GraphOptions.builder().setEnableVisionModality(true).build(),
-            )
+    private fun newConversation(): Conversation =
+        engine().createConversation()
+
+    /**
+     * Build a [Contents] value combining the text prompt with any image bytes.
+     * [Content.ImageBytes] accepts raw PNG/JPEG bytes directly — no MPImage
+     * wrapping required (migration doc §2). The vararg [Contents.of] overload
+     * is used to avoid a spurious unchecked-cast warning from the list overload.
+     */
+    private fun buildContents(prompt: String, images: List<ByteArray>): Contents {
+        val parts = mutableListOf<Content>(Content.Text(prompt))
+        for (bytes in images) {
+            parts.add(Content.ImageBytes(bytes))
         }
-        return builder.build()
+        return Contents.of(parts)
     }
 
     /**
-     * Decode a list of raw image byte arrays (PNG/JPEG/etc.) into [MPImage]
-     * instances for consumption by the MediaPipe session. Conversion is eager
-     * (all images decoded before the session is opened) so a decode failure
-     * surfaces before any native resources are acquired.
+     * Extract text from a [Message] response.
+     *
+     * [Message] has no `.text` shortcut in the 0.10.2 public API. Text is
+     * accessed via `message.contents.contents` (a `List<Content>`). All
+     * `Content.Text` items are joined; non-text parts (images, audio, tool
+     * responses) are silently ignored, matching the expected LLM response shape.
      */
-    private fun bytesToMpImages(images: List<ByteArray>): List<MPImage> =
-        images.map { bytes ->
-            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                ?: throw IllegalArgumentException("BitmapFactory.decodeByteArray returned null")
-            BitmapImageBuilder(bitmap).build()
-        }
+    private fun Message.extractText(): String =
+        contents.contents
+            .filterIsInstance<Content.Text>()
+            .joinToString("") { it.text }
 
     override fun completePrompt(prompt: String, images: List<ByteArray>): String {
-        val mpImages = bytesToMpImages(images)
-        val session = LlmInferenceSession.createFromOptions(engine(), sessionOptions())
+        val msgContents = buildContents(prompt, images)
+        val conversation = newConversation()
         try {
-            // MediaPipe requires the text query chunk to be added before any
-            // images for vision-capable graphs.
-            session.addQueryChunk(prompt)
-            for (img in mpImages) {
-                session.addImage(img)
-            }
-            return session.generateResponse()
+            // sendMessage is the single-call replacement for the old
+            // addQueryChunk + addImage + generateResponse triple (migration doc §3).
+            val message = conversation.sendMessage(msgContents)
+            return message.extractText()
         } finally {
             try {
-                session.close()
+                conversation.close()
             } catch (_: Throwable) { /* idempotent */ }
         }
     }
@@ -141,35 +156,47 @@ class MediaPipeBridge(
         images: List<ByteArray>,
         onPartial: (String, Boolean) -> Unit,
     ): AutoCloseable {
-        val mpImages = bytesToMpImages(images)
-        val session = LlmInferenceSession.createFromOptions(engine(), sessionOptions())
+        val msgContents = buildContents(prompt, images)
+        val conversation = newConversation()
         try {
-            session.addQueryChunk(prompt)
-            for (img in mpImages) {
-                session.addImage(img)
-            }
-            // Per-call ProgressListener in 0.10.16+. Lambda matches Kotlin's
-            // SAM conversion for `ProgressListener<String>`: (partial, done).
-            session.generateResponseAsync { partial, done ->
-                onPartial(partial, done)
-            }
+            // MessageCallback replaces the old ProgressListener<String> callback.
+            // onMessage fires per partial token; onDone signals completion.
+            // (migration doc §3 streaming: callback form maps 1:1 to our contract)
+            conversation.sendMessageAsync(
+                msgContents,
+                object : MessageCallback {
+                    override fun onMessage(message: Message) {
+                        onPartial(message.extractText(), false)
+                    }
+
+                    override fun onDone() {
+                        onPartial("", true)
+                    }
+
+                    override fun onError(throwable: Throwable) {
+                        // Surface the error: re-throw on the callback thread so
+                        // that the engine's internal executor propagates it.
+                        throw RuntimeException("LiteRT-LM streaming error", throwable)
+                    }
+                },
+            )
         } catch (t: Throwable) {
             try {
-                session.close()
+                conversation.close()
             } catch (_: Throwable) { /* idempotent */ }
             throw t
         }
         return AutoCloseable {
             try {
-                session.close()
+                conversation.close()
             } catch (_: Throwable) { /* idempotent — best-effort cleanup */ }
         }
     }
 
     override fun close() {
-        if (inferenceInitialized) {
+        if (engineInitialized) {
             try {
-                inference.close()
+                engine.close()
             } catch (_: Throwable) { /* idempotent */ }
         }
     }

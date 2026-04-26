@@ -17,13 +17,13 @@ import kotlinx.coroutines.sync.withLock
  *
  * Differs from [co.deepvoiceai.bridge.llama.core.PluginState] in three ways:
  *  - No `mmprojPath` / `gpuLayers` / `contextSize` / `threads` opts —
- *    MediaPipe `tasks-genai` doesn't expose those knobs.
- *  - No `embeddingMode` opt — MediaPipe LLM has no embeddings path
+ *    LiteRT-LM doesn't expose those knobs.
+ *  - No `embeddingMode` opt — LiteRT-LM LLM has no embeddings path
  *    (handler returns 400 with a redirect to the llama backend).
  *  - Adds a `visionEnabled` opt that wires the bridge with
- *    `setMaxNumImages` and toggles the [MediaPipeHandlers.visionCapable]
- *    flag so `image_url` parts route through `addImage` instead of returning
- *    a 400.
+ *    `EngineConfig.visionBackend` and toggles the [MediaPipeHandlers.visionCapable]
+ *    flag so `image_url` parts route through `Content.ImageBytes` instead of
+ *    returning a 400.
  */
 class PluginState {
     private val mutex = Mutex()
@@ -123,13 +123,13 @@ class PluginState {
     }
 
     /**
-     * Best-effort default model id from a `.task` path: strip the directory
-     * prefix and the `.task` extension. Falls back to the literal path if no
-     * separators are present.
+     * Best-effort default model id from a model file path: strip the directory
+     * prefix and any `.litertlm` or legacy `.task` extension. Falls back to
+     * the literal path if no separators are present.
      */
     private fun deriveModelId(modelPath: String): String {
         val name = modelPath.substringAfterLast('/').substringAfterLast('\\')
-        val stripped = name.removeSuffix(".task")
+        val stripped = name.removeSuffix(".litertlm").removeSuffix(".task")
         return stripped.ifEmpty { "mediapipe-default" }
     }
 }

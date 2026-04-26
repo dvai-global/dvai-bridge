@@ -1,3 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- LiteRT-LM GPU backend optional native libs (Phase 3B Task 18-19).
+             android:required="false" lets devices without these still run on
+             the CPU backend rather than failing installation outright. -->
+        <uses-native-library
+            android:name="libvndksupport.so"
+            android:required="false" />
+        <uses-native-library
+            android:name="libOpenCL.so"
+            android:required="false" />
+    </application>
 </manifest>
