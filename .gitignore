@@ -77,3 +77,10 @@ scripts/*.local.json
 scripts/*.local.env
 .env.local
 CLAUDE.md
+
+# Xcode + SwiftPM build output — disposable, regenerated on every build
+packages/*/ios/build/
+packages/*/ios/.build/
+
+# Swift Package Manager lockfile — for a library, consumers resolve their own
+packages/*/ios/Package.resolved
