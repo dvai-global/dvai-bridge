@@ -20,10 +20,21 @@ let package = Package(
         // `dvai-bridge-ios-foundation-core`.
         .package(path: "../dvai-bridge-ios-llama-core"),
         .package(path: "../dvai-bridge-ios-foundation-core"),
+        // swift-transformers 1.3.0 (latest stable as of 2026-04-26).
+        // Provides Tokenizers product for HuggingFace tokenizer loading.
+        .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.3.0"),
+        // Telegraph HTTP server — transitively used by llama-core; we pull it
+        // directly for DVAICoreMLCore so it doesn't depend on the llama target.
+        .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
     ],
     targets: [
         .target(
             name: "DVAICoreMLCore",
+            dependencies: [
+                .product(name: "Tokenizers", package: "swift-transformers"),
+                "Telegraph",
+                .product(name: "DVAILlamaCore", package: "dvai-bridge-ios-llama-core"),
+            ],
             path: "ios/Sources/DVAICoreMLCore"
         ),
         .target(
