@@ -12,8 +12,13 @@ final class MockBridge: LlamaCppBridgeProtocol {
     var receivedEmbeddingTexts: [String] = []
     var completionShouldThrow: Bool = false
     var embeddingShouldThrow: Bool = false
+    // Phase 2A Pass 1: mmproj-stub plumbing for the protocol surface.
+    var mmprojLoaded: Bool = false
+    var receivedMmprojPath: String?
+    var loadMmprojShouldThrow: Bool = false
 
     var isLoaded: Bool { loaded }
+    var isMmprojLoaded: Bool { mmprojLoaded }
 
     func completePrompt(_ prompt: String, maxTokens: Int32, temperature: Float, topP: Float) throws -> String {
         receivedPrompt = prompt
@@ -29,6 +34,18 @@ final class MockBridge: LlamaCppBridgeProtocol {
             throw NSError(domain: "MockBridge", code: 100, userInfo: [NSLocalizedDescriptionKey: "embed boom"])
         }
         return embeddingToReturn
+    }
+
+    func loadMmproj(atPath path: String) throws {
+        receivedMmprojPath = path
+        if loadMmprojShouldThrow {
+            throw NSError(domain: "MockBridge", code: 101, userInfo: [NSLocalizedDescriptionKey: "mmproj boom"])
+        }
+        mmprojLoaded = true
+    }
+
+    func unloadMmproj() {
+        mmprojLoaded = false
     }
 }
 

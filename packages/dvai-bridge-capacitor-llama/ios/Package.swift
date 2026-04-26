@@ -28,11 +28,20 @@ let package = Package(
             name: "llama",
             path: "../native/llama.cpp/build-apple/llama.xcframework"
         ),
+        // mtmd.xcframework is built by the same prepare script in a post-step
+        // (upstream's build-xcframework.sh defaults LLAMA_BUILD_TOOLS=OFF and
+        // does not package mtmd). The mtmd framework's modulemap exposes
+        // mtmd.h and mtmd-helper.h; transitive includes (ggml.h, llama.h)
+        // resolve via the sibling llama framework module.
+        .binaryTarget(
+            name: "mtmd",
+            path: "../native/llama.cpp/build-apple/mtmd.xcframework"
+        ),
         // ObjC++ target — contains LlamaCppBridge.{h,mm} and links against the
-        // llama.xcframework binary target above.
+        // llama + mtmd xcframework binary targets above.
         .target(
             name: "DVAICapacitorLlamaObjC",
-            dependencies: ["llama"],
+            dependencies: ["llama", "mtmd"],
             path: "Sources/DVAICapacitorLlamaObjC",
             publicHeadersPath: "include",
             linkerSettings: [

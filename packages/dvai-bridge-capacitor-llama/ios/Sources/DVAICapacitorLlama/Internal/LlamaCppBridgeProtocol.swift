@@ -20,6 +20,13 @@ protocol LlamaCppBridgeProtocol: AnyObject {
         topP: Float
     ) throws -> String
     func embedding(_ text: String) throws -> [NSNumber]
+
+    // Phase 2A Pass 1: multimodal projector (mmproj) lifecycle. Pass 1 is
+    // stubbed -- `loadMmproj` records the path but doesn't actually
+    // initialize an mtmd_context. Pass 2 will swap in real mtmd calls.
+    var isMmprojLoaded: Bool { get }
+    func loadMmproj(atPath path: String) throws
+    func unloadMmproj()
 }
 
 extension LlamaCppBridge: LlamaCppBridgeProtocol {}

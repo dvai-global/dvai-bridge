@@ -18,6 +18,12 @@
 #include <cstring>
 
 #include "llama.h"
+// Phase 2A Pass 1: mtmd headers are reachable via tools/mtmd in our
+// CMakeLists. Pass 1 only #includes them so the next pass can call mtmd
+// symbols cleanly; the stub native methods below don't actually invoke
+// any mtmd APIs yet.
+#include "mtmd.h"
+#include "mtmd-helper.h"
 
 #define LOG_TAG "DVAIBridgeLlama"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  LOG_TAG, __VA_ARGS__)
@@ -28,6 +34,12 @@ struct LlamaContextHolder {
     llama_context* ctx   = nullptr;
     std::string    model_path;
     bool           embedding_mode = false;
+    // Phase 2A Pass 1: multimodal projector state. mtmd_ctx stays nullptr in
+    // Pass 1 -- the stub doesn't init it; Pass 2 will populate via
+    // mtmd_init_from_file(). mmproj_path tracks the loaded projector path
+    // for nativeIsMmprojLoaded().
+    mtmd_context*  mtmd_ctx = nullptr;
+    std::string    mmproj_path;
 };
 
 namespace {
@@ -35,6 +47,14 @@ namespace {
 // Free model + ctx and reset bookkeeping. Safe to call repeatedly.
 void unload_holder(LlamaContextHolder* h) {
     if (!h) return;
+    // Phase 2A Pass 1 stub: mtmd_ctx is never populated yet, so the if-guard
+    // skips. Pass 2:
+    //     if (h->mtmd_ctx) { mtmd_free(h->mtmd_ctx); h->mtmd_ctx = nullptr; }
+    if (h->mtmd_ctx) {
+        // mtmd_free(h->mtmd_ctx);  // wired in Pass 2
+        h->mtmd_ctx = nullptr;
+    }
+    h->mmproj_path.clear();
     if (h->ctx) {
         llama_free(h->ctx);
         h->ctx = nullptr;
@@ -329,4 +349,85 @@ Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeEmbedding(
     if (!out) return nullptr;
     env->SetFloatArrayRegion(out, 0, n_embd, vec);
     return out;
+}
+
+// =============================================================================
+// Multimodal (mtmd) — Phase 2A Pass 1 stubs
+// =============================================================================
+//
+// Pass 1 establishes the JNI surface and verifies that mtmd's headers and
+// library are reachable from this translation unit. The implementations
+// below are intentionally stubbed -- they only track path state. Pass 2
+// will replace each stub with the real mtmd call (signatures verified
+// against tools/mtmd/mtmd.h on llama.cpp b8933):
+//
+//   mtmd_context_params  mtmd_context_params_default(void);
+//   mtmd_context *       mtmd_init_from_file(const char * mmproj_fname,
+//                                            const struct llama_model * text_model,
+//                                            const struct mtmd_context_params ctx_params);
+//   void                 mtmd_free(mtmd_context * ctx);
+//
+// Eval (Pass 2 / mtmd-helper.h):
+//   int32_t  mtmd_helper_eval_chunks(mtmd_context * ctx,
+//                                    struct llama_context * lctx,
+//                                    const mtmd_input_chunks * chunks,
+//                                    llama_pos n_past,
+//                                    llama_seq_id seq_id,
+//                                    int32_t n_batch,
+//                                    bool logits_last,
+//                                    llama_pos * new_n_past);
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeLoadMmproj(
+        JNIEnv* env, jobject /*thiz*/, jlong handle, jstring jMmprojPath) {
+    auto* h = reinterpret_cast<LlamaContextHolder*>(handle);
+    if (!h || h->model == nullptr) return JNI_FALSE;
+    if (jMmprojPath == nullptr) return JNI_FALSE;
+
+    const char* cPath = env->GetStringUTFChars(jMmprojPath, nullptr);
+    if (cPath == nullptr) return JNI_FALSE;
+    std::string path(cPath);
+    env->ReleaseStringUTFChars(jMmprojPath, cPath);
+
+    if (path.empty()) return JNI_FALSE;
+
+    // Drop any previously-loaded projector before recording the new path.
+    // Pass 2: mtmd_free(h->mtmd_ctx) lives inside this branch.
+    if (h->mtmd_ctx) {
+        // mtmd_free(h->mtmd_ctx);  // wired in Pass 2
+        h->mtmd_ctx = nullptr;
+    }
+
+    // PASS 1 STUB: just record the path. Pass 2 will replace with:
+    //     mtmd_context_params params = mtmd_context_params_default();
+    //     h->mtmd_ctx = mtmd_init_from_file(path.c_str(), h->model, params);
+    //     if (h->mtmd_ctx == nullptr) {
+    //         LOGE("mtmd_init_from_file failed for %s", path.c_str());
+    //         h->mmproj_path.clear();
+    //         return JNI_FALSE;
+    //     }
+    h->mmproj_path = path;
+    return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeUnloadMmproj(
+        JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    auto* h = reinterpret_cast<LlamaContextHolder*>(handle);
+    if (!h) return;
+    // Pass 2:
+    //     if (h->mtmd_ctx) { mtmd_free(h->mtmd_ctx); h->mtmd_ctx = nullptr; }
+    if (h->mtmd_ctx) {
+        // mtmd_free(h->mtmd_ctx);  // wired in Pass 2
+        h->mtmd_ctx = nullptr;
+    }
+    h->mmproj_path.clear();
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_co_deepvoiceai_dvaibridge_llama_LlamaCppBridge_nativeIsMmprojLoaded(
+        JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    auto* h = reinterpret_cast<LlamaContextHolder*>(handle);
+    if (!h) return JNI_FALSE;
+    return h->mmproj_path.empty() ? JNI_FALSE : JNI_TRUE;
 }

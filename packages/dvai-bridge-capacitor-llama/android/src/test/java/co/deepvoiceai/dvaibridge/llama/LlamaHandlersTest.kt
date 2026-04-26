@@ -39,6 +39,10 @@ class LlamaHandlersTest {
     ) : LlamaCppBridgeApi {
         var receivedPrompt: String? = null
         val receivedEmbeddingTexts = mutableListOf<String>()
+        // Phase 2A Pass 1: mmproj-stub plumbing for the API surface.
+        var mmprojLoadedFlag: Boolean = false
+        var receivedMmprojPath: String? = null
+        var loadMmprojResult: Boolean = true
 
         override fun isLoaded(): Boolean = loaded
         override fun completePrompt(prompt: String, maxTokens: Int, temperature: Float, topP: Float): String? {
@@ -49,6 +53,15 @@ class LlamaHandlersTest {
             receivedEmbeddingTexts += text
             return embeddingToReturn
         }
+        override fun loadMmproj(mmprojPath: String): Boolean {
+            receivedMmprojPath = mmprojPath
+            if (loadMmprojResult) mmprojLoadedFlag = true
+            return loadMmprojResult
+        }
+        override fun unloadMmproj() {
+            mmprojLoadedFlag = false
+        }
+        override fun isMmprojLoaded(): Boolean = mmprojLoadedFlag
     }
 
     private fun makeHandlers(
