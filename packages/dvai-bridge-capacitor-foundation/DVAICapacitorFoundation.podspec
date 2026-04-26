@@ -9,7 +9,10 @@ Pod::Spec.new do |s|
   s.homepage         = package['repository']['url']
   s.author           = package['author']
   s.source           = { :git => package['repository']['url'], :tag => s.version.to_s }
-  s.source_files     = 'ios/Sources/**/*.{swift,h,m,mm}'
+  s.source_files     = [
+    'ios/Sources/**/*.{swift,h,m,mm}',
+    '../dvai-bridge-ios-foundation-core/ios/Sources/**/*.{swift,h,m,mm}',
+  ]
   s.ios.deployment_target = '18.1'
   s.swift_version    = '5.9'
   s.dependency 'Capacitor'

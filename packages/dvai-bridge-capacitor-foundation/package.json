@@ -46,7 +46,8 @@
   },
   "peerDependencies": {
     "@capacitor/core": "^6.0.0 || ^7.0.0 || ^8.0.0",
-    "@dvai-bridge/capacitor": "workspace:*"
+    "@dvai-bridge/capacitor": "workspace:*",
+    "@dvai-bridge/ios-foundation-core": "workspace:*"
   },
   "capacitor": {
     "ios": {
