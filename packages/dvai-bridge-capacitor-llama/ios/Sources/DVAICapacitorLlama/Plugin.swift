@@ -1,4 +1,5 @@
 import Foundation
+import DVAILlamaCore
 
 #if canImport(Capacitor)
 import Capacitor
