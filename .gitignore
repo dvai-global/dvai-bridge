@@ -74,5 +74,6 @@ docs/.vitepress/dist/
 # Mac-remote-build local config (never committed; per-developer)
 scripts/mac.local.json
 scripts/*.local.json
+scripts/*.local.env
 .env.local
 CLAUDE.md
