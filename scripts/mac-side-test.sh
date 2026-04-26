@@ -13,6 +13,14 @@
 set -euo pipefail
 TARGET="${1:?usage: mac-side-test.sh <target> [filter]}"
 FILTER="${2:-}"
+# A FILTER value beginning with `!` is treated as a skip filter
+# (`-skip-testing:<rest>`). Useful to run the full suite minus a
+# long-running smoke class without listing every other class by hand.
+SKIP_FILTER=""
+if [ -n "$FILTER" ] && [ "${FILTER:0:1}" = "!" ]; then
+  SKIP_FILTER="${FILTER:1}"
+  FILTER=""
+fi
 
 DEST="${IOS_DEST:-platform=iOS Simulator,name=iPhone 16,OS=18.5}"
 
@@ -54,17 +62,16 @@ esac
 # xcodebuild aborts with exit 64 if the result bundle already exists; clear it.
 rm -rf build/test-results.xcresult
 
+XCODEBUILD_ARGS=(
+  test
+  -scheme "$SCHEME"
+  -destination "$DEST"
+  -resultBundlePath build/test-results.xcresult
+)
 if [ -n "$FILTER" ]; then
-  xcodebuild test \
-    -scheme "$SCHEME" \
-    -destination "$DEST" \
-    -only-testing:"$FILTER" \
-    -resultBundlePath build/test-results.xcresult \
-    "${RUNNER_ENV_ARGS[@]}"
-else
-  xcodebuild test \
-    -scheme "$SCHEME" \
-    -destination "$DEST" \
-    -resultBundlePath build/test-results.xcresult \
-    "${RUNNER_ENV_ARGS[@]}"
+  XCODEBUILD_ARGS+=(-only-testing:"$FILTER")
 fi
+if [ -n "$SKIP_FILTER" ]; then
+  XCODEBUILD_ARGS+=(-skip-testing:"$SKIP_FILTER")
+fi
+xcodebuild "${XCODEBUILD_ARGS[@]}" "${RUNNER_ENV_ARGS[@]}"
