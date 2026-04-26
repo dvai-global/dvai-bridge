@@ -1,8 +1,9 @@
-name: Android JVM — capacitor-mediapipe
+name: Android JVM — mediapipe (core + capacitor wrapper)
 
 on:
   pull_request:
     paths:
+      - 'packages/dvai-bridge-android-mediapipe-core/**'
       - 'packages/dvai-bridge-capacitor-mediapipe/android/**'
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
@@ -11,6 +12,7 @@ on:
     branches:
       - main
     paths:
+      - 'packages/dvai-bridge-android-mediapipe-core/**'
       - 'packages/dvai-bridge-capacitor-mediapipe/android/**'
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
@@ -20,9 +22,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  gradle-test:
+  core-jvm-test:
+    name: android-mediapipe-core JVM
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/dvai-bridge-android-mediapipe-core/android
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-mediapipe-core-${{ hashFiles('packages/dvai-bridge-android-mediapipe-core/android/**/*.gradle*', 'packages/dvai-bridge-android-mediapipe-core/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-mediapipe-core-
+
+      - run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-mediapipe-core-reports
+          path: packages/dvai-bridge-android-mediapipe-core/android/build/reports/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  wrapper-jvm-test:
+    name: capacitor-mediapipe wrapper JVM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: core-jvm-test
     defaults:
       run:
         working-directory: packages/dvai-bridge-capacitor-mediapipe/android
@@ -40,17 +79,16 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-mediapipe-${{ hashFiles('packages/dvai-bridge-capacitor-mediapipe/android/**/*.gradle*', 'packages/dvai-bridge-capacitor-mediapipe/android/gradle/wrapper/gradle-wrapper.properties') }}
+          key: gradle-mediapipe-wrapper-${{ hashFiles('packages/dvai-bridge-capacitor-mediapipe/android/**/*.gradle*', 'packages/dvai-bridge-capacitor-mediapipe/android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
-            gradle-mediapipe-
+            gradle-mediapipe-wrapper-
 
-      - name: Gradle test
-        run: ./gradlew test --no-daemon --stacktrace
+      - run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
-      - name: Upload reports on failure
-        if: failure()
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-mediapipe-reports
+          name: capacitor-mediapipe-wrapper-reports
           path: packages/dvai-bridge-capacitor-mediapipe/android/build/reports/
-          retention-days: 7
+          retention-days: 14
+          if-no-files-found: ignore
