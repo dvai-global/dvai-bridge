@@ -1,5 +1,6 @@
-package co.deepvoiceai.dvaibridge.mediapipe
+package co.deepvoiceai.bridge.mediapipe
 
+import co.deepvoiceai.bridge.mediapipe.core.HandlerContext
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 
@@ -11,8 +12,8 @@ class SmokeTest {
 
     @Test
     fun handlerContextDataClassExists() {
-        // HandlerContext is copied verbatim from capacitor-llama; this
-        // confirms the dispatch-infra files compile in the new package.
+        // HandlerContext lives in the core package; this confirms the
+        // project-dep wiring resolves correctly at compile time.
         val ctx = HandlerContext(modelId = "test", backendName = "mediapipe")
         assertNotNull(ctx)
     }
