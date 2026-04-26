@@ -122,10 +122,9 @@ final class RealModelIntegrationTest: XCTestCase {
             authBearer: hfToken
         )
 
-        // 2. Unzip .mlmodelc — Process is unavailable on iOS, so this
-        //    branch only runs when the test bundle is built for the macOS
-        //    host (e.g. Mac Catalyst destination). On iOS Simulator the
-        //    test skips cleanly.
+        // 2. Unzip .mlmodelc — Process is unavailable on iOS, so the
+        //    end-to-end path only runs on macOS (Mac Catalyst destination).
+        //    On iOS Simulator the test skips cleanly.
         //
         //    Phase 3D follow-up: replace `/usr/bin/unzip` with an
         //    in-process unzip path (e.g. Compression framework or a
@@ -133,9 +132,6 @@ final class RealModelIntegrationTest: XCTestCase {
         //    Simulator destination too.
         #if os(macOS)
         let unzipped = try await unzip(modelZip, into: tempDir)
-        #else
-        throw XCTSkip("CoreML integration test requires macOS host (iOS simulator lacks Process); Phase 3D follow-up.")
-        #endif
 
         // The zip's top-level dir is "StatefulModel.mlmodelc" or similar;
         // discover the .mlmodelc directory rather than hardcoding the name.
@@ -158,13 +154,19 @@ final class RealModelIntegrationTest: XCTestCase {
             modelPath: mlmodelcURL.path,
             tokenizerPath: tokDir.path
         ))
-        XCTAssertEqual(server.backend, .coreml)
+        XCTAssertEqual(server.backend, BackendKind.coreml)
 
         let response = try await postChatCompletion(
             baseUrl: server.baseUrl,
             messages: [["role": "user", "content": "What is 2+2?"]]
         )
         XCTAssertFalse(response.isEmpty, "CoreML completion should not be empty")
+        #else
+        // Suppress unused-variable warnings for the iOS-skip path.
+        _ = modelZip
+        _ = tokFile
+        throw XCTSkip("CoreML integration test requires macOS host (iOS simulator lacks Process); Phase 3D follow-up.")
+        #endif
     }
 
     // MARK: - Helpers
