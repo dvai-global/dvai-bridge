@@ -1,8 +1,9 @@
-name: Android JVM — capacitor-llama
+name: Android JVM — llama (core + capacitor wrapper) + 16 KB alignment
 
 on:
   pull_request:
     paths:
+      - 'packages/dvai-bridge-android-llama-core/**'
       - 'packages/dvai-bridge-capacitor-llama/android/**'
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
@@ -11,6 +12,7 @@ on:
     branches:
       - main
     paths:
+      - 'packages/dvai-bridge-android-llama-core/**'
       - 'packages/dvai-bridge-capacitor-llama/android/**'
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
@@ -20,9 +22,79 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  gradle-test:
+  core-jvm-test:
+    name: android-llama-core JVM + 16 KB alignment
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/dvai-bridge-android-llama-core/android
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-llama-core-${{ hashFiles('packages/dvai-bridge-android-llama-core/android/**/*.gradle*', 'packages/dvai-bridge-android-llama-core/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-llama-core-
+
+      - name: Run JVM unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Build release .so for alignment check
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify 16 KB page-size alignment on produced .so
+        run: |
+          set -e
+          missing_alignment=0
+          for so in $(find build -name '*.so'); do
+            # objdump's "align 2**N" line under LOAD segments — N=14 means 16 KB
+            line=$(objdump -p "$so" | awk '/LOAD/ {print; exit}')
+            if [ -z "$line" ]; then
+              echo "::warning::no LOAD segment found for $so — skipping"
+              continue
+            fi
+            n=$(echo "$line" | sed -n 's/.*align 2\*\*\([0-9]\+\).*/\1/p')
+            if [ -z "$n" ]; then
+              echo "::warning::could not parse alignment for $so — skipping"
+              continue
+            fi
+            page_size=$((1 << n))
+            if [ "$page_size" -lt 16384 ]; then
+              echo "::error::$so has page alignment $page_size bytes, expected >= 16384"
+              missing_alignment=1
+            else
+              echo "$so: page alignment = $page_size bytes — OK"
+            fi
+          done
+          exit $missing_alignment
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-llama-core-reports
+          path: packages/dvai-bridge-android-llama-core/android/build/reports/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  wrapper-jvm-test:
+    name: capacitor-llama wrapper JVM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: core-jvm-test
     defaults:
       run:
         working-directory: packages/dvai-bridge-capacitor-llama/android
@@ -42,17 +114,18 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-llama-${{ hashFiles('packages/dvai-bridge-capacitor-llama/android/**/*.gradle*', 'packages/dvai-bridge-capacitor-llama/android/gradle/wrapper/gradle-wrapper.properties') }}
+          key: gradle-llama-wrapper-${{ hashFiles('packages/dvai-bridge-capacitor-llama/android/**/*.gradle*', 'packages/dvai-bridge-capacitor-llama/android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
-            gradle-llama-
+            gradle-llama-wrapper-
 
-      - name: Gradle test
-        run: ./gradlew test --no-daemon --stacktrace
+      - name: Run wrapper sanity tests
+        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
-      - name: Upload reports on failure
-        if: failure()
+      - name: Upload reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-llama-reports
+          name: capacitor-llama-wrapper-reports
           path: packages/dvai-bridge-capacitor-llama/android/build/reports/
-          retention-days: 7
+          retention-days: 14
+          if-no-files-found: ignore
