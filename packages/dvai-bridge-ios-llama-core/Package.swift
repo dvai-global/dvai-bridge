@@ -15,16 +15,15 @@ let package = Package(
         // Prebuilt llama.xcframework — produced by upstream's
         // build-xcframework.sh, materialized by `bash scripts/mac-side-prepare-xcframework.sh`.
         // The xcframework is gitignored; CI must run the prepare step before
-        // iOS jobs. Path is cross-package during Phase 3A's iOS-first window
-        // (Tasks 2-8); Task 9 relocates the submodule + xcframeworks into
-        // dvai-bridge-android-llama-core and updates this path.
+        // iOS jobs. The submodule + xcframeworks live in
+        // dvai-bridge-android-llama-core (Phase 3A Task 9 relocation).
         .binaryTarget(
             name: "llama",
-            path: "../dvai-bridge-capacitor-llama/native/llama.cpp/build-apple/llama.xcframework"
+            path: "../dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/llama.xcframework"
         ),
         .binaryTarget(
             name: "mtmd",
-            path: "../dvai-bridge-capacitor-llama/native/llama.cpp/build-apple/mtmd.xcframework"
+            path: "../dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/mtmd.xcframework"
         ),
         // Package.swift lives at the package root (not under `ios/`), so target
         // paths include the `ios/` prefix. The root placement avoids an SPM
