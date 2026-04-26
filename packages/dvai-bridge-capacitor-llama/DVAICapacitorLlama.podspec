@@ -9,7 +9,11 @@ Pod::Spec.new do |s|
   s.homepage         = package['repository']['url']
   s.author           = package['author']
   s.source           = { :git => package['repository']['url'], :tag => s.version.to_s }
-  s.source_files     = 'ios/Sources/**/*.{swift,h,m,mm}'
+  s.source_files     = [
+    'ios/Sources/**/*.{swift,h,m,mm}',
+    '../dvai-bridge-ios-llama-core/ios/Sources/**/*.{swift,h,m,mm}',
+  ]
+  s.public_header_files = '../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC/include/*.h'
   s.ios.deployment_target = '14.0'
   s.swift_version    = '5.9'
   s.dependency 'Capacitor'
