@@ -1,4 +1,4 @@
-package co.deepvoiceai.dvaibridge.llama
+package co.deepvoiceai.bridge.llama
 
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
@@ -6,11 +6,37 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import co.deepvoiceai.bridge.llama.core.ModelDownloader
+import co.deepvoiceai.bridge.llama.core.PluginState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+
+// ---------------------------------------------------------------------------
+// JSObject ↔ Map translation helpers — needed because PluginState's API is
+// Capacitor-neutral (Map<String, Any?>) while the JS-bridge layer works with
+// Capacitor's JSObject (which extends JSONObject and has no .toMap()).
+// ---------------------------------------------------------------------------
+
+private fun JSObject.toAnyMap(): Map<String, Any?> {
+    val out = mutableMapOf<String, Any?>()
+    val it = keys()
+    while (it.hasNext()) {
+        val k = it.next()
+        out[k] = this.opt(k)  // returns Any (or JSONObject.NULL); fine for our usage
+    }
+    return out
+}
+
+private fun Map<String, Any?>.toJSObject(): JSObject {
+    val obj = JSObject()
+    for ((k, v) in this) {
+        if (v != null) obj.put(k, v)
+    }
+    return obj
+}
 
 @CapacitorPlugin(name = "DVAIBridgeLlama")
 class DVAIBridgeLlamaPlugin : Plugin() {
@@ -28,9 +54,9 @@ class DVAIBridgeLlamaPlugin : Plugin() {
         scope.launch {
             notifyListeners("progress", JSObject().apply { put("phase", "load") })
             try {
-                val result = state.start(call.data)
+                val resultMap = state.start((call.data ?: JSObject()).toAnyMap())
                 notifyListeners("progress", JSObject().apply { put("phase", "ready") })
-                call.resolve(result)
+                call.resolve(resultMap.toJSObject())
             } catch (e: Exception) {
                 notifyListeners("progress", JSObject().apply {
                     put("phase", "error")
@@ -55,7 +81,9 @@ class DVAIBridgeLlamaPlugin : Plugin() {
 
     @PluginMethod
     fun status(call: PluginCall) {
-        call.resolve(state.statusInfo())
+        scope.launch {
+            call.resolve(state.statusInfo().toJSObject())
+        }
     }
 
     @PluginMethod

@@ -1,1 +1,4 @@
+include ':dvai-bridge-android-llama-core'
+project(':dvai-bridge-android-llama-core').projectDir = file('../../dvai-bridge-android-llama-core/android')
+
 rootProject.name = 'dvai-bridge-capacitor-llama'

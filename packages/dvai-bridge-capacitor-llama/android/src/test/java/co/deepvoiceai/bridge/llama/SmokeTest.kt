@@ -1,4 +1,4 @@
-package co.deepvoiceai.dvaibridge.llama
+package co.deepvoiceai.bridge.llama
 
 import org.junit.Assert.assertNotNull
 import org.junit.Test
