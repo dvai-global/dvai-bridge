@@ -46,7 +46,9 @@ done < <(set | grep '^SMOKE_' || true)
 case "$TARGET" in
   ios-foundation-core)
     cd "packages/dvai-bridge-ios-foundation-core"
-    SCHEME="DVAIFoundationCore-Package"
+    # Single-library packages don't get a `-Package` umbrella scheme; the
+    # bare library scheme works because there's only one product to build.
+    SCHEME="DVAIFoundationCore"
     ;;
   ios-llama-core)
     cd "packages/dvai-bridge-ios-llama-core"
