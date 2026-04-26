@@ -61,42 +61,63 @@ jobs:
             exit 0
           fi
 
-      - name: xcodebuild test (real-model scheme)
-        # xcodebuild forwards env vars to the simulator-hosted unit-test
-        # process via the `TEST_RUNNER_<NAME>=<VAL>` build-setting
-        # convention; at runtime the prefix is stripped, so the test code
-        # reads `ProcessInfo.processInfo.environment["SMOKE_MODEL_URL"]`
-        # unchanged. The earlier `SIMCTL_CHILD_*` channel only reaches
-        # XCUITest runner processes, not the unit-test bundle, which is
-        # why local mac-side-test.sh switched off it (commit e9b4846).
-        # SMOKE_* env vars come from the workflow-level `env:` block.
+      - name: xcodebuild test (real-model scheme — per-method isolation)
+        # Each smoke test method runs in its own xcodebuild invocation, so
+        # the xctest process is fresh per case. Simulator memory pressure
+        # accumulates across tests in the same process (model mmaps + ggml
+        # buffers don't fully release on unload), and a 4 GB Gemma-4 +
+        # mmproj load on top of leftover Llama state was reliably OOM-ing
+        # the simulator with SIGKILL. Per-method invocations sidestep that
+        # at the cost of a few extra build/launch cycles per run.
+        #
+        # xcodebuild env injection: `TEST_RUNNER_<NAME>=<VAL>` build-
+        # settings appear inside the simulator-hosted unit-test process
+        # with the prefix stripped, so test code reads
+        # `ProcessInfo.processInfo.environment["SMOKE_MODEL_URL"]`
+        # unchanged. The older SIMCTL_CHILD_* channel only reaches
+        # XCUITest runners, not unit-test bundles. SMOKE_* values come
+        # from the workflow-level `env:` block.
         env:
           IOS_DEST: 'platform=iOS Simulator,name=iPhone 16,OS=18.5'
         run: |
-          rm -rf build/test-results.xcresult
-          # Construct TEST_RUNNER_<NAME>=<VAL> args from any SMOKE_* env
-          # var present, mirroring scripts/mac-side-test.sh. Empty values
-          # are skipped so the test still skips cleanly via XCTSkip when a
-          # secret isn't configured.
+          # Construct TEST_RUNNER_<NAME>=<VAL> args once and reuse for
+          # every per-method invocation. Empty values are skipped so the
+          # test still XCTSkips cleanly when an optional secret isn't
+          # configured.
           RUNNER_ENV_ARGS=()
           while IFS='=' read -r name value; do
             if [ -n "$name" ] && [ -n "$value" ]; then
               RUNNER_ENV_ARGS+=("TEST_RUNNER_${name}=${value}")
             fi
           done < <(env | grep '^SMOKE_' || true)
-          xcodebuild test \
-            -scheme DVAICapacitorLlama \
-            -destination "$IOS_DEST" \
-            -only-testing:DVAICapacitorLlamaTests/RealModelSmokeTest \
-            -resultBundlePath build/test-results.xcresult \
-            "${RUNNER_ENV_ARGS[@]}"
 
-      - name: Upload xcresult
+          set +e
+          OVERALL_RC=0
+          for METHOD in testSmokeRealModelEndToEnd testSmokeVisionEndToEnd testSmokeAudioEndToEnd; do
+            BUNDLE="build/test-results-${METHOD}.xcresult"
+            rm -rf "$BUNDLE"
+            echo "::group::xcodebuild test — $METHOD"
+            xcodebuild test \
+              -scheme DVAICapacitorLlama \
+              -destination "$IOS_DEST" \
+              -only-testing:"DVAICapacitorLlamaTests/RealModelSmokeTest/$METHOD" \
+              -resultBundlePath "$BUNDLE" \
+              "${RUNNER_ENV_ARGS[@]}"
+            RC=$?
+            echo "::endgroup::"
+            if [ $RC -ne 0 ]; then
+              echo "::warning::$METHOD exited with code $RC"
+              OVERALL_RC=$RC
+            fi
+          done
+          exit $OVERALL_RC
+
+      - name: Upload xcresults
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: smoke-ios-xcresult
-          path: packages/dvai-bridge-capacitor-llama/ios/build/test-results.xcresult
+          name: smoke-ios-xcresults
+          path: packages/dvai-bridge-capacitor-llama/ios/build/test-results-*.xcresult
           retention-days: 14
           if-no-files-found: ignore
 
