@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.iOS(.v14), .macOS(.v12)],
     products: [
         .library(name: "DVAILlamaCore", targets: ["DVAILlamaCore"]),
+        .library(name: "DVAILlamaCoreObjC", targets: ["DVAILlamaCoreObjC"]),
     ],
     dependencies: [
         .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),

@@ -14,8 +14,8 @@
 // XCTest process).
 
 import XCTest
-@testable import DVAICapacitorLlama
-import DVAICapacitorLlamaObjC
+import DVAILlamaCore
+import DVAILlamaCoreObjC
 
 /// Unbuffered breadcrumb. NSLog flushes per call to stderr / oslog, so
 /// even if the test process dies mid-step (jetsam SIGKILL on simulator,
