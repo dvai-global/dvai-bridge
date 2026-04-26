@@ -1,6 +1,5 @@
-package co.deepvoiceai.dvaibridge.mediapipe
+package co.deepvoiceai.bridge.mediapipe.core
 
-import com.getcapacitor.JSObject
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -44,14 +43,14 @@ class PluginStateTest {
     fun `statusInfo reports not running initially`() {
         val state = PluginState().also { states.add(it) }
         val info = state.statusInfo()
-        assertEquals(false, info.getBoolean("running"))
+        assertEquals(false, info["running"])
     }
 
     @Test
     fun `start fails when modelPath missing`() = runBlocking {
         val state = PluginState().also { states.add(it) }
         try {
-            state.start(JSObject(), context)
+            state.start(emptyMap(), context)
             fail("Expected IllegalArgumentException")
         } catch (e: IllegalArgumentException) {
             assertTrue(
@@ -65,7 +64,7 @@ class PluginStateTest {
     fun `start fails when modelPath empty`() = runBlocking {
         val state = PluginState().also { states.add(it) }
         try {
-            state.start(JSObject().apply { put("modelPath", "") }, context)
+            state.start(mapOf("modelPath" to ""), context)
             fail("Expected IllegalArgumentException")
         } catch (e: IllegalArgumentException) {
             assertTrue(
@@ -81,6 +80,6 @@ class PluginStateTest {
         // Should not throw — calling stop() on an idle state is a no-op.
         state.stop()
         val info = state.statusInfo()
-        assertEquals(false, info.getBoolean("running"))
+        assertEquals(false, info["running"])
     }
 }

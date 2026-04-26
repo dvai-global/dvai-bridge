@@ -1,4 +1,4 @@
-package co.deepvoiceai.dvaibridge.mediapipe
+package co.deepvoiceai.bridge.mediapipe.core
 
 import android.content.Context
 import com.google.mediapipe.framework.image.MPImage

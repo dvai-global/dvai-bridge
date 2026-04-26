@@ -1,18 +1,21 @@
-package co.deepvoiceai.dvaibridge.mediapipe
+package co.deepvoiceai.bridge.mediapipe.core
 
 import android.content.Context
-import com.getcapacitor.JSObject
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Owns the running state of the capacitor-mediapipe plugin: the
- * [MediaPipeBridge] inference engine, the HTTP server, and model metadata.
- * All access is serialized through the [Mutex] so concurrent start/stop calls
- * from the JS bridge can never race against the underlying MediaPipe engine
+ * Owns the running state of the MediaPipe core: the [MediaPipeBridge]
+ * inference engine, the HTTP server, and model metadata. All access is
+ * serialized through the [Mutex] so concurrent start/stop calls from the
+ * bridge layer can never race against the underlying MediaPipe engine
  * (which is not safe to construct twice in parallel).
  *
- * Differs from [co.deepvoiceai.dvaibridge.llama.PluginState] in three ways:
+ * Capacitor-free: opts are plain [Map<String, Any?>] and return values are
+ * plain [Map<String, Any?>]. The Capacitor wrapper translates between
+ * JSObject and Map before/after calling into this class.
+ *
+ * Differs from [co.deepvoiceai.bridge.llama.core.PluginState] in three ways:
  *  - No `mmprojPath` / `gpuLayers` / `contextSize` / `threads` opts —
  *    MediaPipe `tasks-genai` doesn't expose those knobs.
  *  - No `embeddingMode` opt — MediaPipe LLM has no embeddings path
@@ -31,18 +34,18 @@ class PluginState {
     private var baseUrl: String? = null
     private var port: Int? = null
 
-    suspend fun start(opts: JSObject, context: Context): JSObject = mutex.withLock {
+    suspend fun start(opts: Map<String, Any?>, context: Context): Map<String, Any?> = mutex.withLock {
         if (isRunning) stopInternal()
 
-        val modelPath = opts.getString("modelPath")?.takeIf { it.isNotEmpty() }
+        val modelPath = (opts["modelPath"] as? String)?.takeIf { it.isNotEmpty() }
             ?: throw IllegalArgumentException("modelPath is required for mediapipe backend")
 
-        val maxTokens = opts.getInteger("maxTokens") ?: 2048
-        val visionEnabled = opts.getBoolean("visionEnabled", false) ?: false
-        val httpBasePort = opts.getInteger("httpBasePort") ?: 38883
-        val httpMaxPortAttempts = opts.getInteger("httpMaxPortAttempts") ?: 16
-        val corsConfig = parseCors(opts.opt("corsOrigin"))
-        val resolvedModelId = opts.getString("modelId")?.takeIf { it.isNotEmpty() }
+        val maxTokens = (opts["maxTokens"] as? Number)?.toInt() ?: 2048
+        val visionEnabled = opts["visionEnabled"] as? Boolean ?: false
+        val httpBasePort = (opts["httpBasePort"] as? Number)?.toInt() ?: 38883
+        val httpMaxPortAttempts = (opts["httpMaxPortAttempts"] as? Number)?.toInt() ?: 16
+        val corsConfig = parseCors(opts["corsOrigin"])
+        val resolvedModelId = (opts["modelId"] as? String)?.takeIf { it.isNotEmpty() }
             ?: deriveModelId(modelPath)
 
         // Construct the MediaPipe bridge. The engine itself is loaded lazily
@@ -86,12 +89,12 @@ class PluginState {
         this.baseUrl = "http://127.0.0.1:$boundPort/v1"
         this.isRunning = true
 
-        return@withLock JSObject().apply {
-            put("baseUrl", "http://127.0.0.1:$boundPort/v1")
-            put("port", boundPort)
-            put("backend", "mediapipe")
-            put("modelId", resolvedModelId)
-        }
+        return@withLock mapOf(
+            "baseUrl" to "http://127.0.0.1:$boundPort/v1",
+            "port" to boundPort,
+            "backend" to "mediapipe",
+            "modelId" to resolvedModelId,
+        )
     }
 
     suspend fun stop() = mutex.withLock { stopInternal() }
@@ -107,7 +110,7 @@ class PluginState {
         isRunning = false
     }
 
-    fun statusInfo(): JSObject = JSObject().apply {
+    fun statusInfo(): Map<String, Any?> = buildMap {
         put("running", isRunning)
         baseUrl?.let { put("baseUrl", it) }
         if (isRunning) put("backend", "mediapipe")

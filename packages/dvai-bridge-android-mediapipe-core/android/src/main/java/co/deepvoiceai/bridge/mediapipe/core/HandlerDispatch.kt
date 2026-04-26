@@ -1,4 +1,4 @@
-package co.deepvoiceai.dvaibridge.mediapipe
+package co.deepvoiceai.bridge.mediapipe.core
 
 import io.ktor.http.*
 import io.ktor.server.application.*

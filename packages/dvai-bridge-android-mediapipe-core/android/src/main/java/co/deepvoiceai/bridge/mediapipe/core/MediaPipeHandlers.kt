@@ -1,4 +1,4 @@
-package co.deepvoiceai.dvaibridge.mediapipe
+package co.deepvoiceai.bridge.mediapipe.core
 
 import android.graphics.BitmapFactory
 import com.google.mediapipe.framework.image.BitmapImageBuilder
