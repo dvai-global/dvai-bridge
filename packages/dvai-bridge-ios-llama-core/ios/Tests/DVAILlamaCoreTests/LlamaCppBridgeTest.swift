@@ -1,6 +1,6 @@
 import XCTest
-@testable import DVAICapacitorLlama
-import DVAICapacitorLlamaObjC
+@testable import DVAILlamaCore
+import DVAILlamaCoreObjC
 
 final class LlamaCppBridgeTest: XCTestCase {
     func testInitiallyNotLoaded() {

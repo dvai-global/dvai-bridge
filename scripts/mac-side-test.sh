@@ -44,6 +44,10 @@ while IFS='=' read -r name _; do
 done < <(set | grep '^SMOKE_' || true)
 
 case "$TARGET" in
+  ios-llama-core)
+    cd "packages/dvai-bridge-ios-llama-core/ios"
+    SCHEME="DVAILlamaCore"
+    ;;
   capacitor-llama)
     cd "packages/dvai-bridge-capacitor-llama/ios"
     SCHEME="DVAICapacitorLlama"
