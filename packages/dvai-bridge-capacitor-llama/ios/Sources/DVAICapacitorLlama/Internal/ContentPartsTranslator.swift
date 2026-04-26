@@ -68,8 +68,14 @@ struct DefaultImageDecoder: ImageDecoderProtocol {
 /// Walks an OpenAI-style `messages` array and produces a `LlamaPromptInput`
 /// bundle. Each message's content is rendered into a string with media parts
 /// replaced by `<__media__>` markers; the corresponding bytes (image bytes
-/// from `ImageDecoder` or PCM bytes from `AudioDecoder`) are appended to
-/// `media` in declaration order.
+/// from `ImageDecoder` and the raw base64-decoded audio bytes — still in
+/// their WAV/MP3/FLAC envelope) are appended to `media` in declaration order.
+///
+/// mtmd does its own format detection (via miniaudio) inside
+/// `mtmd_helper_bitmap_init_from_buf` by inspecting magic bytes, so the
+/// translator must hand it the original encoded audio rather than headerless
+/// PCM samples — `mtmd_helper_bitmap_init_from_buf` only recognizes
+/// WAV/MP3/FLAC and would fail silently on raw PCM.
 ///
 /// Audio data contract: `input_audio.data` must be standard base64 (RFC 4648
 /// §4); URL-safe base64 (`-` / `_` chars) is rejected. This matches OpenAI's
@@ -86,6 +92,11 @@ final class ContentPartsTranslator {
     private let mmprojLoaded: Bool
     private let modelHasAudioEncoder: Bool
     private let imageDecoder: ImageDecoderProtocol
+    /// Currently unused on the production path — mtmd handles audio decoding
+    /// internally via miniaudio, so we pass the raw base64-decoded bytes (in
+    /// their WAV/MP3/FLAC envelope) straight through. Kept as an init
+    /// parameter for backward compatibility with existing tests and as a
+    /// possible future fallback for formats mtmd cannot decode itself.
     private let audioDecoder: (Data, AudioFormat) async throws -> Data
 
     init(
@@ -171,7 +182,11 @@ final class ContentPartsTranslator {
                             supported: Self.supportedAudioFormats
                         )
                     }
-                    guard let format = AudioFormat(rawValue: formatStr) else {
+                    // Validate the format string against `AudioFormat` to keep
+                    // the supported-format gate honest, but the production
+                    // path no longer calls into AudioDecoder — mtmd does its
+                    // own format detection by magic bytes.
+                    guard AudioFormat(rawValue: formatStr) != nil else {
                         // The supportedAudioFormats list is the source of truth;
                         // this branch only fires if the raw-value enum diverges
                         // from that list.
@@ -188,12 +203,13 @@ final class ContentPartsTranslator {
                     guard let encodedBytes = Data(base64Encoded: dataB64) else {
                         throw TranslatorError.malformedRequest("input_audio.data is not valid base64")
                     }
-                    do {
-                        let pcm = try await audioDecoder(encodedBytes, format)
-                        media.append(pcm)
-                    } catch {
-                        throw TranslatorError.audioDecodeFailed(String(describing: error))
-                    }
+                    // Pass the raw base64-decoded bytes (still in their
+                    // original WAV/MP3/FLAC envelope) straight through to
+                    // mtmd. `mtmd_helper_bitmap_init_from_buf` only accepts
+                    // WAV/MP3/FLAC by magic-byte detection — feeding it
+                    // headerless PCM (e.g. via `AudioDecoder.decode`) makes
+                    // bitmap-init fail silently with mtmd error 52.
+                    media.append(encodedBytes)
                     renderedSegments.append(MTMD_MEDIA_MARKER)
                 default:
                     throw TranslatorError.malformedRequest("unsupported content part type: \(type)")

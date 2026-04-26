@@ -189,7 +189,25 @@ class LlamaCppBridge : LlamaCppBridgeApi {
         mmprojPath = null
     }
 
-    override fun isMmprojLoaded(): Boolean = mmprojPath != null
+    override fun isMmprojLoaded(): Boolean {
+        // Source of truth is the C++ holder (`h->mtmd_ctx != nullptr`), not the
+        // Kotlin-side `mmprojPath` field — that mirrors iOS's `_mtmdCtx != NULL`
+        // check and stays correct if `mtmd_init_from_file` ever fails after
+        // `mmprojPath` was set. The Kotlin field is still used to nil things
+        // out on `unload()`/`unloadMmproj()`, but we don't read it here on
+        // the production path.
+        return if (nativeHandle != 0L) {
+            try {
+                nativeIsMmprojLoaded(nativeHandle)
+            } catch (_: UnsatisfiedLinkError) {
+                // JVM unit-test fallback: no .so loaded, defer to the Kotlin field.
+                mmprojPath != null
+            }
+        } else {
+            // No native handle (JVM-only test bridge) — defer to the Kotlin field.
+            mmprojPath != null
+        }
+    }
 
     override fun hasAudioEncoder(): Boolean {
         if (!isMmprojLoaded()) return false

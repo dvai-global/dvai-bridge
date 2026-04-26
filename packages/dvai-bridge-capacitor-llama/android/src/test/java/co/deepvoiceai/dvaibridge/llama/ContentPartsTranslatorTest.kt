@@ -148,9 +148,15 @@ class ContentPartsTranslatorTest {
         assertEquals(1, markerCount)
     }
 
-    /** `CHAT_REQUEST_AUDIO_PCM16` — base64 PCM + text. */
+    /**
+     * `CHAT_REQUEST_AUDIO_PCM16` — base64 audio + text. The base64 payload is
+     * decoded and the **raw bytes** land in `media` unchanged; mtmd does its
+     * own format detection downstream via miniaudio, so the translator no
+     * longer routes audio through `AudioDecoder`. The `audioDecoder`
+     * collaborator is wired up but should not be invoked.
+     */
     @Test
-    fun `audio pcm16 part is base64-decoded and forwarded to audio decoder`() = runBlocking {
+    fun `audio part is base64-decoded and passed raw to media without audio decoder`() = runBlocking {
         val messages = loadMessages("CHAT_REQUEST_AUDIO_PCM16")
         val recorder = AudioRecorder()
         val translator = ContentPartsTranslator(
@@ -161,11 +167,12 @@ class ContentPartsTranslatorTest {
         val result = translator.translate(messages)
         assertEquals("Transcribe this.", result.prompt)
         assertEquals(1, result.media.size)
-        assertArrayEquals(recorder.pcmOut, result.media[0])
-        assertEquals(1, recorder.calls.size)
-        assertEquals(AudioFormat.PCM16, recorder.calls[0].second)
+        // `media[0]` is the raw base64-decoded fixture bytes — NOT the canned
+        // `recorder.pcmOut` — because the translator no longer routes audio
+        // through the decoder closure on the production path.
         val pcmFile = File(fixturesDir(), "audio/pcm16-1s-16khz-mono.bin").readBytes()
-        assertArrayEquals(pcmFile, recorder.calls[0].first)
+        assertArrayEquals(pcmFile, result.media[0])
+        assertEquals("audioDecoder must not be called on the production path; mtmd handles decode itself", 0, recorder.calls.size)
         val markerCount = result.messagesWithMarkers
             .sumOf { it.content.split(MTMD_MEDIA_MARKER).size - 1 }
         assertEquals(1, markerCount)
@@ -174,7 +181,9 @@ class ContentPartsTranslatorTest {
     /**
      * Interleaved [text, image, text, audio, text] → media list preserves
      * declaration order; rendered content has exactly two `<__media__>`
-     * markers in the right positions.
+     * markers in the right positions. After the audio-path fix, `media[1]`
+     * is the raw base64-decoded audio bytes; `audioDecoder` must not be
+     * invoked.
      */
     @Test
     fun `interleaved text image audio preserves order`() = runBlocking {
@@ -203,7 +212,9 @@ class ContentPartsTranslatorTest {
         val result = translator.translate(messages)
         assertEquals(2, result.media.size)
         assertArrayEquals(byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte()), result.media[0])
-        assertArrayEquals(byteArrayOf(0x55, 0x66, 0x77), result.media[1])
+        // `"AAAA"` base64-decoded is three zero bytes — that's what mtmd sees.
+        assertArrayEquals(byteArrayOf(0x00, 0x00, 0x00), result.media[1])
+        assertEquals("audioDecoder must not be invoked on the production path", 0, recorder.calls.size)
         assertEquals(1, result.messagesWithMarkers.size)
         val content = result.messagesWithMarkers[0].content
         val markerCount = content.split(MTMD_MEDIA_MARKER).size - 1

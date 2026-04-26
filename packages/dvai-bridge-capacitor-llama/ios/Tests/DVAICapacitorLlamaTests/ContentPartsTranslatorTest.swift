@@ -132,9 +132,11 @@ final class ContentPartsTranslatorTest: XCTestCase {
         XCTAssertEqual(markerCount, 1)
     }
 
-    /// `CHAT_REQUEST_AUDIO_PCM16` — base64-encoded PCM16 + text. The base64
-    /// payload is fed (decoded) into the audio-decoder closure with
-    /// `format == .pcm16`; the canned PCM result lands in `media`.
+    /// `CHAT_REQUEST_AUDIO_PCM16` — base64-encoded audio + text. The base64
+    /// payload is decoded and the **raw bytes** land in `media` unchanged;
+    /// mtmd does its own format detection downstream via miniaudio, so the
+    /// translator no longer routes audio through `AudioDecoder`. The
+    /// `audioDecoder` collaborator is wired up but should not be invoked.
     func testAudioPCM16PlusText() async throws {
         let fixture = try loadFixture("CHAT_REQUEST_AUDIO_PCM16")
         let recorder = AudioRecorder()
@@ -146,13 +148,13 @@ final class ContentPartsTranslatorTest: XCTestCase {
         let result = try await translator.translate(messages: messages(from: fixture))
         XCTAssertEqual(result.prompt, "Transcribe this.")
         XCTAssertEqual(result.media.count, 1)
-        XCTAssertEqual(result.media[0], recorder.pcmOut)
-        XCTAssertEqual(recorder.calls.count, 1)
-        XCTAssertEqual(recorder.calls[0].1, .pcm16)
-        // The recorder receives the raw decoded PCM bytes (the fixture loader
-        // base64-encodes the PCM file, the translator base64-decodes it back).
+        // `media[0]` should be the raw base64-decoded bytes (i.e. the
+        // contents of the PCM fixture file as-is) — NOT the canned
+        // `recorder.pcmOut`, because the translator no longer routes audio
+        // through the decoder closure.
         let pcmFile = try Data(contentsOf: fixturesURL().appendingPathComponent("audio").appendingPathComponent("pcm16-1s-16khz-mono.bin"))
-        XCTAssertEqual(recorder.calls[0].0, pcmFile)
+        XCTAssertEqual(result.media[0], pcmFile)
+        XCTAssertEqual(recorder.calls.count, 0, "audioDecoder must not be called on the production path; mtmd handles decode itself")
         let markerCount = result.messagesWithMarkers
             .map { $0.content.components(separatedBy: MTMD_MEDIA_MARKER).count - 1 }
             .reduce(0, +)
@@ -161,7 +163,10 @@ final class ContentPartsTranslatorTest: XCTestCase {
 
     /// Interleaved `[text, image, text, audio, text]` → media list preserves
     /// declaration order (image first, then audio); rendered content has
-    /// exactly two `<__media__>` markers in the right positions.
+    /// exactly two `<__media__>` markers in the right positions. After the
+    /// audio-path fix, `media[1]` is the raw base64-decoded audio bytes
+    /// (mtmd handles format detection downstream); the audio-decoder
+    /// collaborator must not be invoked.
     func testInterleavedTextImageAudio() async throws {
         let imageMock = MockImageDecoder()
         let imageBytes = Data([0xAA, 0xBB, 0xCC])
@@ -187,7 +192,9 @@ final class ContentPartsTranslatorTest: XCTestCase {
         let result = try await translator.translate(messages: messages)
         XCTAssertEqual(result.media.count, 2)
         XCTAssertEqual(result.media[0], imageBytes, "image must come first in declaration order")
-        XCTAssertEqual(result.media[1], audioRecorder.pcmOut, "audio must come second")
+        // `"AAAA"` base64-decoded is three zero bytes — that's what mtmd sees.
+        XCTAssertEqual(result.media[1], Data([0x00, 0x00, 0x00]), "audio bytes are the raw base64-decoded payload")
+        XCTAssertEqual(audioRecorder.calls.count, 0, "audioDecoder must not be invoked on the production path")
         XCTAssertEqual(result.messagesWithMarkers.count, 1)
         let content = result.messagesWithMarkers[0].content
         let markerCount = content.components(separatedBy: MTMD_MEDIA_MARKER).count - 1
