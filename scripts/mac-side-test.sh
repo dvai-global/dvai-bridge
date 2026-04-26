@@ -44,6 +44,10 @@ while IFS='=' read -r name _; do
 done < <(set | grep '^SMOKE_' || true)
 
 case "$TARGET" in
+  ios-foundation-core)
+    cd "packages/dvai-bridge-ios-foundation-core"
+    SCHEME="DVAIFoundationCore-Package"
+    ;;
   ios-llama-core)
     cd "packages/dvai-bridge-ios-llama-core"
     # Umbrella `*-Package` scheme includes every target (Swift, ObjC, tests).

@@ -19,7 +19,7 @@
 // out and the smoke test still runs.
 
 import XCTest
-@testable import DVAICapacitorFoundation
+@testable import DVAIFoundationCore
 
 #if canImport(FoundationModels)
 import FoundationModels
