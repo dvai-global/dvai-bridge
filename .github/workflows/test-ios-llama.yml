@@ -1,8 +1,9 @@
-name: iOS — capacitor-llama
+name: iOS — llama (core + capacitor wrapper)
 
 on:
   pull_request:
     paths:
+      - 'packages/dvai-bridge-ios-llama-core/**'
       - 'packages/dvai-bridge-capacitor-llama/ios/**'
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
@@ -12,6 +13,7 @@ on:
     branches:
       - main
     paths:
+      - 'packages/dvai-bridge-ios-llama-core/**'
       - 'packages/dvai-bridge-capacitor-llama/ios/**'
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
@@ -21,9 +23,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  xctest:
+  core-xctest:
+    name: ios-llama-core XCTest
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/dvai-bridge-ios-llama-core
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Clear stale xcresult bundle
+        run: rm -rf build/test-results.xcresult
+
+      - name: xcodebuild test
+        env:
+          IOS_DEST: 'platform=iOS Simulator,name=iPhone 16,OS=18.5'
+        run: |
+          xcodebuild test \
+            -scheme DVAILlamaCore-Package \
+            -destination "$IOS_DEST" \
+            -resultBundlePath build/test-results.xcresult
+
+      - name: Upload xcresult on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresult-llama-core
+          path: packages/dvai-bridge-ios-llama-core/build/test-results.xcresult
+          retention-days: 7
+
+  wrapper-xctest:
+    name: capacitor-llama wrapper XCTest
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 30
+    needs: core-xctest
     defaults:
       run:
         working-directory: packages/dvai-bridge-capacitor-llama/ios
@@ -48,6 +84,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: xcresult-llama
+          name: xcresult-llama-wrapper
           path: packages/dvai-bridge-capacitor-llama/ios/build/test-results.xcresult
           retention-days: 7

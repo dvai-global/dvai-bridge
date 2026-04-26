@@ -1,8 +1,9 @@
-name: iOS — capacitor-foundation
+name: iOS — foundation (core + capacitor wrapper)
 
 on:
   pull_request:
     paths:
+      - 'packages/dvai-bridge-ios-foundation-core/**'
       - 'packages/dvai-bridge-capacitor-foundation/ios/**'
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
@@ -12,6 +13,7 @@ on:
     branches:
       - main
     paths:
+      - 'packages/dvai-bridge-ios-foundation-core/**'
       - 'packages/dvai-bridge-capacitor-foundation/ios/**'
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
@@ -21,9 +23,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  xctest:
+  core-xctest:
+    name: ios-foundation-core XCTest
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/dvai-bridge-ios-foundation-core
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Clear stale xcresult bundle
+        run: rm -rf build/test-results.xcresult
+
+      - name: xcodebuild test
+        env:
+          IOS_DEST: 'platform=iOS Simulator,name=iPhone 16,OS=18.5'
+        run: |
+          xcodebuild test \
+            -scheme DVAIFoundationCore \
+            -destination "$IOS_DEST" \
+            -resultBundlePath build/test-results.xcresult
+
+      - name: Upload xcresult on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresult-foundation-core
+          path: packages/dvai-bridge-ios-foundation-core/build/test-results.xcresult
+          retention-days: 7
+
+  wrapper-xctest:
+    name: capacitor-foundation wrapper XCTest
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 30
+    needs: core-xctest
     defaults:
       run:
         working-directory: packages/dvai-bridge-capacitor-foundation/ios
@@ -46,6 +80,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: xcresult-foundation
+          name: xcresult-foundation-wrapper
           path: packages/dvai-bridge-capacitor-foundation/ios/build/test-results.xcresult
           retention-days: 7
