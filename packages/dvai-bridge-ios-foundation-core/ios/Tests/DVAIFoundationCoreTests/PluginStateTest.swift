@@ -29,7 +29,7 @@
 // code review.
 
 import XCTest
-@testable import DVAICapacitorFoundation
+@testable import DVAIFoundationCore
 
 final class PluginStateTest: XCTestCase {
 
