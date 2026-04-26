@@ -5,7 +5,7 @@ import DVAILlamaCoreObjC
 /// Owns the running state of the capacitor-llama plugin: the model bridge,
 /// the HTTP server, and the model metadata. All access is serialised through
 /// the actor isolation.
-actor PluginState {
+public actor PluginState {
     private var server: HttpServer?
     private var bridge: LlamaCppBridge?
     private(set) var modelId: String = ""
@@ -13,9 +13,11 @@ actor PluginState {
     private(set) var baseUrl: String?
     private(set) var port: Int?
 
+    public init() {}
+
     /// Start the plugin: load model, bind server, install routes.
     /// - Returns dictionary suitable for Capacitor's `call.resolve(...)`.
-    func start(opts: [String: Any]) async throws -> [String: Any] {
+    public func start(opts: [String: Any]) async throws -> [String: Any] {
         if isRunning { try await stopInternal() }
 
         guard let modelPath = opts["modelPath"] as? String, !modelPath.isEmpty else {
@@ -111,7 +113,7 @@ actor PluginState {
     }
 
     /// Stop the plugin: release model, stop server.
-    func stop() async throws {
+    public func stop() async throws {
         try await stopInternal()
     }
 
@@ -127,7 +129,7 @@ actor PluginState {
     }
 
     /// Snapshot of the current running state, suitable for Capacitor `call.resolve(...)`.
-    func statusInfo() -> [String: Any] {
+    public func statusInfo() -> [String: Any] {
         var dict: [String: Any] = ["running": isRunning]
         if let baseUrl = baseUrl { dict["baseUrl"] = baseUrl }
         if isRunning { dict["backend"] = "llama" }
