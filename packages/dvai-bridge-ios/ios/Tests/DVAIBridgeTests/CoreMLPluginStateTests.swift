@@ -34,8 +34,8 @@ final class CoreMLPluginStateTests: XCTestCase {
         // Doesn't throw — idempotent stop is required by the API contract
     }
 
-    func testStatusInfoReportsNotRunning() {
-        let info = CoreMLPluginState().statusInfo()
+    func testStatusInfoReportsNotRunning() async {
+        let info = await CoreMLPluginState().statusInfo()
         XCTAssertEqual(info["running"] as? Bool, false)
     }
 }
