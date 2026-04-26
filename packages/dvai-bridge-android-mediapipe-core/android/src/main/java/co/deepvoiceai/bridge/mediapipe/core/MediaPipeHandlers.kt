@@ -1,8 +1,5 @@
 package co.deepvoiceai.bridge.mediapipe.core
 
-import android.graphics.BitmapFactory
-import com.google.mediapipe.framework.image.BitmapImageBuilder
-import com.google.mediapipe.framework.image.MPImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -25,19 +22,6 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import java.util.UUID
-
-/**
- * Default `(ByteArray) -> MPImage` used by [MediaPipeHandlers]: decode the
- * encoded image payload (PNG/JPEG/etc.) with [BitmapFactory], wrap the
- * resulting `Bitmap` with [BitmapImageBuilder]. Throws [RuntimeException] if
- * the bytes are not a recognised image format. Top-level function so the
- * default can be referenced as `::defaultBytesToImage` in the ctor.
- */
-private fun defaultBytesToImage(bytes: ByteArray): MPImage {
-    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        ?: throw RuntimeException("BitmapFactory.decodeByteArray returned null")
-    return BitmapImageBuilder(bitmap).build()
-}
 
 /**
  * OpenAI-compatible handler set for the MediaPipe LLM backend on Android.
@@ -93,16 +77,6 @@ class MediaPipeHandlers(
      * (the common case) reject image parts with a clear 400.
      */
     private val visionCapable: Boolean = false,
-    /**
-     * Test seam: converts decoded image bytes (PNG/JPEG payload) into an
-     * [MPImage] for [MediaPipeBridgeApi.completePrompt]/`...Async`.
-     * Production callers leave this at the default, which decodes via
-     * [BitmapFactory] and wraps the resulting `Bitmap` with
-     * [BitmapImageBuilder]. Unit tests override it because Robolectric's
-     * `BitmapFactory` cannot decode arbitrary PNG bytes into a real `Bitmap`
-     * without device-side libraries.
-     */
-    private val bytesToImage: (ByteArray) -> MPImage = ::defaultBytesToImage,
 ) : DvaiHandlers {
     private val bridgeMutex = Mutex()
 
@@ -113,7 +87,9 @@ class MediaPipeHandlers(
         // Walk content parts up-front: collect images for vision-capable
         // models, reject audio (always unsupported), and reject image_url for
         // non-vision models. Mirrors LlamaHandlers/FoundationHandlers ordering.
-        val images = mutableListOf<MPImage>()
+        // Images are collected as raw bytes; ByteArray → MPImage conversion
+        // happens inside the bridge implementation.
+        val images = mutableListOf<ByteArray>()
         for (msg in messages) {
             val msgObj = msg as? JsonObject ?: continue
             val content = msgObj["content"] as? JsonArray ?: continue
@@ -149,15 +125,7 @@ class MediaPipeHandlers(
                             "Failed to fetch image: ${e.message ?: "unknown error"}",
                         )
                     }
-                    val mpImage = try {
-                        bytesToImage(bytes)
-                    } catch (e: Exception) {
-                        return HandlerResponse.Error(
-                            400,
-                            "Failed to decode image bytes: ${e.message ?: "unknown error"}",
-                        )
-                    }
-                    images.add(mpImage)
+                    images.add(bytes)
                 }
                 if (type == "input_audio") {
                     return HandlerResponse.Error(
@@ -303,7 +271,7 @@ class MediaPipeHandlers(
         id: String,
         created: Long,
         prompt: String,
-        images: List<MPImage>,
+        images: List<ByteArray>,
     ): Flow<String> = callbackFlow {
         // Serialize against any other bridge use for the entire stream lifetime.
         // Track ownership explicitly via a local flag so we never depend on the
