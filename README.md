@@ -2,6 +2,12 @@
 
 # DVAI-Bridge
 
+<!-- Smoke badge stays here; goes live after the first scheduled run posts a
+     status to the default branch. The repo is private pre-launch, so the
+     badge will 404 / display "no status" until then — keep the line in
+     place so a post-launch flip is a single-line edit, not a layout pass. -->
+[![Smoke — real models](https://github.com/Westenets/dvai-bridge/actions/workflows/smoke-real-models.yml/badge.svg?branch=main)](https://github.com/Westenets/dvai-bridge/actions/workflows/smoke-real-models.yml)
+
 **The local OpenAI server you embed inside your app.**
 
 DVAI-Bridge starts a real OpenAI-compatible HTTP server on `127.0.0.1`,
