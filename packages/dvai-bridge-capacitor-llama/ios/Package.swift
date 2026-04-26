@@ -16,14 +16,15 @@ let package = Package(
         // us to the `packages/` parent and `dvai-bridge-ios-llama-core/ios` is the
         // sibling package's SPM root.
         //
-        // We omit the `name:` parameter to dodge a SPM identity-disambiguation
-        // edge case: both Package.swifts live at `ios/` subdirs, and the legacy
-        // `.package(name:path:)` form trips a false `cyclic dependency between
-        // packages DVAICapacitorLlama -> DVAICapacitorLlama` error under
-        // tools-version 5.9. SPM derives the dependency's identity from the
-        // manifest at the path; we reference the product by its bare name in
-        // the target's dependencies below.
-        .package(path: "../../dvai-bridge-ios-llama-core/ios"),
+        // The core's Package.swift lives at the PACKAGE ROOT (not under `ios/`)
+        // so that SPM derives identity "dvai-bridge-ios-llama-core" rather than
+        // "ios" for this dependency. With both Package.swifts at `ios/`, SPM's
+        // path-dep identity-from-last-dir-name rule aliased them and triggered
+        // a false `cyclic dependency between packages DVAICapacitorLlama ->
+        // DVAICapacitorLlama` resolution error. The bare product reference
+        // ("DVAILlamaCore") in the target dependency list below works because
+        // SPM auto-resolves unambiguous product names across the dep graph.
+        .package(path: "../../dvai-bridge-ios-llama-core"),
     ],
     targets: [
         .target(

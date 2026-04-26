@@ -19,20 +19,22 @@ let package = Package(
         // dvai-bridge-android-llama-core and updates this path.
         .binaryTarget(
             name: "llama",
-            path: "../../dvai-bridge-capacitor-llama/native/llama.cpp/build-apple/llama.xcframework"
+            path: "../dvai-bridge-capacitor-llama/native/llama.cpp/build-apple/llama.xcframework"
         ),
         .binaryTarget(
             name: "mtmd",
-            path: "../../dvai-bridge-capacitor-llama/native/llama.cpp/build-apple/mtmd.xcframework"
+            path: "../dvai-bridge-capacitor-llama/native/llama.cpp/build-apple/mtmd.xcframework"
         ),
-        // ObjC++ target — LlamaCppBridge.{h,mm}, links against the binary targets above.
-        // Target paths are relative to Package.swift, which lives inside `ios/`,
-        // so paths drop the leading `ios/` segment that would be needed if the
-        // manifest sat at the package root.
+        // Package.swift lives at the package root (not under `ios/`), so target
+        // paths include the `ios/` prefix. The root placement avoids an SPM
+        // identity-collision with sibling packages whose manifests also live at
+        // `<pkg>/ios/Package.swift` — SPM derives a path-dep's identity from
+        // the last directory component of the path, and "ios" would alias
+        // multiple packages and trigger a false cyclic-dependency error.
         .target(
             name: "DVAILlamaCoreObjC",
             dependencies: ["llama", "mtmd"],
-            path: "Sources/DVAILlamaCoreObjC",
+            path: "ios/Sources/DVAILlamaCoreObjC",
             publicHeadersPath: "include",
             linkerSettings: [
                 .linkedFramework("Foundation"),
@@ -42,12 +44,12 @@ let package = Package(
         .target(
             name: "DVAILlamaCore",
             dependencies: ["DVAILlamaCoreObjC", "Telegraph"],
-            path: "Sources/DVAILlamaCore"
+            path: "ios/Sources/DVAILlamaCore"
         ),
         .testTarget(
             name: "DVAILlamaCoreTests",
             dependencies: ["DVAILlamaCore", "DVAILlamaCoreObjC"],
-            path: "Tests/DVAILlamaCoreTests"
+            path: "ios/Tests/DVAILlamaCoreTests"
         ),
     ],
     cxxLanguageStandard: .cxx17

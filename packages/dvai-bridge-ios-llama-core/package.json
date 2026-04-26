@@ -4,8 +4,8 @@
   "description": "DVAI-Bridge iOS llama.cpp core — pure Swift / ObjC++ embedded HTTP server + handlers + bridge. Capacitor-free.",
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",
-  "main": "ios/Package.swift",
-  "files": ["ios", "README.md", "LICENSE"],
+  "main": "Package.swift",
+  "files": ["Package.swift", "ios", "README.md", "LICENSE"],
   "publishConfig": {
     "access": "public"
   }

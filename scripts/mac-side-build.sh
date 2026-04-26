@@ -7,7 +7,7 @@ DEST="${IOS_DEST:-platform=iOS Simulator,name=iPhone 16,OS=18.5}"
 
 case "$TARGET" in
   ios-llama-core)
-    cd "packages/dvai-bridge-ios-llama-core/ios"
+    cd "packages/dvai-bridge-ios-llama-core"
     xcodebuild build \
       -scheme DVAILlamaCore \
       -destination "$DEST" \

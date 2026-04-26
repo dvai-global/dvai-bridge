@@ -45,7 +45,7 @@ done < <(set | grep '^SMOKE_' || true)
 
 case "$TARGET" in
   ios-llama-core)
-    cd "packages/dvai-bridge-ios-llama-core/ios"
+    cd "packages/dvai-bridge-ios-llama-core"
     SCHEME="DVAILlamaCore"
     ;;
   capacitor-llama)
