@@ -2,6 +2,9 @@ package co.deepvoiceai.dvaibridge.llama
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import co.deepvoiceai.bridge.llama.core.LlamaCppBridge
+import co.deepvoiceai.bridge.llama.core.ModelDownloader
+import co.deepvoiceai.bridge.llama.core.MTMD_MEDIA_MARKER
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
