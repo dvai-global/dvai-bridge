@@ -15,7 +15,15 @@ let package = Package(
         // location (`packages/dvai-bridge-capacitor-llama/ios/`), so two `..` get
         // us to the `packages/` parent and `dvai-bridge-ios-llama-core/ios` is the
         // sibling package's SPM root.
-        .package(name: "DVAILlamaCore", path: "../../dvai-bridge-ios-llama-core/ios"),
+        //
+        // We omit the `name:` parameter to dodge a SPM identity-disambiguation
+        // edge case: both Package.swifts live at `ios/` subdirs, and the legacy
+        // `.package(name:path:)` form trips a false `cyclic dependency between
+        // packages DVAICapacitorLlama -> DVAICapacitorLlama` error under
+        // tools-version 5.9. SPM derives the dependency's identity from the
+        // manifest at the path; we reference the product by its bare name in
+        // the target's dependencies below.
+        .package(path: "../../dvai-bridge-ios-llama-core/ios"),
     ],
     targets: [
         .target(
@@ -23,7 +31,7 @@ let package = Package(
             dependencies: [
                 .product(name: "Capacitor", package: "capacitor-swift-pm"),
                 .product(name: "Cordova", package: "capacitor-swift-pm"),
-                .product(name: "DVAILlamaCore", package: "DVAILlamaCore"),
+                "DVAILlamaCore",
             ],
             path: "Sources/DVAICapacitorLlama",
             exclude: ["PluginProxy.m"]
