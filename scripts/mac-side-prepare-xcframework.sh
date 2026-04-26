@@ -72,14 +72,20 @@ echo "[prepare-xcframework] llama.xcframework -> $LLAMA_DIR/build-apple/llama.xc
 # Each entry: "<build-dir>:<platform>:<sdk>:<archs>:<min-version>:<simulator?>"
 # "simulator" controls install_name + min-version flag and matches how
 # upstream's combine_static_libraries() chooses its variants.
+# Only iOS + macOS are needed — Package.swift declares
+# `platforms: [.iOS(.v14), .macOS(.v12)]`, so visionOS and tvOS slices
+# would be dead weight. They ALSO break the LLAMA_BUILD_TOOLS=ON
+# reconfigure path because tools/* CMakeLists.txt declare MACOSX_BUNDLE
+# executable targets without BUNDLE DESTINATION, which CMake rejects
+# on visionOS/tvOS. Skipping those slices avoids the configure failure
+# entirely and gives us a smaller xcframework.
+#
+# (The upstream build-xcframework.sh in Step 1 still produces all
+# slices for llama.xcframework; we only constrain the mtmd pass here.)
 PLATFORMS=(
     "build-ios-sim:ios:iphonesimulator:arm64;x86_64:${IOS_MIN_OS_VERSION}:true"
     "build-ios-device:ios:iphoneos:arm64:${IOS_MIN_OS_VERSION}:false"
     "build-macos:macos:macosx:arm64;x86_64:${MACOS_MIN_OS_VERSION}:false"
-    "build-visionos:visionos:xros:arm64:${VISIONOS_MIN_OS_VERSION}:false"
-    "build-visionos-sim:visionos:xrsimulator:arm64;x86_64:${VISIONOS_MIN_OS_VERSION}:true"
-    "build-tvos-sim:tvos:appletvsimulator:arm64;x86_64:${TVOS_MIN_OS_VERSION}:true"
-    "build-tvos-device:tvos:appletvos:arm64:${TVOS_MIN_OS_VERSION}:false"
 )
 
 # release_dir per platform mirrors what upstream's script passes to
