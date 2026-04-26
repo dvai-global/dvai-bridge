@@ -1,6 +1,6 @@
 // Internal/PluginState.swift
 import Foundation
-import DVAICapacitorLlamaObjC
+import DVAILlamaCoreObjC
 
 /// Owns the running state of the capacitor-llama plugin: the model bridge,
 /// the HTTP server, and the model metadata. All access is serialised through

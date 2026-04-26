@@ -1,6 +1,6 @@
 // Internal/LlamaCppBridgeProtocol.swift
 import Foundation
-import DVAICapacitorLlamaObjC
+import DVAILlamaCoreObjC
 
 /// Test seam over the ObjC++ `LlamaCppBridge`. Concrete `LlamaCppBridge`
 /// conforms via the extension below; `LlamaHandlers` takes this protocol so

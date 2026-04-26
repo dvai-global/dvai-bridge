@@ -6,6 +6,13 @@ TARGET="${1:?usage: mac-side-build.sh <target> [filter]}"
 DEST="${IOS_DEST:-platform=iOS Simulator,name=iPhone 16,OS=18.5}"
 
 case "$TARGET" in
+  ios-llama-core)
+    cd "packages/dvai-bridge-ios-llama-core/ios"
+    xcodebuild build \
+      -scheme DVAILlamaCore \
+      -destination "$DEST" \
+      -configuration Debug
+    ;;
   capacitor-llama)
     cd "packages/dvai-bridge-capacitor-llama/ios"
     xcodebuild build \

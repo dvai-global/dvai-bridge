@@ -1,6 +1,6 @@
 // Internal/LlamaHandlers.swift
 import Foundation
-import DVAICapacitorLlamaObjC
+import DVAILlamaCoreObjC
 
 /// OpenAI-compatible handler set for the llama backend. Wires
 /// `ContentPartsTranslator` → `bridge.completePrompt` → OpenAI response shape
