@@ -1,4 +1,4 @@
-package co.deepvoiceai.dvaibridge.llama
+package co.deepvoiceai.bridge.llama
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
