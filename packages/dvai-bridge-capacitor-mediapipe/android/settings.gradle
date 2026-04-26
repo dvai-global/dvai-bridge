@@ -1,1 +1,4 @@
+include ':dvai-bridge-android-mediapipe-core'
+project(':dvai-bridge-android-mediapipe-core').projectDir = file('../../dvai-bridge-android-mediapipe-core/android')
+
 rootProject.name = 'dvai-bridge-capacitor-mediapipe'

@@ -1,5 +1,6 @@
-package co.deepvoiceai.dvaibridge.mediapipe
+package co.deepvoiceai.bridge.mediapipe
 
+import co.deepvoiceai.bridge.mediapipe.core.PluginState
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -26,9 +27,9 @@ class DVAIBridgeMediaPipePlugin : Plugin() {
         scope.launch {
             notifyListeners("progress", JSObject().apply { put("phase", "load") })
             try {
-                val result = state.start(call.data, context)
+                val result = state.start(call.data.toAnyMap(), context)
                 notifyListeners("progress", JSObject().apply { put("phase", "ready") })
-                call.resolve(result)
+                call.resolve(result.toJSObject())
             } catch (e: Exception) {
                 notifyListeners("progress", JSObject().apply {
                     put("phase", "error")
@@ -53,7 +54,7 @@ class DVAIBridgeMediaPipePlugin : Plugin() {
 
     @PluginMethod
     fun status(call: PluginCall) {
-        call.resolve(state.statusInfo())
+        call.resolve(state.statusInfo().toJSObject())
     }
 
     // For the MediaPipe backend, model lifecycle is the user's job (we don't
@@ -83,5 +84,25 @@ class DVAIBridgeMediaPipePlugin : Plugin() {
     @PluginMethod
     fun cacheDir(call: PluginCall) {
         call.reject("cacheDir is not implemented for MediaPipe backend in Phase 1.")
+    }
+
+    // ---- JSObject <-> Map translation helpers ----
+
+    private fun JSObject.toAnyMap(): Map<String, Any?> {
+        val out = mutableMapOf<String, Any?>()
+        val it = keys()
+        while (it.hasNext()) {
+            val k = it.next()
+            out[k] = this.opt(k)
+        }
+        return out
+    }
+
+    private fun Map<String, Any?>.toJSObject(): JSObject {
+        val obj = JSObject()
+        for ((k, v) in this) {
+            if (v != null) obj.put(k, v)
+        }
+        return obj
     }
 }
