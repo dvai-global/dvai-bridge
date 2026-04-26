@@ -1,6 +1,5 @@
 package co.deepvoiceai.bridge.mediapipe.core
 
-import com.google.mediapipe.framework.image.MPImage
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -33,12 +32,14 @@ import org.robolectric.RobolectricTestRunner
  * Mirrors the coverage of `LlamaHandlersTest`: chat-completion (sync +
  * streaming), legacy completions, error / 400 surfaces, embeddings rejection,
  * the models endpoint, plus Task 46 vision-capable happy path and image
- * fetch / decode failure surfaces.
+ * fetch failure surfaces.
  *
- * Runs under Robolectric so [android.graphics.Bitmap] can be created — the
- * sentinel `MPImage` used by the vision tests goes through
- * [com.google.mediapipe.framework.image.BitmapImageBuilder], which needs a
- * real `Bitmap` instance.
+ * The `bytesToImage` seam that previously lived in [MediaPipeHandlers] has been
+ * moved into [MediaPipeBridge] as part of the Task 17 interface neutralization.
+ * [MediaPipeBridgeApi] now accepts [List]<[ByteArray]> rather than
+ * [List]<MPImage>. The [FakeBridge] captures raw bytes so tests can assert on
+ * the exact payload handed to the bridge, without any Robolectric bitmap
+ * overhead.
  */
 @RunWith(RobolectricTestRunner::class)
 class MediaPipeHandlersTest {
@@ -49,10 +50,10 @@ class MediaPipeHandlersTest {
         var shouldThrow: Boolean = false,
     ) : MediaPipeBridgeApi {
         var receivedPrompt: String? = null
-        var receivedImages: List<MPImage> = emptyList()
+        var receivedImages: List<ByteArray> = emptyList()
         var asyncCloseCount: Int = 0
 
-        override fun completePrompt(prompt: String, images: List<MPImage>): String {
+        override fun completePrompt(prompt: String, images: List<ByteArray>): String {
             receivedPrompt = prompt
             receivedImages = images
             if (shouldThrow) throw RuntimeException("simulated mediapipe error")
@@ -61,7 +62,7 @@ class MediaPipeHandlersTest {
 
         override fun completePromptAsync(
             prompt: String,
-            images: List<MPImage>,
+            images: List<ByteArray>,
             onPartial: (String, Boolean) -> Unit,
         ): AutoCloseable {
             receivedPrompt = prompt
@@ -81,36 +82,12 @@ class MediaPipeHandlersTest {
     private fun makeHandlers(
         bridge: FakeBridge = FakeBridge(),
         visionCapable: Boolean = false,
-        bytesToImage: (ByteArray) -> MPImage = { _ -> sentinelImage },
     ): MediaPipeHandlers =
         MediaPipeHandlers(
             bridge = bridge,
             modelId = "gemma-2b-it-cpu-int4",
             visionCapable = visionCapable,
-            bytesToImage = bytesToImage,
         )
-
-    /**
-     * Pre-built dummy `MPImage` shared across tests. We rely on the fact that
-     * the handler treats the list as opaque — only its size and propagation
-     * are observed by assertions.
-     */
-    private val sentinelImage: MPImage by lazy {
-        // Use Mockito-free trick: construct via Class.newInstance on a
-        // generated proxy. MPImage is abstract; construct an anonymous
-        // subclass via Java reflection on a no-arg ctor if one exists.
-        // Simplest reliable path: cast a dynamically-allocated array of size 0
-        // and use Java's `Proxy` only if MPImage were an interface. It's not.
-        //
-        // Instead: use the `BitmapImageBuilder` path which Robolectric DOES
-        // tolerate because it just stores the Bitmap reference — the JNI call
-        // is on subsequent ops we never make. Bitmap.createBitmap works under
-        // Robolectric's shadow.
-        val bitmap = android.graphics.Bitmap.createBitmap(
-            1, 1, android.graphics.Bitmap.Config.ARGB_8888,
-        )
-        com.google.mediapipe.framework.image.BitmapImageBuilder(bitmap).build()
-    }
 
     /**
      * Parse a single SSE frame's JSON payload. Returns null for `[DONE]`
@@ -268,23 +245,9 @@ class MediaPipeHandlersTest {
     fun `chat completion vision-capable image part decodes and threads through bridge`() = runBlocking {
         val bridge = FakeBridge(responseToReturn = "looks like a cat")
         // Use a tiny in-memory PNG via the data URL fixture so the real
-        // ImageDecoder.resolve path exercises base64 decoding. The bytes are
-        // then handed to the injected `bytesToImage` stub which returns the
-        // sentinel MPImage.
-        var bytesToImageCalls = 0
-        val handlers = makeHandlers(
-            bridge = bridge,
-            visionCapable = true,
-            bytesToImage = { bytes ->
-                bytesToImageCalls += 1
-                // Sanity: the first 8 bytes of a real PNG always match the
-                // PNG magic header. Asserts via require so failures surface.
-                require(bytes.size >= 8 && bytes[0] == 0x89.toByte() && bytes[1] == 0x50.toByte()) {
-                    "expected PNG magic header in fetched bytes"
-                }
-                sentinelImage
-            },
-        )
+        // ImageDecoder.resolve path exercises base64 decoding. Raw bytes are
+        // now passed directly to the bridge (ByteArray neutralization, Task 17).
+        val handlers = makeHandlers(bridge = bridge, visionCapable = true)
         // Real PNG bytes (1x1 transparent pixel) inlined as base64. Same
         // payload as `tiny-test-base64.txt` but inlined to keep the test
         // self-contained.
@@ -316,9 +279,12 @@ class MediaPipeHandlersTest {
         val msg = ((obj["choices"] as JsonArray)[0] as JsonObject)["message"] as JsonObject
         assertEquals("looks like a cat", (msg["content"] as JsonPrimitive).content)
 
-        // Bridge received exactly one image and the text prompt.
-        assertEquals(1, bytesToImageCalls)
+        // Bridge received exactly one image (as raw bytes) and the text prompt.
         assertEquals(1, bridge.receivedImages.size)
+        // Sanity: first 8 bytes must match the PNG magic header.
+        val receivedBytes = bridge.receivedImages[0]
+        assertTrue("PNG magic: byte[0]", receivedBytes[0] == 0x89.toByte())
+        assertTrue("PNG magic: byte[1]", receivedBytes[1] == 0x50.toByte())
         // Prompt should contain just the text part.
         assertEquals("user: describe this", bridge.receivedPrompt)
     }
@@ -379,35 +345,38 @@ class MediaPipeHandlersTest {
     }
 
     @Test
-    fun `chat completion image decode failure returns 400`() = runBlocking {
-        val handlers = makeHandlers(
-            visionCapable = true,
-            bytesToImage = { _ -> throw RuntimeException("simulated decode failure") },
-        )
+    fun `chat completion streaming vision-capable image part threads raw bytes through bridge`() = runBlocking {
+        // Verify that the streaming path passes raw ByteArray to the bridge
+        // rather than converting to MPImage in the handler layer (Task 17
+        // neutralization: ByteArray → MPImage conversion now happens inside
+        // MediaPipeBridge, not in MediaPipeHandlers).
+        val bridge = FakeBridge(responseToReturn = "ab")
+        val handlers = makeHandlers(bridge = bridge, visionCapable = true)
+        val pngDataUrl =
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII="
         val body = buildJsonObject {
             putJsonArray("messages") {
                 addJsonObject {
                     put("role", "user")
                     putJsonArray("content") {
+                        addJsonObject { put("type", "text"); put("text", "what is this") }
                         addJsonObject {
                             put("type", "image_url")
-                            putJsonObject("image_url") {
-                                // data URL → ImageDecoder.resolve succeeds, but
-                                // bytesToImage throws.
-                                put("url", "data:image/png;base64,AAAA")
-                            }
+                            putJsonObject("image_url") { put("url", pngDataUrl) }
                         }
                     }
                 }
             }
+            put("stream", true)
         }
-        val resp = handlers.handleChatCompletion(body, ctx) as? HandlerResponse.Error
-            ?: error("expected Error response")
-        assertEquals(400, resp.status)
-        assertTrue(
-            "message: ${resp.message}",
-            resp.message.contains("Failed to decode image bytes"),
-        )
+        val resp = handlers.handleChatCompletion(body, ctx) as? HandlerResponse.Sse
+            ?: error("expected Sse response")
+        resp.flow.toList() // consume the stream to completion
+        // Bridge received one raw-byte image via the streaming path.
+        assertEquals(1, bridge.receivedImages.size)
+        val receivedBytes = bridge.receivedImages[0]
+        assertTrue("PNG magic byte[0]", receivedBytes[0] == 0x89.toByte())
+        assertTrue("PNG magic byte[1]", receivedBytes[1] == 0x50.toByte())
     }
 
     // ----- 400 surfaces -----

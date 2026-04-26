@@ -1,6 +1,8 @@
 package co.deepvoiceai.bridge.mediapipe.core
 
 import android.content.Context
+import android.graphics.BitmapFactory
+import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
@@ -22,19 +24,21 @@ interface MediaPipeBridgeApi {
     /**
      * Synchronous prompt completion. If [images] is non-empty the engine must
      * have been built with `visionEnabled = true`; otherwise MediaPipe will
-     * throw at session-creation time.
+     * throw at session-creation time. Images are supplied as raw encoded bytes
+     * (PNG/JPEG/etc.); the implementation converts them to [MPImage] internally.
      */
-    fun completePrompt(prompt: String, images: List<MPImage> = emptyList()): String
+    fun completePrompt(prompt: String, images: List<ByteArray> = emptyList()): String
 
     /**
      * Asynchronous prompt completion. The supplied callback fires per partial
      * chunk; the second arg is `true` on the final fragment. Returns a handle
      * the caller can [AutoCloseable.close] to release the per-call session
-     * once the stream finishes (or is cancelled).
+     * once the stream finishes (or is cancelled). Images are supplied as raw
+     * encoded bytes (PNG/JPEG/etc.); the implementation converts internally.
      */
     fun completePromptAsync(
         prompt: String,
-        images: List<MPImage> = emptyList(),
+        images: List<ByteArray> = emptyList(),
         onPartial: (partial: String, done: Boolean) -> Unit,
     ): AutoCloseable
 }
@@ -101,13 +105,27 @@ class MediaPipeBridge(
         return builder.build()
     }
 
-    override fun completePrompt(prompt: String, images: List<MPImage>): String {
+    /**
+     * Decode a list of raw image byte arrays (PNG/JPEG/etc.) into [MPImage]
+     * instances for consumption by the MediaPipe session. Conversion is eager
+     * (all images decoded before the session is opened) so a decode failure
+     * surfaces before any native resources are acquired.
+     */
+    private fun bytesToMpImages(images: List<ByteArray>): List<MPImage> =
+        images.map { bytes ->
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                ?: throw IllegalArgumentException("BitmapFactory.decodeByteArray returned null")
+            BitmapImageBuilder(bitmap).build()
+        }
+
+    override fun completePrompt(prompt: String, images: List<ByteArray>): String {
+        val mpImages = bytesToMpImages(images)
         val session = LlmInferenceSession.createFromOptions(engine(), sessionOptions())
         try {
             // MediaPipe requires the text query chunk to be added before any
             // images for vision-capable graphs.
             session.addQueryChunk(prompt)
-            for (img in images) {
+            for (img in mpImages) {
                 session.addImage(img)
             }
             return session.generateResponse()
@@ -120,13 +138,14 @@ class MediaPipeBridge(
 
     override fun completePromptAsync(
         prompt: String,
-        images: List<MPImage>,
+        images: List<ByteArray>,
         onPartial: (String, Boolean) -> Unit,
     ): AutoCloseable {
+        val mpImages = bytesToMpImages(images)
         val session = LlmInferenceSession.createFromOptions(engine(), sessionOptions())
         try {
             session.addQueryChunk(prompt)
-            for (img in images) {
+            for (img in mpImages) {
                 session.addImage(img)
             }
             // Per-call ProgressListener in 0.10.16+. Lambda matches Kotlin's
