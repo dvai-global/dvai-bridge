@@ -1,4 +1,4 @@
-package co.deepvoiceai.dvaibridge.mediapipe
+package co.deepvoiceai.bridge.mediapipe.core
 
 import com.google.mediapipe.framework.image.MPImage
 import kotlinx.coroutines.flow.toList

@@ -1,4 +1,4 @@
-package co.deepvoiceai.dvaibridge.mediapipe
+package co.deepvoiceai.bridge.mediapipe.core
 
 import okhttp3.OkHttpClient
 import okhttp3.Request
