@@ -3,7 +3,7 @@ import Foundation
 /// The canonical media-marker token mtmd uses for image/audio splice points.
 /// Mirrors `mtmd_default_marker()` from `tools/mtmd/mtmd.h`. Substituting this
 /// literal lets us avoid an FFI call from this translation unit.
-let MTMD_MEDIA_MARKER = "<__media__>"
+public let MTMD_MEDIA_MARKER = "<__media__>"
 
 /// One rendered chat message ready for `bridge.applyChatTemplate(...)`.
 /// Content has had image_url / input_audio parts replaced with the
