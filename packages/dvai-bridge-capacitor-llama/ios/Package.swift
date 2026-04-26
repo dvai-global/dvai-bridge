@@ -32,7 +32,11 @@ let package = Package(
             dependencies: [
                 .product(name: "Capacitor", package: "capacitor-swift-pm"),
                 .product(name: "Cordova", package: "capacitor-swift-pm"),
-                "DVAILlamaCore",
+                // The package's identity is derived from the last dir of the
+                // path dep (`dvai-bridge-ios-llama-core`), not from the
+                // manifest's `name:` field. Bare-name product references don't
+                // cross package boundaries reliably; explicit form is required.
+                .product(name: "DVAILlamaCore", package: "dvai-bridge-ios-llama-core"),
             ],
             path: "Sources/DVAICapacitorLlama",
             exclude: ["PluginProxy.m"]
