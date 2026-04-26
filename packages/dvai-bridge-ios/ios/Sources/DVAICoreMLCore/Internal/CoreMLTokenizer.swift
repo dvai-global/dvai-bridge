@@ -39,10 +39,12 @@ internal struct CoreMLTokenizer: @unchecked Sendable {
             return m
         }
         do {
-            return try inner.applyChatTemplate(
-                messages: normalized,
-                addGenerationPrompt: addGenerationPrompt
-            )
+            // swift-transformers 1.x's applyChatTemplate signature drops the
+            // addGenerationPrompt parameter (defaulted to true server-side).
+            // The `addGenerationPrompt` knob in our wrapper is preserved for
+            // future API symmetry but currently passed through implicitly.
+            _ = addGenerationPrompt
+            return try inner.applyChatTemplate(messages: normalized)
         } catch {
             throw CoreMLBackendError.generationFailed(reason: "applyChatTemplate failed: \(error)")
         }
