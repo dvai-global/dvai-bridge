@@ -1,4 +1,5 @@
 import Foundation
+import DVAIFoundationCore
 
 #if canImport(Capacitor)
 import Capacitor
@@ -14,7 +15,7 @@ public class DVAIBridgeFoundationPlugin: CAPPlugin {
     // MARK: - Lifecycle
 
     @objc func start(_ call: CAPPluginCall) {
-        let opts = call.options ?? [:]
+        let opts: [String: Any] = (call.options as? [String: Any]) ?? [:]
         Task { [weak self] in
             guard let self else { return }
             self.notifyListeners("progress", data: ["phase": "load"])
