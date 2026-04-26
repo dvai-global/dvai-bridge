@@ -139,7 +139,10 @@ final class LlamaHandlersTest: XCTestCase {
         XCTAssertEqual(msg?["content"] as? String, "Hello, world!")
         XCTAssertEqual(msg?["role"] as? String, "assistant")
         XCTAssertEqual(choices?.first?["finish_reason"] as? String, "stop")
-        XCTAssertEqual(bridge.receivedPrompt, "hi")
+        // Phase 2A Pass 2: receivedPrompt is now the chat-template-rendered
+        // string (the mock concatenates `<role>: <content>\n[assistant:]`).
+        // Just assert it contains the original user content.
+        XCTAssertTrue(bridge.receivedPrompt?.contains("hi") ?? false, "receivedPrompt: \(String(describing: bridge.receivedPrompt))")
     }
 
     /// Parse a single SSE frame into a `[String: Any]` payload. Returns
@@ -404,8 +407,8 @@ final class LlamaHandlersTest: XCTestCase {
         // ID was rewritten chatcmpl- → cmpl-
         let idStr = json?["id"] as? String ?? ""
         XCTAssertTrue(idStr.hasPrefix("cmpl-"), "id should start with cmpl-: \(idStr)")
-        // Round-tripped prompt
-        XCTAssertEqual(bridge.receivedPrompt, "say hi")
+        // Round-tripped prompt -- now wrapped by the chat-template renderer.
+        XCTAssertTrue(bridge.receivedPrompt?.contains("say hi") ?? false, "receivedPrompt: \(String(describing: bridge.receivedPrompt))")
     }
 
     func testCompletionLegacyArrayPromptJoinedWithNewline() async throws {
@@ -416,7 +419,7 @@ final class LlamaHandlersTest: XCTestCase {
             XCTFail("expected .json response, got \(resp)")
             return
         }
-        XCTAssertEqual(bridge.receivedPrompt, "alpha\nbeta")
+        XCTAssertTrue(bridge.receivedPrompt?.contains("alpha\nbeta") ?? false, "receivedPrompt: \(String(describing: bridge.receivedPrompt))")
     }
 
     // MARK: - Embeddings
