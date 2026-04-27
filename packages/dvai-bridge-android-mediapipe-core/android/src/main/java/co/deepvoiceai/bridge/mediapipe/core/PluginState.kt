@@ -119,11 +119,7 @@ class PluginState {
         if (isRunning) put("backend", "mediapipe")
     }
 
-    private fun parseCors(raw: Any?): CorsConfig = when (raw) {
-        is String -> if (raw == "*") CorsConfig.Wildcard else CorsConfig.Exact(raw)
-        is List<*> -> CorsConfig.Allowlist(raw.filterIsInstance<String>())
-        else -> CorsConfig.Wildcard
-    }
+    private fun parseCors(raw: Any?): CorsConfig = CorsConfig.fromOpt(raw)
 
     /**
      * Best-effort default model id from a model file path: strip the directory
