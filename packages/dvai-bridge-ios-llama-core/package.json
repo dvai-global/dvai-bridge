@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/ios-llama-core",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "DVAI-Bridge iOS llama.cpp core — pure Swift / ObjC++ embedded HTTP server + handlers + bridge. Capacitor-free.",
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",

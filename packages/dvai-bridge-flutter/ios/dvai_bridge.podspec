@@ -23,9 +23,16 @@
 # unavailable to plain `flutter pub add dvai_bridge` users — they'll need
 # the path-based-pod workaround.
 
+require 'json'
+package = JSON.parse(File.read(File.join(__dir__, '..', 'package.json')))
+
 Pod::Spec.new do |s|
   s.name             = 'dvai_bridge'
-  s.version          = '2.2.0'
+  # Read version from the sibling package.json (kept in sync by
+  # scripts/sync-versions.js) so per-release version bumps touch one
+  # file. Same pattern as DVAIBridge.podspec, DVAIBridgeNative.podspec,
+  # DVAICapacitor*.podspec.
+  s.version          = package['version']
   s.summary          = 'Flutter plugin for the DVAIBridge local-LLM SDK (iOS / Android).'
   s.description      = <<-DESC
     Pigeon-driven Flutter plugin that wraps the Phase 3C iOS SDK

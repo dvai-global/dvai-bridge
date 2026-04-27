@@ -116,7 +116,7 @@ repositories {
     }
 }
 
-def dvaiBridgeVersion = project.findProperty('dvaiBridgeVersion') ?: '2.1.0'
+def dvaiBridgeVersion = project.findProperty('dvaiBridgeVersion') ?: '2.3.0'
 
 dependencies {
     implementation "com.facebook.react:react-android"
