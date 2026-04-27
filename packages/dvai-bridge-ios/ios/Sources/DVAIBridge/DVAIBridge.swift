@@ -23,7 +23,18 @@ public actor DVAIBridge {
     /// to the CoreML state happens inside `if #available(macOS 15.0, *)`.
     private enum BackendInstance {
         case llama(PluginState)
+        #if !COCOAPODS
+        // Foundation backend uses Apple's `FoundationModels` (iOS 26+),
+        // whose import emits implicit autolink directives for private
+        // frameworks (`SwiftUICore`, `UIUtilities`, `CoreAudioTypes`)
+        // that non-Apple products cannot link directly. Under SwiftPM
+        // the consumer's app target IS an allowed client of those
+        // frameworks, so the link succeeds; under CocoaPods the link
+        // happens inside the pod's framework target, which isn't.
+        // Excluded here; selecting `.foundation` at runtime under a
+        // CocoaPods build throws DVAIBridgeError.backendUnavailable.
         case foundation(FoundationPluginState)
+        #endif
         case coreml(Any)
     }
 
@@ -64,6 +75,7 @@ public actor DVAIBridge {
             }
             backend = .llama(state)
         case .foundation:
+            #if !COCOAPODS
             let state = FoundationPluginState()
             do {
                 result = try await state.start(opts: opts)
@@ -72,6 +84,12 @@ public actor DVAIBridge {
                 throw DVAIBridgeError.backendError(underlying: error.localizedDescription)
             }
             backend = .foundation(state)
+            #else
+            throw DVAIBridgeError.backendUnavailable(
+                .foundation,
+                reason: "Foundation Models backend is not available in CocoaPods builds of dvai-bridge — Apple's FoundationModels framework triggers private-framework autolink directives that CocoaPods consumers cannot link. Use SwiftPM if your app needs the Foundation backend, or use .llama or .coreml instead."
+            )
+            #endif
         case .coreml:
             // iOS 18.1 floor of this package already satisfies CoreMLPluginState's
             // iOS 18.0 requirement, but macOS 14 (the package floor) does not
@@ -112,8 +130,10 @@ public actor DVAIBridge {
             switch backend {
             case .llama(let state):
                 try await state.stop()
+            #if !COCOAPODS
             case .foundation(let state):
                 try await state.stop()
+            #endif
             case .coreml(let any):
                 // Always gated — macOS 14 can never have stored a coreml state
                 // here (start() rejects it), so this branch is unreachable on

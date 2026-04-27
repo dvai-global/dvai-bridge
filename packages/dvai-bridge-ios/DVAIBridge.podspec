@@ -33,7 +33,13 @@ Pod::Spec.new do |s|
     # boundaries.
     'Sources/_external/DVAILlamaCore/**/*.swift',
     'Sources/_external/DVAILlamaCoreObjC/**/*.{h,mm}',
-    'Sources/_external/DVAIFoundationCore/**/*.swift',
+    # NOTE: DVAIFoundationCore is intentionally NOT in the pod. It uses
+    # Apple's FoundationModels framework whose import emits implicit
+    # autolink directives for private frameworks (SwiftUICore /
+    # UIUtilities / CoreAudioTypes) that non-Apple products cannot link.
+    # The Foundation Models backend is therefore SwiftPM-only. Calling
+    # `.start(BackendKind.foundation)` under a CocoaPods build throws
+    # DVAIBridgeError.backendUnavailable with a clear message.
     # Vendored swift-transformers stack — see Vendor/swift-transformers/ for
     # upstream attributions and the rationale for stripping HubApi.swift.
     'Vendor/swift-transformers/Tokenizers/**/*.swift',
@@ -74,14 +80,7 @@ Pod::Spec.new do |s|
     mkdir -p Sources/_external
     cp -R ../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCore Sources/_external/
     cp -R ../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC Sources/_external/
-    cp -R ../dvai-bridge-ios-foundation-core/ios/Sources/DVAIFoundationCore Sources/_external/
-    # Both cores ship a HandlerContext.swift and HandlerDispatch.swift with
-    # identical content (verified pre-vendor) — dedupe by dropping the
-    # FoundationCore copies; llama core's stay. (FoundationCore's
-    # FoundationHttpServer.swift / FoundationPluginState.swift are already
-    # uniquely named in source.)
-    rm -f Sources/_external/DVAIFoundationCore/HandlerContext.swift
-    rm -f Sources/_external/DVAIFoundationCore/HandlerDispatch.swift
+    # FoundationCore is intentionally NOT mirrored — see source_files comment.
   SH
 
   s.vendored_frameworks = [
@@ -90,10 +89,6 @@ Pod::Spec.new do |s|
   ]
 
   s.frameworks = ['Foundation', 'CoreML', 'AVFoundation', 'CryptoKit']
-  # Weak-link FoundationModels (iOS 26+) so the symbols resolve at runtime
-  # only on devices that ship it. The pod's iOS 18.1 deployment target is
-  # below FoundationModels' availability, so a hard link would be invalid.
-  s.weak_frameworks = ['FoundationModels']
 
   # Vendored swift-collections 1.4.1 + swift-jinja 2.3.5 use:
   #   - `package` access level (needs -package-name; SwiftPM auto-sets it)
