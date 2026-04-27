@@ -1,6 +1,7 @@
 import XCTest
 @testable import DVAILlamaCore
 import DVAILlamaCoreObjC
+import DVAISharedCore
 
 /// Mock bridge so handler tests don't need a real GGUF model loaded.
 /// Records the prompt that was passed in and returns canned values.

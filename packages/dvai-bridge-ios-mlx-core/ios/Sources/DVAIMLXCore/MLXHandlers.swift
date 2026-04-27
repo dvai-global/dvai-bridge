@@ -5,7 +5,9 @@
 // time; by the time these methods are called, `modelContainer` is ready.
 
 import Foundation
-import DVAILlamaCore
+#if !COCOAPODS
+import DVAISharedCore
+#endif
 import MLXLMCommon
 
 public final class MLXHandlers: DVAIHandlers, @unchecked Sendable {

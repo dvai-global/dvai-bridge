@@ -15,7 +15,9 @@
 //     (the mlx-swift-lm 2.x convenience API takes only an HF id).
 
 import Foundation
-import DVAILlamaCore
+#if !COCOAPODS
+import DVAISharedCore
+#endif
 import MLXLMCommon
 // MLXLLM registers `LLMModelFactory` with the global ModelFactoryRegistry
 // at load time. We never reference its types directly (loadModelContainer

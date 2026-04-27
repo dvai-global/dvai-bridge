@@ -24,10 +24,12 @@ let package = Package(
         .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", "2.31.3" ..< "3.0.0"),
         // Telegraph: same HTTP server stack as the other *-core packages.
         .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
-        // DVAILlamaCore for shared HandlerContext / DVAIHandlers / HttpServer
-        // / port-fallback / CORS plumbing. We wire MLXHandlers into the same
-        // server pattern the other backends use.
-        .package(path: "../dvai-bridge-ios-llama-core"),
+        // Shared HTTP-server / handler-dispatch types. Note: previously
+        // depended on DVAILlamaCore for these types, but that transitively
+        // pulled the llama.xcframework into MLX-only builds. The
+        // shared-core extraction breaks that coupling so MLX consumers
+        // don't drag a binary they never use.
+        .package(path: "../dvai-bridge-ios-shared-core"),
     ],
     targets: [
         .target(
@@ -35,7 +37,7 @@ let package = Package(
             dependencies: [
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
-                .product(name: "DVAILlamaCore", package: "dvai-bridge-ios-llama-core"),
+                .product(name: "DVAISharedCore", package: "dvai-bridge-ios-shared-core"),
                 "Telegraph",
             ],
             path: "ios/Sources/DVAIMLXCore"

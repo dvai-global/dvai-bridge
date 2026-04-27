@@ -1,6 +1,6 @@
 import Foundation
 #if !COCOAPODS
-import DVAILlamaCore
+import DVAISharedCore
 #endif
 
 /// `DVAIHandlers` conformer for the CoreML backend.

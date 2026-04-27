@@ -3,6 +3,9 @@ import Foundation
 #if !COCOAPODS
 import DVAILlamaCoreObjC
 #endif
+#if !COCOAPODS
+import DVAISharedCore
+#endif
 
 /// OpenAI-compatible handler set for the llama backend. Wires
 /// `ContentPartsTranslator` → `bridge.completePrompt` → OpenAI response shape

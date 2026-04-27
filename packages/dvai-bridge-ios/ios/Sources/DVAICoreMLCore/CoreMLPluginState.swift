@@ -1,7 +1,7 @@
 import Foundation
 import CoreML
 #if !COCOAPODS
-import DVAILlamaCore   // HttpServer, DVAIHandlers, HandlerContext, CORSConfig
+import DVAISharedCore   // HttpServer, DVAIHandlers, HandlerContext, CORSConfig
 #endif
 
 /// Public PluginState mirroring DVAILlamaCore.PluginState's shape.

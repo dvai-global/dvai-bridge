@@ -10,6 +10,9 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
+        // Shared HTTP-server / handler-dispatch types that all backend
+        // cores re-use. Path-dep identity = "dvai-bridge-ios-shared-core".
+        .package(path: "../dvai-bridge-ios-shared-core"),
     ],
     targets: [
         // Prebuilt llama.xcframework — produced by upstream's
@@ -40,15 +43,24 @@ let package = Package(
                 .linkedFramework("Foundation"),
             ]
         ),
-        // Swift target — depends on the ObjC++ target and Telegraph.
+        // Swift target — depends on the ObjC++ target, Telegraph, and the
+        // extracted shared HTTP types in DVAISharedCore.
         .target(
             name: "DVAILlamaCore",
-            dependencies: ["DVAILlamaCoreObjC", "Telegraph"],
+            dependencies: [
+                "DVAILlamaCoreObjC",
+                "Telegraph",
+                .product(name: "DVAISharedCore", package: "dvai-bridge-ios-shared-core"),
+            ],
             path: "ios/Sources/DVAILlamaCore"
         ),
         .testTarget(
             name: "DVAILlamaCoreTests",
-            dependencies: ["DVAILlamaCore", "DVAILlamaCoreObjC"],
+            dependencies: [
+                "DVAILlamaCore",
+                "DVAILlamaCoreObjC",
+                .product(name: "DVAISharedCore", package: "dvai-bridge-ios-shared-core"),
+            ],
             path: "ios/Tests/DVAILlamaCoreTests"
         ),
     ],
