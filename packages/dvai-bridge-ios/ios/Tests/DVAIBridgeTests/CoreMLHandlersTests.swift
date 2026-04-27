@@ -1,5 +1,5 @@
 import XCTest
-import DVAILlamaCore
+import DVAISharedCore
 @testable import DVAICoreMLCore
 
 @available(iOS 18.0, macOS 15.0, *)
