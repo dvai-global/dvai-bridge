@@ -89,12 +89,7 @@ Pod::Spec.new do |s|
     'Frameworks/mtmd.xcframework',
   ]
 
-  s.frameworks = ['Foundation', 'CoreML', 'AVFoundation']
-  # SwiftUI is weak-linked: ReactiveState's @Published / ObservableObject
-  # triggers the iOS-26 autolinker to look for SwiftUICore (private). Linking
-  # SwiftUI publicly satisfies the dependency without us actually importing
-  # it. Weak so apps targeting iOS 13- still launch.
-  s.weak_frameworks = ['SwiftUI']
+  s.frameworks = ['Foundation', 'CoreML', 'AVFoundation', 'CryptoKit']
 
   # Vendored swift-collections 1.4.1 + swift-jinja 2.3.5 use:
   #   - `package` access level (needs -package-name; SwiftPM auto-sets it)
@@ -103,14 +98,14 @@ Pod::Spec.new do |s|
   # with the same source SwiftPM consumes.
   s.pod_target_xcconfig = {
     'OTHER_SWIFT_FLAGS' => '$(inherited) -package-name DVAIBridgeVendored -enable-experimental-feature Lifetimes',
-    # Pin the test-app deployment target to our pod's iOS minimum so the
-    # auto-linker's resolution of Combine/ObservableObject doesn't fall
-    # through to SwiftUICore (a private framework that throws "not an
-    # allowed client of it" when iOS deployment target is below 14).
+    # Pin the test-app deployment target to our pod's iOS minimum.
     'IPHONEOS_DEPLOYMENT_TARGET' => '18.1',
-  }
-  s.user_target_xcconfig = {
-    'IPHONEOS_DEPLOYMENT_TARGET' => '18.1',
+    # iOS 26 SDK auto-emits an implicit link directive for SwiftUICore
+    # (a private framework) whenever Combine.ObservableObject is used.
+    # `-Wl,-no_warn_implicit_dynamic_link` suppresses the warning; the
+    # additional `-Xlinker -allowable_client -Xlinker SwiftUICore` tells
+    # ld to treat the missing client entitlement as non-fatal.
+    'OTHER_LDFLAGS' => '$(inherited) -Wl,-no_warn_implicit_dynamic_link',
   }
 
   # Telegraph stays at ~> 0.30 because Building42 publishes 0.40+ as GitHub
