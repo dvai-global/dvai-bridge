@@ -1,4 +1,4 @@
-package co.deepvoiceai.bridge.llama.core
+package co.deepvoiceai.bridge.shared.core
 
 import kotlinx.coroutines.runBlocking
 import org.junit.After

@@ -26,6 +26,11 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // Phase 3D: shared-core lives here in dev (after `publishToMavenLocal`).
+        // Production publishes resolve from GitHub Packages; consumers add the
+        // `maven { url = uri("https://maven.pkg.github.com/Westenets/dvai-bridge") }`
+        // entry to their settings.gradle as documented in the consumer guide.
+        mavenLocal()
     }
 }
 
@@ -83,6 +88,11 @@ kotlin {
 }
 
 dependencies {
+    // Phase 3D: HttpServer + HandlerDispatch + HandlerContext + DvaiHandlers
+    // + CorsConfig moved here from this module's `co.deepvoiceai.bridge.llama.core`
+    // package. Resolved via mavenLocal in dev / GitHub Packages in prod.
+    implementation 'co.deepvoiceai:android-shared-core:2.0.0'
+
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "io.ktor:ktor-server-core:$ktorVersion"
     implementation "io.ktor:ktor-server-cio:$ktorVersion"

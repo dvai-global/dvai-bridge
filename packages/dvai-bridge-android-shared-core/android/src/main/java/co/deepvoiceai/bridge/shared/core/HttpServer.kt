@@ -1,4 +1,4 @@
-package co.deepvoiceai.bridge.llama.core
+package co.deepvoiceai.bridge.shared.core
 
 import io.ktor.server.application.*
 import io.ktor.server.cio.CIO
