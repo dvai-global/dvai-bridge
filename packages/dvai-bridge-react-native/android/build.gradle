@@ -1,0 +1,132 @@
+// React Native TurboModule bridge for the DVAIBridge Android SDK
+// (Phase 3D umbrella, `co.deepvoiceai:dvai-bridge:2.1.0`).
+//
+// This module is **thin**: no inference engine, no model downloader, no HTTP
+// server. It depends on the umbrella AAR (declared below) and exposes its
+// `DVAIBridge` Kotlin singleton to React Native via a TurboModule.
+//
+// Consumers wiring this into their RN app need three things in their Android
+// project:
+//
+//   1. `mavenCentral()` and `google()` repositories (default RN template).
+//   2. A GitHub Packages Maven entry pointing at
+//      `https://maven.pkg.github.com/Westenets/dvai-bridge` plus a
+//      `gpr.user` / `gpr.key` pair in `~/.gradle/gradle.properties` (or
+//      `GITHUB_ACTOR` / `GITHUB_TOKEN` env vars in CI). See the
+//      docs/guide/react-native-sdk.md guide for the snippet.
+//   3. `applicationContext` initialization in `Application.onCreate()`:
+//
+//          DVAIBridge.init(this)
+//
+//      The bridge re-runs `DVAIBridge.init(reactContext.applicationContext)`
+//      defensively on every TurboModule construction, so this step is
+//      strictly optional unless your consumer app needs Compose / Lifecycle
+//      observers wired up before the first JS-side `start()` call.
+
+buildscript {
+    ext {
+        kotlinVersion = project.findProperty('DVAIBridge_kotlinVersion') ?: '2.3.21'
+        agpVersion = project.findProperty('DVAIBridge_agpVersion') ?: '9.2.0'
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:${agpVersion}"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}"
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+def safeExtGet(prop, fallback) {
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
+
+def reactNativeArchitectures() {
+    def value = rootProject.getProperties().get("reactNativeArchitectures")
+    return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
+}
+
+def isNewArchitectureEnabled() {
+    return rootProject.hasProperty("newArchEnabled") &&
+            rootProject.getProperty("newArchEnabled") == "true"
+}
+
+android {
+    namespace "co.deepvoiceai.bridge.rn"
+
+    compileSdkVersion safeExtGet("compileSdkVersion", 36)
+    buildToolsVersion safeExtGet("buildToolsVersion", "36.0.0")
+
+    defaultConfig {
+        minSdkVersion safeExtGet("minSdkVersion", 24)
+        targetSdkVersion safeExtGet("targetSdkVersion", 36)
+
+        // Codegen jsRootDir + libraryName align with package.json's
+        // codegenConfig block (jsSrcsDir + name).
+        buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", "${isNewArchitectureEnabled()}"
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main {
+            if (isNewArchitectureEnabled()) {
+                java.srcDirs += [
+                    "src/newarch",
+                    // Codegen output dir injected by RN at sync time.
+                    "${project.buildDir}/generated/source/codegen/java",
+                ]
+            } else {
+                java.srcDirs += ["src/oldarch"]
+            }
+        }
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+repositories {
+    mavenCentral()
+    google()
+    // Phase 3D umbrella + cores resolve here in dev (after running
+    // `bash scripts/android-publish-local.sh` locally).
+    mavenLocal()
+    maven {
+        // Production GitHub Packages Maven for the umbrella + cores. Picked up
+        // automatically when the consumer app exports `gpr.user` / `gpr.key`
+        // (or sets the matching env vars in CI).
+        url = uri("https://maven.pkg.github.com/Westenets/dvai-bridge")
+        credentials {
+            username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
+            password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
+}
+
+def dvaiBridgeVersion = project.findProperty('dvaiBridgeVersion') ?: '2.1.0'
+
+dependencies {
+    implementation "com.facebook.react:react-android"
+
+    // Phase 3D umbrella AAR — provides DVAIBridge, BackendKind, StartOptions,
+    // BoundServer, ProgressEvent, DVAIBridgeError. `api` instead of
+    // `implementation` so consumer apps that need to catch DVAIBridgeError
+    // subtypes (or pattern-match on BackendKind) see the symbols without
+    // adding a redundant top-level dependency.
+    api "co.deepvoiceai:dvai-bridge:${dvaiBridgeVersion}"
+
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2"
+}
