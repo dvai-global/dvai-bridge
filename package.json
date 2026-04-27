@@ -1,7 +1,7 @@
 {
   "name": "dvai-bridge-monorepo",
   "private": true,
-  "version": "1.6.0",
+  "version": "2.0.0",
   "description": "Monorepo for DVAI-Bridge: Local AI Orchestration",
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",

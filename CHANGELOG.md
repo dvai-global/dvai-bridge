@@ -3,19 +3,35 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [2.0.0] — 2026-04-27
 
-> **Versioning policy**: from this point onward, version bumps and git
-> tags happen at *whole-phase* boundaries (Phase 3 = 3A + 3B + 3C + 3D
-> combined), not per sub-phase. Tag-first, then CHANGELOG entry. The
-> `[1.7.0]` and `[1.8.0]` sections below were CHANGELOG-only and never
-> tagged on GitHub (last real tag: `v1.6.0`); they remain for historical
-> traceability and will be folded into the Phase 3 release entry when
-> Phase 3 ships.
+First tagged release after `v1.6.0`. The previously-shown `[1.7.0]` and
+`[1.8.0]` sections below were CHANGELOG-only — they were never tagged
+on GitHub. Their content (Phase 3A core extraction + Phase 3B LiteRT-LM
+migration + Phase 3C iOS Native SDK) is included in this release;
+read those sections for the per-sub-phase breakdown. **For migration,
+see [v1.6 → v2.0](docs/migration/v1.6-to-v2.0.md).**
 
-### Added (since v1.6.0, queued for the Phase 3 release)
+> **Versioning policy going forward**: version bumps and git tags
+> happen at *whole-phase* boundaries (Phase 3 = 3A + 3B + 3C + 3D
+> combined), not per sub-phase. Tag-first, then CHANGELOG entry.
+
+### Added (since v1.6.0)
 
 Everything documented in `[1.7.0]` and `[1.8.0]` below, **plus**:
+
+- **`@dvai-bridge/ios-shared-core` package** — extracts `HandlerContext`
+  / `HandlerResponse` / `DVAIHandlers` / `CORSConfig` / `dispatchRoute`
+  / `formatResponse` / `HttpServer` out of `DVAILlamaCore` so non-llama
+  backends (foundation / coreml / mlx) don't transitively pull
+  `llama.xcframework`. Foundation-core's previously-duplicated copies
+  of these files are deleted; the previous `FoundationHttpServer`
+  rename (introduced for CocoaPods name-collision avoidance) is also
+  reverted now that the canonical `HttpServer` lives in shared-core.
+  This is an internal refactor: the public DVAIBridge API surface is
+  unchanged, but direct consumers of `@dvai-bridge/ios-llama-core`
+  must add `import DVAISharedCore` for the moved types — see the
+  [migration guide](docs/migration/v1.6-to-v2.0.md).
 
 - **MLX backend (4th iOS backend)** — new `@dvai-bridge/ios-mlx-core`
   package wrapping [`mlx-swift-lm`](https://github.com/ml-explore/mlx-swift-lm)
@@ -63,17 +79,21 @@ Everything documented in `[1.7.0]` and `[1.8.0]` below, **plus**:
 ### Known Phase 3D follow-ups
 
 - **Mac Catalyst destination support per backend.** llama.cpp's
-  `build-xcframework.sh` doesn't produce a Catalyst slice, so the llama
-  backend can't run on Catalyst without forking the upstream build
-  script. MLX, Foundation Models, and CoreML may support Catalyst
-  natively — but our package graph currently couples them to llama
-  (`DVAIMLXCore` / `DVAIFoundationCore` depend on `DVAILlamaCore` for
-  shared `HandlerContext` / `DVAIHandlers` / `HttpServer` types, which
-  transitively pulls the llama xcframework). The clean fix is to extract
-  those shared types into a new `dvai-bridge-ios-shared-core` package
-  that has no llama-binary deps; then per-backend Catalyst availability
-  becomes determined solely by each backend's own runtime support.
-  Deferred until a Catalyst consumer surfaces.
+  `build-xcframework.sh` doesn't produce a Catalyst slice, so the
+  llama backend can't run on Catalyst without forking the upstream
+  build script. With the shared-core extraction landed (above),
+  MLX / Foundation Models / CoreML no longer transitively need
+  `llama.xcframework` — those backends can run on Catalyst as soon as
+  the consumer's app target requests it. Concrete Catalyst test
+  destination wiring is deferred until a Catalyst consumer surfaces.
+- **`CoreMLGenerator` `causal_mask` input.** The macOS-native
+  integration test exercises model load + tokenizer load + chat
+  completion against `finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit`
+  end-to-end. Generation currently throws *"Feature causal_mask is
+  required but not specified"* — `CoreMLGenerator`'s input dictionary
+  doesn't feed the model's causal-mask tensor. The test now hard-skips
+  that specific error pattern; fixing the generator is the next
+  CoreML follow-up.
 
 ---
 
