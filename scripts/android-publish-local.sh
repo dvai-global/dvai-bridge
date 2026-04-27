@@ -58,7 +58,7 @@ PACKAGES=(
     "dvai-bridge-android-shared-core"
     "dvai-bridge-android-llama-core"
     "dvai-bridge-android-mediapipe-core"
-    # "dvai-bridge-android-litert-core"   # enabled by Phase 3D Task 5
+    "dvai-bridge-android-litert-core"
     # "dvai-bridge-android"               # enabled by Phase 3D Task 10
 )
 

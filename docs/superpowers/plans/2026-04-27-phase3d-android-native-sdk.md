@@ -425,8 +425,8 @@ From `packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepv
 
 **Steps:**
 
-- [ ] Move the standard publishing block into a `buildSrc/dvai-publishing.gradle.kts` convention plugin used by all five Android modules. Reason: avoids five copies that drift independently. Each module then applies it via `plugins { id("dvai-publishing") }`.
-- [ ] Standard publishing block (consistent across all five, lives in the convention plugin):
+- [ ] Discovered during Task 4 execution: each Android package is its own Gradle root, so a shared `buildSrc/dvai-publishing.gradle.kts` convention plugin would have to be duplicated into every package's `buildSrc/` directory anyway — defeating the DRY motivation. Decision: copy-paste the publishing block into each module's `build.gradle`. If/when the monorepo is restructured under a single root `settings.gradle` (out of scope for 3D), consolidate then.
+- [ ] Standard publishing block (copied verbatim into each Android module):
   ```kotlin
   publishing {
       publications {
