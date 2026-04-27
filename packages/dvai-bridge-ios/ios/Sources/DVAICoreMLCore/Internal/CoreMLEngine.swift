@@ -79,13 +79,18 @@ internal final class CoreMLEngine: @unchecked Sendable {
     func runStep(token: Int, kvCachePosition: Int, state: MLState) throws -> MLMultiArray {
         var features: [String: MLFeatureValue] = [:]
 
-        // input_ids: [1, 1] Int32 with the new token.
+        // input_ids: [1, 1] Int32 with the new token. Direct memory write
+        // (rather than NSNumber subscript) matches Apple's documented
+        // pattern for primitive multiarray data and avoids unnecessary
+        // bridging overhead.
         //
-        // Direct memory write rather than `NSNumber` subscript — CoreML's
-        // internal IR ("Cannot retrieve vector from IRValue format int32")
-        // sometimes mis-handles NSNumber-bridged Int32 values for stateful
-        // model inputs. Writing the raw Int32 into the buffer is the
-        // safer/Apple-recommended path.
+        // Note: the iOS Simulator's CoreML runtime emits
+        // "Cannot retrieve vector from IRValue form int32" at predict
+        // time on some stateful 4-bit MIL graphs regardless of how the
+        // input is encoded. That's a simulator-only IR-layer
+        // limitation; the integration test catches the pattern and
+        // skips. macOS-native and real iOS devices run the same input
+        // path end-to-end.
         let inputArr = try MLMultiArray(shape: [1, 1], dataType: .int32)
         inputArr.dataPointer.bindMemory(to: Int32.self, capacity: 1).pointee = Int32(token)
         features[inputName] = MLFeatureValue(multiArray: inputArr)
