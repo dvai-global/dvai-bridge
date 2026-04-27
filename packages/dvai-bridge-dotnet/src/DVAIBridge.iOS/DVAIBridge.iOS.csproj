@@ -6,8 +6,9 @@
         ./native/build-xcframework.sh on a CI macos-latest runner).
       - The facade DVAIBridge project (for the public types we marshal to/from).
 
-    TFM `net10.0-ios18.0` matches the .NET 10 default iOS TPV. The runtime
-    floor is iOS 15.1 — same as the underlying DVAIBridge umbrella.
+    TFM `net10.0-ios26.2` matches the .NET 10 default iOS TPV (only 26.0
+    and 26.2 are valid on net10.0; 18.0 is a net9 TPV). The runtime floor
+    is iOS 15.1 — same as the underlying DVAIBridge umbrella.
 
     `IsBindingProject=true` switches the SDK into binding-library mode where
     `<ObjcBindingApiDefinition>` items are processed by the binding generator
@@ -15,14 +16,27 @@
   -->
 
   <PropertyGroup>
-    <TargetFramework>net10.0-ios18.0</TargetFramework>
+    <!--
+      Multi-target: iOS device/sim + Mac Catalyst (Task 14, rev 2).
+      The Phase 3C SwiftPM package already declares .macCatalyst(.v15_1),
+      so the @objc Swift wrapper compiles under Catalyst with zero source
+      changes; the same xcframework carries an additional ios+maccatalyst
+      slice. PlatformBridgeFactory routes both runtime kinds (IsIOS /
+      IsMacCatalyst) to IOSNativeBridge.
+
+      TPV `26.2` matches the .NET 10 default iOS / Mac Catalyst SDK
+      (Microsoft.iOS.Sdk.net10.0_26.2; only 26.0 and 26.2 are valid on
+      net10). Runtime floor is iOS 15.1 / Mac Catalyst 15.1 — same as the
+      underlying DVAIBridge umbrella.
+    -->
+    <TargetFrameworks>net10.0-ios26.2;net10.0-maccatalyst26.2</TargetFrameworks>
     <SupportedOSPlatformVersion>15.1</SupportedOSPlatformVersion>
     <IsBindingProject>true</IsBindingProject>
     <NoBindingEmbedding>false</NoBindingEmbedding>
     <PackageId>DVAIBridge.iOS</PackageId>
-    <Title>DVAIBridge.iOS — iOS native bindings (internal slice)</Title>
-    <Description>iOS native bindings for DVAIBridge — internal slice of the DVAIBridge NuGet family. Pulled in transitively by DVAIBridge when targeting net10.0-ios. Consumers should depend on DVAIBridge directly.</Description>
-    <PackageTags>llm;ai;ios;binding;internal;dvai-bridge</PackageTags>
+    <Title>DVAIBridge.iOS — iOS + Mac Catalyst native bindings (internal slice)</Title>
+    <Description>iOS + Mac Catalyst native bindings for DVAIBridge — internal slice of the DVAIBridge NuGet family. Pulled in transitively by DVAIBridge when targeting net10.0-ios or net10.0-maccatalyst. Consumers should depend on DVAIBridge directly.</Description>
+    <PackageTags>llm;ai;ios;maccatalyst;binding;internal;dvai-bridge</PackageTags>
     <RootNamespace>DVAIBridge.iOS</RootNamespace>
     <AssemblyName>DVAIBridge.iOS</AssemblyName>
   </PropertyGroup>

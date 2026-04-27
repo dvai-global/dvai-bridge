@@ -25,13 +25,15 @@ env:
 
 jobs:
   # ------------------------------------------------------------------
-  # Linux: facade build + xUnit tests + Android binding compile (no AAR
-  # bind; we publish-only on macOS to keep the multi-host story simple).
+  # Ubuntu: facade tests + Desktop slice + ONNX Runtime slice + ML.NET
+  # slice build & test. Every csproj that compiles to bare net10.0 (no
+  # platform suffix) lands here. Android moved to its own job; iOS +
+  # Catalyst run on macOS only.
   # ------------------------------------------------------------------
-  facade-and-tests:
-    name: Facade + tests (Ubuntu)
+  facade-and-net-backends:
+    name: Facade + Desktop/ONNX/MLNet (Ubuntu)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
@@ -48,29 +50,114 @@ jobs:
           restore-keys: |
             nuget-ubuntu-
 
-      - name: Restore facade
+      - name: Restore facade + slices
         working-directory: packages/dvai-bridge-dotnet
-        run: dotnet restore src/DVAIBridge/DVAIBridge.csproj -p:TargetFrameworks=net10.0
+        run: |
+          dotnet restore src/DVAIBridge/DVAIBridge.csproj -p:TargetFrameworks=net10.0
+          dotnet restore src/DVAIBridge.Desktop/DVAIBridge.Desktop.csproj
+          dotnet restore src/DVAIBridge.OnnxRuntime/DVAIBridge.OnnxRuntime.csproj
+          dotnet restore src/DVAIBridge.MLNet/DVAIBridge.MLNet.csproj
 
       - name: Build facade (net10.0)
         working-directory: packages/dvai-bridge-dotnet
         run: dotnet build src/DVAIBridge/DVAIBridge.csproj -c Release -f net10.0 --no-restore
 
-      - name: Build tests
+      - name: Build Desktop slice
         working-directory: packages/dvai-bridge-dotnet
-        run: dotnet build tests/DVAIBridge.Tests/DVAIBridge.Tests.csproj -c Release
+        run: dotnet build src/DVAIBridge.Desktop/DVAIBridge.Desktop.csproj -c Release --no-restore
 
-      - name: Run tests with coverage
+      - name: Build ONNX Runtime slice
         working-directory: packages/dvai-bridge-dotnet
-        run: dotnet test tests/DVAIBridge.Tests/DVAIBridge.Tests.csproj -c Release --no-build --collect:"XPlat Code Coverage" --logger "trx;LogFileName=test-results.trx"
+        run: dotnet build src/DVAIBridge.OnnxRuntime/DVAIBridge.OnnxRuntime.csproj -c Release --no-restore
+
+      - name: Build ML.NET slice
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet build src/DVAIBridge.MLNet/DVAIBridge.MLNet.csproj -c Release --no-restore
+
+      - name: Build + run facade tests
+        working-directory: packages/dvai-bridge-dotnet
+        run: |
+          dotnet build tests/DVAIBridge.Tests/DVAIBridge.Tests.csproj -c Release
+          dotnet test tests/DVAIBridge.Tests/DVAIBridge.Tests.csproj -c Release --no-build \
+            --collect:"XPlat Code Coverage" \
+            --logger "trx;LogFileName=test-results-facade.trx"
+
+      - name: Build + run Desktop tests
+        working-directory: packages/dvai-bridge-dotnet
+        run: |
+          dotnet build tests/DVAIBridge.Desktop.Tests/DVAIBridge.Desktop.Tests.csproj -c Release
+          dotnet test tests/DVAIBridge.Desktop.Tests/DVAIBridge.Desktop.Tests.csproj -c Release --no-build \
+            --logger "trx;LogFileName=test-results-desktop.trx"
+
+      - name: Build + run ONNX tests
+        working-directory: packages/dvai-bridge-dotnet
+        run: |
+          dotnet build tests/DVAIBridge.OnnxRuntime.Tests/DVAIBridge.OnnxRuntime.Tests.csproj -c Release
+          dotnet test tests/DVAIBridge.OnnxRuntime.Tests/DVAIBridge.OnnxRuntime.Tests.csproj -c Release --no-build \
+            --logger "trx;LogFileName=test-results-onnx.trx"
+
+      - name: Build + run ML.NET tests
+        working-directory: packages/dvai-bridge-dotnet
+        run: |
+          dotnet build tests/DVAIBridge.MLNet.Tests/DVAIBridge.MLNet.Tests.csproj -c Release
+          dotnet test tests/DVAIBridge.MLNet.Tests/DVAIBridge.MLNet.Tests.csproj -c Release --no-build \
+            --logger "trx;LogFileName=test-results-mlnet.trx"
 
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-ubuntu
-          path: packages/dvai-bridge-dotnet/tests/DVAIBridge.Tests/TestResults/**/coverage.cobertura.xml
+          path: packages/dvai-bridge-dotnet/tests/**/TestResults/**/coverage.cobertura.xml
           if-no-files-found: ignore
+
+  # ------------------------------------------------------------------
+  # Windows: full desktop run on the host that ships the win-x64 / win-arm64
+  # native llama.cpp binaries. Repeats the Desktop / ONNX / ML.NET tests on
+  # the actual Windows toolchain so we catch P/Invoke / runtime resolver
+  # drift before consumers do.
+  # ------------------------------------------------------------------
+  windows-desktop:
+    name: Desktop + ONNX + MLNet (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~\.nuget\packages
+          key: nuget-windows-${{ hashFiles('packages/dvai-bridge-dotnet/Directory.Packages.props') }}
+          restore-keys: |
+            nuget-windows-
+
+      - name: Restore + build slices
+        working-directory: packages/dvai-bridge-dotnet
+        shell: pwsh
+        run: |
+          dotnet restore src/DVAIBridge.Desktop/DVAIBridge.Desktop.csproj
+          dotnet restore src/DVAIBridge.OnnxRuntime/DVAIBridge.OnnxRuntime.csproj
+          dotnet restore src/DVAIBridge.MLNet/DVAIBridge.MLNet.csproj
+          dotnet build src/DVAIBridge.Desktop/DVAIBridge.Desktop.csproj -c Release --no-restore
+          dotnet build src/DVAIBridge.OnnxRuntime/DVAIBridge.OnnxRuntime.csproj -c Release --no-restore
+          dotnet build src/DVAIBridge.MLNet/DVAIBridge.MLNet.csproj -c Release --no-restore
+
+      - name: Build + run desktop tests
+        working-directory: packages/dvai-bridge-dotnet
+        shell: pwsh
+        run: |
+          dotnet test tests/DVAIBridge.Desktop.Tests/DVAIBridge.Desktop.Tests.csproj -c Release `
+            --logger "trx;LogFileName=test-results-desktop-win.trx"
+          dotnet test tests/DVAIBridge.OnnxRuntime.Tests/DVAIBridge.OnnxRuntime.Tests.csproj -c Release `
+            --logger "trx;LogFileName=test-results-onnx-win.trx"
+          dotnet test tests/DVAIBridge.MLNet.Tests/DVAIBridge.MLNet.Tests.csproj -c Release `
+            --logger "trx;LogFileName=test-results-mlnet-win.trx"
 
   # ------------------------------------------------------------------
   # Android binding compile-only check on Ubuntu (no instrumentation —
@@ -124,14 +211,15 @@ jobs:
         run: dotnet build src/DVAIBridge.Android/DVAIBridge.Android.csproj -c Release --no-restore -p:BindingsGenerated=true
 
   # ------------------------------------------------------------------
-  # macOS: builds the Swift xcframework + the iOS binding csproj.
-  # Also handles the multi-target facade build (all three TFMs at once)
-  # and produces packable .nupkg artifacts on tag pushes.
+  # macOS: builds the Swift xcframework + the iOS + Catalyst binding csproj
+  # + the Desktop slice (osx-arm64 Metal-enabled native llama bundle).
+  # Also handles full-solution pack + tag-gated NuGet.org push for all six
+  # NuGet IDs.
   # ------------------------------------------------------------------
-  ios-binding:
-    name: iOS binding + xcframework (macOS)
+  ios-catalyst-and-pack:
+    name: iOS + Catalyst + xcframework + pack (macOS)
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v5
 
@@ -140,8 +228,8 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Install ios + android workloads
-        run: dotnet workload install ios android
+      - name: Install ios + maccatalyst + android workloads
+        run: dotnet workload install ios maccatalyst android
 
       - name: Cache NuGet
         uses: actions/cache@v4
@@ -151,9 +239,13 @@ jobs:
           restore-keys: |
             nuget-macos-
 
-      - name: Build xcframework
+      - name: Build xcframework (iOS + Catalyst slices)
         working-directory: packages/dvai-bridge-dotnet/src/DVAIBridge.iOS/native
         run: bash build-xcframework.sh
+
+      - name: Prepare osx-arm64 llama.cpp binary
+        run: bash scripts/mac-side-prepare-llama-desktop.sh
+        continue-on-error: true
 
       - name: Fetch Phase 3D AAR (for the multi-target facade build)
         env:
@@ -169,15 +261,19 @@ jobs:
         working-directory: packages/dvai-bridge-dotnet
         run: dotnet restore DVAIBridge.sln
 
-      - name: Build iOS binding
+      - name: Build iOS + Catalyst binding (multi-target)
         working-directory: packages/dvai-bridge-dotnet
         run: dotnet build src/DVAIBridge.iOS/DVAIBridge.iOS.csproj -c Release --no-restore
+
+      - name: Build Desktop slice (osx-arm64)
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet build src/DVAIBridge.Desktop/DVAIBridge.Desktop.csproj -c Release --no-restore
 
       - name: Build all packages (with bindings-generated active)
         working-directory: packages/dvai-bridge-dotnet
         run: dotnet build DVAIBridge.sln -c Release --no-restore -p:BindingsGenerated=true
 
-      - name: Pack
+      - name: Pack all six NuGets
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
         working-directory: packages/dvai-bridge-dotnet
         run: dotnet pack DVAIBridge.sln -c Release -o ./out --no-build -p:BindingsGenerated=true
@@ -191,6 +287,9 @@ jobs:
             packages/dvai-bridge-dotnet/out/*.nupkg
             packages/dvai-bridge-dotnet/out/*.snupkg
 
+      # Tag-gated NuGet.org push for all six packages. The wildcard picks
+      # up DVAIBridge / .iOS / .Android / .Desktop / .OnnxRuntime / .MLNet
+      # in one push; --skip-duplicate makes re-runs safe.
       - name: Push to NuGet.org
         if: (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && env.NUGET_API_KEY != ''
         env:

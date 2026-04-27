@@ -12,6 +12,8 @@ public class BackendKindTests
     [InlineData(BackendKind.MLX, "mlx")]
     [InlineData(BackendKind.MediaPipe, "mediapipe")]
     [InlineData(BackendKind.LiteRT, "litert")]
+    [InlineData(BackendKind.Onnx, "onnx")]
+    [InlineData(BackendKind.MLNet, "mlnet")]
     public void ToWireString_RoundTrips(BackendKind k, string expected)
     {
         Assert.Equal(expected, k.ToWireString());
@@ -25,6 +27,8 @@ public class BackendKindTests
     [InlineData("mlx", BackendKind.MLX)]
     [InlineData("mediapipe", BackendKind.MediaPipe)]
     [InlineData("litert", BackendKind.LiteRT)]
+    [InlineData("onnx", BackendKind.Onnx)]
+    [InlineData("mlnet", BackendKind.MLNet)]
     public void FromWireString_RoundTrips(string wire, BackendKind expected)
     {
         Assert.Equal(expected, BackendKindExtensions.FromWireString(wire));

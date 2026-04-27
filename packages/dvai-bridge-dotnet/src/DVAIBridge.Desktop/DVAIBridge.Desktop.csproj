@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Desktop slice (Task 15-16, rev 2). Cross-platform .NET 10 library that
+    embeds Kestrel and P/Invokes into upstream llama.cpp's `b8946`-tag
+    prebuilt natives (one shared library per RID under runtimes/<rid>/native/).
+
+    The runtimes/ directory is gitignored — populated by
+    scripts/fetch-llama-binaries.sh at CI time before `dotnet pack`. The
+    <Content> items below pack whatever is on disk into the corresponding
+    NuGet path; if a RID's native is missing at pack time, NuGet skips
+    that line and the resulting nupkg simply won't carry that RID.
+
+    Auto-pulled by the facade nuspec under the bare net10.0 dep group so
+    Windows / Linux / macOS desktop consumers get BackendKind.Llama working
+    out of the box (rev 2 spec §4.2 trade-off discussion).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>DVAIBridge.Desktop</PackageId>
+    <Title>DVAIBridge.Desktop — desktop Llama backend (Windows / macOS / Linux)</Title>
+    <Description>Desktop Llama backend for DVAIBridge — bundles llama.cpp b8946 prebuilt natives per RID (win-x64 / win-arm64 / osx-x64 / osx-arm64 / linux-x64 / linux-arm64). Embeds Kestrel for the OpenAI-compatible HTTP surface. Auto-pulled transitively by the DVAIBridge facade NuGet for desktop TFMs.</Description>
+    <PackageTags>llm;ai;openai;windows;linux;macos;maui;avalonia;winui;llama;local-inference;dvai-bridge</PackageTags>
+    <RootNamespace>DVAIBridge.Desktop</RootNamespace>
+    <AssemblyName>DVAIBridge.Desktop</AssemblyName>
+    <RuntimeIdentifiers>win-x64;win-arm64;osx-x64;osx-arm64;linux-x64;linux-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\DVAIBridge\DVAIBridge.csproj">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>compile;build</IncludeAssets>
+    </ProjectReference>
+    <Compile Include="..\shared\DVAIBridge.Shared.Hosting\*.cs" LinkBase="Shared" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!--
+    RID-keyed native packing. Each <Content> only includes its source file
+    if the file actually exists on disk at pack time (NuGet's pack target
+    silently drops missing items). The fetch-llama-binaries.sh script
+    populates runtimes/<rid>/native/ before pack.
+  -->
+  <ItemGroup>
+    <Content Include="runtimes\win-x64\native\**\*"
+             Pack="true" PackagePath="runtimes\win-x64\native\"
+             CopyToOutputDirectory="Never" />
+    <Content Include="runtimes\win-arm64\native\**\*"
+             Pack="true" PackagePath="runtimes\win-arm64\native\"
+             CopyToOutputDirectory="Never" />
+    <Content Include="runtimes\osx-x64\native\**\*"
+             Pack="true" PackagePath="runtimes\osx-x64\native\"
+             CopyToOutputDirectory="Never" />
+    <Content Include="runtimes\osx-arm64\native\**\*"
+             Pack="true" PackagePath="runtimes\osx-arm64\native\"
+             CopyToOutputDirectory="Never" />
+    <Content Include="runtimes\linux-x64\native\**\*"
+             Pack="true" PackagePath="runtimes\linux-x64\native\"
+             CopyToOutputDirectory="Never" />
+    <Content Include="runtimes\linux-arm64\native\**\*"
+             Pack="true" PackagePath="runtimes\linux-arm64\native\"
+             CopyToOutputDirectory="Never" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ML.NET backend (Task 21, rev 2). Desktop-primary .NET 10 library that
+    wraps Microsoft.ML + OnnxScoringEstimator. Opt-in via
+    `dotnet add package DVAIBridge.MLNet` — facade routes BackendKind.MLNet
+    here at runtime when the assembly is loaded AND the host is desktop.
+    Mobile callers (iOS / Android) are rejected at the facade layer with a
+    "use BackendKind.Onnx on mobile" hint.
+
+    Positioning vs DVAIBridge.OnnxRuntime: same underlying ORT natives,
+    different shape — MLNet is for "you're already in ML.NET pipelines" use
+    cases (recommendation, classification + LLM transform). Greenfield LLM
+    consumers should pick BackendKind.Onnx for the ~1.4× perf advantage.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>DVAIBridge.MLNet</PackageId>
+    <Title>DVAIBridge.MLNet — ML.NET backend (desktop primary)</Title>
+    <Description>ML.NET backend for DVAIBridge — integrates LLM inference into existing ML.NET pipelines via Microsoft.ML + OnnxScoringEstimator. Desktop-primary (Windows / macOS / Linux); rejected on mobile (use BackendKind.Onnx instead). Opt-in via `dotnet add package DVAIBridge.MLNet`.</Description>
+    <PackageTags>llm;ai;openai;mlnet;onnx;onnxtransformer;desktop;windows;linux;macos;dvai-bridge</PackageTags>
+    <RootNamespace>DVAIBridge.MLNet</RootNamespace>
+    <AssemblyName>DVAIBridge.MLNet</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML" />
+    <PackageReference Include="Microsoft.ML.OnnxTransformer" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\DVAIBridge\DVAIBridge.csproj">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>compile;build</IncludeAssets>
+    </ProjectReference>
+    <Compile Include="..\shared\DVAIBridge.Shared.Hosting\*.cs" LinkBase="Shared" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+</Project>

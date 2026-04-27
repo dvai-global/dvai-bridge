@@ -29,10 +29,23 @@
     <tags>llm ai openai ios android maui avalonia winui local-inference llama-cpp mediapipe litert mlx coreml foundation-models</tags>
     <readme>README.md</readme>
     <dependencies>
-      <!-- Bare net10.0: WinUI / Avalonia / Blazor / desktop. No native deps. -->
-      <group targetFramework="net10.0" />
+      <!--
+        Bare net10.0: desktop (Windows / Linux / macOS / Catalyst-as-desktop)
+        consumers — WinUI 3 / Avalonia / MAUI desktop / console / server.
+        Auto-pulls DVAIBridge.Desktop so BackendKind.Llama is available out
+        of the box; the spec §4.2 trade-off table justifies auto-pull for
+        Desktop (it's the platform default, not an opt-in alternate).
+        ONNX / MLNet stay opt-in via explicit `dotnet add package`.
+      -->
+      <group targetFramework="net10.0">
+        <dependency id="DVAIBridge.Desktop" version="[$version$]" />
+      </group>
       <!-- iOS: pulls in the iOS binding NuGet (which bundles the xcframework). -->
-      <group targetFramework="net10.0-ios18.0">
+      <group targetFramework="net10.0-ios26.2">
+        <dependency id="DVAIBridge.iOS" version="[$version$]" />
+      </group>
+      <!-- Mac Catalyst: re-uses the same multi-target DVAIBridge.iOS NuGet (Task 14). -->
+      <group targetFramework="net10.0-maccatalyst26.2">
         <dependency id="DVAIBridge.iOS" version="[$version$]" />
       </group>
       <!-- Android: pulls in the Android binding NuGet (consumer-build AAR fetch). -->
@@ -47,15 +60,17 @@
     <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0\" />
     <!--
       Same facade DLL re-shipped under the platform TFM folders. NuGet's
-      lib-resolver picks the most-specific match (`net10.0-ios18.0` over
+      lib-resolver picks the most-specific match (`net10.0-ios26.2` over
       `net10.0`) and the NuGet dep group above pulls in the iOS slice
-      transitively. Without this, restoring net10.0-ios18.0 would fall
+      transitively. Without this, restoring net10.0-ios26.2 would fall
       back to the bare net10.0 folder and miss the slice.
       `_._` would also work but most consumers prefer a real DLL match
       so reflection-loaded type lookup (PlatformBridgeFactory) Just Works.
     -->
-    <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-ios18.0\" />
-    <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-ios18.0\" />
+    <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-ios26.2\" />
+    <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-ios26.2\" />
+    <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-maccatalyst26.2\" />
+    <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-maccatalyst26.2\" />
     <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-android36.0\" />
     <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-android36.0\" />
   </files>

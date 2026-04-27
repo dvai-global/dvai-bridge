@@ -24,5 +24,15 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <!-- Source link -->
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
+
+    <!-- ONNX Runtime + GenAI backend (Task 18-19, rev 2) -->
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.25.0" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.13.1" />
+
+    <!-- ML.NET backend (Task 21, rev 2) -->
+    <PackageVersion Include="Microsoft.ML" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.ML.OnnxTransformer" Version="5.0.0" />
+    <!-- Used by the MLNet path's hand-rolled tokenizer + sampler (Task 21) -->
+    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="1.0.2" />
   </ItemGroup>
 </Project>
