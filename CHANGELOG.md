@@ -3,6 +3,75 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.2.0] — 2026-04-27
+
+Phase 3E — React Native module ships. The RN side wraps the v2.1 iOS
+DVAIBridge SDK + v2.1 Android DVAIBridge SDK behind a TurboModule so
+RN ≥ 0.85 (Bridgeless ON) consumers can drop `@dvai-bridge/react-native`
+into their app and call `DVAIBridge.start(...)` from JS / TS.
+
+### Added
+
+- **`@dvai-bridge/react-native`** — TurboModule that surfaces the same
+  8-method DVAIBridge API to JS. Cross-platform `BackendKind` is the
+  union of every iOS + Android backend (`auto` / `llama` / `foundation`
+  / `coreml` / `mlx` / `mediapipe` / `litert`); the TS facade
+  pre-validates against `Platform.OS` and throws `backendUnavailable`
+  for wrong-platform selections without crossing the bridge.
+- **`useDVAIBridgeState()`** React hook — subscribes to native progress
+  events via `NativeEventEmitter` (Combine on iOS, `Flow` on Android)
+  and re-fetches `status()` on terminal events. Returns
+  `{ isReady, baseUrl, port, backend, modelId, lastProgress }` ready
+  to render in a Compose-style React tree.
+- **iOS bridge** — `DVAIBridgeNative.podspec` with
+  `s.dependency 'DVAIBridge'`; `ios/DVAIBridgeNative.{h,mm,swift}`
+  forwards JS calls to `DVAIBridge.shared` and maps
+  `ProgressEvent.Phase` to JS-side `{ kind, phase, percent, message }`
+  discriminators.
+- **Android bridge** — Kotlin module that calls
+  `co.deepvoiceai.bridge.DVAIBridge`; depends on
+  `co.deepvoiceai:dvai-bridge:2.2.0` via the consumer's GitHub Packages
+  Maven setup. Dual old-arch + new-arch source sets selected by
+  `newArchEnabled` so RN ≤ 0.74 → 0.85 mid-migration consumers link
+  cleanly.
+- **CI workflow** (`.github/workflows/test-react-native.yml`) — runs
+  `bob build` + Jest on Linux. iOS pod-lint and Android Gradle
+  full-build aren't part of the CI matrix (no host consumer app to
+  exercise autolinking); Mac developers verify manually before
+  publishing.
+- **Docs** — `docs/guide/react-native-sdk.md` mirroring the iOS / Android
+  guides; install via npm + GitHub Packages, Quickstart, BackendKind +
+  platform availability table, `useDVAIBridgeState` example, errors
+  reference, MLX-under-CocoaPods caveat, Bridgeless requirement.
+
+### Changed
+
+- All Android module versions bumped 2.1.0 → 2.2.0 via the
+  `dvaiBridgeVersion` Gradle property in each module's
+  `gradle.properties`. The `$dvaiBridgeVersion` interpolation in each
+  module's `build.gradle` cross-package dep declarations means future
+  bumps continue to require touching only the root `package.json`.
+
+### Pinned dependency versions (verified 2026-04-27)
+
+| Tool | Pin |
+|---|---|
+| `react-native` (peer) | `>=0.77.0 <1.0.0` (CI uses 0.85.2) |
+| `react-native-builder-bob` | 0.41.0 |
+| `typescript` | 6.0.3 |
+| `react` (peer) | `>=18.0.0` |
+| Jest | 30.x |
+| AGP / Kotlin / JVM | 9.2.0 / 2.3.21 / 17 |
+
+### Known Phase 3F follow-ups
+
+- **Flutter package** — wraps the iOS + Android SDKs via Flutter's
+  platform channels. Phase 3F.
+- **Expo plugin** — config-plugin auto-injecting the native deps for
+  Expo prebuild consumers. Phase 3H.
+
+---
+
 ## [2.1.0] — 2026-04-27
 
 Phase 3D — Android Native SDK ships. The Android side now mirrors the iOS
