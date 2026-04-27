@@ -13,14 +13,26 @@ import CoreML
 @available(iOS 18.0, macOS 15.0, *)
 internal final class CoreMLEngine: @unchecked Sendable {
     let model: MLModel
-    let inputName: String       // default: "inputIds"
+    /// Name of the token-id input feature. Apple-converted Llama-3.2 stateful
+    /// checkpoints use `input_ids` (snake_case, matching HF / PyTorch
+    /// convention). Override via `opts["coremlInputName"]` for non-standard
+    /// checkpoints.
+    let inputName: String
+    /// Name of the causal-mask input feature. Apple-converted stateful
+    /// checkpoints declare a `causal_mask` Float16 multiarray of shape
+    /// `[1, 1, q_len, kv_len]` — the model uses it inside
+    /// `Ios18.scaledDotProductAttention`. Empty string disables the
+    /// causal-mask input (for older or simpler checkpoints that don't
+    /// declare it). Override via `opts["coremlCausalMaskName"]`.
+    let causalMaskName: String
     let outputName: String      // default: "logits"
     let maxContextTokens: Int   // from opts; default 2048
     let eosTokenId: Int         // from tokenizer or opts
 
     init(
         modelURL: URL,
-        inputName: String = "inputIds",
+        inputName: String = "input_ids",
+        causalMaskName: String = "causal_mask",
         outputName: String = "logits",
         maxContextTokens: Int = 2048,
         eosTokenId: Int,
@@ -34,6 +46,7 @@ internal final class CoreMLEngine: @unchecked Sendable {
             throw CoreMLBackendError.modelLoadFailed(reason: "\(error)")
         }
         self.inputName = inputName
+        self.causalMaskName = causalMaskName
         self.outputName = outputName
         self.maxContextTokens = maxContextTokens
         self.eosTokenId = eosTokenId
@@ -51,12 +64,45 @@ internal final class CoreMLEngine: @unchecked Sendable {
     }
 
     /// Run a single-token forward pass using the given KV-cache state.
+    ///
     /// Uses `MLModel.prediction(from:using:options:)` — the `using:` label
     /// carries the `MLState` object (not `state:`). Verified against Apple docs.
-    func runStep(token: Int, state: MLState) throws -> MLMultiArray {
+    ///
+    /// - Parameters:
+    ///   - token: New token id to feed (the K/V is appended to `state` by
+    ///     the model's `Ios18.writeState` op as a side-effect).
+    ///   - kvCachePosition: 0-based position of the new token in the
+    ///     conversation. The first prompt token is position 0, second is 1,
+    ///     etc. Used to size the causal-mask input. Caller increments this
+    ///     across runStep calls within the same conversation.
+    ///   - state: KV-cache `MLState` from `makeConversationState()`.
+    func runStep(token: Int, kvCachePosition: Int, state: MLState) throws -> MLMultiArray {
+        var features: [String: MLFeatureValue] = [:]
+
+        // input_ids: [1, 1] Int32 with the new token.
         let inputArr = try MLMultiArray(shape: [1, 1], dataType: .int32)
         inputArr[[0, 0] as [NSNumber]] = NSNumber(value: token)
-        let input = try MLDictionaryFeatureProvider(dictionary: [inputName: inputArr])
+        features[inputName] = MLFeatureValue(multiArray: inputArr)
+
+        // causal_mask: [1, 1, 1, kvCachePosition+1] Float16, all zeros.
+        //
+        // For autoregressive single-token decoding the new query attends to
+        // every K/V position seen so far (0..kvCachePosition inclusive), so
+        // the mask is all-zeros (zero = unmasked, large-negative = masked).
+        // Apple's stateful Llama-3.2 checkpoints declare this input as
+        // Float16 with shape flexibility `[1, 1, 1...2048, 1...2048]`; we
+        // produce the minimal slice for the current step.
+        if !causalMaskName.isEmpty,
+           model.modelDescription.inputDescriptionsByName[causalMaskName] != nil
+        {
+            let kvLen = max(1, kvCachePosition + 1)
+            let mask = try MLMultiArray(shape: [1, 1, 1, NSNumber(value: kvLen)], dataType: .float16)
+            // Float16 zero == bit pattern 0x0000, so memset(0) suffices.
+            memset(mask.dataPointer, 0, mask.count * MemoryLayout<UInt16>.size)
+            features[causalMaskName] = MLFeatureValue(multiArray: mask)
+        }
+
+        let input = try MLDictionaryFeatureProvider(dictionary: features)
         // `prediction(from:using:options:)` is synchronous in Apple's CoreML iOS 18 API.
         // Wrapped in CoreMLGenerator via async Task to avoid blocking the caller's thread.
         let output = try model.prediction(from: input, using: state, options: MLPredictionOptions())

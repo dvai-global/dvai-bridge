@@ -37,8 +37,10 @@ public actor CoreMLPluginState {
         let modelURL = URL(fileURLWithPath: modelPath)
         let tokenizerDir = URL(fileURLWithPath: tokenizerPath)
 
-        // Optional opts with defaults
-        let inputName = (opts["coremlInputName"] as? String) ?? "inputIds"
+        // Optional opts with defaults — match Apple's stateful Llama-3.2
+        // conversion conventions (snake_case, matching HF / PyTorch).
+        let inputName = (opts["coremlInputName"] as? String) ?? "input_ids"
+        let causalMaskName = (opts["coremlCausalMaskName"] as? String) ?? "causal_mask"
         let outputName = (opts["coremlOutputName"] as? String) ?? "logits"
         let maxContextTokens = (opts["contextSize"] as? Int) ?? 2048
         let temperature = (opts["temperature"] as? Double).map(Float.init) ?? 0.0
@@ -53,6 +55,7 @@ public actor CoreMLPluginState {
         let engine = try CoreMLEngine(
             modelURL: modelURL,
             inputName: inputName,
+            causalMaskName: causalMaskName,
             outputName: outputName,
             maxContextTokens: maxContextTokens,
             eosTokenId: tokenizer.eosTokenId
