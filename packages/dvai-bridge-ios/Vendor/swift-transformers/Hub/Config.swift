@@ -30,8 +30,10 @@ public struct Config: Hashable, Sendable,
 {
     /// Type alias for configuration keys using binary-distinct strings.
     public typealias Key = BinaryDistinctString
-    /// Type alias for configuration values.
-    public typealias Value = Config
+    // CocoaPods: `public typealias Value = Config` removed because in the
+    // single-module build it shadows Jinja's `Value` enum, which Config's
+    // own `jinjaValue()` method needs to reference. SwiftPM consumers see
+    // the upstream typealias unchanged via Package.swift.
 
     private let value: Data
 
