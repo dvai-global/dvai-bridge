@@ -537,36 +537,36 @@ availability.
 Core options (JS / TS — other platforms expose equivalent config on their
 start-options type):
 
-| Option                        | Type               | Default                                          | Description                                                                  |
-| ----------------------------- | ------------------ | ------------------------------------------------ | ---------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------- | ---------------------------------------------------------------- |
-| `backend`                     | `"webllm"          | "transformers"                                   | "native"                                                                     | "auto"`                                              | `"auto"`               | Inference backend.`"auto"` picks the best for the runtime.       |
-| `modelId`                     | `string`           | `"gemma-2-2b-it-q4f16_1-MLC"`                    | WebLLM model ID                                                              |
-| `transformersModelId`         | `string`           | `"onnx-community/gemma-3n-E2B-it-ONNX"`          | HuggingFace model ID                                                         |
-| `pipelineTask`                | `string`           | `"text-generation"`                              | Transformers.js pipeline task                                                |
-| `device`                      | `"webgpu"          | "cpu"                                            | "auto"`                                                                      | `"auto"`                                             | Transformers.js device |
-| `dtype`                       | `string`           | —                                                | Quantization (e.g.`"q4"`, `"q8"`, `"f16"`)                                   |
-| `generationTimeout`           | `number`           | `60000`                                          | Max generation time (ms)                                                     |
-| `maxBlankChunks`              | `number`           | `20`                                             | Blank chunks before stream abort (WebLLM)                                    |
-| `maxRetries`                  | `number`           | `2`                                              | Max auto-recovery retries                                                    |
-| `transport`                   | `"auto"            | "msw"                                            | "http"                                                                       | "none"`                                              | `"auto"`               | Transport selection.`"auto"` picks MSW in browser, HTTP in Node. |
-| `httpBasePort`                | `number`           | `38883`                                          | HTTP transport base port (retries +1 up to 16 times)                         |
-| `httpMaxPortAttempts`         | `number`           | `16`                                             | Max HTTP port fallback attempts                                              |
-| `corsOrigin`                  | `string            | string[]`                                        | `"*"`                                                                        | HTTP`Access-Control-Allow-Origin` value or allowlist |
-| `mockUrl`                     | `string`           | `"https://api.openai.local/v1/chat/completions"` | MSW intercept URL (ignored under HTTP)                                       |
-| `serviceWorkerUrl`            | `string`           | `"/mockServiceWorker.js"`                        | Path to MSW service worker                                                   |
-| `webllmWorkerUrl`             | `string`           | `"/dvai-webllm.worker.js"`                       | Path to WebLLM inference worker                                              |
-| `transformersWorkerUrl`       | `string`           | `"/dvai-transformers.worker.js"`                 | Path to Transformers.js inference worker                                     |
-| `transformersModelClass`      | `string`           | —                                                | Declarative multimodal loader class (e.g.`"Gemma4ForConditionalGeneration"`) |
-| `transformersProcessorClass`  | `string`           | `"AutoProcessor"`                                | Processor class for the declarative loader                                   |
-| `transformersDisableEncoders` | `string[]`         | `[]`                                             | Null out model submodule fields post-load (e.g.`["vision_encoder"]`)         |
-| `createPipeline`              | `CreatePipelineFn` | —                                                | Custom main-thread pipeline factory                                          |
-| `nativeModelPath`             | `string`           | —                                                | GGUF model path (native backend)                                             |
-| `nativeGpuLayers`             | `number`           | `99`                                             | GPU layers (iOS Metal)                                                       |
-| `nativeThreads`               | `number`           | `4`                                              | CPU threads (native)                                                         |
-| `nativeContextSize`           | `number`           | `2048`                                           | Context window (native)                                                      |
-| `nativeEmbeddingMode`         | `boolean`          | `false`                                          | Initialize native context in embedding mode                                  |
-| `licenseKey`                  | `string`           | —                                                | Commercial license key                                                       |
-| `autoInit`                    | `boolean`          | `true`                                           | Auto-initialize on mount (React/Vanilla)                                     |
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `backend` | `"webllm" \| "transformers" \| "native" \| "auto"` | `"auto"` | Inference backend. `"auto"` picks the best for the runtime. |
+| `modelId` | `string` | `"gemma-2-2b-it-q4f16_1-MLC"` | WebLLM model ID |
+| `transformersModelId` | `string` | `"onnx-community/gemma-3n-E2B-it-ONNX"` | HuggingFace model ID |
+| `pipelineTask` | `string` | `"text-generation"` | Transformers.js pipeline task |
+| `device` | `"webgpu" \| "cpu" \| "auto"` | `"auto"` | Transformers.js device |
+| `dtype` | `string` | — | Quantization (e.g. `"q4"`, `"q8"`, `"f16"`) |
+| `generationTimeout` | `number` | `60000` | Max generation time (ms) |
+| `maxBlankChunks` | `number` | `20` | Blank chunks before stream abort (WebLLM) |
+| `maxRetries` | `number` | `2` | Max auto-recovery retries |
+| `transport` | `"auto" \| "msw" \| "http" \| "none"` | `"auto"` | Transport selection. `"auto"` picks MSW in browser, HTTP in Node. |
+| `httpBasePort` | `number` | `38883` | HTTP transport base port (retries +1 up to 16 times) |
+| `httpMaxPortAttempts` | `number` | `16` | Max HTTP port fallback attempts |
+| `corsOrigin` | `string \| string[]` | `"*"` | HTTP `Access-Control-Allow-Origin` value or allowlist |
+| `mockUrl` | `string` | `"https://api.openai.local/v1/chat/completions"` | MSW intercept URL (ignored under HTTP) |
+| `serviceWorkerUrl` | `string` | `"/mockServiceWorker.js"` | Path to MSW service worker |
+| `webllmWorkerUrl` | `string` | `"/dvai-webllm.worker.js"` | Path to WebLLM inference worker |
+| `transformersWorkerUrl` | `string` | `"/dvai-transformers.worker.js"` | Path to Transformers.js inference worker |
+| `transformersModelClass` | `string` | — | Declarative multimodal loader class (e.g. `"Gemma4ForConditionalGeneration"`) |
+| `transformersProcessorClass` | `string` | `"AutoProcessor"` | Processor class for the declarative loader |
+| `transformersDisableEncoders` | `string[]` | `[]` | Null out model submodule fields post-load (e.g. `["vision_encoder"]`) |
+| `createPipeline` | `CreatePipelineFn` | — | Custom main-thread pipeline factory |
+| `nativeModelPath` | `string` | — | GGUF model path (native backend) |
+| `nativeGpuLayers` | `number` | `99` | GPU layers (iOS Metal) |
+| `nativeThreads` | `number` | `4` | CPU threads (native) |
+| `nativeContextSize` | `number` | `2048` | Context window (native) |
+| `nativeEmbeddingMode` | `boolean` | `false` | Initialize native context in embedding mode |
+| `licenseKey` | `string` | — | Commercial license key |
+| `autoInit` | `boolean` | `true` | Auto-initialize on mount (React/Vanilla) |
 
 ### Useful fields after `initialize()` / `start()`
 
