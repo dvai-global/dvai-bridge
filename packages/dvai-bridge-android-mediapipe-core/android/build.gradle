@@ -31,6 +31,9 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // Phase 3D: shared-core lives here in dev (after `publishToMavenLocal`).
+        // Production publishes resolve from GitHub Packages.
+        mavenLocal()
     }
 }
 
@@ -68,6 +71,9 @@ kotlin {
 }
 
 dependencies {
+    // Phase 3D: shared HTTP server + handler dispatch types live here.
+    implementation 'co.deepvoiceai:android-shared-core:2.0.0'
+
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "io.ktor:ktor-server-core:$ktorVersion"
     implementation "io.ktor:ktor-server-cio:$ktorVersion"

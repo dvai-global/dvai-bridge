@@ -1,4 +1,4 @@
-package co.deepvoiceai.bridge.llama.core
+package co.deepvoiceai.bridge.shared.core
 
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -10,7 +10,7 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class HandlerDispatchTest {
-    private val ctx = HandlerContext(modelId = "test-model", backendName = "llama")
+    private val ctx = HandlerContext(modelId = "test-model", backendName = "shared")
 
     private class FakeHandlers : DvaiHandlers {
         override suspend fun handleChatCompletion(body: JsonObject, ctx: HandlerContext): HandlerResponse =

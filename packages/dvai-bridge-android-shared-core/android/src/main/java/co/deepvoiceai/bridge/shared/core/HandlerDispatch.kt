@@ -1,43 +1,11 @@
-package co.deepvoiceai.bridge.llama.core
+package co.deepvoiceai.bridge.shared.core
 
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.*
-
-/** Per-request context passed to every handler method. */
-data class HandlerContext(val modelId: String, val backendName: String)
-
-/** What handlers return. */
-sealed class HandlerResponse {
-    data class Json(val status: Int, val body: JsonElement) : HandlerResponse()
-    data class Sse(val flow: Flow<String>) : HandlerResponse()
-    data class Error(val status: Int, val message: String) : HandlerResponse()
-}
-
-/** Contract for the handler set. */
-interface DvaiHandlers {
-    suspend fun handleChatCompletion(body: JsonObject, ctx: HandlerContext): HandlerResponse
-    suspend fun handleCompletion(body: JsonObject, ctx: HandlerContext): HandlerResponse
-    suspend fun handleEmbeddings(body: JsonObject, ctx: HandlerContext): HandlerResponse
-    suspend fun handleModels(ctx: HandlerContext): HandlerResponse
-}
-
-/** CORS configuration for the dispatch layer. */
-sealed class CorsConfig {
-    object Wildcard : CorsConfig()
-    data class Exact(val origin: String) : CorsConfig()
-    data class Allowlist(val origins: List<String>) : CorsConfig()
-
-    fun headerValue(reqOrigin: String?): String? = when (this) {
-        is Wildcard -> "*"
-        is Exact -> origin
-        is Allowlist -> if (reqOrigin != null && origins.contains(reqOrigin)) reqOrigin else null
-    }
-}
 
 /** Add CORS + PNA headers to a response. */
 fun applyCors(call: ApplicationCall, config: CorsConfig) {
