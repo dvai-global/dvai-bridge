@@ -3,6 +3,81 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1.0] — 2026-04-27
+
+Phase 3D — Android Native SDK ships. The Android side now mirrors the iOS
+SDK shape: a single umbrella `co.deepvoiceai:dvai-bridge` AAR wraps the
+existing llama / MediaPipe cores plus a new bare-LiteRT backend behind a
+unified `DVAIBridge` Kotlin singleton.
+
+### Added
+
+- **`@dvai-bridge/android` umbrella package** — `co.deepvoiceai:dvai-bridge`
+  AAR. Public `DVAIBridge` Kotlin object with the same 8-method surface
+  as the iOS SDK (`init`, `start`, `stop`, `status`, `downloadModel`,
+  `addProgressListener`, `removeProgressListener`, plus `progressFlow` /
+  `reactive` properties). `BackendKind` enum (`Auto` / `Llama` /
+  `MediaPipe` / `LiteRT`) with file-extension-based auto-resolution.
+  `DVAIBridgeReactiveState` exposes `StateFlow<*>` for Compose / Lifecycle
+  integration. See [Android Native SDK guide](docs/guide/android-native-sdk.md).
+- **`@dvai-bridge/android-litert-core`** — new bare-LiteRT backend
+  (distinct from the bundled-task MediaPipe wrapper). Pinned
+  `com.google.ai.edge.litert:litert:2.1.4`; the LiteRT-LM helper artifact
+  doesn't exist standalone, so token-by-token decoding runs directly on
+  `CompiledModel` with named tensors (`input_ids`, `causal_mask`, `logits`).
+  Tokenization: pure-Kotlin `tokenizer.json` BPE parser (no JNI dep —
+  HF's `tokenizers-android` JitPack guess does not exist; DJL's
+  HuggingFace tokenizer ships no Android `.so`). Chat templates: built-in
+  LLAMA3 + PLAIN renderers; SentencePiece / Unigram tokenizers reject at
+  load time (use the MediaPipe backend for Gemma).
+- **`@dvai-bridge/android-shared-core`** — extracted `HttpServer` +
+  `HandlerDispatch` + `HandlerContext` + `DvaiHandlers` + `HandlerResponse`
+  + `CorsConfig` (with new `CorsConfig.fromOpt` companion) out of
+  `android-llama-core` and `android-mediapipe-core` into a dedicated
+  module. Each core now declares `api 'co.deepvoiceai:android-shared-core'`
+  so consumers see the moved types transitively. Mirrors the iOS Phase 3C
+  DVAISharedCore extraction.
+- **`scripts/android-publish-local.sh`** — orders + invokes
+  `publishToMavenLocal` across all 5 Android packages in dep order. Auto-
+  detects JDK 21+ (Robolectric @ compileSdk 36 requires it) from a
+  Homebrew openjdk install or Android Studio's bundled JBR.
+- **CI workflows re-enabled** — `.github/workflows/*.yml.disabled` are
+  back to `.yml`. New per-module workflows for shared-core and litert-core;
+  the existing llama / mediapipe workflows now seed shared-core to
+  mavenLocal before running their tests. New umbrella workflow runs the
+  reflection-based API-shape + selector + progress-broadcaster unit tests
+  after publishing all 4 cores to mavenLocal.
+
+### Changed
+
+- **Both pre-existing Android cores** declare
+  `implementation 'co.deepvoiceai:android-shared-core' → api ...`. Direct
+  consumers of `@dvai-bridge/android-llama-core` or
+  `@dvai-bridge/android-mediapipe-core` need to add
+  `import co.deepvoiceai.bridge.shared.core.*` for the moved types — see
+  the [migration guide](docs/migration/v1.6-to-v2.0.md).
+- **All Android module versions** are now driven by
+  `dvaiBridgeVersion` in each module's `gradle.properties`, propagated
+  by `scripts/sync-versions.js` from the root `package.json`. Future
+  bumps touch one file (root package.json) instead of five build.gradle
+  files.
+
+### Documentation
+
+- New `docs/guide/android-native-sdk.md` — installation (GitHub Packages
+  Maven), Quickstart, BackendKind table + auto-resolution rules, Compose
+  reactive state, progress events, errors, backend-specific notes.
+- VitePress sidebar adds the Android Native SDK page next to the iOS one.
+- Migration guide updated with the Kotlin-side import surface change.
+
+### Known Phase 3E follow-ups
+
+- **React Native module** (`@dvai-bridge/react-native`) — wraps the iOS +
+  Android native SDKs via React Native's bridging. Phase 3E.
+- **Flutter package** — same as RN, via Flutter's platform channels. Phase 3F.
+
+---
+
 ## [2.0.0] — 2026-04-27
 
 First tagged release after `v1.6.0`. The previously-shown `[1.7.0]` and

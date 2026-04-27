@@ -100,7 +100,7 @@ dependencies {
     // package. Declared as `api` (not `implementation`) so consumer projects
     // — Capacitor wrappers, the dvai-bridge-android umbrella, downstream
     // apps — see the moved types transitively without re-declaring the dep.
-    api 'co.deepvoiceai:android-shared-core:2.0.0'
+    api "co.deepvoiceai:android-shared-core:$dvaiBridgeVersion"
 
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "io.ktor:ktor-server-core:$ktorVersion"

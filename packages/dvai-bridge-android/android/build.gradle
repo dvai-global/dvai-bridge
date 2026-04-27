@@ -47,6 +47,30 @@ android {
         minSdk 24
         targetSdk 36
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // Phase 3D Task 17: integration tests read SMOKE_* env vars via
+        // BuildConfig fields. Empty defaults make the tests self-skip via
+        // `Assume.assumeFalse(... isEmpty())` when the env vars aren't set.
+        // CI workflows export the env vars from repo secrets; local dev
+        // can `export SMOKE_MODEL_URL=... && ./gradlew connectedAndroidTest`.
+        buildConfigField "String", "SMOKE_MODEL_URL",
+                "\"${System.getenv('SMOKE_MODEL_URL') ?: ''}\""
+        buildConfigField "String", "SMOKE_MODEL_SHA256",
+                "\"${System.getenv('SMOKE_MODEL_SHA256') ?: ''}\""
+        buildConfigField "String", "SMOKE_MEDIAPIPE_MODEL_URL",
+                "\"${System.getenv('SMOKE_MEDIAPIPE_MODEL_URL') ?: ''}\""
+        buildConfigField "String", "SMOKE_MEDIAPIPE_MODEL_SHA256",
+                "\"${System.getenv('SMOKE_MEDIAPIPE_MODEL_SHA256') ?: ''}\""
+        buildConfigField "String", "SMOKE_LITERT_MODEL_URL",
+                "\"${System.getenv('SMOKE_LITERT_MODEL_URL') ?: ''}\""
+        buildConfigField "String", "SMOKE_LITERT_MODEL_SHA256",
+                "\"${System.getenv('SMOKE_LITERT_MODEL_SHA256') ?: ''}\""
+        buildConfigField "String", "SMOKE_LITERT_TOKENIZER_URL",
+                "\"${System.getenv('SMOKE_LITERT_TOKENIZER_URL') ?: ''}\""
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
@@ -74,10 +98,10 @@ dependencies {
     // Cores — each declared as `api` so consumer apps that pull just the
     // umbrella see the underlying types (BackendKind, HandlerContext, etc.)
     // without re-declaring the deps.
-    api 'co.deepvoiceai:android-shared-core:2.0.0'
-    api 'co.deepvoiceai:android-llama-core:2.0.0'
-    api 'co.deepvoiceai:android-mediapipe-core:2.0.0'
-    api 'co.deepvoiceai:android-litert-core:2.0.0'
+    api "co.deepvoiceai:android-shared-core:$dvaiBridgeVersion"
+    api "co.deepvoiceai:android-llama-core:$dvaiBridgeVersion"
+    api "co.deepvoiceai:android-mediapipe-core:$dvaiBridgeVersion"
+    api "co.deepvoiceai:android-litert-core:$dvaiBridgeVersion"
 
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion"

@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'packages/dvai-bridge-android-mediapipe-core/**'
+      - 'packages/dvai-bridge-android-shared-core/**'
       - 'packages/dvai-bridge-capacitor-mediapipe/android/**'
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
@@ -13,6 +14,7 @@ on:
       - main
     paths:
       - 'packages/dvai-bridge-android-mediapipe-core/**'
+      - 'packages/dvai-bridge-android-shared-core/**'
       - 'packages/dvai-bridge-capacitor-mediapipe/android/**'
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
@@ -43,9 +45,15 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-mediapipe-core-${{ hashFiles('packages/dvai-bridge-android-mediapipe-core/android/**/*.gradle*', 'packages/dvai-bridge-android-mediapipe-core/android/gradle/wrapper/gradle-wrapper.properties') }}
+          key: gradle-mediapipe-core-${{ hashFiles('packages/dvai-bridge-android-shared-core/android/**/*.gradle*', 'packages/dvai-bridge-android-mediapipe-core/android/**/*.gradle*', 'packages/dvai-bridge-android-mediapipe-core/android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
             gradle-mediapipe-core-
+
+      - name: Publish android-shared-core to mavenLocal
+        # Phase 3D: mediapipe-core's `api 'co.deepvoiceai:android-shared-core:2.0.0'`
+        # dep needs mavenLocal to resolve.
+        working-directory: packages/dvai-bridge-android-shared-core/android
+        run: ./gradlew publishToMavenLocal --no-daemon --stacktrace
 
       - run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
@@ -79,9 +87,15 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-mediapipe-wrapper-${{ hashFiles('packages/dvai-bridge-capacitor-mediapipe/android/**/*.gradle*', 'packages/dvai-bridge-capacitor-mediapipe/android/gradle/wrapper/gradle-wrapper.properties') }}
+          key: gradle-mediapipe-wrapper-${{ hashFiles('packages/dvai-bridge-android-shared-core/android/**/*.gradle*', 'packages/dvai-bridge-android-mediapipe-core/android/**/*.gradle*', 'packages/dvai-bridge-capacitor-mediapipe/android/**/*.gradle*', 'packages/dvai-bridge-capacitor-mediapipe/android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
             gradle-mediapipe-wrapper-
+
+      - name: Publish shared-core + mediapipe-core to mavenLocal
+        working-directory: ${{ github.workspace }}
+        run: |
+          (cd packages/dvai-bridge-android-shared-core/android && ./gradlew publishToMavenLocal --no-daemon --stacktrace)
+          (cd packages/dvai-bridge-android-mediapipe-core/android && ./gradlew publishToMavenLocal --no-daemon --stacktrace)
 
       - run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 

@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'packages/dvai-bridge-android-llama-core/**'
+      - 'packages/dvai-bridge-android-shared-core/**'
       - 'packages/dvai-bridge-capacitor-llama/android/**'
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
@@ -13,6 +14,7 @@ on:
       - main
     paths:
       - 'packages/dvai-bridge-android-llama-core/**'
+      - 'packages/dvai-bridge-android-shared-core/**'
       - 'packages/dvai-bridge-capacitor-llama/android/**'
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
@@ -45,9 +47,16 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-llama-core-${{ hashFiles('packages/dvai-bridge-android-llama-core/android/**/*.gradle*', 'packages/dvai-bridge-android-llama-core/android/gradle/wrapper/gradle-wrapper.properties') }}
+          key: gradle-llama-core-${{ hashFiles('packages/dvai-bridge-android-shared-core/android/**/*.gradle*', 'packages/dvai-bridge-android-llama-core/android/**/*.gradle*', 'packages/dvai-bridge-android-llama-core/android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
             gradle-llama-core-
+
+      - name: Publish android-shared-core to mavenLocal
+        # Phase 3D: llama-core's `api 'co.deepvoiceai:android-shared-core:2.0.0'`
+        # dep resolves through mavenLocal at build time. Workflow has to seed
+        # mavenLocal before running llama-core tests.
+        working-directory: packages/dvai-bridge-android-shared-core/android
+        run: ./gradlew publishToMavenLocal --no-daemon --stacktrace
 
       - name: Run JVM unit tests
         run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
@@ -114,9 +123,18 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-llama-wrapper-${{ hashFiles('packages/dvai-bridge-capacitor-llama/android/**/*.gradle*', 'packages/dvai-bridge-capacitor-llama/android/gradle/wrapper/gradle-wrapper.properties') }}
+          key: gradle-llama-wrapper-${{ hashFiles('packages/dvai-bridge-android-shared-core/android/**/*.gradle*', 'packages/dvai-bridge-android-llama-core/android/**/*.gradle*', 'packages/dvai-bridge-capacitor-llama/android/**/*.gradle*', 'packages/dvai-bridge-capacitor-llama/android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
             gradle-llama-wrapper-
+
+      - name: Publish shared-core + llama-core to mavenLocal
+        # The Capacitor wrapper depends on llama-core, which depends on
+        # shared-core. Both have to be in mavenLocal before the wrapper
+        # tests can resolve their classpaths.
+        run: |
+          (cd packages/dvai-bridge-android-shared-core/android && ./gradlew publishToMavenLocal --no-daemon --stacktrace)
+          (cd packages/dvai-bridge-android-llama-core/android && ./gradlew publishToMavenLocal --no-daemon --stacktrace)
+        working-directory: ${{ github.workspace }}
 
       - name: Run wrapper sanity tests
         run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
