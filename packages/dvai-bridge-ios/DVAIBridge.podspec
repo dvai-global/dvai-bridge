@@ -26,7 +26,12 @@ Pod::Spec.new do |s|
     '../dvai-bridge-ios-foundation-core/ios/Sources/DVAIFoundationCore/**/*.{swift}',
   ]
   s.public_header_files = '../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC/include/*.h'
-  s.dependency 'Telegraph', '~> 0.40'
+  # Telegraph's CocoaPods trunk caps at 0.30.0 — 0.40+ is published only as
+  # GitHub tags for SwiftPM. Our code only touches stable core types
+  # (Server / HTTPRequest / HTTPResponse / HTTPStatus / HTTPHeaders) that
+  # exist unchanged across 0.30→0.40, so CocoaPods consumers get 0.30 while
+  # SwiftPM consumers (Package.swift) continue to resolve 0.40.0.
+  s.dependency 'Telegraph', '~> 0.30'
   s.vendored_frameworks = [
     '../dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/llama.xcframework',
     '../dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/mtmd.xcframework',
