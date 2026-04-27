@@ -98,12 +98,16 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
     implementation 'com.squareup.okhttp3:okhttp:5.3.2'
 
-    // LiteRT runtime — pulled in by Phase 3D Task 6 (LiteRTEngine).
-    implementation "com.google.ai.edge.litert:litert:$litertVersion"
-    implementation "com.google.ai.edge.litert:litert-llm:$litertVersion"
-
-    // HuggingFace tokenizer (JNI). Brings ~10MB of native code per ABI.
-    implementation "com.github.huggingface:tokenizers-android:$huggingfaceTokenizersVersion"
+    // LiteRT runtime + HuggingFace tokenizer get added by Phase 3D Task 6
+    // (LiteRTEngine implementation). The artifact coordinates declared in
+    // the `ext { }` block above (litertVersion, huggingfaceTokenizersVersion)
+    // are the working defaults; the Task 6 implementer verifies the
+    // current Maven Central / JitPack coordinates against upstream docs at
+    // implementation time and uncomments the lines below.
+    //
+    // implementation "com.google.ai.edge.litert:litert:$litertVersion"
+    // implementation "com.google.ai.edge.litert:litert-llm:$litertVersion"
+    // implementation "com.github.huggingface:tokenizers-android:$huggingfaceTokenizersVersion"
 
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion"
