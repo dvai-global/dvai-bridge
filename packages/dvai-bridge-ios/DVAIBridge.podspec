@@ -89,7 +89,12 @@ Pod::Spec.new do |s|
     'Frameworks/mtmd.xcframework',
   ]
 
-  s.frameworks = ['Foundation', 'CoreML']
+  s.frameworks = ['Foundation', 'CoreML', 'AVFoundation']
+  # SwiftUI is weak-linked: ReactiveState's @Published / ObservableObject
+  # triggers the iOS-26 autolinker to look for SwiftUICore (private). Linking
+  # SwiftUI publicly satisfies the dependency without us actually importing
+  # it. Weak so apps targeting iOS 13- still launch.
+  s.weak_frameworks = ['SwiftUI']
 
   # Vendored swift-collections 1.4.1 + swift-jinja 2.3.5 use:
   #   - `package` access level (needs -package-name; SwiftPM auto-sets it)
