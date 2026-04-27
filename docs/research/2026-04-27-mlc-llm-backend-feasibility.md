@@ -318,22 +318,61 @@ Pigeon enum in 3F's design carries `BackendKind`. Adding `mlc` is similarly a on
 
 ## 7. Recommended next step
 
-**Recommendation: SCHEDULE a Phase 3I spec, but DO NOT start it before Phase 3F (Flutter) and Phase 3H (publish/launch) are green.** Rationale:
+> **Update 2026-04-27 (post-spike):** original recommendation revised in §7.1 below after the build-chain spike attempt produced new evidence about ongoing maintenance cost.
 
-1. The integration is feasible and the API surface is the cleanest of any third-party LLM runtime we've evaluated (cleaner than MLX, much cleaner than LiteRT). MLCEngine is an OpenAI-shaped streaming engine out of the box. **API-side LoC is ~520 Swift / ~700 Kotlin** — comfortable.
-2. The distribution + build-infra side is a meaningful new investment (curated xcframework + curated AAR + new mac-side script + Rust/Python in CI + per-model HF coordination). **Estimate: ~1.3-1.5× the Phase 3D effort** (which delivered Android SDK + LiteRT core + shared-core extraction). The Android SDK landed in ~3 weeks of focused work, so plan ~4-5 weeks for 3I.
-3. Marginal value vs. existing backends:
-   - On iOS, MLX already covers Apple-Silicon GPU LLM with HF model loading. MLC's iOS edge is "non-Apple-Silicon" (older iPhones), but those devices have insufficient memory for any modern LLM anyway.
-   - On Android, MediaPipe + LiteRT cover the same ground for `.task` / `.tflite` / `.litertlm` users. MLC's Android edge is "Adreno/Mali GPU acceleration with OpenCL", which is **genuinely new** — neither MediaPipe nor LiteRT exposes raw OpenCL today.
-4. The Adreno/Mali OpenCL story is the one strategic reason to do this. If perf measurements show MLC ≥ 2× faster than MediaPipe on Snapdragon-class devices (an unverified hypothesis from MLC's own benchmarks), 3I is worth the cost. If perf is comparable, defer indefinitely.
+### 7.1 Revised recommendation (post-spike)
 
-**Concrete next-step deliverable when we are ready:** a Phase 3I design doc in the same shape as `2026-04-27-phase3d-android-native-sdk-design.md`, scoped to:
-- One curated model set (4 models max: Llama-3.2-1B, Phi-3.5-mini, Gemma-2-2B, Qwen2.5-1.5B — all `q4f16_1` `_0`-layout if Adreno freeze confirmed).
-- Two new `*-core` packages (`ios-mlc-core`, `android-mlc-core`) + one new Capacitor wrapper.
-- Mac-side `prepare-mlc-xcframework.sh` script + Linux-side `prepare-mlc-aar.sh`.
-- One-week perf-spike preceding the spec to validate the OpenCL-perf hypothesis on a Pixel 8 Pro and Samsung S24.
+**Defer Phase 3I more strongly than the pre-spike read.** The spike on 2026-04-27 attempted only the *first* step on the path to a perf measurement — getting a debug APK built — and hit seven distinct toolchain blockers in ~90 minutes on a fully-equipped developer workstation, without ever reaching the device. Detailed log in §7.2.
 
-**Block before starting:** confirm the perf hypothesis. Without that data, MLC is a parallel third path that adds maintenance burden without clear differentiation.
+That changes the calculation in three ways:
+
+1. **The "build-infra is a meaningful new investment" warning was an understatement.** Each issue is fixable, but the cumulative setup work is closer to a multi-day Linux-only CI build pipeline than a 2-day Mac-side script. Sustaining it as MLC iterates (nightly-only releases, no stable channel) is recurring engineering toll — not a one-shot cost.
+2. **The differentiation hypothesis remains untested.** We never measured prefill latency or decode tokens/sec on Adreno 750 because the build never produced an APK. The "MLC ≥ 2× MediaPipe" claim still rests on MLC's own benchmarks, not independent verification.
+3. **Phase 3G (.NET) and Phase 3H (docs/launch) ship value with materially less friction.** Neither requires a third-party LLM runtime, model recompilation, or a sustained CI pipeline against a fast-moving project.
+
+**New recommendation:** drop Phase 3I from the active backlog. Rotate it back in only if any of:
+- (a) MLC stabilizes its release channel (versioned releases, prebuilt AAR + xcframework on Maven/CocoaPods, NOT nightly-only),
+- (b) A real consumer with a Snapdragon-only target asks for MLC by name and validates the perf claim themselves, or
+- (c) DVAI-Bridge needs Adreno-OpenCL-grade perf for a workload that MediaPipe/LiteRT genuinely can't serve.
+
+Until one of those triggers, prioritize **Phase 3G (.NET NuGet) → Phase 3H (docs/launch)** in that order.
+
+### 7.2 Spike attempt log (2026-04-27)
+
+Goal: build the MLCChat debug APK, install on a Galaxy S24 Ultra (SM-S928B, Snapdragon 8 Gen 3, Adreno 750, Android 16), measure first-prefill freeze duration on a `_0`-quantized model.
+
+Setup: Mac was the build host (Apple Silicon, macOS 26.3.1, NDK 27.1, Android Studio JBR 17, Homebrew openjdk 23, cmake 4.3.2 via brew, Python 3.12 + 3.13). Phone paired via wireless ADB to Mac.
+
+Issues encountered, in order:
+
+| # | Issue | Resolution |
+|---|---|---|
+| 1 | Windows TVM wheels (`mlc-ai-nightly-cpu` + `mlc-llm-nightly-cpu`) install fine but `import tvm` fails — `tvm.dll` can't load (missing transitive DLL dependency). | Pivoted build host to Mac. |
+| 2 | The pip indexes documented in MLC's docs (`-f https://mlc.ai/wheels` with package names `mlc-llm-nightly` / `mlc-ai-nightly`) resolve to **stub packages** of ~1KB — namespace squatting on PyPI's resolver. The real packages are `mlc-llm-nightly-cpu` / `mlc-ai-nightly-cpu` with the `-cpu` suffix mandatory. Not documented anywhere. | Inspected the wheel index HTML directly; found correct names. |
+| 3 | Python 3.13 install fails on transitive `tokenizers` package — no Python 3.13 wheel; sdist requires Rust toolchain. | Switched to Python 3.12. |
+| 4 | After `mlc-llm-nightly-cpu` installs cleanly, `import tvm` raises `ModuleNotFoundError: No module named 'pytest'`. TVM's `__init__` chain eagerly imports a test module that has an undeclared `pytest` runtime dep. | `pip install pytest` separately. |
+| 5 | `mlc_llm package` CLI not on `$PATH` — the wheel doesn't ship a `console_scripts` entry. | Use `python -m mlc_llm package` instead. |
+| 6 | `python -m mlc_llm package` raises `ValueError: MLC LLM home is not specified`. The `MLC_LLM_SOURCE_DIR` env var requirement isn't documented in the workflow steps in `docs/deploy/android.html`. | Set `MLC_LLM_SOURCE_DIR=path/to/mlc-llm` clone. |
+| 7 | `mlc_llm package` invokes `cmake` but Mac SSH non-interactive shells don't have `/opt/homebrew/bin` on PATH; `cmake: command not found`. | `export PATH="/opt/homebrew/bin:$PATH"` for the invocation. |
+| 8 | cmake build runs to 88% then fails on the `tvm4j_runtime_packed` (JNI binding) target with `make: *** [tvm4j_runtime_packed] Error 2`. The actual link error is buried under `-j12` parallel output. Adding `JAVA_HOME=$(Android Studio's JBR 17)` did not change the outcome. | **UNRESOLVED in spike timeframe.** Diagnosis would require `cmake --build . -j1 --verbose` plus inspection of `dist/lib-build/CMakeFiles/CMakeError.log`. |
+
+**What this tells us about the long-term picture**: the build pipeline is composed of nightly-built wheels with patchy dep declarations, undocumented env-var requirements, a CLI that isn't installed-as-a-CLI, and a JNI-link step that fails in the Android target without an obvious fix path. None of these are blockers in isolation, but together they're a strong signal that any MLC-bridged DVAI-Bridge build would require **dedicated weekly maintenance** to track upstream changes.
+
+For the perf question (the original gate): **unanswered**. We have neither prefill numbers nor decode tokens/sec from MLC on Adreno 750. The original "block on perf spike" gate is therefore satisfied by a *different* signal — that the build chain itself is high-friction enough to fail the project's "always-pin-to-latest" + "no deferrals" stance.
+
+### 7.3 What the original recommendation got right and wrong
+
+- **Right**: API surface IS clean; iOS distribution IS unsolved; build-infra IS a recurring cost.
+- **Wrong (too optimistic)**: pegged effort at "1.3-1.5× Phase 3D" assuming the build chain would mostly Just Work. The spike showed it doesn't. Realistic estimate: **2–2.5× Phase 3D** when factoring sustained CI maintenance against a moving target.
+- **Wrong (too vague)**: "block on perf spike" assumed the spike could be done in a half-day. The spike attempt suggests scoping it correctly takes a week of dedicated debug + a clean Linux build host (Mac is fighting the toolchain, Windows is fighting the runtime).
+
+### 7.4 Concrete next-step deliverable when we are ready
+
+The original concrete plan (curated model set, two new `*-core` packages, mac/linux prepare scripts) still applies, but **add explicit prerequisites** to its plan doc:
+
+- Stable MLC release channel published by upstream (versioned, not nightly).
+- Verified perf delta from a third party on the target hardware class.
+- A dedicated Linux build host configured up-front (not Mac, not Windows).
 
 ---
 
