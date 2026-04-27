@@ -83,14 +83,18 @@ flow.
 | Kotlin / JVM target | 2.3.21 / 17 (matches Phase 3D umbrella) |
 | iOS deployment target | 15.1 (matches Phase 3C) |
 
-### Known Phase 3G follow-ups
+### Known follow-ups after 2.3.0
 
-- **`.NET NuGet package`** — wraps the iOS + Android SDKs for MAUI /
-  Avalonia / Xamarin consumers. Phase 3G.
-- **MLC LLM backend** — under feasibility research at
-  `docs/research/2026-04-27-mlc-llm-backend-feasibility.md`. If green-
-  lit, ships as Phase 3I (`@dvai-bridge/{ios,android}-mlc-core` plus
-  the matching `BackendKind.MLC` case across every wrapper).
+- **`.NET NuGet package`** (Phase 3G) — wraps the iOS + Android SDKs
+  for MAUI / Avalonia / Xamarin consumers. Active next.
+- **Docs / launch polish** (Phase 3H) — public-facing v2.x release
+  story, sample-app scripts, marketing pages. Follows 3G.
+- **MLC LLM backend** — *parked* after the 2026-04-27 build-chain
+  spike. See `docs/research/2026-04-27-mlc-llm-backend-feasibility.md`
+  for the parking decision and re-examination triggers (stable MLC
+  release channel, validated perf claim from a real consumer, or a
+  workload MediaPipe + LiteRT can't serve). Not on the active
+  backlog until a trigger fires.
 
 ---
 

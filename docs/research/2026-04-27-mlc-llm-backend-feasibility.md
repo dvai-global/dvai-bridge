@@ -7,6 +7,19 @@
 
 ---
 
+## STATUS: PARKED (as of 2026-04-27, post-spike)
+
+> **Decision: not pursuing Phase 3I in the foreseeable future.** The 2026-04-27 spike attempt confirmed that the MLC build chain is high-friction enough to fail this project's "always-pin-to-latest" + "no-deferrals" stance against a nightly-only upstream. See §7.1 for the revised recommendation and §7.2 for the spike-attempt log.
+>
+> **Re-examine if any of these triggers fire:**
+> 1. MLC stabilizes a release channel (versioned releases + prebuilt AAR + xcframework on Maven/CocoaPods, NOT nightly-only).
+> 2. A real Snapdragon-only consumer asks for MLC by name AND validates the perf claim themselves.
+> 3. DVAI-Bridge needs Adreno-OpenCL-grade perf for a workload MediaPipe + LiteRT genuinely can't serve.
+>
+> Until one of those triggers, prioritize Phase 3G (.NET) → Phase 3H (docs/launch).
+
+---
+
 ## 1. Summary
 
 **Verdict: feasible but heavy. Recommend Phase 3I in the future, NOT immediately.** MLC LLM is a healthy, Apache-2.0, actively maintained (last commit 2026-04-22) project that gives us an OpenAI-compatible streaming engine on both iOS (Metal) and Android (OpenCL) plus near-trivial Swift / Kotlin APIs that map cleanly onto our existing `*PluginState` shape. The hard part is **distribution**: MLC has no SwiftPM tag, no CocoaPods pod, and no Maven artifact — the canonical workflow is "clone the monorepo, run `mlc_llm package`, statically link the resulting model + runtime libs into your Xcode/Gradle project". Every consumer must run a Python tool against their own model list. Plus models must be pre-compiled per target (`q4f16_1` MLC bundles, not `.gguf`). That makes MLC fundamentally different from every existing dvai-bridge backend, which all install via package manager and read a runtime-supplied model file. We can solve the distribution problem (xcframework + AAR vendoring of pre-built artifacts for a curated model set), but it is a meaningful build-infra investment — comparable to or larger than Phase 3D (Android SDK), with extra ongoing per-model maintenance cost.
