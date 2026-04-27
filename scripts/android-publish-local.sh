@@ -86,7 +86,7 @@ PACKAGES=(
     "dvai-bridge-android-llama-core"
     "dvai-bridge-android-mediapipe-core"
     "dvai-bridge-android-litert-core"
-    # "dvai-bridge-android"               # enabled by Phase 3D Task 10
+    "dvai-bridge-android"
 )
 
 for PKG in "${PACKAGES[@]}"; do
