@@ -1,0 +1,36 @@
+# Build outputs
+bin/
+obj/
+out/
+
+# Visual Studio / IDE
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vshistory/
+
+# NuGet packages — both produced artifacts and the local cache convention
+# (NB: this is the in-package "packages/" folder, NOT the repo-root packages/ tree.)
+*.nupkg
+*.snupkg
+packages/
+
+# Test results
+TestResults/
+*.received.*
+coverage/
+*.coverage
+*.coveragexml
+
+# JetBrains Rider
+.idea/
+
+# Generated xcframework — built by CI from native/Sources/ before pack.
+src/DVAIBridge.iOS/native/build/
+src/DVAIBridge.iOS/native/*.xcframework
+src/DVAIBridge.iOS/native/.build/
+
+# Android AAR — fetched by CI from GitHub Packages Maven before bind.
+src/DVAIBridge.Android/native/*.aar

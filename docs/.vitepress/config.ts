@@ -57,6 +57,7 @@ export default defineConfig({
 					{ text: "Android Native SDK", link: "/guide/android-native-sdk" },
 					{ text: "React Native SDK", link: "/guide/react-native-sdk" },
 					{ text: "Flutter SDK", link: "/guide/flutter-sdk" },
+					{ text: ".NET SDK", link: "/guide/dotnet-sdk" },
 					{ text: "MLX Backend", link: "/guide/mlx-backend" },
 					{ text: "Model Distribution", link: "/guide/model-distribution" },
 					{ text: "Multimodal", link: "/guide/multimodal" },
@@ -80,6 +81,8 @@ export default defineConfig({
 					{ text: "v1.6 → v2.0", link: "/migration/v1.6-to-v2.0" },
 					{ text: "v2.0 → v2.1", link: "/migration/v2.0-to-v2.1" },
 					{ text: "v2.1 → v2.2", link: "/migration/v2.1-to-v2.2" },
+					{ text: "v2.2 → v2.3", link: "/migration/v2.2-to-v2.3" },
+					{ text: "v2.3 → v2.4", link: "/migration/v2.3-to-v2.4" },
 				],
 			},
 			{

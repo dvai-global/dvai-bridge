@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    iOS binding library. Links against:
+      - The hand-built DVAIBridgeNetBridge.xcframework in native/ (built by
+        ./native/build-xcframework.sh on a CI macos-latest runner).
+      - The facade DVAIBridge project (for the public types we marshal to/from).
+
+    TFM `net10.0-ios18.0` matches the .NET 10 default iOS TPV. The runtime
+    floor is iOS 15.1 — same as the underlying DVAIBridge umbrella.
+
+    `IsBindingProject=true` switches the SDK into binding-library mode where
+    `<ObjcBindingApiDefinition>` items are processed by the binding generator
+    and `<NativeReference>` items are linked into the resulting AssemblyName.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios18.0</TargetFramework>
+    <SupportedOSPlatformVersion>15.1</SupportedOSPlatformVersion>
+    <IsBindingProject>true</IsBindingProject>
+    <NoBindingEmbedding>false</NoBindingEmbedding>
+    <PackageId>DVAIBridge.iOS</PackageId>
+    <Title>DVAIBridge.iOS — iOS native bindings (internal slice)</Title>
+    <Description>iOS native bindings for DVAIBridge — internal slice of the DVAIBridge NuGet family. Pulled in transitively by DVAIBridge when targeting net10.0-ios. Consumers should depend on DVAIBridge directly.</Description>
+    <PackageTags>llm;ai;ios;binding;internal;dvai-bridge</PackageTags>
+    <RootNamespace>DVAIBridge.iOS</RootNamespace>
+    <AssemblyName>DVAIBridge.iOS</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ObjcBindingApiDefinition Include="ApiDefinition.cs" />
+    <ObjcBindingCoreSource Include="StructsAndEnums.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <NativeReference Include="native/DVAIBridgeNetBridge.xcframework">
+      <Kind>Framework</Kind>
+      <SmartLink>True</SmartLink>
+      <ForceLoad>True</ForceLoad>
+    </NativeReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Compile-time reference to the facade for the public types we marshal
+      to/from (BoundServer, StartOptions, ProgressEvent, …). PrivateAssets=all
+      stops this from becoming a transitive NuGet dependency on the facade —
+      the facade's own .nuspec declares the TFM-conditional dep in the other
+      direction, and we don't want a circular NuGet graph.
+    -->
+    <ProjectReference Include="..\DVAIBridge\DVAIBridge.csproj">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>compile;build</IncludeAssets>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+</Project>

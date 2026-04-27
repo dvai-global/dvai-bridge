@@ -1,0 +1,6 @@
+# Placeholder — CI fetches dvai-bridge-2.4.0.aar into this directory before
+# `dotnet build`. The .aar files are gitignored at the package root.
+#
+# An optional Kotlin shim (`DVAIBridgeAndroidShim.kt`) lives here too if a
+# future iteration of Metadata.xml needs help with Flow<ProgressEvent>
+# binding. Default: not needed.

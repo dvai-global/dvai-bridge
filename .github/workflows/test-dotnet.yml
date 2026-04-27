@@ -1,0 +1,203 @@
+name: .NET — DVAIBridge NuGet family
+
+on:
+  pull_request:
+    paths:
+      - 'packages/dvai-bridge-dotnet/**'
+      - '.github/workflows/test-dotnet.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/dvai-bridge-dotnet/**'
+  # Tag pushes drive the publish-to-NuGet.org step (gated by tag prefix).
+  release:
+    types: [published]
+
+concurrency:
+  group: dotnet-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_VERSION: '10.0.x'
+
+jobs:
+  # ------------------------------------------------------------------
+  # Linux: facade build + xUnit tests + Android binding compile (no AAR
+  # bind; we publish-only on macOS to keep the multi-host story simple).
+  # ------------------------------------------------------------------
+  facade-and-tests:
+    name: Facade + tests (Ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-ubuntu-${{ hashFiles('packages/dvai-bridge-dotnet/Directory.Packages.props') }}
+          restore-keys: |
+            nuget-ubuntu-
+
+      - name: Restore facade
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet restore src/DVAIBridge/DVAIBridge.csproj -p:TargetFrameworks=net10.0
+
+      - name: Build facade (net10.0)
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet build src/DVAIBridge/DVAIBridge.csproj -c Release -f net10.0 --no-restore
+
+      - name: Build tests
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet build tests/DVAIBridge.Tests/DVAIBridge.Tests.csproj -c Release
+
+      - name: Run tests with coverage
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet test tests/DVAIBridge.Tests/DVAIBridge.Tests.csproj -c Release --no-build --collect:"XPlat Code Coverage" --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-ubuntu
+          path: packages/dvai-bridge-dotnet/tests/DVAIBridge.Tests/TestResults/**/coverage.cobertura.xml
+          if-no-files-found: ignore
+
+  # ------------------------------------------------------------------
+  # Android binding compile-only check on Ubuntu (no instrumentation —
+  # we only verify Metadata.xml + class-parse produce a clean C# wrapper).
+  # ------------------------------------------------------------------
+  android-binding:
+    name: Android binding compile (Ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Android workload
+        run: dotnet workload install android
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-android-${{ hashFiles('packages/dvai-bridge-dotnet/Directory.Packages.props') }}
+          restore-keys: |
+            nuget-android-
+
+      - name: Fetch Phase 3D AAR from GitHub Packages
+        env:
+          GITHUB_USER: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native
+          curl -L -u "${GITHUB_USER}:${GITHUB_TOKEN}" \
+            "https://maven.pkg.github.com/Westenets/dvai-bridge/co/deepvoiceai/dvai-bridge/2.4.0/dvai-bridge-2.4.0.aar" \
+            -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/dvai-bridge-2.4.0.aar
+
+      - name: Restore Android binding
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet restore src/DVAIBridge.Android/DVAIBridge.Android.csproj
+
+      - name: Build Android binding (with bindings-generated active)
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet build src/DVAIBridge.Android/DVAIBridge.Android.csproj -c Release --no-restore -p:BindingsGenerated=true
+
+  # ------------------------------------------------------------------
+  # macOS: builds the Swift xcframework + the iOS binding csproj.
+  # Also handles the multi-target facade build (all three TFMs at once)
+  # and produces packable .nupkg artifacts on tag pushes.
+  # ------------------------------------------------------------------
+  ios-binding:
+    name: iOS binding + xcframework (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install ios + android workloads
+        run: dotnet workload install ios android
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-macos-${{ hashFiles('packages/dvai-bridge-dotnet/Directory.Packages.props') }}
+          restore-keys: |
+            nuget-macos-
+
+      - name: Build xcframework
+        working-directory: packages/dvai-bridge-dotnet/src/DVAIBridge.iOS/native
+        run: bash build-xcframework.sh
+
+      - name: Fetch Phase 3D AAR (for the multi-target facade build)
+        env:
+          GITHUB_USER: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native
+          curl -L -u "${GITHUB_USER}:${GITHUB_TOKEN}" \
+            "https://maven.pkg.github.com/Westenets/dvai-bridge/co/deepvoiceai/dvai-bridge/2.4.0/dvai-bridge-2.4.0.aar" \
+            -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/dvai-bridge-2.4.0.aar
+
+      - name: Restore solution
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet restore DVAIBridge.sln
+
+      - name: Build iOS binding
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet build src/DVAIBridge.iOS/DVAIBridge.iOS.csproj -c Release --no-restore
+
+      - name: Build all packages (with bindings-generated active)
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet build DVAIBridge.sln -c Release --no-restore -p:BindingsGenerated=true
+
+      - name: Pack
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet pack DVAIBridge.sln -c Release -o ./out --no-build -p:BindingsGenerated=true
+
+      - name: Upload .nupkg artifacts
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkgs
+          path: |
+            packages/dvai-bridge-dotnet/out/*.nupkg
+            packages/dvai-bridge-dotnet/out/*.snupkg
+
+      - name: Push to NuGet.org
+        if: (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && env.NUGET_API_KEY != ''
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        working-directory: packages/dvai-bridge-dotnet
+        run: |
+          dotnet nuget push ./out/*.nupkg \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key "${NUGET_API_KEY}" \
+            --skip-duplicate
