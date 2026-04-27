@@ -29,13 +29,40 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)"
 
 # Best-effort defaults for JAVA_HOME / ANDROID_HOME.
+#
+# Robolectric @ compileSdk 36 requires **JDK 21+** at test runtime, so we
+# prefer a Homebrew openjdk install (which usually has the latest stable)
+# over Android Studio's bundled JBR (often pinned to 17 in older Studio
+# releases). Fall back to Studio's JBR only if it's also 21+.
 if [ -z "${JAVA_HOME:-}" ]; then
+    HOMEBREW_OPENJDK_GLOB=(/opt/homebrew/Cellar/openjdk/*/libexec/openjdk.jdk/Contents/Home)
     DEFAULT_JBR="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-    if [ -x "$DEFAULT_JBR/bin/java" ]; then
-        export JAVA_HOME="$DEFAULT_JBR"
-    else
-        echo "[android-publish-local] JAVA_HOME unset and Android Studio default JBR not found." >&2
-        echo "                        Set JAVA_HOME to a JDK 17+ install before re-running." >&2
+
+    PICKED=""
+    # Walk newest-first; the glob is alphabetical, so reverse-sort gets latest.
+    if [ -x "${HOMEBREW_OPENJDK_GLOB[0]}/bin/java" ]; then
+        for candidate in $(printf '%s\n' "${HOMEBREW_OPENJDK_GLOB[@]}" | sort -r); do
+            if [ -x "$candidate/bin/java" ]; then
+                PICKED="$candidate"
+                break
+            fi
+        done
+    fi
+    if [ -z "$PICKED" ] && [ -x "$DEFAULT_JBR/bin/java" ]; then
+        PICKED="$DEFAULT_JBR"
+    fi
+    if [ -z "$PICKED" ]; then
+        echo "[android-publish-local] JAVA_HOME unset and no JDK found at Homebrew openjdk path or Android Studio JBR." >&2
+        echo "                        Install JDK 21+ (e.g. \`brew install openjdk\`) and re-run." >&2
+        exit 1
+    fi
+    export JAVA_HOME="$PICKED"
+
+    # Sanity-check that the picked JDK is at least 21 (Robolectric @ SDK 36 requirement).
+    JAVA_MAJOR="$($JAVA_HOME/bin/java -version 2>&1 | awk -F '"' '/version/ {split($2, a, "."); print a[1]}')"
+    if [ -n "$JAVA_MAJOR" ] && [ "$JAVA_MAJOR" -lt 21 ]; then
+        echo "[android-publish-local] Picked JDK $JAVA_MAJOR at $JAVA_HOME, but Robolectric needs 21+." >&2
+        echo "                        Install a newer JDK (\`brew install openjdk\`) and re-run." >&2
         exit 1
     fi
 fi
