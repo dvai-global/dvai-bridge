@@ -1,0 +1,15 @@
+name: dotnet-maui-quickstart
+description: Hello-world flow on the .NET MAUI example (DVAIBridge NuGet, Windows desktop slice).
+output: docs/marketing/assets/dotnet-quickstart.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Launch the MAUI app on Windows; DVAIBridge NuGet 2.4.0 referenced in the csproj."
+  - duration: 8
+    caption: "Click 'Start' — DVAIBridge.Shared.StartAsync(new StartOptions { Backend = BackendKind.Auto })."
+  - duration: 8
+    caption: "ProgressBroadcaster events drive an INotifyPropertyChanged binding; bar fills."
+  - duration: 12
+    caption: "Type a prompt; SemanticKernel client streams from the embedded Kestrel server."
+  - duration: 5
+    caption: "Closing card: 'DVAIBridge NuGet family — MAUI, Avalonia, WinUI, ONNX, ML.NET'."

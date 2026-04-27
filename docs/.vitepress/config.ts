@@ -3,7 +3,7 @@ import llmstxt from "vitepress-plugin-llms";
 
 export default defineConfig({
 	title: "DVAI-Bridge",
-	description: "Local AI Orchestration for Web, Capacitor, and Electron",
+	description: "One local OpenAI server, embedded in your Web, iOS, Android, React Native, Flutter, or .NET app. Six SDKs, nine backends, one HTTP surface.",
 	head: [
 		[
 			"script",
@@ -23,6 +23,7 @@ export default defineConfig({
 	ignoreDeadLinks: [
 		/CHANGELOG(\.md)?$/,
 		/^\/?superpowers\//,
+		/superpowers\/(specs|plans)\//,
 		/^\.\.\/guide\/transports/,
 	],
 	cleanUrls: true,
@@ -35,7 +36,7 @@ export default defineConfig({
 			lazyLoading: true,
 		},
 	},
-	srcExclude: ["superpowers/**"],
+	srcExclude: ["superpowers/**", "marketing/**"],
 	themeConfig: {
 		logo: "/logo.png",
 		nav: [
@@ -83,6 +84,16 @@ export default defineConfig({
 					{ text: "v2.1 → v2.2", link: "/migration/v2.1-to-v2.2" },
 					{ text: "v2.2 → v2.3", link: "/migration/v2.2-to-v2.3" },
 					{ text: "v2.3 → v2.4", link: "/migration/v2.3-to-v2.4" },
+				],
+			},
+			{
+				text: "Contributing",
+				items: [
+					{ text: "iOS native", link: "/development/contributing-ios" },
+					{ text: "Android native", link: "/development/contributing-android" },
+					{ text: "React Native", link: "/development/contributing-react-native" },
+					{ text: "Flutter", link: "/development/contributing-flutter" },
+					{ text: ".NET", link: "/development/contributing-dotnet" },
 				],
 			},
 			{

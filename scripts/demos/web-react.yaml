@@ -1,0 +1,15 @@
+name: web-react-quickstart
+description: Hello-world flow on the web React example app (Transformers.js + WebGPU).
+output: docs/marketing/assets/web-quickstart.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Open examples/web-react in the browser; the DVAIProvider mounts."
+  - duration: 12
+    caption: "Watch the model download progress bar (Transformers.js / Gemma 3n)."
+  - duration: 6
+    caption: "Status flips to ready; baseUrl http://127.0.0.1:38883/v1 renders."
+  - duration: 10
+    caption: "Type a prompt; tokens stream into the chat panel via SSE."
+  - duration: 5
+    caption: "Closing card: '@dvai-bridge/core + @dvai-bridge/react'."

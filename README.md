@@ -9,7 +9,9 @@
 
 <!-- [![Smoke — real models](https://github.com/Westenets/dvai-bridge/actions/workflows/smoke-real-models.yml/badge.svg?branch=main)](https://github.com/Westenets/dvai-bridge/actions/workflows/smoke-real-models.yml) -->
 
-[![License](https://img.shields.io/badge/License-Commercial-blue.svg)](LICENSE) ![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js) ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript) ![React](https://img.shields.io/badge/React-18+-61DAFB?logo=react) ![Swift](https://img.shields.io/badge/Swift-5.9+-F05138?logo=swift) ![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-7F52FF?logo=kotlin) ![C%23](https://img.shields.io/badge/.NET-7.0+-960098?logo=dotnet) ![WebGPU](https://img.shields.io/badge/WebGPU-1.0-FFC0CB?logo=webgpu)
+[![License](https://img.shields.io/badge/License-Commercial-blue.svg)](LICENSE) ![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js) ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript) ![React](https://img.shields.io/badge/React-18+-61DAFB?logo=react) ![Swift](https://img.shields.io/badge/Swift-5.9+-F05138?logo=swift) ![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7F52FF?logo=kotlin) ![Flutter](https://img.shields.io/badge/Flutter-3.39+-02569B?logo=flutter) ![.NET](https://img.shields.io/badge/.NET-10.0_LTS-512BD4?logo=dotnet) ![WebGPU](https://img.shields.io/badge/WebGPU-1.0-FFC0CB?logo=webgpu)
+
+**Docs:** [dvai-bridge.deepvoiceai.co](https://dvai-bridge.deepvoiceai.co)
 
 **The local OpenAI server you embed inside your app.**
 
@@ -97,19 +99,17 @@ Every major stack. Any language that speaks HTTP.
 
 ## Supported platforms
 
-| Stack                                    | Package                                                              | Transport                    | Inference backends                                                   |
-| ---------------------------------------- | -------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------- |
-| Browser (React, Vue, Svelte, vanilla JS) | `@dvai-bridge/core` + `@dvai-bridge/react` or `@dvai-bridge/vanilla` | MSW intercept                | WebLLM (WebGPU), Transformers.js (WebGPU / WASM SIMD)                |
-| Node / Bun                               | `@dvai-bridge/core`                                                  | HTTP 127.0.0.1               | Transformers.js, native llama.cpp                                    |
-| Electron                                 | `@dvai-bridge/core`                                                  | HTTP (main) / MSW (renderer) | Native llama.cpp (CUDA / Metal / Vulkan / DirectML), Transformers.js |
-| Capacitor hybrid mobile (iOS + Android)  | `@dvai-bridge/capacitor`                                             | HTTP 127.0.0.1               | Native llama.cpp (Metal on iOS, Vulkan / CPU on Android)             |
-| Android native (Kotlin / Java)           | `co.deepvoiceai:dvai-bridge` AAR                                     | HTTP 127.0.0.1               | llama.cpp, LiteRT, MediaPipe LLM, NNAPI / QNN Hexagon                |
-| iOS native (Swift)                       | `DVAIBridge` Swift Package                                           | HTTP 127.0.0.1               | llama.cpp (Metal), CoreML / ANE, Apple Foundation Models             |
-| Windows / Mac / Linux desktop (.NET)     | `DeepVoiceAI.DVAIBridge` NuGet                                       | HTTP 127.0.0.1               | llama.cpp, ONNX Runtime GenAI, DirectML                              |
-
-**React Native / Flutter / Tauri:** use the iOS Swift Package or Android
-AAR directly via standard native-bridge patterns. Dedicated React Native
-and Flutter wrappers are on the near-term roadmap.
+| Stack                                    | Package                                                              | Transport                    | Inference backends                                                                       |
+| ---------------------------------------- | -------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------- |
+| Browser (React, Vue, Svelte, vanilla JS) | `@dvai-bridge/core` + `@dvai-bridge/react` or `@dvai-bridge/vanilla` | MSW intercept                | WebLLM (WebGPU), Transformers.js (WebGPU / WASM SIMD)                                    |
+| Node / Bun                               | `@dvai-bridge/core`                                                  | HTTP 127.0.0.1               | Transformers.js, native llama.cpp                                                        |
+| Electron                                 | `@dvai-bridge/core`                                                  | HTTP (main) / MSW (renderer) | Native llama.cpp (CUDA / Metal / Vulkan / DirectML), Transformers.js                     |
+| Capacitor hybrid mobile (iOS + Android)  | `@dvai-bridge/capacitor`                                             | HTTP 127.0.0.1               | Native llama.cpp (Metal on iOS, Vulkan / CPU on Android)                                 |
+| iOS native (Swift)                       | `DVAIBridge` Swift Package                                           | HTTP 127.0.0.1               | llama.cpp (Metal), CoreML / ANE, Apple Foundation Models, MLX                            |
+| Android native (Kotlin / Java)           | `co.deepvoiceai:dvai-bridge` AAR                                     | HTTP 127.0.0.1               | llama.cpp, MediaPipe LLM, LiteRT, NNAPI / QNN Hexagon                                    |
+| React Native (≥0.77, TurboModule)        | `@dvai-bridge/react-native`                                          | HTTP 127.0.0.1               | All iOS + Android backends (delegates to native)                                         |
+| Flutter (≥3.39)                          | `dvai_bridge` (pub.dev)                                              | HTTP 127.0.0.1               | All iOS + Android backends (delegates to native, via Pigeon)                             |
+| .NET (MAUI / Avalonia / WinUI / desktop) | `co.deepvoiceai.dvai-bridge*` NuGet (6 packages)                     | HTTP 127.0.0.1               | iOS / Android / Mac Catalyst delegate to native; Desktop = llama.cpp + ONNX Runtime + ML.NET |
 
 See [`POSITIONING.md`](./POSITIONING.md) and [`docs/guide/comparison.md`](./docs/guide/comparison.md)
 for how DVAI-Bridge compares to Ollama, `llama-server`, LM Studio, and
@@ -130,11 +130,13 @@ other local-AI tools.
 
 ### Native platforms
 
-| Platform                     | Package / identifier         | Package manager       |
-| ---------------------------- | ---------------------------- | --------------------- |
-| iOS (Swift)                  | `DVAIBridge`                 | Swift Package Manager |
-| Android (Kotlin / Java)      | `co.deepvoiceai:dvai-bridge` | Maven Central         |
-| Windows / Mac / Linux (.NET) | `DeepVoiceAI.DVAIBridge`     | NuGet                 |
+| Platform                                              | Package / identifier                              | Registry                              |
+| ----------------------------------------------------- | ------------------------------------------------- | ------------------------------------- |
+| iOS (Swift)                                           | `DVAIBridge`                                      | Swift Package Manager / CocoaPods     |
+| Android (Kotlin / Java)                               | `co.deepvoiceai:dvai-bridge` (AAR)                | GitHub Packages Maven                 |
+| React Native (≥0.77, TurboModule)                     | `@dvai-bridge/react-native`                       | GitHub Packages npm                   |
+| Flutter (≥3.39)                                       | `dvai_bridge`                                     | pub.dev                               |
+| .NET 10 LTS (MAUI / Avalonia / WinUI / Catalyst / desktop) | `co.deepvoiceai.dvai-bridge` + 5 platform/backend slices | NuGet.org                             |
 
 ---
 
@@ -176,19 +178,30 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-  .package(url: "https://github.com/Westenets/dvai-bridge-swift", from: "1.0.0"),
+  .package(url: "https://github.com/Westenets/dvai-bridge", from: "2.4.0"),
 ]
 ```
 
-Or via Xcode: File → Add Packages → paste the repo URL.
+Or via Xcode: File → Add Packages → paste the repo URL. CocoaPods consumers
+can pull `pod 'DVAIBridge', '~> 2.4'` instead.
 
 ### Android (Kotlin / Java)
 
-Add to `build.gradle.kts`:
+Add the GitHub Packages Maven repo + dep to `build.gradle.kts`:
 
 ```gradle
+repositories {
+    maven {
+        url = uri("https://maven.pkg.github.com/Westenets/dvai-bridge")
+        credentials {
+            username = providers.gradleProperty("gpr.user").get()
+            password = providers.gradleProperty("gpr.key").get()
+        }
+    }
+}
+
 dependencies {
-    implementation("co.deepvoiceai:dvai-bridge:1.0.0")
+    implementation("co.deepvoiceai:dvai-bridge:2.4.0")
 }
 ```
 
@@ -196,10 +209,51 @@ Then add cleartext-to-loopback permission to your
 `network_security_config.xml`. The library ships a recommended snippet —
 most Gradle configs can include it via a manifest merge one-liner.
 
-### .NET desktop (C#)
+### React Native (≥0.77, TurboModule)
 
 ```bash
-dotnet add package DeepVoiceAI.DVAIBridge
+npm install @dvai-bridge/react-native
+cd ios && pod install
+```
+
+Configure the GitHub Packages registry in `~/.npmrc`:
+
+```
+@dvai-bridge:registry=https://npm.pkg.github.com
+```
+
+### Flutter (≥3.39)
+
+Add to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  dvai_bridge: ^2.4.0
+```
+
+Then `flutter pub get`. Pigeon-generated platform channels handle iOS +
+Android natively; no extra setup beyond standard Flutter plugin install.
+
+### .NET 10 LTS (MAUI / Avalonia / WinUI / Catalyst / desktop)
+
+Pick the slices your app needs:
+
+```bash
+# Always: the shared facade.
+dotnet add package co.deepvoiceai.dvai-bridge
+
+# Mobile / Catalyst (multi-target net10.0-ios26.2;net10.0-maccatalyst26.2):
+dotnet add package co.deepvoiceai.dvai-bridge.ios
+
+# Android (net10.0-android36.0):
+dotnet add package co.deepvoiceai.dvai-bridge.android
+
+# Desktop llama.cpp (Windows / Linux / macOS):
+dotnet add package co.deepvoiceai.dvai-bridge.desktop
+
+# Optional .NET-specific backends:
+dotnet add package co.deepvoiceai.dvai-bridge.onnxruntime
+dotnet add package co.deepvoiceai.dvai-bridge.mlnet
 ```
 
 ---
@@ -306,21 +360,68 @@ val response = openai.chatCompletion(
 println(response.choices.first().message.content)
 ```
 
-### .NET desktop (C#)
+### .NET (C#)
 
 ```csharp
-using DeepVoiceAI.DVAIBridge;
+using DVAIBridge;
 using OpenAI;
 
-var dvai = await DVAIBridge.StartAsync();
-// dvai.BaseUrl: "http://127.0.0.1:38883/v1"
+var server = await DVAIBridge.Shared.StartAsync(new StartOptions
+{
+    Backend = BackendKind.Auto,
+    ModelPath = "/path/to/model.gguf",
+});
+// server.BaseUrl: "http://127.0.0.1:38883/v1"
 
 var openai = new OpenAIClient(new ApiKeyCredential("ignored"),
-  new OpenAIClientOptions { Endpoint = new Uri(dvai.BaseUrl) });
+  new OpenAIClientOptions { Endpoint = new Uri(server.BaseUrl) });
 
-var chat = openai.GetChatClient(dvai.ModelId);
+var chat = openai.GetChatClient(server.ModelId);
 var response = await chat.CompleteChatAsync("Hello!");
 Console.WriteLine(response.Value.Content[0].Text);
+
+await DVAIBridge.Shared.StopAsync();
+```
+
+### Flutter (Dart)
+
+```dart
+import 'package:dvai_bridge/dvai_bridge.dart';
+import 'package:http/http.dart' as http;
+
+final state = await DVAIBridge.instance.start(
+  backend: BackendKind.auto,
+  modelPath: '/path/to/model.gguf',
+);
+// state.baseUrl: "http://127.0.0.1:38883/v1"
+
+final response = await http.post(
+  Uri.parse('${state.baseUrl}/chat/completions'),
+  headers: {'Content-Type': 'application/json'},
+  body: jsonEncode({
+    'model': state.modelId,
+    'messages': [{'role': 'user', 'content': 'Hello!'}],
+  }),
+);
+```
+
+### React Native
+
+```ts
+import { DVAIBridge, BackendKind } from "@dvai-bridge/react-native";
+import OpenAI from "openai";
+
+const state = await DVAIBridge.start({
+  backend: BackendKind.Auto,
+  modelPath: "/path/to/model.gguf",
+});
+// state.baseUrl: "http://127.0.0.1:38883/v1"
+
+const openai = new OpenAI({ baseURL: state.baseUrl, apiKey: "ignored" });
+const r = await openai.chat.completions.create({
+  model: state.modelId,
+  messages: [{ role: "user", content: "Hello!" }],
+});
 ```
 
 ### Capacitor mobile
@@ -491,17 +592,17 @@ Dual license:
 
 ## Contributing
 
-`pnpm` monorepo for the JavaScript stack; per-platform repos for native
-code. After cloning the JS monorepo:
+PRs welcome. Quick start:
 
 ```bash
 pnpm install
-pnpm build
-pnpm test
+pnpm build           # JS family
+bash scripts/build-all.sh   # full matrix (auto-skips per-host)
 ```
 
-Create a feature branch, submit a PR. See [`docs/`](./docs/) for
-architecture, transports, backends, and per-platform guides.
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full PR flow + commit
+conventions. Per-platform contributor docs (iOS, Android, RN, Flutter,
+.NET) live under [`docs/development/`](./docs/development/).
 
 ---
 

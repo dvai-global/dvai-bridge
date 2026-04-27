@@ -1,0 +1,15 @@
+name: android-native-quickstart
+description: Hello-world flow on the Android Native SDK Compose example (co.deepvoiceai:dvai-bridge AAR).
+output: docs/marketing/assets/android-quickstart.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Open the Android emulator; Compose app already linked against the AAR."
+  - duration: 7
+    caption: "Tap 'Start' — DVAIBridge.start(StartOptions(backend = BackendKind.Auto, ...))."
+  - duration: 8
+    caption: "DVAIBridge.reactive.* StateFlows update; progress bar fills via MediaPipe LiteRT."
+  - duration: 12
+    caption: "Type a prompt; tokens stream into a Compose LazyColumn via SSE."
+  - duration: 5
+    caption: "Closing card: 'co.deepvoiceai:dvai-bridge — AAR, MediaPipe + LiteRT, OpenAI on loopback'."
