@@ -90,6 +90,10 @@ Pod::Spec.new do |s|
   ]
 
   s.frameworks = ['Foundation', 'CoreML', 'AVFoundation', 'CryptoKit']
+  # Weak-link FoundationModels (iOS 26+) so the symbols resolve at runtime
+  # only on devices that ship it. The pod's iOS 18.1 deployment target is
+  # below FoundationModels' availability, so a hard link would be invalid.
+  s.weak_frameworks = ['FoundationModels']
 
   # Vendored swift-collections 1.4.1 + swift-jinja 2.3.5 use:
   #   - `package` access level (needs -package-name; SwiftPM auto-sets it)
