@@ -37,9 +37,23 @@ internal enum BackendSelector {
                 "or iOS 26+ (for .foundation). Set DVAIBridgeConfig.backend explicitly.")
         }
 
-        // 5. Unknown extension
+        // 5. modelPath looks like a HuggingFace id ("<owner>/<repo>" with no
+        //    file extension) → likely MLX. Don't auto-resolve here because
+        //    not every HF id is MLX (could be GGUF in a HF repo etc.) and
+        //    .mlx requires Apple Silicon at runtime. Provide a clear hint.
+        if let path = config.modelPath,
+           path.contains("/"),
+           !path.contains(".") {
+            throw DVAIBridgeError.configurationInvalid(reason:
+                "modelPath '\(path)' looks like a HuggingFace identifier. " +
+                "If this is an MLX-converted checkpoint (e.g. 'mlx-community/...'), " +
+                "set DVAIBridgeConfig.backend = .mlx explicitly — `.auto` won't " +
+                "infer MLX because not every HF id is an MLX checkpoint.")
+        }
+
+        // 6. Unknown extension
         throw DVAIBridgeError.configurationInvalid(reason:
             "auto backend can't infer from modelPath '\(config.modelPath ?? "<nil>")'. " +
-            "Set DVAIBridgeConfig.backend = .llama / .foundation / .coreml explicitly.")
+            "Set DVAIBridgeConfig.backend = .llama / .foundation / .coreml / .mlx explicitly.")
     }
 }

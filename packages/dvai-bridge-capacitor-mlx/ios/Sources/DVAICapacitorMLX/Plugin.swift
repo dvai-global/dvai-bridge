@@ -1,12 +1,12 @@
 import Foundation
-import DVAIFoundationCore
+import DVAIMLXCore
 
 #if canImport(Capacitor)
 import Capacitor
 
-@objc(DVAIBridgeFoundationPlugin)
-public class DVAIBridgeFoundationPlugin: CAPPlugin {
-    private let state = FoundationPluginState()
+@objc(DVAIBridgeMLXPlugin)
+public class DVAIBridgeMLXPlugin: CAPPlugin {
+    private let state = MLXPluginState()
 
     public override func load() {
         super.load()
@@ -51,14 +51,19 @@ public class DVAIBridgeFoundationPlugin: CAPPlugin {
         }
     }
 
-    // MARK: - Model download / cache (not applicable to Apple Foundation Models)
+    // MARK: - Model download / cache
     //
-    // Apple manages Foundation Models internally on supported devices.
-    // There is nothing for us to download or cache, so these methods
-    // reject by design (per the design spec, §10.3).
+    // mlx-swift-lm uses HuggingFace Hub's local cache (~/Library/Caches/.../
+    // huggingface). We don't expose download/list/delete here because:
+    //  - Downloads happen implicitly on the first start() with a given
+    //    modelPath (the HF id). Subsequent starts are cache-hits.
+    //  - Listing / deleting cached MLX models is a HF-Hub-cache operation,
+    //    not something the bridge itself controls.
+    // Phase 3D may expose pass-through helpers; for now the methods reject
+    // by design.
 
     private static let modelMgmtNotApplicable =
-        "Apple Foundation Models manages models internally — model download/cache is not applicable to this backend."
+        "MLX backend uses HuggingFace Hub's local cache; explicit download/list/delete is not exposed in this version. Pass an HF model id via the `modelPath` start option and let MLX handle caching."
 
     @objc func downloadModel(_ call: CAPPluginCall) {
         call.reject(Self.modelMgmtNotApplicable)

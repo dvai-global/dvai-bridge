@@ -12,13 +12,14 @@ by a native inference backend.
 
 ## Architecture
 
-The Capacitor surface area is split across four packages:
+The Capacitor surface area is split across five packages:
 
 ```
 @dvai-bridge/capacitor              ← JS routing shim (no native code)
   ├─ @dvai-bridge/capacitor-llama        ← native: llama.cpp
   ├─ @dvai-bridge/capacitor-foundation   ← native: Apple Foundation Models (iOS 26+)
-  └─ @dvai-bridge/capacitor-mediapipe    ← native: MediaPipe LLM (Android)
+  ├─ @dvai-bridge/capacitor-mediapipe    ← native: MediaPipe LLM (Android)
+  └─ @dvai-bridge/capacitor-mlx          ← native: MLX (Apple Silicon, iOS 17+)
 ```
 
 You install the shim plus **one or more** backend plugins. The shim
@@ -28,7 +29,8 @@ chooses which backend's `start()` to call based on `StartOptions.backend`.
 
 1. JS calls `DVAIBridge.start({ backend, modelPath, ... })`.
 2. The shim looks up the registered native plugin (`DVAIBridgeLlama`,
-   `DVAIBridgeFoundation`, or `DVAIBridgeMediaPipe`) and dispatches.
+   `DVAIBridgeFoundation`, `DVAIBridgeMediaPipe`, or `DVAIBridgeMLX`)
+   and dispatches.
 3. The native side loads the model (mmap on iOS / Android), opens an
    HTTP server bound to `127.0.0.1:<port>`, and starts the `/v1/*`
    route handlers.
@@ -42,6 +44,7 @@ chooses which backend's `start()` to call based on `StartOptions.backend`.
 | `capacitor-llama` | Swift + ObjC++ wrapping `llama.cpp` | Kotlin + JNI wrapping `libllama.so` |
 | `capacitor-foundation` | Swift wrapping `LanguageModelSession` | Stub: returns `iOS-only` error |
 | `capacitor-mediapipe` | Stub: returns `Android-only` error | Kotlin wrapping MediaPipe `LlmInference` |
+| `capacitor-mlx` | Swift wrapping `mlx-swift-lm` (Apple Silicon only) | Stub: returns `iOS-only` error |
 
 The HTTP server library differs per OS:
 
@@ -72,6 +75,46 @@ install + first-run code, including:
 | Zero-download text on iOS 26+ | `foundation` |
 | Vision-capable Gemma on Android | `mediapipe` |
 | Embeddings | `llama` with `embeddingMode: true` |
+| MLX-converted HF models on Apple Silicon | `mlx` |
+
+### MLX backend
+
+`@dvai-bridge/capacitor-mlx` loads MLX-converted HuggingFace models via
+[`mlx-swift-lm`](https://github.com/ml-explore/mlx-swift-lm). The `modelPath`
+start option is the HuggingFace model id (not a local path), e.g.
+`mlx-community/Llama-3.2-1B-Instruct-4bit`. The first call downloads the
+weights into the user's local HF cache (~/Library/Caches/...); subsequent
+calls hit the cache.
+
+```ts
+import DVAIBridge from "@dvai-bridge/capacitor";
+const result = await DVAIBridge.start({
+  backend: "mlx",
+  modelPath: "mlx-community/Llama-3.2-1B-Instruct-4bit",
+});
+// result.baseUrl is "http://127.0.0.1:38883/v1"
+```
+
+**Constraints:**
+
+- iOS 17+ at link time (the `@dvai-bridge/ios-mlx-core` package's
+  Package.swift floor); `@dvai-bridge/capacitor-mlx`'s ios podspec
+  inherits this minimum.
+- **Apple Silicon only at runtime.** MLX uses Apple's GPU + Neural
+  Engine through Metal Performance Shaders; iOS Simulator on Intel
+  Macs has no MLX device and `start()` will throw. Real devices and
+  iOS Simulator on Apple-Silicon Macs work.
+- The first run downloads model weights from HuggingFace Hub (typical
+  4-bit quantized 1B model is ~700 MB; 8B models are several GB). No
+  HF token is needed for public model repos.
+- `embeddings()` is **not implemented** by the MLX backend in this
+  release; use `llama` with `embeddingMode: true` for embeddings.
+
+**CocoaPods consumers:** the MLX backend is currently SwiftPM-only.
+`mlx-swift-lm`'s transitive Swift packages don't publish CocoaPods
+specs. Consumers using `pod install` should pick `llama` or `coreml`
+instead. SwiftPM consumers (`Package.swift` with the Capacitor SwiftPM
+shim) get full MLX support.
 
 See [Multimodal](./multimodal.md) for the per-backend image / audio
 support matrix.
