@@ -75,6 +75,15 @@ Pod::Spec.new do |s|
 
   s.frameworks = ['Foundation', 'CoreML']
 
+  # Vendored swift-collections 1.4.1 + swift-jinja 2.3.5 use:
+  #   - `package` access level (needs -package-name; SwiftPM auto-sets it)
+  #   - `@_lifetime(...)` (needs experimental Lifetimes feature)
+  # Set these explicitly for the CocoaPods build so the pod compiles
+  # with the same source SwiftPM consumes.
+  s.pod_target_xcconfig = {
+    'OTHER_SWIFT_FLAGS' => '$(inherited) -package-name DVAIBridgeVendored -enable-experimental-feature Lifetimes',
+  }
+
   # Telegraph stays at ~> 0.30 because Building42 publishes 0.40+ as GitHub
   # tags only; CocoaPods trunk caps at 0.30.0. Our usage only touches stable
   # core types (Server / HTTPRequest / HTTPResponse / HTTPStatus / HTTPHeaders),
