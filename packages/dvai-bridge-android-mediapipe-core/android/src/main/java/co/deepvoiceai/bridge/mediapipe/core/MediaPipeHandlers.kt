@@ -215,10 +215,14 @@ class MediaPipeHandlers(
         val chatResp = handleChatCompletion(chatBody, ctx)
         return when (chatResp) {
             is HandlerResponse.Json -> {
-                if (chatResp.status != 200 || chatResp.body !is JsonObject) {
+                // Smart cast across the shared-core module boundary doesn't work;
+                // bind to a local val and cast once. See LlamaHandlers.kt for the
+                // same fix.
+                val respBody = chatResp.body
+                if (chatResp.status != 200 || respBody !is JsonObject) {
                     chatResp
                 } else {
-                    HandlerResponse.Json(200, chatToLegacyCompletion(chatResp.body))
+                    HandlerResponse.Json(200, chatToLegacyCompletion(respBody))
                 }
             }
             is HandlerResponse.Sse -> {
