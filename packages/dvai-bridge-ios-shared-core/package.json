@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/ios-shared-core",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "DVAI-Bridge iOS shared HTTP-server + handler-dispatch types used by all backend cores. Extracted from ios-llama-core so non-llama backends don't transitively inherit llama.xcframework.",
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",

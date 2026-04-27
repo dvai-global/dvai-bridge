@@ -89,6 +89,23 @@ for (const pkgName of packages) {
     }
   }
 
+  // 5. .NET `Directory.Build.props` — `<Version>` element. Inherited by
+  //    every csproj under the package. Phase 3G's dvai-bridge-dotnet
+  //    package uses this for repo-wide version sync; future .NET
+  //    sub-packages can adopt the same convention for free.
+  const dotnetBuildProps = path.join(pkgDir, 'Directory.Build.props');
+  if (fs.existsSync(dotnetBuildProps)) {
+    const before = fs.readFileSync(dotnetBuildProps, 'utf8');
+    const after = before.replace(
+      /<Version>\d+\.\d+\.\d+<\/Version>/,
+      `<Version>${version}</Version>`,
+    );
+    if (after !== before) {
+      fs.writeFileSync(dotnetBuildProps, after);
+      updated = true;
+    }
+  }
+
   // Note: Podspecs (.podspec) read their version dynamically from
   // package.json (`s.version = package['version']`), so they auto-track
   // step 1 and don't need a separate replace here. If a podspec ever
