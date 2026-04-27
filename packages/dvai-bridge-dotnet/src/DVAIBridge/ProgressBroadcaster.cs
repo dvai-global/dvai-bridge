@@ -52,11 +52,16 @@ internal sealed class ProgressBroadcaster : IDisposable
             return;
         }
 
-        foreach (var ch in _subscribers.Keys)
+        // Snapshot the keys to avoid racing concurrent Subscribe / Dispose calls
+        // that could otherwise mutate the dictionary mid-iteration.
+        // ConcurrentDictionary.Keys materializes a snapshot atomically.
+        var snapshot = _subscribers.Keys;
+        foreach (var ch in snapshot)
         {
             // BoundedChannelFullMode.DropOldest means TryWrite always succeeds
             // (we kicked out the oldest item when at capacity). No back-pressure
-            // on the writer; no blocking.
+            // on the writer; no blocking. TryWrite returns false (no throw) if
+            // the channel is already completed by a parallel Dispose() — safe.
             ch.Writer.TryWrite(ev);
         }
     }
@@ -80,15 +85,60 @@ internal sealed class ProgressBroadcaster : IDisposable
         _subscribers[ch] = 0;
         try
         {
-            await foreach (var ev in ch.Reader.ReadAllAsync(ct).ConfigureAwait(false))
+            // Drain the channel until the consumer cancels OR Dispose() completes
+            // the writer side. We catch OCE here so a cancellation bubbles out as
+            // a clean iterator-exit (yield-break semantics) rather than a thrown
+            // exception escaping `await foreach` — the canonical pattern is to
+            // treat ct.IsCancellationRequested as the natural-end-of-stream
+            // signal in a multicast IAsyncEnumerable.
+            //
+            // Note: we cannot use try/catch around `yield return` directly,
+            // so we wrap the iteration via a local async enumerator that
+            // swallows the cancellation, then yield from it.
+            var enumerator = ReadCancellableAsync(ch, ct).GetAsyncEnumerator(ct);
+            try
             {
-                yield return ev;
+                while (true)
+                {
+                    bool moved;
+                    try
+                    {
+                        moved = await enumerator.MoveNextAsync().ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                    {
+                        // Cancellation is the intended exit path — yield-break.
+                        yield break;
+                    }
+                    if (!moved) yield break;
+                    yield return enumerator.Current;
+                }
+            }
+            finally
+            {
+                await enumerator.DisposeAsync().ConfigureAwait(false);
             }
         }
         finally
         {
             _subscribers.TryRemove(ch, out _);
             ch.Writer.TryComplete();
+        }
+    }
+
+    /// <summary>
+    /// Plain async-iterator over the channel reader. Separated from
+    /// <see cref="Subscribe(CancellationToken)"/> so the calling iterator can
+    /// catch <see cref="OperationCanceledException"/> without losing the
+    /// `yield return`-bearing scope.
+    /// </summary>
+    private static async IAsyncEnumerable<ProgressEvent> ReadCancellableAsync(
+        Channel<ProgressEvent> ch,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        await foreach (var ev in ch.Reader.ReadAllAsync(ct).ConfigureAwait(false))
+        {
+            yield return ev;
         }
     }
 

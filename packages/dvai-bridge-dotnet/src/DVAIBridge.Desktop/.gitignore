@@ -1,0 +1,6 @@
+# Native binaries fetched per-RID at CI time. The runtimes/ directory is
+# regenerated on every CI desktop matrix job; we don't track binaries in git
+# (size, license, opacity to PR review).
+runtimes/
+bin/
+obj/

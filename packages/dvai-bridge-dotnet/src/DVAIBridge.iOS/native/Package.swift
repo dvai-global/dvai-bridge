@@ -16,7 +16,8 @@ import PackageDescription
 let package = Package(
     name: "DVAIBridgeNetBridge",
     platforms: [
-        .iOS(.v15)
+        .iOS(.v15),
+        .macCatalyst(.v15)
     ],
     products: [
         .library(

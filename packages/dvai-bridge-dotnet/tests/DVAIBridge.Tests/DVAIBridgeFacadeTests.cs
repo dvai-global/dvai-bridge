@@ -68,15 +68,21 @@ public class DVAIBridgeFacadeTests
     [Fact]
     public async Task StartAsync_RejectsAndroidOnlyBackendOnIOS()
     {
-        // We can't actually flip OperatingSystem.IsIOS() in a unit test, so
-        // we exercise the dispatch only on the platform the test runs on.
-        // On non-iOS / non-Android (Linux/Windows test runners), the facade
-        // throws BackendUnavailable for *every* backend with the
-        // "no native binding for this platform" reason.
+        // Cross-platform validation per spec §3.8 (revised matrix):
+        //   - Foundation / CoreML / MLX: iOS / Catalyst only
+        //   - MediaPipe / LiteRT: Android only
+        //   - Llama: every platform with a slice (incl. desktop)
+        //   - Onnx: any platform
+        //   - MLNet: desktop-only
+        // We can't flip OperatingSystem.IsX() at runtime, so we exercise the
+        // path appropriate to the current host. On desktop hosts (Windows /
+        // Linux / macOS), MediaPipe / LiteRT must be rejected; Foundation /
+        // CoreML / MLX must be rejected; MLNet is allowed; Onnx is allowed;
+        // Llama / Auto are allowed (they delegate to the test-seam fake).
         var fake = new FakeNativeBridge();
         await using var bridge = new DVAIBridge(fake);
 
-        if (OperatingSystem.IsIOS())
+        if (OperatingSystem.IsIOS() || OperatingSystem.IsMacCatalyst())
         {
             var ex = await Assert.ThrowsAsync<DVAIBridgeException>(() =>
                 bridge.StartAsync(new StartOptions { Backend = BackendKind.MediaPipe }));
@@ -88,15 +94,21 @@ public class DVAIBridgeFacadeTests
             var ex = await Assert.ThrowsAsync<DVAIBridgeException>(() =>
                 bridge.StartAsync(new StartOptions { Backend = BackendKind.Foundation }));
             Assert.Equal(DVAIBridgeErrorKind.BackendUnavailable, ex.Kind);
-            Assert.Contains("iOS-only", ex.Message);
+            Assert.Contains("iOS / Mac Catalyst only", ex.Message);
         }
         else
         {
-            // Desktop / CI: every backend rejected with the no-native-binding reason.
+            // Desktop: Apple-only backends rejected.
             var ex = await Assert.ThrowsAsync<DVAIBridgeException>(() =>
-                bridge.StartAsync(new StartOptions { Backend = BackendKind.Auto }));
+                bridge.StartAsync(new StartOptions { Backend = BackendKind.Foundation }));
             Assert.Equal(DVAIBridgeErrorKind.BackendUnavailable, ex.Kind);
-            Assert.Contains("only ship for iOS and Android", ex.Message);
+            Assert.Contains("iOS / Mac Catalyst only", ex.Message);
+
+            // Android-only backends rejected.
+            var ex2 = await Assert.ThrowsAsync<DVAIBridgeException>(() =>
+                bridge.StartAsync(new StartOptions { Backend = BackendKind.MediaPipe }));
+            Assert.Equal(DVAIBridgeErrorKind.BackendUnavailable, ex2.Kind);
+            Assert.Contains("Android-only", ex2.Message);
         }
     }
 

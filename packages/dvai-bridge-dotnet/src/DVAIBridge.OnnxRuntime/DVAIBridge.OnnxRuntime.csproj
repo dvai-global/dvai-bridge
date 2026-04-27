@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ONNX Runtime backend (Task 18-19, rev 2). Cross-platform .NET 10 library
+    that wraps Microsoft.ML.OnnxRuntime + OnnxRuntimeGenAI. Opt-in via
+    `dotnet add package DVAIBridge.OnnxRuntime` — the facade routes
+    BackendKind.Onnx here at runtime when the assembly is loaded.
+
+    Runs on Windows / macOS / Linux desktop AND iOS / Android via the
+    underlying NuGets' RID-keyed natives (Microsoft ships full coverage
+    for ORT 1.25.0 + GenAI 0.13.1).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>DVAIBridge.OnnxRuntime</PackageId>
+    <Title>DVAIBridge.OnnxRuntime — ONNX Runtime backend (cross-platform)</Title>
+    <Description>ONNX Runtime + OnnxRuntimeGenAI backend for DVAIBridge. Cross-platform LLM inference via Phi-3.5 / Phi-4 / Llama-3.2 ONNX models. Opt-in via `dotnet add package DVAIBridge.OnnxRuntime` — the facade routes BackendKind.Onnx here.</Description>
+    <PackageTags>llm;ai;openai;onnx;onnxruntime;genai;phi-3;phi-4;llama;cross-platform;dvai-bridge</PackageTags>
+    <RootNamespace>DVAIBridge.OnnxRuntime</RootNamespace>
+    <AssemblyName>DVAIBridge.OnnxRuntime</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\DVAIBridge\DVAIBridge.csproj">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>compile;build</IncludeAssets>
+    </ProjectReference>
+    <Compile Include="..\shared\DVAIBridge.Shared.Hosting\*.cs" LinkBase="Shared" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+</Project>

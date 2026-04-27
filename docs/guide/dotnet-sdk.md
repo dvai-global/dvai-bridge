@@ -1,12 +1,15 @@
-# .NET SDK (`DVAIBridge` NuGet)
+# .NET SDK (`DVAIBridge` NuGet family)
 
 `DVAIBridge` is the .NET NuGet family that wraps the
 [`@dvai-bridge/ios`](./ios-native-sdk.md) and
-[`@dvai-bridge/android`](./android-native-sdk.md) native SDKs behind a
-shared idiomatic C# API. Drop the package into a **.NET MAUI**, **Avalonia**,
-**WinUI 3**, or **Xamarin (legacy)** app, call `DVAIBridge.Shared.StartAsync(...)`,
-then point any OpenAI-compatible .NET HTTP client (`Microsoft.SemanticKernel`,
-`OpenAI` official .NET SDK, `RestSharp`) at the returned `BaseUrl`.
+[`@dvai-bridge/android`](./android-native-sdk.md) native SDKs **plus** a
+desktop-native llama.cpp slice and two cross-platform .NET backends
+(ONNX Runtime + ML.NET) behind a single idiomatic C# facade. Drop the
+package into a **.NET MAUI**, **Avalonia**, **WinUI 3**, **Mac Catalyst**,
+**Xamarin (legacy)**, ASP.NET Core, or console app, call
+`DVAIBridge.Shared.StartAsync(...)`, then point any OpenAI-compatible
+.NET HTTP client (`Microsoft.SemanticKernel`, `OpenAI` official .NET SDK,
+`RestSharp`) at the returned `BaseUrl`.
 
 If you're building with React Native, use
 [`@dvai-bridge/react-native`](./react-native-sdk.md). Flutter consumers use
@@ -18,35 +21,54 @@ at [iOS Native SDK](./ios-native-sdk.md) and
 
 - **.NET 10 LTS** (10.0.7 or later — released November 2025, supported through
   November 2028). Earlier .NET 8 / .NET 9 consumers can't consume this package
-  directly because the platform-versioned TFMs (`net10.0-ios18.0`,
-  `net10.0-android36.0`) require a matching .NET 10 base.
-- **iOS 15.1+ runtime floor**, **Android `minSdk 24`**. Same as the underlying
-  native SDKs.
-- **Workloads:** `dotnet workload install ios android maui` if you're shipping
-  a MAUI app; otherwise just the platform you target.
+  directly because the platform-versioned TFMs (`net10.0-ios26.2`,
+  `net10.0-maccatalyst26.2`, `net10.0-android36.0`) require a matching .NET 10
+  base.
+- **iOS 15.1+ runtime floor**, **Mac Catalyst 15.1+ runtime floor**,
+  **Android `minSdk 24`**, **Windows 10 1809+ / macOS 11+ / Ubuntu 22.04+** for
+  desktop. Same as the underlying native SDKs.
+- **Workloads:** `dotnet workload install ios maccatalyst android maui` if
+  you're shipping a MAUI app; otherwise just the platform you target. Desktop
+  consumers (WinUI / Avalonia / console) need no workload install.
 
 ## Install
 
-`DVAIBridge` is **published to NuGet.org** — the third public family member
-alongside the iOS CocoaPod (`DVAIBridge` on CocoaPods Trunk) and the Flutter
-plugin (`dvai_bridge` on pub.dev). Every other family member ships through
-GitHub Packages.
+The `DVAIBridge` family ships **six NuGet packages** to NuGet.org. The
+facade (`DVAIBridge`) is the only one most consumers reference directly —
+the platform / backend slices are pulled in transitively when needed.
+
+| NuGet                       | Role                                                     | When pulled in                                                |
+| --------------------------- | -------------------------------------------------------- | ------------------------------------------------------------- |
+| `DVAIBridge`                | Public facade (`DVAIBridge.Shared`, types, exceptions)   | Always — `dotnet add package DVAIBridge`                      |
+| `DVAIBridge.iOS`            | iOS + Mac Catalyst binding (xcframework bundled)         | Transitively when csproj has `net10.0-ios26.2` / `…-maccatalyst26.2` |
+| `DVAIBridge.Android`        | Android binding (consumer-build AAR fetch)               | Transitively when csproj has `net10.0-android36.0`            |
+| `DVAIBridge.Desktop`        | llama.cpp native slice for desktop (Win / macOS / Linux) | Transitively when csproj has bare `net10.0`                   |
+| `DVAIBridge.OnnxRuntime`    | ONNX Runtime + GenAI cross-platform backend              | **Opt-in** (`dotnet add package DVAIBridge.OnnxRuntime`)      |
+| `DVAIBridge.MLNet`          | ML.NET / OnnxScoringEstimator backend                    | **Opt-in** (`dotnet add package DVAIBridge.MLNet`)            |
 
 ```bash
+# Most consumers only need this:
 dotnet add package DVAIBridge --version 2.4.0
+
+# Optional: cross-platform ONNX Runtime backend (BackendKind.Onnx).
+dotnet add package DVAIBridge.OnnxRuntime --version 2.4.0
+
+# Optional: ML.NET backend (BackendKind.MLNet, desktop only).
+dotnet add package DVAIBridge.MLNet --version 2.4.0
 ```
 
-That pulls in:
+What `dotnet add package DVAIBridge` pulls in transitively:
 
-- `DVAIBridge` (the facade — pure managed C#).
-- `DVAIBridge.iOS` (transitively, when your csproj targets `net10.0-ios18.0`).
-  Bundles the `DVAIBridgeNetBridge.xcframework` inside the NuGet — **no
-  CocoaPods or SwiftPM auth required** for iOS consumers.
-- `DVAIBridge.Android` (transitively, when your csproj targets
-  `net10.0-android36.0`). The Android binding consumes the
-  `co.deepvoiceai:dvai-bridge:2.4.0` AAR at **consumer-build time**, so
-  Android consumers still need GitHub Packages Maven configured (next
-  section).
+- **bare `net10.0` (desktop)** → `DVAIBridge.Desktop` (llama.cpp via
+  `runtimes/<rid>/native/`).
+- **`net10.0-ios26.2` / `net10.0-maccatalyst26.2`** → `DVAIBridge.iOS`
+  (single binding NuGet, multi-target). Bundles
+  `DVAIBridgeNetBridge.xcframework` inside the NuGet — **no CocoaPods or
+  SwiftPM auth required** for iOS / Catalyst consumers.
+- **`net10.0-android36.0`** → `DVAIBridge.Android`. The Android binding
+  consumes the `co.deepvoiceai:dvai-bridge:2.4.0` AAR at **consumer-build
+  time**, so Android consumers still need GitHub Packages Maven configured
+  (next section).
 
 ::: tip Family asymmetry
 The .NET family is the third public registry. iOS bindings ship with the
@@ -122,14 +144,15 @@ public class MainApplication : MauiApplication
 }
 ```
 
-iOS has no equivalent bootstrap — `DVAIBridge.Shared` initializes lazily.
+iOS, Mac Catalyst, and desktop have no equivalent bootstrap —
+`DVAIBridge.Shared` initializes lazily.
 
 ## Quickstart
 
 ```csharp
 using DVAIBridge;
 
-// In your MAUI / Avalonia view-model:
+// In your MAUI / Avalonia / WinUI / console view-model:
 public sealed class ChatViewModel : INotifyPropertyChanged
 {
     public async Task LoadModelAsync(CancellationToken ct = default)
@@ -158,21 +181,23 @@ public sealed class ChatViewModel : INotifyPropertyChanged
 }
 ```
 
-## BackendKind
+## BackendKind matrix
 
-The cross-platform `BackendKind` enum is the **union** of iOS + Android
-options. The facade pre-validates against the runtime platform; native
-bindings repeat the check for defense-in-depth.
+The cross-platform `BackendKind` enum is the **union** of every backend
+the family supports. The facade pre-validates against the runtime
+platform; native bindings repeat the check for defense-in-depth.
 
-| Value                  | iOS | Android | Notes                                                     |
-| ---------------------- | :-: | :-----: | --------------------------------------------------------- |
-| `BackendKind.Auto`     |  ✅ |   ✅    | Resolves the best available backend.                      |
-| `BackendKind.Llama`    |  ✅ |   ✅    | llama.cpp via Metal (iOS) / GPU (Android). Default.       |
-| `BackendKind.Foundation` | ✅ |        | Apple Foundation Models. iOS 26+. SwiftPM-only.            |
-| `BackendKind.CoreML`   |  ✅ |        | Apple Neural Engine via `MLModel`. iOS 18+.                |
-| `BackendKind.MLX`      |  ✅ |        | Apple Silicon via `mlx-swift-lm`. SwiftPM-only.            |
-| `BackendKind.MediaPipe` |     |   ✅    | Google MediaPipe LLM Inference API.                        |
-| `BackendKind.LiteRT`   |     |   ✅    | Google LiteRT (TensorFlow Lite Next).                      |
+| `BackendKind` | iOS | Mac Catalyst | Android | Win Desktop | macOS Desktop | Linux Desktop |
+| ------------- | :-: | :----------: | :-----: | :---------: | :-----------: | :-----------: |
+| `Auto`        | ✓   | ✓            | ✓       | ✓           | ✓             | ✓             |
+| `Llama`       | ✓   | ✓            | ✓       | ✓           | ✓             | ✓             |
+| `Foundation`  | ✓   | ✓            | ✗       | ✗           | ✗             | ✗             |
+| `CoreML`      | ✓   | ✓            | ✗       | ✗           | ✗             | ✗             |
+| `MLX`         | ✓   | ✓            | ✗       | ✗           | ✗             | ✗             |
+| `MediaPipe`   | ✗   | ✗            | ✓       | ✗           | ✗             | ✗             |
+| `LiteRT`      | ✗   | ✗            | ✓       | ✗           | ✗             | ✗             |
+| `Onnx`        | ✓   | ✓            | ✓       | ✓           | ✓             | ✓             |
+| `MLNet`       | ✗   | ✗            | ✗       | ✓           | ✓             | ✓             |
 
 ::: warning MLX under CocoaPods — not applicable here
 The .NET package bundles the **xcframework** inside the NuGet, so MLX +
@@ -181,6 +206,207 @@ applies to React Native and Flutter. If you've ever overridden the
 `<NativeReference>` to point at a CocoaPods-built `DVAIBridge.framework`,
 the same caveat returns — the default is fine.
 :::
+
+## Choosing a backend
+
+The decision tree below covers the common consumer profiles. When in
+doubt: pick `BackendKind.Auto` and let the facade resolve at runtime.
+
+- **You're a MAUI / Avalonia app shipping cross-platform binaries with
+  no platform-specific tuning** → `Auto`. Each platform's runtime resolver
+  picks the right native backend from the matrix above.
+- **You want broadest model coverage (any GGUF you can find)** → `Llama`.
+  Works on every platform; backed by llama.cpp.
+- **You're targeting iOS 26+ users and want zero model bundling**
+  → `Foundation`. Apple ships the on-device LLM with the OS.
+- **You're already shipping `.mlmodelc` artifacts elsewhere in your iOS
+  app** → `CoreML` lets you reuse the same converted model.
+- **You're an Apple-Silicon-only iPad / Mac app and want maximum
+  throughput** → `MLX` (Metal Performance Shaders + Neural Engine).
+- **You're an Android app and want Google's first-party LLM runtime**
+  → `MediaPipe` (older, broader device support) or `LiteRT` (newer, lower
+  latency on Android 14+).
+- **You're already pipelining ONNX models elsewhere in your stack and
+  want zero new native deps** → `Onnx`. Cross-platform; one model file
+  format works everywhere the family runs.
+- **You're already inside ML.NET (recommendation, classification,
+  forecasting) and want LLM as a transformer in your existing pipeline**
+  → `MLNet`. Desktop only; ~1.4× slower than `Onnx` for pure LLM use.
+
+## Per-backend usage
+
+### Llama (default, every platform)
+
+llama.cpp via Metal (iOS / Catalyst), GPU (Android), or
+CPU+SIMD/Metal/CUDA (Desktop). Broadest model coverage — any GGUF model
+works.
+
+```csharp
+var server = await DVAIBridge.Shared.StartAsync(new StartOptions
+{
+    Backend = BackendKind.Llama,
+    ModelPath = "/path/to/llama-3.2-3b-q4_k_m.gguf",
+    ContextSize = 4096,
+    Threads = 4,
+});
+```
+
+**Where to get models:** Hugging Face GGUF repos (search "GGUF" + model
+family), `llama.cpp` model zoo, or convert with `llama.cpp/convert.py`.
+
+### Foundation (iOS / Mac Catalyst, iOS 26+)
+
+Apple's on-device foundation model exposed via `LanguageModelSession`.
+Zero model files to bundle — Apple ships the weights with the OS. iOS
+26+ runtime; falls back to `BackendUnavailable` on iOS 25 and older.
+
+```csharp
+#if IOS || MACCATALYST
+var server = await DVAIBridge.Shared.StartAsync(new StartOptions
+{
+    Backend = BackendKind.Foundation,
+    // No ModelPath — Apple's bundled model is the only option.
+});
+#endif
+```
+
+### CoreML (iOS / Mac Catalyst, iOS 18+)
+
+Apple Neural Engine via `MLModel` + `MLState`. Convert your model with
+`coremltools` first; bundle the resulting `.mlmodelc` directory in your
+app or copy it to the user's Application Support folder.
+
+```csharp
+#if IOS || MACCATALYST
+var server = await DVAIBridge.Shared.StartAsync(new StartOptions
+{
+    Backend = BackendKind.CoreML,
+    ModelPath = Path.Combine(NSBundle.MainBundle.BundlePath, "phi-3-mini.mlmodelc"),
+});
+#endif
+```
+
+### MLX (iOS / Mac Catalyst, Apple Silicon)
+
+Apple Silicon GPU + Neural Engine via `mlx-swift-lm`. SwiftPM-only on the
+native side; the .NET NuGet wraps the same xcframework so Catalyst /
+iOS work transparently. Apple-Silicon device or simulator only.
+
+```csharp
+#if IOS || MACCATALYST
+var server = await DVAIBridge.Shared.StartAsync(new StartOptions
+{
+    Backend = BackendKind.MLX,
+    ModelPath = "/path/to/mlx-community--Llama-3.2-3B-Instruct-4bit",
+});
+#endif
+```
+
+### MediaPipe (Android only)
+
+Google MediaPipe LLM Inference API. Models distributed as `.bin` task
+bundles via [Kaggle Models](https://www.kaggle.com/models?tags=tf-lite).
+
+```csharp
+#if ANDROID
+var server = await DVAIBridge.Shared.StartAsync(new StartOptions
+{
+    Backend = BackendKind.MediaPipe,
+    ModelPath = Path.Combine(FileSystem.AppDataDirectory, "gemma-2b-it-cpu-int4.bin"),
+});
+#endif
+```
+
+### LiteRT (Android only)
+
+Google LiteRT (TensorFlow Lite Next) inference engine. Models
+distributed as `.tflite`. Lower latency than MediaPipe on Android 14+
+hardware; older devices can fall back to `MediaPipe` or `Llama`.
+
+```csharp
+#if ANDROID
+var server = await DVAIBridge.Shared.StartAsync(new StartOptions
+{
+    Backend = BackendKind.LiteRT,
+    ModelPath = Path.Combine(FileSystem.AppDataDirectory, "gemma-2b-it.tflite"),
+});
+#endif
+```
+
+### Onnx (every platform — opt-in NuGet)
+
+ONNX Runtime + GenAI extension. The most portable backend in the
+family — same model directory works across iOS, Android, Catalyst,
+Windows desktop, macOS desktop, Linux desktop. Requires
+`dotnet add package DVAIBridge.OnnxRuntime`.
+
+```csharp
+var server = await DVAIBridge.Shared.StartAsync(new StartOptions
+{
+    Backend = BackendKind.Onnx,
+    // Directory containing model.onnx + genai_config.json + tokenizer.json
+    ModelPath = "/path/to/Phi-3.5-mini-instruct-onnx",
+});
+```
+
+**Model format:** ONNX Runtime GenAI expects a directory with at minimum:
+
+- `genai_config.json` — sampling defaults + KV cache shape.
+- `model.onnx` (+ optional `model.onnx_data` for >2 GB models).
+- `tokenizer.json` — Hugging Face tokenizer config.
+
+**Where to get models:**
+
+- [microsoft/Phi-3.5-mini-instruct-onnx](https://huggingface.co/microsoft/Phi-3.5-mini-instruct-onnx)
+  — Microsoft's reference 4-bit GenAI bundle.
+- [`onnx-community`](https://huggingface.co/onnx-community) — community
+  catalogue of ONNX-converted models, Llama / Mistral / Qwen / etc.
+- Convert your own with `optimum-cli export onnx ...` from the
+  Hugging Face `optimum` library.
+
+### MLNet (desktop only — opt-in NuGet)
+
+ML.NET via `Microsoft.ML` + `OnnxScoringEstimator`. Use this when
+you're **already** running an ML.NET pipeline (recommendation,
+classification, forecasting, anomaly detection) and want to add LLM
+inference as a stage in the same `IDataView` flow. Greenfield LLM
+consumers should pick `Onnx` instead — the underlying ORT natives are
+the same, but the ML.NET pipeline shape adds ~1.4× per-token overhead
+vs. direct ORT + GenAI.
+
+```csharp
+var server = await DVAIBridge.Shared.StartAsync(new StartOptions
+{
+    Backend = BackendKind.MLNet,
+    ModelPath = "/path/to/llama-3.2-1b-instruct.onnx",
+    TokenizerPath = "/path/to/tokenizer.json", // optional; defaults next to .onnx
+});
+```
+
+**Why a separate package?** `Microsoft.ML` (5.0.0) + the OnnxTransformer
+chain is a non-trivial transitive dep (~30 MB of managed assemblies plus
+the same ORT natives the `Onnx` slice uses). We keep it opt-in so apps
+that don't need ML.NET don't pay for it.
+
+## Onnx vs. ML.NET trade-offs
+
+Both backends ride the same ONNX Runtime native today. The choice is
+about the **API shape** that fits your app, not about which native is
+faster (they're identical at the kernel level).
+
+| Aspect                     | `BackendKind.Onnx` (`DVAIBridge.OnnxRuntime`)        | `BackendKind.MLNet` (`DVAIBridge.MLNet`)               |
+| -------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
+| Native runtime             | ORT 1.25 + GenAI 0.13                                | ORT 1.25 (via `OnnxScoringEstimator`)                  |
+| Per-token overhead         | Baseline                                             | ~1.4× (pipeline `Fit`/`Transform` per token)           |
+| Streaming token API        | Built into GenAI (`Generator.GenerateNextToken`)     | Hand-rolled in the slice (top-k / top-p / temperature) |
+| Model format               | GenAI directory (`genai_config.json` + `.onnx`)      | Single `.onnx` + `tokenizer.json` next to it           |
+| Mobile (iOS / Android)     | Yes (cross-platform)                                 | No (desktop only)                                      |
+| ML.NET pipeline integration | No                                                  | Yes — drop into `EstimatorChain<>`                     |
+| Recommended for            | LLM-only apps; mobile + desktop                      | Apps already in ML.NET pipelines                       |
+
+**Recommendation:** use `BackendKind.Onnx` unless you're already in
+ML.NET pipelines. The MLNet slice is a compatibility bridge, not a
+performance choice.
 
 ## Reactive progress events
 
@@ -212,6 +438,12 @@ The broadcaster is **multi-consumer-safe**: every `await foreach` call
 gets its own bounded channel, and the writer fans every event out to all
 of them. Slow consumers drop oldest events when their channel hits 64
 items rather than blocking the writer or other consumers.
+
+In v2.4 the broadcaster also exits cleanly on consumer-side
+cancellation — the loop yield-breaks instead of propagating
+`OperationCanceledException` out of `await foreach`. See the
+[migration guide](../migration/v2.3-to-v2.4.md) for the behavioral
+change.
 
 ### Rx.NET interop
 
@@ -265,24 +497,41 @@ Every public method throws `DVAIBridgeException` on failure. The
   call `StartAsync` concurrently with itself; the second call rejects with
   `AlreadyStarted`.
 
-## Desktop (WinUI 3 / Avalonia / desktop .NET)
+## Desktop deployment
 
-The facade compiles cleanly against bare `net10.0`, so a WinUI / Avalonia
-/ Blazor app can `dotnet add package DVAIBridge` without errors. Every
-API call throws `DVAIBridgeException(BackendUnavailable)` at runtime with
-a clear "no native binding for this platform" message — fail-fast, no
-partial-init weirdness.
+The `DVAIBridge.Desktop` slice ships the llama.cpp native binaries via
+NuGet's `runtimes/<rid>/native/` mechanism, so a consumer's
+`dotnet publish` automatically copies the right binary into the publish
+output:
 
-Native desktop backends (Windows, macOS, Linux) are a **Phase 4
-candidate**, likely via `LLamaSharp` (llama.cpp's .NET binding) plus the
-same HTTP-server shape so the facade Just Works.
+| Runtime ID         | Native shipped              | Notes                                                  |
+| ------------------ | --------------------------- | ------------------------------------------------------ |
+| `win-x64`          | `llama.dll` (CPU + AVX2)    | CUDA opt-in via `dotnet add package DVAIBridge.Desktop.CUDA` (Phase 4 candidate). |
+| `win-arm64`        | `llama.dll` (CPU + NEON)    | Surface Pro / WSL2 ARM64.                              |
+| `osx-arm64`        | `libllama.dylib` (Metal)    | Apple Silicon Macs — Metal-enabled by default.         |
+| `osx-x64`          | `libllama.dylib` (CPU)      | Intel Mac fallback.                                    |
+| `linux-x64`        | `libllama.so` (CPU + AVX2)  | Ubuntu 22.04+ / Debian 12+.                            |
+| `linux-arm64`      | `libllama.so` (CPU + NEON)  | Raspberry Pi 4+, AWS Graviton.                         |
+
+Consumers don't have to do anything — the binary is loaded by P/Invoke
+on first call to `StartAsync(BackendKind.Llama)`. If you publish a
+self-contained app (`dotnet publish -r win-x64 --self-contained`), the
+native is copied into the output `runtimes/` folder automatically.
+
+::: tip CUDA / ROCm
+GPU acceleration on desktop is a Phase 4 candidate. v2.4 ships
+**CPU-only** Windows / Linux binaries (with AVX2 / NEON SIMD) and
+**Metal-enabled** macOS arm64 binaries. CUDA / ROCm builds will land as
+opt-in `DVAIBridge.Desktop.CUDA` / `.ROCm` NuGets when Phase 4 closes.
+:::
 
 ## NativeAOT
 
 Not supported in v2.4. The Obj-C / JNI bindings produce trim warnings the
-.NET 10 trimmer can't reason through. Consumers who ship NativeAOT iOS
-apps can do so with `<TrimmerRootDescriptor>` overrides; expect a Phase 4
-re-spec to land first-class AOT support.
+.NET 10 trimmer can't reason through, and the ML.NET pipeline depends on
+reflection emit. Consumers who ship NativeAOT iOS apps can do so with
+`<TrimmerRootDescriptor>` overrides; expect a Phase 4 re-spec to land
+first-class AOT support.
 
 ## Versioning
 
@@ -293,7 +542,7 @@ changes; Flutter is unaffected by 3G).
 
 ## See also
 
-- [iOS Native SDK](./ios-native-sdk.md) — what this NuGet wraps on iOS.
+- [iOS Native SDK](./ios-native-sdk.md) — what this NuGet wraps on iOS / Mac Catalyst.
 - [Android Native SDK](./android-native-sdk.md) — what this NuGet wraps
   on Android.
 - [Migration v2.3 → v2.4](../migration/v2.3-to-v2.4.md) — distribution
@@ -301,4 +550,7 @@ changes; Flutter is unaffected by 3G).
 - NuGet.org pages —
   [`DVAIBridge`](https://www.nuget.org/packages/DVAIBridge) /
   [`DVAIBridge.iOS`](https://www.nuget.org/packages/DVAIBridge.iOS) /
-  [`DVAIBridge.Android`](https://www.nuget.org/packages/DVAIBridge.Android).
+  [`DVAIBridge.Android`](https://www.nuget.org/packages/DVAIBridge.Android) /
+  [`DVAIBridge.Desktop`](https://www.nuget.org/packages/DVAIBridge.Desktop) /
+  [`DVAIBridge.OnnxRuntime`](https://www.nuget.org/packages/DVAIBridge.OnnxRuntime) /
+  [`DVAIBridge.MLNet`](https://www.nuget.org/packages/DVAIBridge.MLNet).

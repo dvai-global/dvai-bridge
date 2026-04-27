@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests for the ML.NET backend slice (Task 25, rev 2). Mirrors the shape
+    of DVAIBridge.OnnxRuntime.Tests / DVAIBridge.Desktop.Tests:
+
+      - net10.0 host (no platform suffix — desktop unit tests).
+      - Versions inherited from Directory.Packages.props (CPM).
+      - InternalsVisibleTo("DVAIBridge.MLNet.Tests") is granted by the
+        MLNet slice's AssemblyInfo.cs (already in place); this lets us
+        instantiate the internal MLNetNativeBridge directly via reflection
+        instead of going through the public facade.
+
+    We deliberately don't load a real ONNX model — that would pull a
+    multi-hundred-MB fixture into CI. The actual MLNet+ORT round-trip is
+    gated behind DVAI_E2E=1 in a separate Mac/Win desktop CI job.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>DVAIBridge.MLNet.Tests</AssemblyName>
+    <NoWarn>$(NoWarn);1591;1701;1702</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DVAIBridge\DVAIBridge.csproj" />
+    <ProjectReference Include="..\..\src\DVAIBridge.MLNet\DVAIBridge.MLNet.csproj" />
+  </ItemGroup>
+
+</Project>

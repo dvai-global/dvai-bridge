@@ -17,19 +17,40 @@ Initial release.
   `DownloadModelAsync` and an idiomatic
   `IAsyncEnumerable<ProgressEvent> ProgressEvents` reactive surface backed
   by `System.Threading.Channels`.
-- `DVAIBridge.iOS` binding package (`net10.0-ios18.0`, runtime floor iOS
-  15.1) — Obj-C bindings around an `@objc` Swift wrapper
+- `DVAIBridge.iOS` binding package (multi-target:
+  `net10.0-ios26.2`, `net10.0-maccatalyst26.2`; runtime floor iOS 15.1 /
+  Mac Catalyst 15.1) — Obj-C bindings around an `@objc` Swift wrapper
   (`DVAIBridgeNetBridge`) re-exporting the `DVAIBridge.shared` actor's API
   surface. The wrapper xcframework is bundled inside the NuGet, so consumers
   do not need a SwiftPM auth.
 - `DVAIBridge.Android` binding package (`net10.0-android36.0`, runtime floor
   API 24) — Java/Kotlin bindings around `co.deepvoiceai:dvai-bridge:2.4.0`,
   pulled from GitHub Packages Maven at consumer build time.
+- `DVAIBridge.Desktop` package (`net10.0`) — desktop-native llama.cpp slice
+  for Windows / macOS / Linux. Ships native binaries via NuGet's
+  `runtimes/<rid>/native/` mechanism. Auto-pulled by the facade on bare
+  `net10.0` consumers.
+- `DVAIBridge.OnnxRuntime` package (`net10.0`) — opt-in cross-platform
+  ONNX Runtime + GenAI backend. Adds `BackendKind.Onnx` and works on every
+  platform the family runs on.
+- `DVAIBridge.MLNet` package (`net10.0`) — opt-in desktop-only ML.NET +
+  `OnnxScoringEstimator` backend. Adds `BackendKind.MLNet` for apps already
+  using ML.NET pipelines.
 - Cross-platform `BackendKind` enum (`Auto`, `Llama`, `Foundation`, `CoreML`,
-  `MLX`, `MediaPipe`, `LiteRT`) with runtime platform validation in the
-  facade and defense-in-depth checks in the native bindings.
-- xUnit test suite covering facade dispatch, BackendKind validation,
-  IAsyncEnumerable progress streams, and exception mapping.
+  `MLX`, `MediaPipe`, `LiteRT`, `Onnx`, `MLNet`) with runtime platform
+  validation in the facade and defense-in-depth checks in the native
+  bindings.
+- xUnit test suites for all four projects: facade (`DVAIBridge.Tests`),
+  desktop slice (`DVAIBridge.Desktop.Tests`), ONNX slice
+  (`DVAIBridge.OnnxRuntime.Tests`), ML.NET slice
+  (`DVAIBridge.MLNet.Tests`).
+
+### Fixed
+
+- `ProgressBroadcaster.Subscribe(ct)` now exits cleanly via yield-break on
+  consumer-side cancellation instead of propagating
+  `OperationCanceledException` out of the consuming `await foreach`. See
+  [migration v2.3 → v2.4](../../docs/migration/v2.3-to-v2.4.md#progressbroadcaster-cancellation-fix-bugfix).
 
 ### Notes
 

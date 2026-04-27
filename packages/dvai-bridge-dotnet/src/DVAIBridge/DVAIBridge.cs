@@ -6,7 +6,13 @@ using System.Threading.Tasks;
 
 [assembly: InternalsVisibleTo("DVAIBridge.iOS")]
 [assembly: InternalsVisibleTo("DVAIBridge.Android")]
+[assembly: InternalsVisibleTo("DVAIBridge.Desktop")]
+[assembly: InternalsVisibleTo("DVAIBridge.OnnxRuntime")]
+[assembly: InternalsVisibleTo("DVAIBridge.MLNet")]
 [assembly: InternalsVisibleTo("DVAIBridge.Tests")]
+[assembly: InternalsVisibleTo("DVAIBridge.Desktop.Tests")]
+[assembly: InternalsVisibleTo("DVAIBridge.OnnxRuntime.Tests")]
+[assembly: InternalsVisibleTo("DVAIBridge.MLNet.Tests")]
 
 namespace DVAIBridge;
 
@@ -41,11 +47,12 @@ namespace DVAIBridge;
 public sealed class DVAIBridge : IAsyncDisposable
 {
     /// <summary>
-    /// The set of <see cref="BackendKind"/> values that are iOS-only. The
-    /// facade pre-validates against the runtime platform; native bindings
-    /// also enforce this for defense-in-depth.
+    /// The set of <see cref="BackendKind"/> values that require an iOS or
+    /// Mac Catalyst host (Apple-only frameworks). The facade pre-validates
+    /// against the runtime platform; native bindings also enforce this for
+    /// defense-in-depth.
     /// </summary>
-    private static readonly HashSet<BackendKind> IosOnly =
+    private static readonly HashSet<BackendKind> AppleOnly =
     [
         BackendKind.Foundation,
         BackendKind.CoreML,
@@ -60,7 +67,7 @@ public sealed class DVAIBridge : IAsyncDisposable
     ];
 
     private static readonly Lazy<DVAIBridge> _shared =
-        new(() => new DVAIBridge(PlatformBridgeFactory.Create()));
+        new(() => new DVAIBridge(new RoutingNativeBridge()));
 
     /// <summary>
     /// Singleton instance. Resolves the appropriate native bridge once at
@@ -253,38 +260,150 @@ public sealed class DVAIBridge : IAsyncDisposable
 
     /// <summary>
     /// Validate that <paramref name="backend"/> is supported on the current
-    /// runtime platform. Throws <see cref="DVAIBridgeException.BackendUnavailable"/>
-    /// otherwise. Native bindings repeat this check for defense-in-depth.
+    /// runtime platform per spec §3.8. Throws
+    /// <see cref="DVAIBridgeException.BackendUnavailable"/> otherwise. The
+    /// underlying <see cref="INativeBridge"/> implementations repeat this
+    /// check for defense-in-depth.
     /// </summary>
     private static void ValidatePlatform(BackendKind backend)
     {
-        if (OperatingSystem.IsIOS())
+        // Onnx is cross-platform (any OS where the DVAIBridge.OnnxRuntime
+        // NuGet's natives ship — every supported runtime in v2.4).
+        if (backend == BackendKind.Onnx)
         {
-            if (AndroidOnly.Contains(backend))
+            return;
+        }
+
+        // MLNet is desktop-primary (Windows / Linux / macOS / Catalyst).
+        if (backend == BackendKind.MLNet)
+        {
+            if (IsAppleMobileOnly() || OperatingSystem.IsAndroid())
             {
                 throw DVAIBridgeException.BackendUnavailable(
                     backend,
-                    $"{backend} is Android-only and is not supported on iOS.");
+                    "BackendKind.MLNet is desktop-only (Windows / Linux / macOS / Catalyst). " +
+                    "Use BackendKind.Onnx on iOS / Android instead.");
             }
             return;
         }
 
-        if (OperatingSystem.IsAndroid())
+        // Apple-only backends (Foundation / CoreML / MLX) — iOS and Catalyst OK.
+        if (AppleOnly.Contains(backend))
         {
-            if (IosOnly.Contains(backend))
+            if (!OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst())
             {
                 throw DVAIBridgeException.BackendUnavailable(
                     backend,
-                    $"{backend} is iOS-only and is not supported on Android.");
+                    $"{backend} is iOS / Mac Catalyst only.");
             }
             return;
         }
 
-        // Anything that isn't iOS or Android: Windows, Linux, macOS, browser, etc.
-        throw DVAIBridgeException.BackendUnavailable(
-            backend,
-            "DVAIBridge native bindings only ship for iOS and Android in v2.4. " +
-            "WinUI 3 / Avalonia / desktop / Blazor consumers can compile against " +
-            "the facade but every API call fails with this exception.");
+        // Android-only backends (MediaPipe / LiteRT).
+        if (AndroidOnly.Contains(backend))
+        {
+            if (!OperatingSystem.IsAndroid())
+            {
+                throw DVAIBridgeException.BackendUnavailable(
+                    backend,
+                    $"{backend} is Android-only.");
+            }
+            return;
+        }
+
+        // Auto / Llama: every platform with a slice. Auto resolves natively.
+        // No further pre-validation here — LlamaDesktopBridge / IOSNativeBridge /
+        // AndroidNativeBridge each enforce their own constraints.
+    }
+
+    private static bool IsAppleMobileOnly() =>
+        OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst();
+}
+
+/// <summary>
+/// Routing <see cref="INativeBridge"/> used by the singleton. Each
+/// <see cref="StartAsync"/> call resolves the backend-specific bridge via
+/// <see cref="PlatformBridgeFactory.Create(BackendKind)"/> and delegates
+/// every subsequent call to the bound bridge instance. Stop / Status /
+/// Download / SubscribeProgress operate against the most recently bound
+/// bridge (the one started or — pre-start — the platform default).
+/// </summary>
+internal sealed class RoutingNativeBridge : INativeBridge, IDisposable
+{
+    private INativeBridge _current;
+    private readonly object _lock = new();
+    private readonly List<Action<ProgressEvent>> _handlers = [];
+    private IDisposable? _innerSubscription;
+
+    public RoutingNativeBridge()
+    {
+        // Pre-bind to the platform default so SubscribeProgress called BEFORE
+        // a StartAsync still receives events from the eventual native side
+        // (we re-attach all handlers to the new bridge inside Reroute()).
+        _current = PlatformBridgeFactory.Create(BackendKind.Auto);
+        _innerSubscription = _current.SubscribeProgress(FanOut);
+    }
+
+    public Task<BoundServer> StartAsync(StartOptions opts, CancellationToken ct)
+    {
+        Reroute(opts.Backend);
+        return _current.StartAsync(opts, ct);
+    }
+
+    public Task StopAsync(CancellationToken ct) => _current.StopAsync(ct);
+    public Task<StatusInfo> GetStatusAsync(CancellationToken ct) => _current.GetStatusAsync(ct);
+    public Task<DownloadResult> DownloadModelAsync(DownloadOptions opts, CancellationToken ct) =>
+        _current.DownloadModelAsync(opts, ct);
+
+    public IDisposable SubscribeProgress(Action<ProgressEvent> handler)
+    {
+        lock (_lock) _handlers.Add(handler);
+        return new Subscription(this, handler);
+    }
+
+    private void Reroute(BackendKind backend)
+    {
+        lock (_lock)
+        {
+            var next = PlatformBridgeFactory.Create(backend);
+            if (ReferenceEquals(next, _current)) return;
+
+            _innerSubscription?.Dispose();
+            _current = next;
+            _innerSubscription = _current.SubscribeProgress(FanOut);
+        }
+    }
+
+    private void FanOut(ProgressEvent ev)
+    {
+        Action<ProgressEvent>[] snapshot;
+        lock (_lock) snapshot = _handlers.ToArray();
+        foreach (var h in snapshot) h(ev);
+    }
+
+    public void Dispose()
+    {
+        _innerSubscription?.Dispose();
+        _innerSubscription = null;
+    }
+
+    private sealed class Subscription : IDisposable
+    {
+        private readonly RoutingNativeBridge _owner;
+        private readonly Action<ProgressEvent> _handler;
+        private bool _disposed;
+
+        public Subscription(RoutingNativeBridge owner, Action<ProgressEvent> handler)
+        {
+            _owner = owner;
+            _handler = handler;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            lock (_owner._lock) _owner._handlers.Remove(_handler);
+        }
     }
 }
