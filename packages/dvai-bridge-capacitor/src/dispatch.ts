@@ -11,6 +11,7 @@ const PLUGIN_NAME_BY_BACKEND: Record<CapacitorBackend, string> = {
   llama: "DVAIBridgeLlama",
   foundation: "DVAIBridgeFoundation",
   mediapipe: "DVAIBridgeMediaPipe",
+  mlx: "DVAIBridgeMLX",
 };
 
 let activePlugin: NativePluginInterface | null = null;
@@ -32,7 +33,7 @@ function isPluginNotImplementedError(err: unknown): boolean {
  * "install the plugin" wording from the not-implemented fallback.
  */
 function assertBackendCompatibleWithPlatform(backend: CapacitorBackend): void {
-  if (backend === "foundation") {
+  if (backend === "foundation" || backend === "mlx") {
     let platform: string | undefined;
     try {
       platform = Capacitor?.getPlatform?.();
@@ -42,8 +43,9 @@ function assertBackendCompatibleWithPlatform(backend: CapacitorBackend): void {
       // the native call will then surface its own error.
     }
     if (platform === "android") {
+      const label = backend === "foundation" ? "Apple Foundation Models" : "MLX";
       throw new Error(
-        '[DVAI] Apple Foundation Models is iOS-only. Use backend: "llama" or "mediapipe" on Android.',
+        `[DVAI] ${label} is iOS-only. Use backend: "llama" or "mediapipe" on Android.`,
       );
     }
   }

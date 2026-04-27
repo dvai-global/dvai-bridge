@@ -9,6 +9,9 @@ import DVAIFoundationCore
 #if !COCOAPODS
 import DVAICoreMLCore
 #endif
+#if !COCOAPODS
+import DVAIMLXCore
+#endif
 
 /// The iOS SDK entry-point. Use the `shared` singleton or construct an instance
 /// for test isolation. All methods are async-throws and dispatch to the active
@@ -36,6 +39,12 @@ public actor DVAIBridge {
         case foundation(FoundationPluginState)
         #endif
         case coreml(Any)
+        #if !COCOAPODS
+        // MLX backend uses mlx-swift-lm which depends on Apple's MLX
+        // Swift framework. Same single-module-CocoaPods autolink concern
+        // as Foundation; gated SwiftPM-only.
+        case mlx(MLXPluginState)
+        #endif
     }
 
     private var active: BackendInstance?
@@ -106,6 +115,22 @@ public actor DVAIBridge {
             } else {
                 throw DVAIBridgeError.backendUnavailable(.coreml, reason: "Requires macOS 15+")
             }
+        case .mlx:
+            #if !COCOAPODS
+            let state = MLXPluginState()
+            do {
+                result = try await state.start(opts: opts)
+            } catch {
+                progressBroadcaster.emit(ProgressEvent(phase: .error, message: error.localizedDescription))
+                throw DVAIBridgeError.backendUnavailable(.mlx, reason: error.localizedDescription)
+            }
+            backend = .mlx(state)
+            #else
+            throw DVAIBridgeError.backendUnavailable(
+                .mlx,
+                reason: "MLX backend is not available in CocoaPods builds of dvai-bridge — mlx-swift-lm's transitive dependencies don't publish CocoaPods specs. Use SwiftPM if your app needs the MLX backend, or use .llama or .coreml instead."
+            )
+            #endif
         }
 
         let server = try BoundServer(coreResult: result, backend: resolved)
@@ -144,6 +169,10 @@ public actor DVAIBridge {
                         try await state.stop()
                     }
                 }
+            #if !COCOAPODS
+            case .mlx(let state):
+                try await state.stop()
+            #endif
             }
         } catch {
             // Even if stop() throws, clear state — caller can't usefully retry

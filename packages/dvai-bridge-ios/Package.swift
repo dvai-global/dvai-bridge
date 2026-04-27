@@ -16,10 +16,11 @@ let package = Package(
     dependencies: [
         // Path-dep to the cores. Identity is derived from the path's last
         // directory name; both cores have manifests at their package root,
-        // so identities are `dvai-bridge-ios-llama-core` and
-        // `dvai-bridge-ios-foundation-core`.
+        // so identities are `dvai-bridge-ios-llama-core` /
+        // `dvai-bridge-ios-foundation-core` / `dvai-bridge-ios-mlx-core`.
         .package(path: "../dvai-bridge-ios-llama-core"),
         .package(path: "../dvai-bridge-ios-foundation-core"),
+        .package(path: "../dvai-bridge-ios-mlx-core"),
         // swift-transformers 1.3.0 (latest stable as of 2026-04-26).
         // Provides Tokenizers product for HuggingFace tokenizer loading.
         .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.3.0"),
@@ -42,6 +43,7 @@ let package = Package(
             dependencies: [
                 .product(name: "DVAILlamaCore", package: "dvai-bridge-ios-llama-core"),
                 .product(name: "DVAIFoundationCore", package: "dvai-bridge-ios-foundation-core"),
+                .product(name: "DVAIMLXCore", package: "dvai-bridge-ios-mlx-core"),
                 "DVAICoreMLCore",
             ],
             path: "ios/Sources/DVAIBridge"
@@ -52,6 +54,7 @@ let package = Package(
                 "DVAIBridge",
                 .product(name: "DVAILlamaCore", package: "dvai-bridge-ios-llama-core"),
                 .product(name: "DVAIFoundationCore", package: "dvai-bridge-ios-foundation-core"),
+                .product(name: "DVAIMLXCore", package: "dvai-bridge-ios-mlx-core"),
                 "DVAICoreMLCore",
             ],
             path: "ios/Tests/DVAIBridgeTests"
