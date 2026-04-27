@@ -1,0 +1,15 @@
+name: react-native-quickstart
+description: Hello-world flow on the React Native TurboModule example (RN 0.85 Bridgeless).
+output: docs/marketing/assets/react-native-quickstart.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Launch the RN app in iOS Simulator (Bridgeless ON, TurboModule registered)."
+  - duration: 7
+    caption: "Tap 'Start' — DVAIBridge.start({ backend: BackendKind.Auto, modelPath })."
+  - duration: 8
+    caption: "useDVAIBridgeState() hook updates; progress bar fills via NativeEventEmitter."
+  - duration: 12
+    caption: "Type a prompt; SSE chunks stream from native llama.cpp into the JS side."
+  - duration: 5
+    caption: "Closing card: '@dvai-bridge/react-native — TurboModule, RN 0.77+, native streaming HTTP'."

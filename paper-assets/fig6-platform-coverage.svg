@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 540" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 18px; font-weight: 700; fill: #111827; }
+      .axis-label { font-size: 11px; font-weight: 700; fill: #6B7280; letter-spacing: 0.6px; }
+      .row-label { font-size: 12px; font-weight: 600; fill: #111827; }
+      .col-label { font-size: 11px; font-weight: 600; fill: #111827; }
+      .legend-text { font-size: 11px; fill: #374151; }
+      .caption { font-size: 11px; fill: #4B5563; }
+      .note { font-size: 10px; fill: #6B7280; font-style: italic; }
+    </style>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="30" class="title" text-anchor="middle">Figure 6 — Platform × Backend Coverage (v2.4.0)</text>
+
+  <!-- Axis labels -->
+  <text x="160" y="62" class="axis-label">SDK \ BACKEND</text>
+  <text x="450" y="495" class="axis-label" text-anchor="middle">BACKEND</text>
+
+  <!-- Y-axis "SDK" rotated label -->
+  <text x="22" y="245" class="axis-label" text-anchor="middle" transform="rotate(-90 22 245)">SDK</text>
+
+  <!--
+    Grid geometry:
+      - 7 SDK rows (Web, iOS, Android, RN, Flutter, .NET-mobile, .NET-desktop)
+      - 10 Backend columns (WebLLM, Trans, Llama, CoreML, Found, MLX, MediaPipe, LiteRT, ONNX, MLNet)
+      - Cell width 56, height 38
+      - Grid origin (top-left of first cell): x=170, y=110
+  -->
+
+  <!-- Column headers (rotated -45°) -->
+  <g class="col-label">
+    <text x="198" y="105" text-anchor="end" transform="rotate(-45 198 105)">WebLLM</text>
+    <text x="254" y="105" text-anchor="end" transform="rotate(-45 254 105)">Transformers</text>
+    <text x="310" y="105" text-anchor="end" transform="rotate(-45 310 105)">Llama</text>
+    <text x="366" y="105" text-anchor="end" transform="rotate(-45 366 105)">CoreML</text>
+    <text x="422" y="105" text-anchor="end" transform="rotate(-45 422 105)">Foundation</text>
+    <text x="478" y="105" text-anchor="end" transform="rotate(-45 478 105)">MLX</text>
+    <text x="534" y="105" text-anchor="end" transform="rotate(-45 534 105)">MediaPipe</text>
+    <text x="590" y="105" text-anchor="end" transform="rotate(-45 590 105)">LiteRT</text>
+    <text x="646" y="105" text-anchor="end" transform="rotate(-45 646 105)">ONNX</text>
+    <text x="702" y="105" text-anchor="end" transform="rotate(-45 702 105)">ML.NET</text>
+  </g>
+
+  <!-- Row labels -->
+  <g class="row-label">
+    <text x="165" y="135" text-anchor="end">Web</text>
+    <text x="165" y="173" text-anchor="end">iOS native</text>
+    <text x="165" y="211" text-anchor="end">Android native</text>
+    <text x="165" y="249" text-anchor="end">React Native</text>
+    <text x="165" y="287" text-anchor="end">Flutter</text>
+    <text x="165" y="325" text-anchor="end">.NET (mobile)</text>
+    <text x="165" y="363" text-anchor="end">.NET (desktop)</text>
+  </g>
+
+  <!--
+    Cells: each cell rect is 52x34 (with 4px gap inside the 56x38 stride).
+    Filled = #22aa55 (supported); empty = #E5E7EB (unsupported).
+    Coordinate generator: x = 170 + col*56 + 2 ; y = 116 + row*38 + 2  (i.e. cell origin 172, 118)
+  -->
+
+  <!-- Row 0: Web — WebLLM(1), Trans(1), rest 0 -->
+  <rect x="172" y="118" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="228" y="118" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="284" y="118" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="340" y="118" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="396" y="118" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="452" y="118" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="508" y="118" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="564" y="118" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="620" y="118" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="676" y="118" width="52" height="34" rx="4" fill="#E5E7EB"/>
+
+  <!-- Row 1: iOS native — Llama, CoreML, Foundation, MLX -->
+  <rect x="172" y="156" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="228" y="156" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="284" y="156" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="340" y="156" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="396" y="156" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="452" y="156" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="508" y="156" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="564" y="156" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="620" y="156" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="676" y="156" width="52" height="34" rx="4" fill="#E5E7EB"/>
+
+  <!-- Row 2: Android native — Llama, MediaPipe, LiteRT -->
+  <rect x="172" y="194" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="228" y="194" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="284" y="194" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="340" y="194" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="396" y="194" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="452" y="194" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="508" y="194" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="564" y="194" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="620" y="194" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="676" y="194" width="52" height="34" rx="4" fill="#E5E7EB"/>
+
+  <!-- Row 3: React Native — Llama, CoreML, Foundation, MLX, MediaPipe, LiteRT -->
+  <rect x="172" y="232" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="228" y="232" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="284" y="232" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="340" y="232" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="396" y="232" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="452" y="232" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="508" y="232" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="564" y="232" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="620" y="232" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="676" y="232" width="52" height="34" rx="4" fill="#E5E7EB"/>
+
+  <!-- Row 4: Flutter — Llama, CoreML, Foundation, MLX, MediaPipe, LiteRT -->
+  <rect x="172" y="270" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="228" y="270" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="284" y="270" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="340" y="270" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="396" y="270" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="452" y="270" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="508" y="270" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="564" y="270" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="620" y="270" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="676" y="270" width="52" height="34" rx="4" fill="#E5E7EB"/>
+
+  <!-- Row 5: .NET mobile — Llama, CoreML, Foundation, MLX, MediaPipe, LiteRT, ONNX -->
+  <rect x="172" y="308" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="228" y="308" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="284" y="308" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="340" y="308" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="396" y="308" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="452" y="308" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="508" y="308" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="564" y="308" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="620" y="308" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="676" y="308" width="52" height="34" rx="4" fill="#E5E7EB"/>
+
+  <!-- Row 6: .NET desktop — Llama, ONNX, MLNet -->
+  <rect x="172" y="346" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="228" y="346" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="284" y="346" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="340" y="346" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="396" y="346" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="452" y="346" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="508" y="346" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="564" y="346" width="52" height="34" rx="4" fill="#E5E7EB"/>
+  <rect x="620" y="346" width="52" height="34" rx="4" fill="#22aa55"/>
+  <rect x="676" y="346" width="52" height="34" rx="4" fill="#22aa55"/>
+
+  <!-- Legend -->
+  <rect x="200" y="430" width="18" height="14" rx="3" fill="#22aa55"/>
+  <text x="225" y="442" class="legend-text">supported</text>
+  <rect x="320" y="430" width="18" height="14" rx="3" fill="#E5E7EB"/>
+  <text x="345" y="442" class="legend-text">not supported</text>
+
+  <!-- Footnote -->
+  <text x="450" y="468" class="note" text-anchor="middle">React Native + Flutter delegate iOS / Android backends to the underlying native SDKs.</text>
+  <text x="450" y="482" class="note" text-anchor="middle">.NET (mobile) covers iOS / Android / Mac Catalyst via .NET MAUI; .NET (desktop) covers Windows / macOS / Linux.</text>
+
+  <!-- Caption -->
+  <text x="450" y="520" class="caption" text-anchor="middle">Six SDKs × nine inference backends, all behind a single OpenAI-compatible HTTP contract.</text>
+</svg>

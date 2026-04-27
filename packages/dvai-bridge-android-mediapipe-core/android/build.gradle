@@ -113,7 +113,7 @@ afterEvaluate {
             release(MavenPublication) {
                 groupId = 'co.deepvoiceai'
                 artifactId = 'android-mediapipe-core'
-                version = (project.findProperty('dvaiBridgeVersion') ?: '2.4.0').toString()
+                version = (project.findProperty('dvaiBridgeVersion') ?: '2.4.1').toString()
                 from components.release
             }
         }

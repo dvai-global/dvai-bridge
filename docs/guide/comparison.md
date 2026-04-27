@@ -10,9 +10,10 @@ DVAI-Bridge.
 
 If you're **building and shipping an application** — Electron, Capacitor
 hybrid mobile, native iOS (Swift), native Android (Kotlin / Java),
-React Native, or native desktop (Windows, macOS, Linux via .NET) — and
-you want local AI inside it, **without asking your users to install
-anything else**, you want DVAI-Bridge.
+React Native, Flutter, or .NET (MAUI / Avalonia / WinUI / Catalyst /
+Windows / macOS / Linux desktop) — and you want local AI inside it,
+**without asking your users to install anything else**, you want
+DVAI-Bridge.
 
 If you're a developer or power user running local models on your own
 machine, you want Ollama, LM Studio, or Jan.ai. That's not what
@@ -251,19 +252,17 @@ Being honest about when we're wrong for a job:
 - **You're writing a browser-only demo and will never need Node /
   Electron / mobile / native.** Plain WebLLM or Transformers.js works
   fine — saves you one dependency.
-- **You're writing a Flutter app and you need a drop-in wrapper today.**
-  The Flutter package is in flight (Phase 3F). React Native consumers
-  on RN ≥ 0.77 can use [`@dvai-bridge/react-native`](./react-native-sdk.md)
-  shipped in v2.2; older RN consumers (≤ 0.73, Bridgeless OFF) can
-  still wire the iOS Swift Package and Android AAR directly via
-  standard native-bridge patterns if they're comfortable writing the
-  bridge code themselves.
+- **You're on React Native ≤ 0.73 with Bridgeless OFF.** Our RN
+  TurboModule needs RN ≥ 0.77; older RN consumers can still wire the
+  iOS Swift Package and Android AAR directly via standard native-bridge
+  patterns if they're comfortable writing the bridge code themselves.
 
 ## When DVAI-Bridge is the clear answer
 
 - You're building an application — Electron, Capacitor hybrid mobile,
-  native iOS (Swift), native Android (Kotlin / Java), React Native, or
-  native desktop (.NET / C#).
+  native iOS (Swift), native Android (Kotlin / Java), React Native,
+  Flutter, or .NET (MAUI / Avalonia / WinUI / Catalyst / Windows / macOS /
+  Linux desktop).
 - Your users should not have to install anything beyond your app.
 - Your agent code should stay standard (LangChain, OpenAI SDK, Vercel
   AI SDK, or the OpenAI SDK of your language) rather than locking into

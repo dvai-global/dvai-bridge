@@ -10,7 +10,7 @@
 
 ## Abstract
 
-The dominant deployment model for large language models (LLMs) today places inference inside centralized cloud services. For agentic workloads — where a single user request fans out into tens or hundreds of model calls — this architecture creates compounding problems across privacy, cost, latency, and vendor lock-in. We present **DVAI-BRIDGE**, a TypeScript library (packages: `@dvai-bridge/core`, `@dvai-bridge/react`, `@dvai-bridge/vanilla`) that moves inference to the end-user's device and presents the result as a drop-in replacement for the OpenAI HTTP API. The library achieves this by (i) defining a pluggable _driver_ abstraction over three industry-standard inference engines — WebLLM (WebGPU), Transformers.js (ONNX), and llama.cpp (native mobile) — and (ii) installing a Mock Service Worker (MSW) interceptor in the browser so that any HTTP client pointed at `https://api.openai.local/v1/chat/completions` transparently hits the local model instead of the public internet. Because the wire format is unchanged, existing agent SDKs such as LangChain, Vercel AI SDK, CrewAI, and LlamaIndex work against DVAI-BRIDGE without code changes. We describe the architecture, the interception mechanism, the auto-recovery state machine that stabilises browser WebGPU failures, and three integration case studies. We then honestly delimit what the library is and is not today, before situating it inside a broader thesis: edge AI is becoming a _peer tier_ to cloud AI, and purpose-built on-device applications such as _DVAI-Connect_ (end-to-end-encrypted meetings with local intelligence) and _LifeStream_ (a longitudinal personal assistant) are only ethically deployable when inference is local.
+The dominant deployment model for large language models (LLMs) today places inference inside centralized cloud services. For agentic workloads — where a single user request fans out into tens or hundreds of model calls — this architecture creates compounding problems across privacy, cost, latency, and vendor lock-in. We present **DVAI-BRIDGE**, a polyglot SDK family that moves inference to the end-user's device and presents the result as a drop-in replacement for the OpenAI HTTP API. As of v2.4.0, the family spans **six SDKs** — TypeScript (`@dvai-bridge/core`, `@dvai-bridge/react`, `@dvai-bridge/vanilla`), a Capacitor plugin, a native iOS Swift Package, a native Android AAR family, a React Native TurboModule, a Flutter plugin, and a six-package .NET NuGet family — sharing a single OpenAI-compatible HTTP contract over **nine inference backends**: WebLLM, Transformers.js, llama.cpp (across Web/Capacitor/native iOS/native Android/.NET-Desktop), Apple Foundation Models, CoreML, MLX, MediaPipe LLM Inference, LiteRT, ONNX Runtime + GenAI, and ML.NET. The central technical contribution remains the same: a **Mock Service Worker (MSW)** interceptor in the browser, mirrored by an in-process HTTP server in every native SDK, so that any HTTP client pointed at the bridge's `baseUrl` transparently hits the local model instead of the public internet. Because the wire format is unchanged, existing agent SDKs such as LangChain, Vercel AI SDK, CrewAI, and LlamaIndex — and their Swift / Kotlin / Dart / .NET counterparts (Microsoft.SemanticKernel, the OpenAI Swift SDK, OkHttp + Vercel AI SDK on Android, `dart:io` HttpClient on Flutter) — work against DVAI-BRIDGE without code changes. We describe the architecture, the interception mechanism, the auto-recovery state machine that stabilises browser WebGPU failures, and eight integration case studies spanning the family. We then honestly delimit what the library is and is not today, before situating it inside a broader thesis: edge AI is becoming a _peer tier_ to cloud AI, and purpose-built on-device applications such as _DVAI-Connect_ (end-to-end-encrypted meetings with local intelligence) and _LifeStream_ (a longitudinal personal assistant) are only ethically deployable when inference is local.
 
 ---
 
@@ -73,15 +73,27 @@ DVAI-BRIDGE was written against five concrete goals:
 
 ### 3.2 The Pluggable Driver Abstraction
 
-The core package (`@dvai-bridge/core`, ≈1.9 kLOC) exports a single orchestrator, `DVAI`, which delegates to one of three drivers at runtime (files in `packages/dvai-bridge-core/src/`):
+The core package (`@dvai-bridge/core`, ≈1.9 kLOC) exports a single orchestrator, `DVAI`, which delegates to a driver at runtime (files in `packages/dvai-bridge-core/src/`). The same _driver_ pattern is now replicated, with platform-idiomatic naming, across every SDK in the family — Swift `Backend` protocols on iOS, Kotlin `Backend` interfaces on Android, and `IBackend` on .NET — yielding the family-grouped backend matrix below as of v2.4.0:
 
-| Driver                | Engine                      | Model format                   | Streaming                               | Target                         |
-| --------------------- | --------------------------- | ------------------------------ | --------------------------------------- | ------------------------------ |
-| `WebLLMBackend`       | `@mlc-ai/web-llm`           | MLC-compiled (WebGPU)          | **True** async-iterator                 | Browser, WebGPU-capable        |
-| `TransformersBackend` | `@huggingface/transformers` | ONNX (Transformers.js v4.0.1+) | **True** token-level via `TextStreamer` | Browser (WebGPU/WASM), Node.js |
-| `NativeBackend`       | `llama-cpp-capacitor`       | GGUF                           | **True** token callback                 | Capacitor iOS/Android          |
+| Family | Driver / backend | Model format | Streaming | Target |
+|---|---|---|---|---|
+| **Web/JS** | WebLLMBackend | MLC-compiled (WebGPU) | True async-iterator | Browser, WebGPU-capable |
+| | TransformersBackend | ONNX (Transformers.js v4+) | True token-level via TextStreamer | Browser (WebGPU/WASM), Node |
+| | NativeBackend (Capacitor) | GGUF | True token callback | Capacitor iOS/Android |
+| **iOS native** | iOS-Llama | GGUF | True token | iOS device + simulator |
+| | iOS-CoreML | mlpackage | True token | iOS A14+ |
+| | iOS-Foundation | Apple Foundation Models | True token | iOS 18.4+ |
+| | iOS-MLX | MLX safetensors | True token | iOS A17+ / M-series |
+| **Android native** | Android-Llama | GGUF | True token | Android arm64 |
+| | Android-MediaPipe | MediaPipe LLM Inference (.task) | True token | Android |
+| | Android-LiteRT | TFLite | True token | Android (Phase 3B-migrated) |
+| **.NET (v2.4)** | Desktop-Llama (P/Invoke) | GGUF | True token | win-x64 / linux-x64 / osx-arm64 |
+| | .NET-ONNX | ONNX | True token | .NET 10 cross-platform |
+| | .NET-MLNet | ONNX (via ML.NET) | Per-call | .NET 10 desktop primary |
 
-Each driver implements the same four-method contract: `initialize(onProgress)`, `chatCompletion(body)`, `createStreamingResponse(body)` → `ReadableStream<Uint8Array>`, and `unload()`. The `DVAI` class does not know or care which driver is active; it only knows how to plug a driver into the OpenAI-shaped request/response surface described in §4.
+![Figure 6 — Platform × backend coverage](paper-assets/fig6-platform-coverage.svg)
+
+Each driver implements the same four-method contract: `initialize(onProgress)`, `chatCompletion(body)`, `createStreamingResponse(body)` → `ReadableStream<Uint8Array>` (or its platform-native equivalent — `AsyncSequence<Data>` on Swift, `Flow<ByteArray>` on Kotlin, `IAsyncEnumerable<ReadOnlyMemory<byte>>` on .NET), and `unload()`. The orchestrator does not know or care which driver is active; it only knows how to plug a driver into the OpenAI-shaped request/response surface described in §4.
 
 ### 3.3 Environment Detection and Auto-Selection
 
@@ -123,6 +135,8 @@ Two thin wrappers exist on top of the core:
 - **`@dvai-bridge/vanilla`** wraps the core with a `subscribe(listener)` observable pattern for frameworks (Vue, Svelte, Angular) or vanilla apps.
 
 Both are thin — the core does the work, the wrappers translate state transitions into idioms the framework likes.
+
+Beyond the React + Vanilla wrappers, DVAI-BRIDGE exposes parallel native SDKs that present the same OpenAI HTTP contract from inside their host language: a Capacitor plugin for hybrid mobile, an iOS Swift Package and an Android AAR for native mobile, a React Native TurboModule, a Flutter plugin, and a .NET NuGet family covering iOS + Android (via .NET MAUI), Mac Catalyst, and Windows / macOS / Linux desktop. All seven SDKs share the same handler logic, the same OpenAI endpoint set, and the same backend / state / progress contract. The differences are surface-level — `DVAIProvider` + `useDVAI` on React; `DVAIBridge.shared.start(...)` returning a `BoundServer` on Swift; `DVAIBridge.start(...)` on Kotlin (with a `StateFlow`-driven `reactive` surface for Compose); `DVAIBridge.instance.start(...)` returning a `Stream<DVAIBridgeState>` on Dart; `await DVAIBridge.Shared.StartAsync(...)` exposing an `IAsyncEnumerable<ProgressEvent>` on .NET. The substrate beneath each surface is identical: a per-process HTTP server (or, in the browser, an MSW interceptor) bound to `127.0.0.1:<port>/v1`, listening for the same OpenAI-shaped requests, dispatching to the same backend / state / progress machinery. The interface is what unifies the family; the implementations differ only where the host language idiom demands it.
 
 ---
 
@@ -321,7 +335,122 @@ The `MyChat` component does not know whether it is being served by WebLLM in Saf
 
 A cloud-to-local migration in this architecture involves three touched surfaces: one `baseURL` change, one `api-key` change, and one `<DVAIProvider>` wrap. No tool calls are rewritten. No agent graphs are rebuilt. No streaming parser is re-plumbed. The minimal-friction promise (G3) is kept on the development side.
 
-### 6.5 What Remains Unmeasured
+### 6.6 iOS-Native LangChain via the Swift OpenAI Client
+
+The iOS Swift Package (`@dvai-bridge/ios`, v2.0.0+) lets a SwiftUI / UIKit app start the bridge in-process — without Capacitor — and immediately point the official OpenAI Swift SDK (or the LangChain-Swift port) at the returned `baseUrl`. The integration is a four-line bootstrap plus the SDK call:
+
+```swift
+import DVAIBridge
+
+let server = try await DVAIBridge.shared.start(.init(
+    backend: .llama,
+    modelPath: "/path/to/Llama-3.2-1B-Instruct.Q4_K_M.gguf"
+))
+let openAI = OpenAI(configuration: .init(token: "local",
+    host: server.baseUrl))    // e.g. http://127.0.0.1:38883/v1
+let reply = try await openAI.chats(query: .init(messages: [.user("Hi")]))
+```
+
+The Swift SDK never knows the backend is local. The same pattern works against `.coreml` / `.foundation` (iOS 26+) / `.mlx` (Apple Silicon) by changing only the `backend` argument; the OpenAI wire contract is invariant. `DVAIBridge.shared.reactive` exposes a `@MainActor`-isolated `ObservableObject` (under SwiftPM) so a SwiftUI view can bind `isReady` / `baseUrl` / `currentBackend` without polling.
+
+### 6.7 Android-Native via OkHttp + Vercel AI SDK in Compose
+
+The Android AAR umbrella (`co.deepvoiceai:dvai-bridge`, v2.1.0+) presents the same `start(...)` → `BoundServer` API in Kotlin, returning a 127.0.0.1 base URL that any HTTP client can hit. The idiomatic Compose pattern uses `viewModelScope` + OkHttp for streaming and a `StateFlow` for UI binding:
+
+```kotlin
+val server = DVAIBridge.start(StartOptions(
+    backend = BackendKind.Auto,
+    modelPath = "/sdcard/Download/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+    contextSize = 2048, threads = 4,
+))
+val req = Request.Builder()
+    .url("${server.baseUrl}/chat/completions")
+    .post("""{"model":"${server.modelId}","stream":true,
+              "messages":[{"role":"user","content":"Hi"}]}"""
+        .toRequestBody("application/json".toMediaType()))
+    .build()
+OkHttpClient().newCall(req).execute().body!!.source().use { src ->
+    while (!src.exhausted()) emit(parseSseChunk(src.readUtf8Line()))
+}
+```
+
+The `BackendKind.Auto` resolver picks `Llama` from the `.gguf` extension; passing `MediaPipe` or `LiteRT` (Phase 3B + 3D) switches to `.task` / `.tflite` checkpoints. The Vercel AI SDK's Kotlin port (`ai-sdk-kotlin`) and any retrofit-shaped client work unchanged because the wire is OpenAI.
+
+### 6.8 React Native via openai-node over the TurboModule-Bound HTTP Server
+
+The React Native package (`@dvai-bridge/react-native`, v2.2.0+) is a TurboModule that delegates to the iOS / Android native SDKs and exposes a TS facade. The integration is one `start()` call plus pointing the standard `openai` npm SDK at the returned URL:
+
+```ts
+import { DVAIBridge, BackendKind } from "@dvai-bridge/react-native";
+import OpenAI from "openai";
+
+const server = await DVAIBridge.start({
+    backend: BackendKind.Auto,
+    modelPath: "/path/to/Llama-3.2-1B-Instruct.Q4_K_M.gguf",
+});
+const openai = new OpenAI({ baseURL: server.baseUrl, apiKey: "local" });
+const completion = await openai.chat.completions.create({
+    model: server.modelId,
+    stream: true,
+    messages: [{ role: "user", content: "Hi" }],
+});
+for await (const chunk of completion) console.log(chunk.choices[0].delta.content);
+```
+
+The streaming SSE parser inside `openai-node` works verbatim against the TurboModule-hosted HTTP server. `useDVAIBridgeState()` is a polling-free hook backed by the platform `NativeEventEmitter`, identical in shape across iOS and Android. `BackendKind` is the union of every backend the underlying iOS + Android SDKs offer; the JS facade rejects wrong-platform requests eagerly before the native round-trip.
+
+### 6.9 Flutter via dart:io HttpClient + Riverpod
+
+The Flutter plugin (`dvai_bridge`, v2.3.0+, on pub.dev) is the only family member published to a public registry. The Dart facade is `DVAIBridge.instance.start(...)`, returning a `BoundServer`; any Dart HTTP client (`dart:io`, `package:http`, `package:dio`) can hit the returned URL. Riverpod consumers idiomatically wire `stateStream` into a `StreamProvider`:
+
+```dart
+final server = await DVAIBridge.instance.start(const StartOptions(
+    backend: BackendKind.auto,
+    modelPath: '/path/to/Llama-3.2-1B-Instruct.Q4_K_M.gguf',
+));
+final res = await http.post(
+    Uri.parse('${server.baseUrl}/chat/completions'),
+    headers: const {'Content-Type': 'application/json'},
+    body: jsonEncode({
+        'model': server.modelId,
+        'messages': [{'role': 'user', 'content': 'Hi'}],
+    }),
+);
+
+// Riverpod binding for reactive UI:
+@riverpod
+Stream<DVAIBridgeState> dvaiBridgeState(DvaiBridgeStateRef ref) =>
+    DVAIBridge.instance.stateStream;
+```
+
+`StreamBuilder<DVAIBridgeState>` and `flutter_bloc`'s `Cubit` are equally first-class; the plugin emits identical event shapes on iOS and Android. CocoaPods consumers see the same `mlx` / `foundation` SwiftPM-only caveats that `@dvai-bridge/react-native` carries; everything else (Llama, CoreML, MediaPipe, LiteRT) works through the default pod path.
+
+### 6.10 .NET MAUI on Catalyst via Microsoft.SemanticKernel
+
+The .NET NuGet family (`DVAIBridge` + `DVAIBridge.iOS` / `.Android` / `.Desktop` / `.OnnxRuntime` / `.MLNet`, v2.4.0+) exposes `await DVAIBridge.Shared.StartAsync(...)` on every TFM the family supports — `net10.0`, `net10.0-ios26.2`, `net10.0-maccatalyst26.2`, `net10.0-android36.0`. The recommended .NET-side OpenAI consumer is **`Microsoft.SemanticKernel.Connectors.OpenAI`**, which configures via `Endpoint`:
+
+```csharp
+using DVAIBridge;
+using Microsoft.SemanticKernel;
+
+var server = await DVAIBridge.Shared.StartAsync(new StartOptions {
+    Backend = BackendKind.Auto,
+    ModelPath = await ResolveModelPathAsync(),
+});
+
+var kernel = Kernel.CreateBuilder()
+    .AddOpenAIChatCompletion(
+        modelId: server.ModelId,
+        apiKey: "local-stub",
+        endpoint: new Uri(server.BaseUrl))
+    .Build();
+
+var reply = await kernel.InvokePromptAsync("Hi");
+```
+
+On Catalyst, `BackendKind.Auto` resolves to `Llama` (Metal); pass `Foundation` for the bundled iOS-26 model, `MLX` for Apple Silicon, or `Onnx` for the cross-platform ONNX Runtime + GenAI path that also runs on Windows / Linux desktop. `ProgressEvents` is an `IAsyncEnumerable<ProgressEvent>` consumable from any `await foreach`; it interops with `Microsoft.Extensions.AI`, SignalR, and `System.IO.Pipelines` without a shim. The desktop slice ships native llama.cpp binaries via NuGet's `runtimes/<rid>/native/` mechanism, so `dotnet publish -r win-x64 --self-contained` produces a single-file desktop app with local LLM inference baked in.
+
+### 6.11 What Remains Unmeasured
 
 Honest disclosure: the current codebase and documentation carry **no published benchmarks**. Specifically absent are:
 
@@ -362,15 +491,27 @@ The deeper point is that the library's moat is not any single backend — Transf
 
 DVAI-BRIDGE, as shipped, is a substrate. Interesting substrates invite applications — especially applications that were previously blocked by the cloud assumption.
 
+### 8.0 Shipped Since v1
+
+The Phase 3 line of work has retired most of what the original v1.4 paper called "future":
+
+- **Native iOS Swift Package** (Phase 3C, v2.0.0) — `@dvai-bridge/ios`; SwiftPM + CocoaPods distribution; `.llama` / `.coreml` / `.foundation` / `.mlx` backends.
+- **Native Android AAR family** (Phase 3D, v2.1.0) — `co.deepvoiceai:dvai-bridge`; `Llama` / `MediaPipe` / `LiteRT` backends; GitHub Packages Maven distribution.
+- **React Native TurboModule** (Phase 3E, v2.2.0) — `@dvai-bridge/react-native`; cross-platform `BackendKind` union with eager wrong-platform validation.
+- **Flutter plugin** (Phase 3F, v2.3.0) — `dvai_bridge` on pub.dev (the only family member on a public registry); `Stream<DVAIBridgeState>` for reactive consumers.
+- **.NET NuGet family** (Phase 3G, v2.4.0) — six packages covering iOS / Android / Mac Catalyst / Desktop / ONNX Runtime / ML.NET; `BackendKind.Auto` / `Llama` / `Foundation` / `CoreML` / `MLX` / `MediaPipe` / `LiteRT` / `Onnx` / `MLNet`.
+- **LiteRT migration** (Phase 3B) — Android backend modernised onto Google's TFLite-successor runtime; pure-Kotlin BPE tokenizer parsing.
+- **Apple Foundation Models + MLX backends** (Phase 3C) — zero-download text on iOS 26+ via `LanguageModelSession`; Apple Silicon GPU/Neural Engine via `mlx-swift-lm`.
+- **MediaPipe LLM Inference + LiteRT backends** (Phase 3D) — Google's bundled-task runtime plus the bare LiteRT path with a hand-rolled BPE tokenizer.
+
+The remainder of §8 is forward-looking from this v2.4.0 baseline.
+
 ### 8.1 Roadmap for the Library Itself
 
-- **Expanded API surface.** `/v1/embeddings`, `/v1/completions`, and `/v1/models` have shipped. Remaining work: `/v1/audio/transcriptions` (unblocks privacy-native voice workflows) and `/v1/images` (unblocks local vision generation).
-- **Native Framework Support.** Dedicated drivers for .NET-based enterprise applications.
-- **Native mobile bindings.** First-class iOS (Swift) and Android (Kotlin) SDKs that expose the DVAI contract without requiring Capacitor.
-- **React Native bridge.** Bringing the local-inference layer directly into RN's native bridge so mobile UIs get native-speed streaming.
-- **Flutter / Dart bindings.** Parity with the TypeScript surface for the Flutter ecosystem.
-- **Cryptographic licence validation.** The current `LicenseValidator` is a placeholder; a signed-token design is planned for commercial deployments.
-- **Published benchmarks** (per §6.5).
+- **`/v1/audio/*` endpoint** — privacy-native voice workflows (Whisper-shaped transcription, plus TTS once a stable on-device pipeline emerges).
+- **`/v1/images/*` endpoint** — local vision generation (Stable-Diffusion-class through a Transformers.js or platform-native pipeline).
+- **Cryptographic / signed-token license validation.** The current `LicenseValidator` remains a placeholder; a signed-token design is the planned successor for commercial deployments.
+- **Published benchmarks** per §6.11 — the open methodology gap from the v1.4 paper, still open at v2.4.0.
 
 ### 8.2 DVAI-Connect: E2EE Meetings with On-Device Intelligence
 
@@ -415,10 +556,11 @@ We list the library's real limitations candidly, so that readers and adopters ca
 - **No built-in tool/function-calling runtime.** The library relies on the tool-calling loops of downstream agent SDKs (LangChain, Vercel AI SDK, CrewAI); for small local models it recommends manual JSON parsing on assistant content rather than the cloud-grade structured-tool-call protocol. This is a deliberate scope decision, not an oversight.
 - **MSW constraints.** Service Worker registration requires a secure origin (HTTPS or localhost), is unavailable inside pure Web Workers, and can be blocked in sandboxed iframes. Non-browser Node.js/Deno paths must use the direct API (`dvai.chatCompletion()`, `dvai.embedding()`, `dvai.createStreamingResponse()`).
 - **Licence validation is placeholder.** `LicenseValidator.ts` currently contains TODOs; a cryptographic verification design is planned for v2.
-- **Test coverage is selective.** Unit tests exercise backend resolution, config defaults, blank-chunk detection, embeddings, and legacy-completion stream conversion (35 tests across five files); there are no end-to-end tests against real models and no Native-backend tests (which require a Capacitor environment).
-- **Desktop/Electron path is implicit.** The library works in Electron via the Transformers.js backend but has no Electron-specific guide or packaging recipe in the documentation yet.
-- **No model caching layer.** Model weights are fetched from the Hugging Face CDN (Transformers.js) or the MLC catalogue (WebLLM) on first run. Offline-first packaging is the caller's responsibility today.
-- **No in-library agent runtime.** By design (§7), but worth restating: tool calling, retrieval, planning, and memory are delegated to external SDKs.
+- **Test coverage spans the family but stops short of E2E real-model coverage.** Unit tests cover the JS family (core, react, vanilla, capacitor) plus native iOS, native Android, React Native, Flutter, and .NET — >300 unit tests across the family — but published benchmarks against real models on real devices remain absent (see next item).
+- **No published benchmarks.** The methodology proposed in §6.11 — fixed test suites, three reference devices, latency / throughput / memory / power / quality-at-quantisation reporting — has not been executed.
+- **No model caching layer.** Model weights are fetched from the Hugging Face CDN (Transformers.js), the MLC catalogue (WebLLM), GGUF mirrors (llama.cpp), or platform-specific stores (MediaPipe `.task`, LiteRT `.tflite`, ONNX GenAI bundles) on first run. Offline-first packaging is the caller's responsibility today, though every native SDK exposes a `downloadModel` with sha256 verification as a building block.
+- **MLC LLM as a backend is parked.** A native MLC LLM mobile backend (parity with Llama / MediaPipe / LiteRT) was scoped during Phase 3 and parked pending build-chain stabilisation — see [`docs/research/2026-04-27-mlc-llm-backend-feasibility.md`](docs/research/2026-04-27-mlc-llm-backend-feasibility.md) for the parking decision and re-examination triggers.
+- **No in-library agent runtime.** By design (§7), but worth restating: tool calling, retrieval, planning, and memory are delegated to external SDKs (LangChain, Vercel AI SDK, CrewAI, Microsoft.SemanticKernel, etc.).
 
 ---
 
@@ -448,6 +590,15 @@ We see this as the right architectural move for a defined and growing class of A
 - [EUAIAct] European Parliament and Council. _Regulation (EU) 2024/1689 on Artificial Intelligence_.
 - [Capacitor] Ionic. _Capacitor — Cross-platform native runtime for web apps_. https://capacitorjs.com
 - [WebGPU] W3C. _WebGPU — Working Draft_. https://www.w3.org/TR/webgpu/
+- [AppleFM] Apple. _Foundation Models framework — On-device large language model inference_. https://developer.apple.com/documentation/foundationmodels
+- [MLX] Apple Machine Learning Research. _MLX — An array framework for Apple silicon_. https://github.com/ml-explore/mlx
+- [MediaPipe] Google. _MediaPipe LLM Inference Guide_. https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference
+- [LiteRT] Google. _LiteRT — TensorFlow Lite's successor for on-device ML_. https://ai.google.dev/edge/litert
+- [MLNet] Microsoft. _ML.NET — Open-source machine learning framework for .NET_. https://dotnet.microsoft.com/en-us/apps/ai/ml-dotnet
+- [ORTGenAI] Microsoft. _ONNX Runtime GenAI — Generative AI extensions for ONNX Runtime_. https://github.com/microsoft/onnxruntime-genai
+- [SemanticKernel] Microsoft. _Semantic Kernel — Integrate cutting-edge LLM technology into your apps_. https://github.com/microsoft/semantic-kernel
+- [Pigeon] Flutter. _Pigeon — Code generator for type-safe Flutter platform-channel APIs_. https://pub.dev/packages/pigeon
+- [TurboModules] Meta. _React Native TurboModules — JSI-based native module system_. https://reactnative.dev/docs/the-new-architecture/landing-page
 
 ---
 

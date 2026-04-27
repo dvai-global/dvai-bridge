@@ -1,0 +1,15 @@
+name: ios-native-quickstart
+description: Hello-world flow on the iOS Native SDK SwiftUI example (DVAIBridge SwiftPM).
+output: docs/marketing/assets/ios-quickstart.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Open the Xcode iOS Simulator; SwiftUI app already linked against DVAIBridge."
+  - duration: 7
+    caption: "Tap 'Start' — DVAIBridge.shared.start(.init(backend: .llama, modelPath: ...))."
+  - duration: 8
+    caption: "Watch the DVAIBridgeReactiveState progress bar fill (model load)."
+  - duration: 12
+    caption: "Type a prompt; SSE chunks render token-by-token from llama.cpp Metal."
+  - duration: 5
+    caption: "Closing card: 'DVAIBridge — Swift Package, Metal acceleration, OpenAI on loopback'."

@@ -3,6 +3,105 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.4.1] — 2026-04-27
+
+Phase 3H — end-of-Phase-3 polish. Documentation, build tooling, demo
+automation, launch playbook, and a substantially rewritten research
+paper. **No code changes; no consumer-visible API surface change.**
+Patch-bumped so the repo, packages, and research paper share one
+citeable version.
+
+### Added
+
+- **`CONTRIBUTING.md`** at repo root — PR flow, commit conventions,
+  per-SDK contributor pointers, license + copyright stance.
+- **`docs/development/contributing-{ios,android,react-native,flutter,dotnet}.md`**
+  — five new per-SDK contributor pages: prerequisites, build + test
+  loop, common breakage modes, cross-links to user-facing guides and
+  cross-cutting dev pages.
+- **Per-platform build scripts** under `scripts/`:
+  - `build-web.sh`, `build-ios.sh`, `build-android.sh`,
+    `build-react-native.sh`, `build-flutter.sh`, `build-dotnet.sh`
+    — single-purpose helpers per slice.
+  - `build-all.sh` + `build-all.ps1` — orchestrator. Auto-detects
+    host (Mac / Linux / Windows ± WSL) and runs only the slices that
+    work there. `--fail-fast` for CI; otherwise prints per-slice
+    summary.
+- **Demo-recording automation**:
+  - `scripts/record-demo.sh` (Bash) + `scripts/record-demo.ps1`
+    (PowerShell) wrap `ffmpeg` around a YAML scene-list schema.
+  - `scripts/demos/` — 7 per-SDK YAML flow files (Web React,
+    Capacitor, iOS, Android, RN, Flutter, .NET MAUI) + schema
+    `README.md`.
+  - `--dry-run` parses + prints the scene timeline without invoking
+    `ffmpeg`.
+- **GitHub Pages docs deployment**:
+  - `.github/workflows/deploy-docs.yml` — VitePress build +
+    `actions/deploy-pages@v4`. Triggers on push to main when
+    `docs/**`, `README.md`, or `CHANGELOG.md` changes.
+  - `docs/public/CNAME` → `dvai-bridge.deepvoiceai.co`. DNS + Pages
+    settings + cert flow documented in private `PUBLISHING.md`.
+- **`RESEARCH.md` figure 6** — `paper-assets/fig6-platform-coverage.svg`
+  — 7 SDK rows × 10 backend columns lattice diagram. Embedded in
+  §3.2 and the regenerated PDF.
+
+### Changed
+
+- **`README.md`** —
+  - Supported-platforms table now lists all 6 SDKs with correct
+    package coordinates (RN + Flutter rows added; .NET row's NuGet
+    ID corrected to `co.deepvoiceai.dvai-bridge*`; Android registry
+    corrected from "Maven Central" to "GitHub Packages Maven").
+  - Removed misleading "RN/Flutter coming soon" paragraph.
+  - iOS install snippet repo URL fixed (`dvai-bridge-swift` →
+    `dvai-bridge`); install snippets bumped from `1.0.0` examples to
+    `2.4.0+`.
+  - Added Flutter + RN install snippets and usage examples; rewrote
+    .NET example to use the actual `DVAIBridge.Shared.StartAsync(...)`
+    surface.
+  - Contributing section now links to `CONTRIBUTING.md` and
+    `docs/development/`.
+- **VitePress site** —
+  - Hero tagline + `description` + features list expanded to the
+    6-SDK story.
+  - `docs/guide/introduction.md` "MOAT" list now names Flutter and
+    .NET (mobile + desktop) explicitly.
+  - `docs/guide/comparison.md` "When you should NOT use" line about
+    Flutter being "in flight" replaced with the actual constraint
+    (RN ≤ 0.73 + Bridgeless OFF).
+  - Sidebar gains a "Contributing" section.
+- **`RESEARCH.md`** —
+  - Abstract extended for 6 SDKs + 9 backends.
+  - §3.2 driver table 3 → 12 rows (family-grouped).
+  - §3.5 wrapper section extended with the SDK family lineage.
+  - 5 new case studies (§6.6 iOS / §6.7 Android / §6.8 RN / §6.9
+    Flutter / §6.10 .NET MAUI on Catalyst).
+  - New §8.0 "Shipped since v1" recap; §8.1 roadmap slimmed to
+    genuinely-unfinished items (`/v1/audio/*`, `/v1/images/*`,
+    signed-token license, published benchmarks).
+  - §9 limitations refreshed (>300 tests across the family;
+    desktop is now first-class; MLC parking added).
+  - References extended for Apple Foundation Models, MLX, MediaPipe
+    LLM, LiteRT, ML.NET, ONNX Runtime GenAI, Microsoft.SemanticKernel,
+    Pigeon, RN TurboModules.
+- **`packages/dvai-bridge-dotnet/global.json`** SDK pin bumped from
+  `10.0.100` to `10.0.203` (matches the documented contributor floor;
+  `rollForward: latestFeature` continues to allow newer feature bands).
+
+### Distribution
+
+- All 36 dvai-bridge packages bump 2.4.0 → 2.4.1 in lockstep via
+  `scripts/sync-versions.js`. **No registry publishes happen as part
+  of v2.4.1** — patch is git-tag-only; npm / Maven / NuGet / pub.dev
+  versions stay at 2.4.0 until the user runs the publish flow per
+  `PUBLISHING.md`.
+
+### No breaking changes
+
+No API surface changes; no migration guide needed.
+
+---
+
 ## [2.4.0] — 2026-04-27
 
 Phase 3G — `.NET` NuGet family ships. Wraps the iOS + Android SDKs for

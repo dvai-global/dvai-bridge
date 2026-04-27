@@ -18,10 +18,11 @@ language's OpenAI client — at a real, fully local HTTP endpoint, across:
 - **Node / Bun**
 - **Electron** (main process, with full-native GPU acceleration)
 - **Capacitor hybrid mobile** (iOS + Android)
-- **Android native** (Kotlin / Java, via AAR — `@dvai-bridge/android`)
-- **iOS native** (Swift, via Swift Package Manager — `@dvai-bridge/ios`)
+- **iOS native** (Swift, via SwiftPM / CocoaPods — `DVAIBridge`)
+- **Android native** (Kotlin / Java, via AAR — `co.deepvoiceai:dvai-bridge`)
 - **React Native** (TurboModule on RN ≥ 0.77 — `@dvai-bridge/react-native`)
-- **.NET desktop** (C#, via NuGet — Windows, macOS, Linux)
+- **Flutter** (Dart, via pub.dev — `dvai_bridge`)
+- **.NET 10 LTS** (C#, via NuGet — `co.deepvoiceai.dvai-bridge*`; covers .NET MAUI on iOS / Android, Mac Catalyst, Avalonia / WinUI desktop, and Windows / macOS / Linux console apps)
 
 Same OpenAI HTTP surface, multiple language ecosystems, every major
 platform. No other project covers this combination.
@@ -133,15 +134,20 @@ Cutting-edge multimodal models rarely need option 3. Pick 1 or 2.
 When configured with `backend: "auto"`, DVAI-Bridge picks the best backend
 for the runtime:
 
-1. **Mobile (Capacitor / native iOS / native Android / React Native):**
-   native llama.cpp with platform-specific acceleration (Metal on iOS;
-   Vulkan or NNAPI / QNN on Android). The native SDKs additionally let
-   you opt into MLX / CoreML / Foundation Models on iOS, and
-   MediaPipe / LiteRT on Android.
-2. **Electron main / .NET desktop:** native llama.cpp with CUDA / Metal
-   / Vulkan / DirectML, whichever is available.
-3. **Browser:** WebLLM if WebGPU is present; Transformers.js otherwise.
-4. **Node:** Transformers.js or native llama.cpp depending on what's
+1. **Mobile (Capacitor / native iOS / native Android / React Native /
+   Flutter / .NET MAUI):** native llama.cpp with platform-specific
+   acceleration (Metal on iOS; Vulkan or NNAPI / QNN on Android). The
+   native SDKs additionally let you opt into MLX / CoreML / Foundation
+   Models on iOS, and MediaPipe / LiteRT on Android. .NET MAUI inherits
+   the same backend matrix via the platform-specific NuGet slices.
+2. **.NET Mac Catalyst:** routes to the same iOS backend matrix
+   (Foundation / CoreML / MLX / Llama).
+3. **Electron main / .NET desktop:** native llama.cpp with CUDA / Metal
+   / Vulkan / DirectML, whichever is available. .NET hosts can additionally
+   pull in `co.deepvoiceai.dvai-bridge.onnxruntime` (ONNX Runtime GenAI)
+   or `co.deepvoiceai.dvai-bridge.mlnet` (ML.NET) as backends.
+4. **Browser:** WebLLM if WebGPU is present; Transformers.js otherwise.
+5. **Node:** Transformers.js or native llama.cpp depending on what's
    installed.
 
 ## Transport auto-detection

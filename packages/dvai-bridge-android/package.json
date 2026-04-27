@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/android",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "DVAI-Bridge Android native SDK — embedded local OpenAI-compatible HTTP server with llama.cpp + MediaPipe (LiteRT-LM) + LiteRT backends. Capacitor-free, pure Kotlin singleton API.",
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",
