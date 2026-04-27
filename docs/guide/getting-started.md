@@ -7,7 +7,7 @@ Follow these steps to integrate DVAI-Bridge into your project.
 Install the core package along with any backends you plan to use.
 
 ```bash
-# Core package
+# Core package (web / Node / Electron)
 pnpm add @dvai-bridge/core
 
 # Transformers.js v4 (for ONNX models from Hugging Face)
@@ -16,8 +16,12 @@ pnpm add @huggingface/transformers@^4.0.1
 # WebLLM (for MLC-compiled models)
 pnpm add @mlc-ai/web-llm
 
-# Native LLM (for Capacitor/Mobile)
-pnpm add llama-cpp-capacitor
+# Native LLM — pick the package that fits your stack:
+pnpm add @dvai-bridge/capacitor             # Capacitor hybrid (iOS + Android)
+# Or for native apps without Capacitor:
+#   - SwiftUI / UIKit  → @dvai-bridge/ios            (see iOS Native SDK guide)
+#   - Compose / Views  → co.deepvoiceai:dvai-bridge  (see Android Native SDK guide)
+#   - React Native     → @dvai-bridge/react-native   (RN ≥ 0.77, Bridgeless ON)
 ```
 
 ### Framework Wrappers
@@ -201,7 +205,7 @@ const res = await fetch("https://api.openai.local/v1/embeddings", {
 });
 ```
 
-On the **native** (llama-cpp-capacitor) backend, set `nativeEmbeddingMode: true` and point `nativeModelPath` at a GGUF embedding model. The native chat and embedding contexts are distinct — for both, construct two `DVAI` instances.
+On the **native** llama.cpp backend (Capacitor / iOS / Android / RN), set `nativeEmbeddingMode: true` (Capacitor / Web) or `embeddingMode: true` in `StartOptions` (native SDKs) and point `modelPath` at a GGUF embedding model. The native chat and embedding contexts are distinct — for both, run two backend instances.
 
 **WebLLM does not support embeddings** — `/v1/embeddings` returns 400 on the WebLLM backend.
 

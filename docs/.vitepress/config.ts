@@ -73,6 +73,15 @@ export default defineConfig({
 				],
 			},
 			{
+				text: "Migration Guides",
+				items: [
+					{ text: "v1.5 → v1.6", link: "/migration/v1.5-to-v1.6" },
+					{ text: "v1.6 → v2.0", link: "/migration/v1.6-to-v2.0" },
+					{ text: "v2.0 → v2.1", link: "/migration/v2.0-to-v2.1" },
+					{ text: "v2.1 → v2.2", link: "/migration/v2.1-to-v2.2" },
+				],
+			},
+			{
 				text: "Development",
 				items: [
 					{ text: "Testing", link: "/development/testing" },
