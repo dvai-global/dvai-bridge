@@ -1,5 +1,5 @@
 import XCTest
-@testable import DVAILlamaCore
+@testable import DVAISharedCore
 import Telegraph
 
 /// A fake DVAIHandlers implementation that returns canned responses.

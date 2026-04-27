@@ -27,18 +27,22 @@ INTRA_POD_MODULES = {
     "OrderedCollections",
     "InternalCollectionsUtilities",
     "Tokenizers",
+    "DVAISharedCore",
     "DVAILlamaCore",
     "DVAILlamaCoreObjC",
     "DVAIFoundationCore",
     "DVAICoreMLCore",
+    "DVAIMLXCore",
 }
 
 # Files we operate on. Two roots: vendored upstream + DVAI sources.
 SCAN_ROOTS = [
     ROOT / "packages" / "dvai-bridge-ios" / "Vendor" / "swift-transformers",
     ROOT / "packages" / "dvai-bridge-ios" / "ios" / "Sources",
+    ROOT / "packages" / "dvai-bridge-ios-shared-core" / "ios" / "Sources",
     ROOT / "packages" / "dvai-bridge-ios-llama-core" / "ios" / "Sources",
     ROOT / "packages" / "dvai-bridge-ios-foundation-core" / "ios" / "Sources",
+    ROOT / "packages" / "dvai-bridge-ios-mlx-core" / "ios" / "Sources",
 ]
 
 # Matches: `import Hub`, `import struct Hub.Config`, `import class Foo.Bar`,

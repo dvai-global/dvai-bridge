@@ -42,6 +42,9 @@
 import FoundationModels
 #endif
 import Foundation
+#if !COCOAPODS
+import DVAISharedCore
+#endif
 
 #if canImport(FoundationModels)
 @available(iOS 26.0, macOS 26.0, *)

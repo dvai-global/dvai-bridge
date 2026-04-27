@@ -27,10 +27,11 @@ Pod::Spec.new do |s|
     'ios/Sources/DVAIBridge/**/*.swift',
     # CoreML backend (uses vendored Tokenizers + Hub + Jinja)
     'ios/Sources/DVAICoreMLCore/**/*.swift',
-    # llama.cpp backend + Foundation Models backend — copied from sibling
-    # `*-core` packages into Sources/_external/ by prepare_command, because
-    # CocoaPods' file globs do not follow `..` paths reliably across pod
-    # boundaries.
+    # Shared HTTP-server / handler-dispatch types, plus llama.cpp backend
+    # — copied from sibling *-core packages into Sources/_external/ by
+    # prepare_command (CocoaPods' file globs do not follow `..` paths
+    # reliably across pod boundaries).
+    'Sources/_external/DVAISharedCore/**/*.swift',
     'Sources/_external/DVAILlamaCore/**/*.swift',
     'Sources/_external/DVAILlamaCoreObjC/**/*.{h,mm}',
     # NOTE: DVAIFoundationCore is intentionally NOT in the pod. It uses
@@ -78,9 +79,11 @@ Pod::Spec.new do |s|
     # visible to CocoaPods' file glob (it doesn't follow `..` paths).
     rm -rf Sources/_external
     mkdir -p Sources/_external
+    cp -R ../dvai-bridge-ios-shared-core/ios/Sources/DVAISharedCore Sources/_external/
     cp -R ../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCore Sources/_external/
     cp -R ../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC Sources/_external/
-    # FoundationCore is intentionally NOT mirrored — see source_files comment.
+    # FoundationCore + MLXCore are intentionally NOT mirrored — see
+    # source_files comment.
   SH
 
   s.vendored_frameworks = [

@@ -20,6 +20,7 @@
 
 import XCTest
 @testable import DVAIFoundationCore
+import DVAISharedCore
 
 #if canImport(FoundationModels)
 import FoundationModels

@@ -15,17 +15,20 @@ let package = Package(
     ],
     dependencies: [
         // Path-dep to the cores. Identity is derived from the path's last
-        // directory name; both cores have manifests at their package root,
-        // so identities are `dvai-bridge-ios-llama-core` /
-        // `dvai-bridge-ios-foundation-core` / `dvai-bridge-ios-mlx-core`.
+        // directory name; each core has its manifest at the package root,
+        // so identities are `dvai-bridge-ios-shared-core` /
+        // `dvai-bridge-ios-llama-core` / `dvai-bridge-ios-foundation-core` /
+        // `dvai-bridge-ios-mlx-core`.
+        .package(path: "../dvai-bridge-ios-shared-core"),
         .package(path: "../dvai-bridge-ios-llama-core"),
         .package(path: "../dvai-bridge-ios-foundation-core"),
         .package(path: "../dvai-bridge-ios-mlx-core"),
         // swift-transformers 1.3.0 (latest stable as of 2026-04-26).
         // Provides Tokenizers product for HuggingFace tokenizer loading.
         .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.3.0"),
-        // Telegraph HTTP server — transitively used by llama-core; we pull it
-        // directly for DVAICoreMLCore so it doesn't depend on the llama target.
+        // Telegraph HTTP server — transitively used by shared-core; we pull
+        // it directly for DVAICoreMLCore so the target's link line is
+        // self-explanatory.
         .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
     ],
     targets: [
@@ -34,13 +37,22 @@ let package = Package(
             dependencies: [
                 .product(name: "Tokenizers", package: "swift-transformers"),
                 "Telegraph",
-                .product(name: "DVAILlamaCore", package: "dvai-bridge-ios-llama-core"),
+                // CoreML backend uses shared HTTP types — DOES NOT depend on
+                // DVAILlamaCore (so CoreML-only consumers don't transitively
+                // pull llama.xcframework).
+                .product(name: "DVAISharedCore", package: "dvai-bridge-ios-shared-core"),
             ],
             path: "ios/Sources/DVAICoreMLCore"
         ),
         .target(
             name: "DVAIBridge",
             dependencies: [
+                // DVAIBridge depends on all four backends + shared types.
+                // The llama-core dep is what brings in ModelDownloader; if a
+                // future refactor extracts that too, DVAIBridge could drop
+                // the llama-core dep when the consumer is using only
+                // .mlx / .foundation / .coreml.
+                .product(name: "DVAISharedCore", package: "dvai-bridge-ios-shared-core"),
                 .product(name: "DVAILlamaCore", package: "dvai-bridge-ios-llama-core"),
                 .product(name: "DVAIFoundationCore", package: "dvai-bridge-ios-foundation-core"),
                 .product(name: "DVAIMLXCore", package: "dvai-bridge-ios-mlx-core"),
@@ -52,6 +64,7 @@ let package = Package(
             name: "DVAIBridgeTests",
             dependencies: [
                 "DVAIBridge",
+                .product(name: "DVAISharedCore", package: "dvai-bridge-ios-shared-core"),
                 .product(name: "DVAILlamaCore", package: "dvai-bridge-ios-llama-core"),
                 .product(name: "DVAIFoundationCore", package: "dvai-bridge-ios-foundation-core"),
                 .product(name: "DVAIMLXCore", package: "dvai-bridge-ios-mlx-core"),

@@ -16,9 +16,12 @@
 //     Apple FM does not expose any of those knobs.
 
 import Foundation
+#if !COCOAPODS
+import DVAISharedCore
+#endif
 
 public actor FoundationPluginState {
-    private var server: FoundationHttpServer?
+    private var server: HttpServer?
     /// Type-erased reference to the live `FoundationHandlers` instance.
     /// Stored as `AnyObject?` rather than `FoundationHandlers?` so we
     /// don't have to mark the entire actor `@available(iOS 26.0, *)` —
@@ -67,7 +70,7 @@ public actor FoundationPluginState {
         let modelId = modelIdOverride ?? "apple-foundation-3b"
 
         // Bind server with port-fallback (mirrors capacitor-llama).
-        let server = FoundationHttpServer()
+        let server = HttpServer()
         let port = try await server.tryBind(
             basePort: httpBasePort,
             maxAttempts: httpMaxPortAttempts,

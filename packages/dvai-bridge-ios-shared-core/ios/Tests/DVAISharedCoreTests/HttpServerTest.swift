@@ -1,5 +1,5 @@
 import XCTest
-@testable import DVAILlamaCore
+@testable import DVAISharedCore
 
 final class HttpServerTest: XCTestCase {
     func testTryBindBindsBasePort() async throws {

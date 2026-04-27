@@ -15,6 +15,11 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
+        // Shared HTTP-server / handler-dispatch types (formerly duplicated
+        // inline; now extracted into dvai-bridge-ios-shared-core for reuse
+        // across all backend cores). Path-dep identity =
+        // "dvai-bridge-ios-shared-core".
+        .package(path: "../dvai-bridge-ios-shared-core"),
     ],
     targets: [
         // Package.swift sits at the package ROOT (not under `ios/`) so SPM derives
@@ -22,12 +27,18 @@ let package = Package(
         // Target paths are relative to Package.swift, hence the `ios/` prefix.
         .target(
             name: "DVAIFoundationCore",
-            dependencies: ["Telegraph"],
+            dependencies: [
+                "Telegraph",
+                .product(name: "DVAISharedCore", package: "dvai-bridge-ios-shared-core"),
+            ],
             path: "ios/Sources/DVAIFoundationCore"
         ),
         .testTarget(
             name: "DVAIFoundationCoreTests",
-            dependencies: ["DVAIFoundationCore"],
+            dependencies: [
+                "DVAIFoundationCore",
+                .product(name: "DVAISharedCore", package: "dvai-bridge-ios-shared-core"),
+            ],
             path: "ios/Tests/DVAIFoundationCoreTests"
         ),
     ]
