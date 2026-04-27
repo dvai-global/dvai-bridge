@@ -98,6 +98,14 @@ Pod::Spec.new do |s|
   # with the same source SwiftPM consumes.
   s.pod_target_xcconfig = {
     'OTHER_SWIFT_FLAGS' => '$(inherited) -package-name DVAIBridgeVendored -enable-experimental-feature Lifetimes',
+    # Pin the test-app deployment target to our pod's iOS minimum so the
+    # auto-linker's resolution of Combine/ObservableObject doesn't fall
+    # through to SwiftUICore (a private framework that throws "not an
+    # allowed client of it" when iOS deployment target is below 14).
+    'IPHONEOS_DEPLOYMENT_TARGET' => '18.1',
+  }
+  s.user_target_xcconfig = {
+    'IPHONEOS_DEPLOYMENT_TARGET' => '18.1',
   }
 
   # Telegraph stays at ~> 0.30 because Building42 publishes 0.40+ as GitHub
