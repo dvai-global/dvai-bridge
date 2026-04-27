@@ -1,23 +1,15 @@
 require 'json'
 package = JSON.parse(File.read(File.join(__dir__, 'package.json')))
 
-# Subspec layout mirrors our SwiftPM module graph so cross-target imports
-# (`import DVAILlamaCore`, `import Tokenizers`, etc.) resolve in CocoaPods
-# the same way they do in SwiftPM.
-#
-#   Core (default) ─┬─► LlamaCore ──► LlamaCoreObjC ──► (llama+mtmd xcframework)
-#                   │           ╰─► Telegraph
-#                   ├─► FoundationCore ──► Telegraph
-#                   └─► CoreMLCore ──► LlamaCore
-#                                  └─► Tokenizers ──► Hub ──► Jinja ──► OrderedCollections ──► InternalCollectionsUtilities
-#
-# The HuggingFace swift-transformers stack (Tokenizers / Hub / Jinja /
-# OrderedCollections / InternalCollectionsUtilities) is vendored under
-# `Vendor/swift-transformers/` because none of those packages publishes a
-# CocoaPods spec. The vendored Hub/HubApi.swift is stripped of network /
-# Crypto / yyjson code paths — see Vendor/swift-transformers/Hub/HubApi.swift
-# for the rationale. SwiftPM consumers (Package.swift) continue to resolve
-# the upstream packages directly and do not see the vendored copies.
+# CocoaPods doesn't allow per-subspec `module_name`, so the whole pod compiles
+# into a single Swift module called `DVAIBridge`. Cross-target imports inside
+# our SwiftPM module graph (e.g. `import DVAILlamaCore`, `import Tokenizers`)
+# are wrapped with `#if !COCOAPODS` (see scripts/wrap-cocoapods-imports.py)
+# so they remain real imports under SwiftPM and become no-ops here, where
+# everything is already same-module. SwiftPM consumers continue to resolve
+# the upstream swift-transformers / swift-jinja / swift-collections packages
+# through Package.swift; only CocoaPods consumers see the vendored copies
+# under Vendor/swift-transformers/.
 
 Pod::Spec.new do |s|
   s.name             = 'DVAIBridge'
@@ -30,85 +22,46 @@ Pod::Spec.new do |s|
   s.platform         = :ios, '18.1'
   s.swift_version    = '5.9'
 
-  # ===========================================================================
-  # Vendored swift-transformers stack (not on CocoaPods trunk)
-  # ===========================================================================
+  s.source_files = [
+    # DVAI core actor + reactive state
+    'ios/Sources/DVAIBridge/**/*.swift',
+    # CoreML backend (uses vendored Tokenizers + Hub + Jinja)
+    'ios/Sources/DVAICoreMLCore/**/*.swift',
+    # llama.cpp backend Swift + ObjC++ bridge
+    '../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCore/**/*.swift',
+    '../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC/**/*.{h,mm}',
+    # Foundation Models (iOS 26+) backend
+    '../dvai-bridge-ios-foundation-core/ios/Sources/DVAIFoundationCore/**/*.swift',
+    # Vendored swift-transformers stack — see Vendor/swift-transformers/ for
+    # upstream attributions and the rationale for stripping HubApi.swift.
+    'Vendor/swift-transformers/Tokenizers/**/*.swift',
+    'Vendor/swift-transformers/Hub/**/*.swift',
+    'Vendor/swift-transformers/Jinja/**/*.swift',
+    'Vendor/swift-transformers/OrderedCollections/**/*.swift',
+    'Vendor/swift-transformers/InternalCollectionsUtilities/**/*.swift',
+  ]
 
-  s.subspec 'InternalCollectionsUtilities' do |sub|
-    sub.source_files = 'Vendor/swift-transformers/InternalCollectionsUtilities/**/*.swift'
-    sub.module_name  = 'InternalCollectionsUtilities'
-  end
+  s.public_header_files = '../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC/include/*.h'
 
-  s.subspec 'OrderedCollections' do |sub|
-    sub.source_files = 'Vendor/swift-transformers/OrderedCollections/**/*.swift'
-    sub.module_name  = 'OrderedCollections'
-    sub.dependency 'DVAIBridge/InternalCollectionsUtilities'
-  end
+  # Tokenizer fallback configs (gpt2_tokenizer_config.json, t5_..) are looked
+  # up via Bundle.module by the vendored Hub.swift. Vendor/.../Hub/BundleModuleShim.swift
+  # provides Bundle.module under !SWIFT_PACKAGE so the lookup resolves to the
+  # framework's main bundle, where these resources land.
+  s.resources = ['Vendor/swift-transformers/Hub/Resources/*.json']
 
-  s.subspec 'Jinja' do |sub|
-    sub.source_files = 'Vendor/swift-transformers/Jinja/**/*.swift'
-    sub.module_name  = 'Jinja'
-    sub.dependency 'DVAIBridge/OrderedCollections'
-  end
+  # Prebuilt llama.cpp + mtmd binaries — produced by
+  # scripts/mac-side-prepare-xcframework.sh. Both are gitignored; the script
+  # rebuilds them whenever the llama.cpp submodule SHA changes.
+  s.vendored_frameworks = [
+    '../dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/llama.xcframework',
+    '../dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/mtmd.xcframework',
+  ]
 
-  s.subspec 'Hub' do |sub|
-    sub.source_files = 'Vendor/swift-transformers/Hub/**/*.swift'
-    sub.resources    = ['Vendor/swift-transformers/Hub/Resources/*.json']
-    sub.module_name  = 'Hub'
-    sub.dependency 'DVAIBridge/Jinja'
-  end
+  s.frameworks = ['Foundation', 'CoreML']
 
-  s.subspec 'Tokenizers' do |sub|
-    sub.source_files = 'Vendor/swift-transformers/Tokenizers/**/*.swift'
-    sub.module_name  = 'Tokenizers'
-    sub.dependency 'DVAIBridge/Hub'
-    sub.dependency 'DVAIBridge/Jinja'
-  end
-
-  # ===========================================================================
-  # DVAI native cores (mirror the *-core SwiftPM packages)
-  # ===========================================================================
-
-  s.subspec 'LlamaCoreObjC' do |sub|
-    sub.source_files = '../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC/**/*.{h,mm}'
-    sub.public_header_files = '../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC/include/*.h'
-    sub.module_name  = 'DVAILlamaCoreObjC'
-    sub.requires_arc = true
-    sub.vendored_frameworks = [
-      '../dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/llama.xcframework',
-      '../dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/mtmd.xcframework',
-    ]
-    sub.frameworks = ['Foundation']
-  end
-
-  s.subspec 'LlamaCore' do |sub|
-    sub.source_files = '../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCore/**/*.swift'
-    sub.module_name  = 'DVAILlamaCore'
-    sub.dependency 'DVAIBridge/LlamaCoreObjC'
-    sub.dependency 'Telegraph', '~> 0.30'
-  end
-
-  s.subspec 'FoundationCore' do |sub|
-    sub.source_files = '../dvai-bridge-ios-foundation-core/ios/Sources/DVAIFoundationCore/**/*.swift'
-    sub.module_name  = 'DVAIFoundationCore'
-    sub.dependency 'Telegraph', '~> 0.30'
-  end
-
-  s.subspec 'CoreMLCore' do |sub|
-    sub.source_files = 'ios/Sources/DVAICoreMLCore/**/*.swift'
-    sub.module_name  = 'DVAICoreMLCore'
-    sub.dependency 'DVAIBridge/LlamaCore'
-    sub.dependency 'DVAIBridge/Tokenizers'
-    sub.dependency 'Telegraph', '~> 0.30'
-  end
-
-  s.subspec 'Core' do |sub|
-    sub.source_files = 'ios/Sources/DVAIBridge/**/*.swift'
-    sub.module_name  = 'DVAIBridge'
-    sub.dependency 'DVAIBridge/LlamaCore'
-    sub.dependency 'DVAIBridge/FoundationCore'
-    sub.dependency 'DVAIBridge/CoreMLCore'
-  end
-
-  s.default_subspecs = ['Core']
+  # Telegraph stays at ~> 0.30 because Building42 publishes 0.40+ as GitHub
+  # tags only; CocoaPods trunk caps at 0.30.0. Our usage only touches stable
+  # core types (Server / HTTPRequest / HTTPResponse / HTTPStatus / HTTPHeaders),
+  # so consumers on either channel get a working build.
+  s.dependency 'Telegraph', '~> 0.30'
 end

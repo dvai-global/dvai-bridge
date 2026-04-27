@@ -1,5 +1,7 @@
 import Foundation
+#if !COCOAPODS
 import OrderedCollections
+#endif
 
 /// Parses tokens into an abstract syntax tree for Jinja templates.
 ///

@@ -14,7 +14,9 @@
 // The parts of MutableCollection that OrderedSet is able to implement.
 
 #if !COLLECTIONS_SINGLE_MODULE
+#if !COCOAPODS
 import InternalCollectionsUtilities
+#endif
 #endif
 
 extension OrderedSet {

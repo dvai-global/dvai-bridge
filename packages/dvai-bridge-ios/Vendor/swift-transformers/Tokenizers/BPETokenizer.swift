@@ -7,7 +7,9 @@
 //
 
 import Foundation
+#if !COCOAPODS
 import Hub
+#endif
 
 /// A pair of byte/token strings used in Byte-Pair Encoding (BPE) merge operations.
 struct BytePair: Hashable, Sendable {

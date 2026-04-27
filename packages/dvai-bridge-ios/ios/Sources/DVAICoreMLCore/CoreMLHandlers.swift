@@ -1,5 +1,7 @@
 import Foundation
+#if !COCOAPODS
 import DVAILlamaCore
+#endif
 
 /// `DVAIHandlers` conformer for the CoreML backend.
 /// Translates OpenAI-compatible HTTP requests into CoreMLGenerator calls and

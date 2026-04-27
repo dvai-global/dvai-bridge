@@ -5,7 +5,9 @@
 //  Created by Piotr Kowalczuk on 06.03.25.
 
 import Foundation
+#if !COCOAPODS
 import Jinja
+#endif
 
 // MARK: - Configuration files with dynamic lookup
 

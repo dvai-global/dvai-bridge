@@ -1,8 +1,14 @@
 import Foundation
 import Combine
+#if !COCOAPODS
 import DVAILlamaCore
+#endif
+#if !COCOAPODS
 import DVAIFoundationCore
+#endif
+#if !COCOAPODS
 import DVAICoreMLCore
+#endif
 
 /// The iOS SDK entry-point. Use the `shared` singleton or construct an instance
 /// for test isolation. All methods are async-throws and dispatch to the active

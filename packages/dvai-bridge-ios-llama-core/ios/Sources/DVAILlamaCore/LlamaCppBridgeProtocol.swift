@@ -1,6 +1,8 @@
 // Internal/LlamaCppBridgeProtocol.swift
 import Foundation
+#if !COCOAPODS
 import DVAILlamaCoreObjC
+#endif
 
 /// Test seam over the ObjC++ `LlamaCppBridge`. Concrete `LlamaCppBridge`
 /// conforms via the extension below; `LlamaHandlers` takes this protocol so

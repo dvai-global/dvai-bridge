@@ -6,7 +6,9 @@
 //
 
 import Foundation
+#if !COCOAPODS
 import Hub
+#endif
 
 /// A protocol for decoding operations that convert tokens back to readable text.
 ///

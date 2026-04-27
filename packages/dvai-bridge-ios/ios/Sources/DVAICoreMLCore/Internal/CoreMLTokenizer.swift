@@ -1,5 +1,7 @@
 import Foundation
+#if !COCOAPODS
 import Tokenizers
+#endif
 
 /// Loads a HuggingFace-style tokenizer.json + tokenizer_config.json from a
 /// local directory. Provides chat-template application, encode, and decode.

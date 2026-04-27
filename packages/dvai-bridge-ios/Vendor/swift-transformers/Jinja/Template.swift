@@ -1,5 +1,7 @@
 import Foundation
+#if !COCOAPODS
 import OrderedCollections
+#endif
 
 /// A compiled Jinja template that can be rendered with context data.
 public struct Template: Hashable, Sendable {

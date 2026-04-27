@@ -7,7 +7,9 @@
 //
 
 import Foundation
+#if !COCOAPODS
 import Hub
+#endif
 
 /// A BERT-style tokenizer implementing WordPiece tokenization.
 ///
