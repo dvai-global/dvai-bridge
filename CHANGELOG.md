@@ -3,23 +3,27 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.8.0] — 2026-04-27
+## [Unreleased]
 
-Phase 3C — iOS Native SDK: standalone `@dvai-bridge/ios` package wrapping
-`DVAILlamaCore` + `DVAIFoundationCore` + a fully-implemented
-`DVAICoreMLCore` + a new `DVAIMLXCore`. First non-Capacitor consumer
-surface for the OpenAI-compatible HTTP server on iOS, with **four**
-production-grade backends.
+> **Versioning policy**: from this point onward, version bumps and git
+> tags happen at *whole-phase* boundaries (Phase 3 = 3A + 3B + 3C + 3D
+> combined), not per sub-phase. Tag-first, then CHANGELOG entry. The
+> `[1.7.0]` and `[1.8.0]` sections below were CHANGELOG-only and never
+> tagged on GitHub (last real tag: `v1.6.0`); they remain for historical
+> traceability and will be folded into the Phase 3 release entry when
+> Phase 3 ships.
 
-### Added (post-initial-Phase-3C, same release)
+### Added (since v1.6.0, queued for the Phase 3 release)
 
-- **MLX backend (4th backend)** — new `@dvai-bridge/ios-mlx-core` package
-  wrapping [`mlx-swift-lm`](https://github.com/ml-explore/mlx-swift-lm)
+Everything documented in `[1.7.0]` and `[1.8.0]` below, **plus**:
+
+- **MLX backend (4th iOS backend)** — new `@dvai-bridge/ios-mlx-core`
+  package wrapping [`mlx-swift-lm`](https://github.com/ml-explore/mlx-swift-lm)
   for Apple-Silicon GPU + Neural Engine LLM inference. Loads MLX-converted
-  HuggingFace checkpoints via the simple `loadModelContainer(id:)` API
-  (HF Hub-cached, e.g. `mlx-community/Llama-3.2-1B-Instruct-4bit`).
-  iOS 17+ / macOS 14+ at link time; Apple-Silicon-only at runtime.
-  - `BackendKind.mlx` / `BackendInstance.mlx` cases wired into DVAIBridge.
+  HuggingFace checkpoints via `loadModelContainer(id:)` (HF Hub-cached,
+  e.g. `mlx-community/Llama-3.2-1B-Instruct-4bit`). iOS 17+ / macOS 14+
+  at link time; Apple-Silicon-only at runtime.
+  - `BackendKind.mlx` + `BackendInstance.mlx` cases wired into DVAIBridge.
   - SwiftPM-only — `mlx-swift-lm`'s transitive Swift packages don't
     publish CocoaPods specs, so selecting `.mlx` under a CocoaPods build
     throws `DVAIBridgeError.backendUnavailable` with a clear message.
@@ -27,44 +31,59 @@ production-grade backends.
   `capacitor-foundation` pattern — installs a `DVAIBridgeMLX` native
   plugin that forwards to `MLXPluginState`. The umbrella
   `@dvai-bridge/capacitor` shim's `CapacitorBackend` type-union now
-  includes `"mlx"` and the dispatcher routes accordingly. Android
-  selecting `.mlx` returns the same `iOS-only` error as `.foundation`.
+  includes `"mlx"`. Android selecting `.mlx` returns the same `iOS-only`
+  error as `.foundation`.
 - **CoreML integration test now runs on iOS Simulator + macOS native**
-  — the test was rewritten to download the `.mlmodelc/` directory
-  file-by-file from a public HF mirror (`finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit`)
+  — rewrote to download the `.mlmodelc/` directory file-by-file from a
+  public HF mirror (`finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit`)
   rather than zip-and-unzip, so the iOS Simulator's lack of `Process`
   is no longer a blocker. The public mirror also bundles
-  `tokenizer.json` + `tokenizer_config.json`, so we no longer need
-  the gated `meta-llama/Llama-3.2-1B-Instruct` repo or `SMOKE_HF_TOKEN`.
+  `tokenizer.json` + `tokenizer_config.json`, so the gated meta-llama
+  repo + `SMOKE_HF_TOKEN` are no longer required.
   - On iOS Simulator the test still hard-skips when the simulator's
     CoreML runtime fails the stateful 4-bit MIL→EIR translation
-    (Espresso status=-14, a known simulator constraint that doesn't
+    (Espresso status=-14 — a known simulator constraint that doesn't
     repro on macOS native or real devices).
   - Single env var: `SMOKE_COREML_MODEL_BASE_URL`. The old four
     `SMOKE_COREML_*` + `SMOKE_HF_TOKEN` vars are no longer needed.
 
 ### Documentation
 
-- `docs/guide/native-backend.md` updated:
-  - Architecture diagram now shows 5 packages (capacitor + 4 backends).
-  - "What runs on which platform" table includes `capacitor-mlx`.
-  - New "MLX backend" section covering the HF-id `modelPath` pattern,
-    Apple-Silicon-at-runtime constraint, the SwiftPM-vs-CocoaPods
-    asymmetry, and the embeddings-not-supported caveat.
+- New `docs/guide/ios-native-sdk.md` — installation (SwiftPM + CocoaPods),
+  basic usage, BackendKind selection, ReactiveState SwiftUI integration,
+  CocoaPods asymmetries.
+- New `docs/guide/mlx-backend.md` — MLX-specific usage (HF model ids,
+  Apple-Silicon constraint, embeddings-not-supported caveat, model
+  conversion pointers).
+- `docs/guide/native-backend.md` updated to show the 5-package
+  architecture (capacitor + 4 backends) and the `capacitor-mlx`
+  platform table row.
+- VitePress sidebar adds the iOS Native SDK + MLX backend pages.
 
 ### Known Phase 3D follow-ups
 
-- **Mac Catalyst destination support.** Upstream's `llama.cpp/build-xcframework.sh`
-  hardcodes the 4 platforms it builds (iOS / macOS / visionOS / tvOS) and
-  doesn't include Mac Catalyst. Adding a Catalyst slice means either
-  patching upstream every submodule bump (fragile) or maintaining our
-  own ~150-line parallel build pipeline that replicates upstream's
-  `setup_framework_structure` + `combine_static_libraries` for catalyst.
-  Real iOS devices + iOS Simulator (now post-multi-file refactor) cover
-  the vast majority of test scenarios; Catalyst is deferred until there's
-  a consumer asking for it.
+- **Mac Catalyst destination support per backend.** llama.cpp's
+  `build-xcframework.sh` doesn't produce a Catalyst slice, so the llama
+  backend can't run on Catalyst without forking the upstream build
+  script. MLX, Foundation Models, and CoreML may support Catalyst
+  natively — but our package graph currently couples them to llama
+  (`DVAIMLXCore` / `DVAIFoundationCore` depend on `DVAILlamaCore` for
+  shared `HandlerContext` / `DVAIHandlers` / `HttpServer` types, which
+  transitively pulls the llama xcframework). The clean fix is to extract
+  those shared types into a new `dvai-bridge-ios-shared-core` package
+  that has no llama-binary deps; then per-backend Catalyst availability
+  becomes determined solely by each backend's own runtime support.
+  Deferred until a Catalyst consumer surfaces.
 
+---
 
+## [1.8.0] — 2026-04-27 *(CHANGELOG-only; never tagged)*
+
+Phase 3C — iOS Native SDK: standalone `@dvai-bridge/ios` package wrapping
+`DVAILlamaCore` + `DVAIFoundationCore` + a fully-implemented
+`DVAICoreMLCore`. First non-Capacitor consumer surface for the
+OpenAI-compatible HTTP server on iOS, with three production-quality
+backends.
 
 ### Added
 
@@ -247,7 +266,7 @@ After accepting the license and downloading the
 `shasum -a 256 StatefulModel.mlmodelc.zip` and put that hash into
 `SMOKE_COREML_MODEL_SHA256` (the SHA changes if Apple republishes).
 
-## [1.7.0] — 2026-04-26
+## [1.7.0] — 2026-04-26 *(CHANGELOG-only; never tagged)*
 
 Phase 3A Foundation + Phase 3B LiteRT-LM Migration: extracts each
 Capacitor plugin's portable native code into separate `*-core` packages
