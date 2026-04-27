@@ -446,12 +446,12 @@ public struct Config: Hashable, Sendable,
         self.dictionary(or: or)
     }
 
-    public func jinjaValue() -> Jinja.Value {
+    public func jinjaValue() -> Value {
         switch self.value {
         case let .array(val):
             return .array(val.map { $0.jinjaValue() })
         case let .dictionary(val):
-            var result: [String: Jinja.Value] = [:]
+            var result: [String: Value] = [:]
             for (key, config) in val {
                 result[key.string] = config.jinjaValue()
             }

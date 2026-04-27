@@ -110,6 +110,11 @@ packages/*/android/src/main/cpp/native/*/build-apple/
 # under build-apple/ above; this is just a CocoaPods-friendly mirror.
 packages/dvai-bridge-ios/Frameworks/
 
+# Pod-local mirror of sibling *-core source dirs — populated by
+# DVAIBridge.podspec's prepare_command. Source of truth lives in the
+# real *-core packages.
+packages/dvai-bridge-ios/Sources/_external/
+
 # Android Studio / IntelliJ — per-developer
 .idea/
 *.iml
