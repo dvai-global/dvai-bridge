@@ -92,67 +92,84 @@ final class RealModelIntegrationTest: XCTestCase {
         XCTAssertFalse(response.isEmpty, "foundation completion should not be empty")
     }
 
-    // MARK: - CoreML backend (new SMOKE_COREML_* env vars)
+    // MARK: - CoreML backend (multi-file mlmodelc download from a public repo)
+
+    /// Files inside a stateful CoreML Llama-style `.mlmodelc/` directory,
+    /// relative to the model directory root. These are stable across the
+    /// public Apple-style stateful Llama checkpoints we know about; if a
+    /// future checkpoint changes the layout, update this list.
+    private static let coreMLModelFiles: [String] = [
+        "analytics/coremldata.bin",
+        "coremldata.bin",
+        "metadata.json",
+        "model.mil",
+        "weights/weight.bin",
+    ]
 
     @available(iOS 18.0, macOS 15.0, *)
     func testCoreMLBackendIntegration() async throws {
         let env = Self.loadSmokeEnv()
-        guard let modelUrlStr = env["SMOKE_COREML_MODEL_URL"], !modelUrlStr.isEmpty,
-              let modelSha = env["SMOKE_COREML_MODEL_SHA256"], !modelSha.isEmpty,
-              let tokUrlStr = env["SMOKE_COREML_TOKENIZER_URL"], !tokUrlStr.isEmpty,
-              let tokSha = env["SMOKE_COREML_TOKENIZER_SHA256"], !tokSha.isEmpty,
-              let modelUrl = URL(string: modelUrlStr),
-              let tokUrl = URL(string: tokUrlStr)
+        guard let baseUrlStr = env["SMOKE_COREML_MODEL_BASE_URL"], !baseUrlStr.isEmpty,
+              let baseUrl = URL(string: baseUrlStr)
         else {
-            throw XCTSkip("SMOKE_COREML_* env vars not all set; skipping CoreML integration")
+            throw XCTSkip("SMOKE_COREML_MODEL_BASE_URL not set; skipping CoreML integration")
         }
+        // Optional: only used if the repo is gated. The default reference
+        // checkpoint (finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit) is
+        // public and works without a token.
         let hfToken = env["SMOKE_HF_TOKEN"]
 
-        // 1. Download the .mlmodelc.zip + tokenizer.json. As of 2026-04
-        //    apple/coreml-Llama-3.2-1B-Instruct-4bit returns 401 without
-        //    a Bearer token (the repo became gated), so pass the token
-        //    on both downloads. The token is rejected gracefully if the
-        //    repo turns out to be public again.
-        let modelZip = try await downloadFile(
-            url: modelUrl,
-            sha256: modelSha,
-            destFilename: "model.mlmodelc.zip",
+        // 1. Download the .mlmodelc/ directory file-by-file. We avoid the
+        //    zip-and-unzip dance because:
+        //      a) iOS Simulator has no `Process` for shelling out to unzip.
+        //      b) Apple's published checkpoints publish individual files, not
+        //         zip archives.
+        //    Discover the inner directory name by inspecting the HF API.
+        let mlmodelcDirName = try await Self.discoverMlmodelcDirName(
+            repoUrl: baseUrl,
             authBearer: hfToken
         )
-        let tokFile = try await downloadFile(
-            url: tokUrl,
-            sha256: tokSha,
-            destFilename: "tokenizer.json",
-            authBearer: hfToken
+        let mlmodelcURL = tempDir.appendingPathComponent(mlmodelcDirName)
+        try FileManager.default.createDirectory(
+            at: mlmodelcURL.appendingPathComponent("analytics"),
+            withIntermediateDirectories: true
         )
-
-        // 2. Unzip .mlmodelc — Process is unavailable on iOS, so the
-        //    end-to-end path only runs on macOS (Mac Catalyst destination).
-        //    On iOS Simulator the test skips cleanly.
-        //
-        //    Phase 3D follow-up: replace `/usr/bin/unzip` with an
-        //    in-process unzip path (e.g. Compression framework or a
-        //    bundled unzip dependency) so this test can run on the iOS
-        //    Simulator destination too.
-        #if os(macOS)
-        let unzipped = try await unzip(modelZip, into: tempDir)
-
-        // The zip's top-level dir is "StatefulModel.mlmodelc" or similar;
-        // discover the .mlmodelc directory rather than hardcoding the name.
-        let mlmodelcURL = try findFirst(extension: "mlmodelc", under: unzipped)
-
-        // 3. Place tokenizer.json + tokenizer_config.json (sibling URL) in a dir
-        let tokDir = tempDir.appendingPathComponent("tokenizer")
-        try FileManager.default.createDirectory(at: tokDir, withIntermediateDirectories: true)
-        try FileManager.default.copyItem(at: tokFile, to: tokDir.appendingPathComponent("tokenizer.json"))
-        // tokenizer_config.json is a sibling of tokenizer.json on HF; download it too
-        let tokCfgUrl = tokUrl.deletingLastPathComponent().appendingPathComponent("tokenizer_config.json")
-        let tokCfgFile = try await downloadFileMaybe(url: tokCfgUrl, authBearer: hfToken)
-        if let tokCfgFile {
-            try FileManager.default.copyItem(at: tokCfgFile, to: tokDir.appendingPathComponent("tokenizer_config.json"))
+        try FileManager.default.createDirectory(
+            at: mlmodelcURL.appendingPathComponent("weights"),
+            withIntermediateDirectories: true
+        )
+        for relPath in Self.coreMLModelFiles {
+            let fileUrl = baseUrl.appendingPathComponent("\(mlmodelcDirName)/\(relPath)")
+            _ = try await downloadFile(
+                url: fileUrl,
+                sha256: "",   // skip per-file sha; HTTPS+repo trust is sufficient for a smoke test
+                destFilename: "\(mlmodelcDirName)/\(relPath)",
+                authBearer: hfToken
+            )
         }
 
-        // 4. Boot the bridge against the .coreml backend
+        // 2. Place tokenizer.json + tokenizer_config.json. Default checkpoint
+        //    bundles them in the same repo root, which means no separate
+        //    gated meta-llama download.
+        let tokDir = tempDir.appendingPathComponent("tokenizer")
+        try FileManager.default.createDirectory(at: tokDir, withIntermediateDirectories: true)
+        _ = try await downloadFile(
+            url: baseUrl.appendingPathComponent("tokenizer.json"),
+            sha256: "",
+            destFilename: "tokenizer/tokenizer.json",
+            authBearer: hfToken
+        )
+        _ = try await downloadFileMaybe(
+            url: baseUrl.appendingPathComponent("tokenizer_config.json"),
+            authBearer: hfToken
+        ).map { tmp in
+            try? FileManager.default.copyItem(
+                at: tmp,
+                to: tokDir.appendingPathComponent("tokenizer_config.json")
+            )
+        }
+
+        // 3. Boot the bridge against the .coreml backend
         let server = try await DVAIBridge.shared.start(.init(
             backend: .coreml,
             modelPath: mlmodelcURL.path,
@@ -165,12 +182,43 @@ final class RealModelIntegrationTest: XCTestCase {
             messages: [["role": "user", "content": "What is 2+2?"]]
         )
         XCTAssertFalse(response.isEmpty, "CoreML completion should not be empty")
-        #else
-        // Suppress unused-variable warnings for the iOS-skip path.
-        _ = modelZip
-        _ = tokFile
-        throw XCTSkip("CoreML integration test requires macOS host (iOS simulator lacks Process); Phase 3D follow-up.")
-        #endif
+    }
+
+    /// Hit HuggingFace's repo-info API to find the single top-level
+    /// `*.mlmodelc/` directory name (e.g. "Llama-3.2-1B-Instruct-4bit.mlmodelc"
+    /// vs "StatefulModel.mlmodelc"). The base URL is of the form
+    /// `https://huggingface.co/<owner>/<repo>/resolve/<rev>` — we transform it
+    /// into `https://huggingface.co/api/models/<owner>/<repo>` for the lookup.
+    private static func discoverMlmodelcDirName(repoUrl: URL, authBearer: String?) async throws -> String {
+        // Path components: ["/", "<owner>", "<repo>", "resolve", "<rev>"]
+        let comps = repoUrl.pathComponents
+        guard let resolveIdx = comps.firstIndex(of: "resolve"), resolveIdx >= 2 else {
+            throw NSError(domain: "Integration", code: -4, userInfo: [
+                NSLocalizedDescriptionKey: "SMOKE_COREML_MODEL_BASE_URL must look like https://huggingface.co/<owner>/<repo>/resolve/<rev>"
+            ])
+        }
+        let owner = comps[resolveIdx - 2]
+        let repo = comps[resolveIdx - 1]
+        let apiUrl = URL(string: "https://huggingface.co/api/models/\(owner)/\(repo)")!
+        var req = URLRequest(url: apiUrl)
+        if let token = authBearer { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        let (data, _) = try await URLSession.shared.data(for: req)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let siblings = json["siblings"] as? [[String: Any]] else {
+            throw NSError(domain: "Integration", code: -4, userInfo: [
+                NSLocalizedDescriptionKey: "Could not parse HF repo siblings list"
+            ])
+        }
+        for s in siblings {
+            if let path = s["rfilename"] as? String {
+                if let range = path.range(of: ".mlmodelc/") {
+                    return String(path[..<range.upperBound]).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                }
+            }
+        }
+        throw NSError(domain: "Integration", code: -4, userInfo: [
+            NSLocalizedDescriptionKey: "No *.mlmodelc/ directory found in repo \(owner)/\(repo)"
+        ])
     }
 
     // MARK: - Helpers
@@ -237,45 +285,6 @@ final class RealModelIntegrationTest: XCTestCase {
             throw NSError(domain: "Integration", code: -2,
                           userInfo: [NSLocalizedDescriptionKey: "sha256 mismatch: got \(hex), expected \(expected)"])
         }
-    }
-
-    private func unzip(_ src: URL, into dest: URL) async throws -> URL {
-        // Process / NSTask is macOS-only; on iOS (including the simulator's
-        // iOS-flavored test bundle) it's not in the SDK at all. Callers on
-        // iOS skip via XCTSkip before reaching here, but the helper itself
-        // still needs to compile on iOS — so the body is gated.
-        //
-        // Phase 3D follow-up: replace `/usr/bin/unzip` with an in-process
-        // unzip path so this works on iOS Simulator too.
-        #if os(macOS)
-        let unzipDir = dest.appendingPathComponent("unzipped")
-        try FileManager.default.createDirectory(at: unzipDir, withIntermediateDirectories: true)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
-        process.arguments = ["-q", "-o", src.path, "-d", unzipDir.path]
-        try process.run()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            throw NSError(domain: "Integration", code: -3, userInfo: [
-                NSLocalizedDescriptionKey: "unzip exited with status \(process.terminationStatus)"
-            ])
-        }
-        return unzipDir
-        #else
-        throw NSError(domain: "Integration", code: -3, userInfo: [
-            NSLocalizedDescriptionKey: "unzip helper unavailable on iOS (Process is macOS-only); Phase 3D follow-up."
-        ])
-        #endif
-    }
-
-    private func findFirst(extension ext: String, under root: URL) throws -> URL {
-        let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
-        while let url = enumerator?.nextObject() as? URL {
-            if url.pathExtension == ext { return url }
-        }
-        throw NSError(domain: "Integration", code: -4, userInfo: [
-            NSLocalizedDescriptionKey: "no .\(ext) found under \(root.path)"
-        ])
     }
 
     /// Reads SMOKE_* env vars from the test process's environment first,
