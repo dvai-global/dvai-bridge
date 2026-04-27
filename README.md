@@ -6,7 +6,10 @@
      status to the default branch. The repo is private pre-launch, so the
      badge will 404 / display "no status" until then — keep the line in
      place so a post-launch flip is a single-line edit, not a layout pass. -->
-[![Smoke — real models](https://github.com/Westenets/dvai-bridge/actions/workflows/smoke-real-models.yml/badge.svg?branch=main)](https://github.com/Westenets/dvai-bridge/actions/workflows/smoke-real-models.yml)
+
+<!-- [![Smoke — real models](https://github.com/Westenets/dvai-bridge/actions/workflows/smoke-real-models.yml/badge.svg?branch=main)](https://github.com/Westenets/dvai-bridge/actions/workflows/smoke-real-models.yml) -->
+
+[![License](https://img.shields.io/badge/License-Commercial-blue.svg)](LICENSE) ![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js) ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript) ![React](https://img.shields.io/badge/React-18+-61DAFB?logo=react) ![Swift](https://img.shields.io/badge/Swift-5.9+-F05138?logo=swift) ![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-7F52FF?logo=kotlin) ![C%23](https://img.shields.io/badge/.NET-7.0+-960098?logo=dotnet) ![WebGPU](https://img.shields.io/badge/WebGPU-1.0-FFC0CB?logo=webgpu)
 
 **The local OpenAI server you embed inside your app.**
 
@@ -26,8 +29,8 @@ await dvai.initialize();
 
 const openai = new OpenAI({ baseURL: dvai.baseUrl, apiKey: "ignored" });
 const r = await openai.chat.completions.create({
-  model: dvai.transformersModelId,
-  messages: [{ role: "user", content: "Hello!" }],
+	model: dvai.transformersModelId,
+	messages: [{ role: "user", content: "Hello!" }],
 });
 ```
 
@@ -94,15 +97,15 @@ Every major stack. Any language that speaks HTTP.
 
 ## Supported platforms
 
-| Stack | Package | Transport | Inference backends |
-|---|---|---|---|
-| Browser (React, Vue, Svelte, vanilla JS) | `@dvai-bridge/core` + `@dvai-bridge/react` or `@dvai-bridge/vanilla` | MSW intercept | WebLLM (WebGPU), Transformers.js (WebGPU / WASM SIMD) |
-| Node / Bun | `@dvai-bridge/core` | HTTP 127.0.0.1 | Transformers.js, native llama.cpp |
-| Electron | `@dvai-bridge/core` | HTTP (main) / MSW (renderer) | Native llama.cpp (CUDA / Metal / Vulkan / DirectML), Transformers.js |
-| Capacitor hybrid mobile (iOS + Android) | `@dvai-bridge/capacitor` | HTTP 127.0.0.1 | Native llama.cpp (Metal on iOS, Vulkan / CPU on Android) |
-| Android native (Kotlin / Java) | `co.deepvoiceai:dvai-bridge` AAR | HTTP 127.0.0.1 | llama.cpp, LiteRT, MediaPipe LLM, NNAPI / QNN Hexagon |
-| iOS native (Swift) | `DVAIBridge` Swift Package | HTTP 127.0.0.1 | llama.cpp (Metal), CoreML / ANE, Apple Foundation Models |
-| Windows / Mac / Linux desktop (.NET) | `DeepVoiceAI.DVAIBridge` NuGet | HTTP 127.0.0.1 | llama.cpp, ONNX Runtime GenAI, DirectML |
+| Stack                                    | Package                                                              | Transport                    | Inference backends                                                   |
+| ---------------------------------------- | -------------------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------- |
+| Browser (React, Vue, Svelte, vanilla JS) | `@dvai-bridge/core` + `@dvai-bridge/react` or `@dvai-bridge/vanilla` | MSW intercept                | WebLLM (WebGPU), Transformers.js (WebGPU / WASM SIMD)                |
+| Node / Bun                               | `@dvai-bridge/core`                                                  | HTTP 127.0.0.1               | Transformers.js, native llama.cpp                                    |
+| Electron                                 | `@dvai-bridge/core`                                                  | HTTP (main) / MSW (renderer) | Native llama.cpp (CUDA / Metal / Vulkan / DirectML), Transformers.js |
+| Capacitor hybrid mobile (iOS + Android)  | `@dvai-bridge/capacitor`                                             | HTTP 127.0.0.1               | Native llama.cpp (Metal on iOS, Vulkan / CPU on Android)             |
+| Android native (Kotlin / Java)           | `co.deepvoiceai:dvai-bridge` AAR                                     | HTTP 127.0.0.1               | llama.cpp, LiteRT, MediaPipe LLM, NNAPI / QNN Hexagon                |
+| iOS native (Swift)                       | `DVAIBridge` Swift Package                                           | HTTP 127.0.0.1               | llama.cpp (Metal), CoreML / ANE, Apple Foundation Models             |
+| Windows / Mac / Linux desktop (.NET)     | `DeepVoiceAI.DVAIBridge` NuGet                                       | HTTP 127.0.0.1               | llama.cpp, ONNX Runtime GenAI, DirectML                              |
 
 **React Native / Flutter / Tauri:** use the iOS Swift Package or Android
 AAR directly via standard native-bridge patterns. Dedicated React Native
@@ -118,20 +121,20 @@ other local-AI tools.
 
 ### JavaScript / TypeScript
 
-| Package | Use it for |
-|---|---|
-| `@dvai-bridge/core` | Core library: backend engines, transport abstraction, handler module, OpenAI surface. Works in browser, Node, and Electron. |
-| `@dvai-bridge/react` | React Context Provider + `useDVAI` hook. |
-| `@dvai-bridge/vanilla` | Wrapper for non-framework environments (vanilla JS / CDN). |
-| `@dvai-bridge/capacitor` | Capacitor plugin that boots the HTTP server natively on iOS + Android. |
+| Package                  | Use it for                                                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `@dvai-bridge/core`      | Core library: backend engines, transport abstraction, handler module, OpenAI surface. Works in browser, Node, and Electron. |
+| `@dvai-bridge/react`     | React Context Provider +`useDVAI` hook.                                                                                     |
+| `@dvai-bridge/vanilla`   | Wrapper for non-framework environments (vanilla JS / CDN).                                                                  |
+| `@dvai-bridge/capacitor` | Capacitor plugin that boots the HTTP server natively on iOS + Android.                                                      |
 
 ### Native platforms
 
-| Platform | Package / identifier | Package manager |
-|---|---|---|
-| iOS (Swift) | `DVAIBridge` | Swift Package Manager |
-| Android (Kotlin / Java) | `co.deepvoiceai:dvai-bridge` | Maven Central |
-| Windows / Mac / Linux (.NET) | `DeepVoiceAI.DVAIBridge` | NuGet |
+| Platform                     | Package / identifier         | Package manager       |
+| ---------------------------- | ---------------------------- | --------------------- |
+| iOS (Swift)                  | `DVAIBridge`                 | Swift Package Manager |
+| Android (Kotlin / Java)      | `co.deepvoiceai:dvai-bridge` | Maven Central         |
+| Windows / Mac / Linux (.NET) | `DeepVoiceAI.DVAIBridge`     | NuGet                 |
 
 ---
 
@@ -215,8 +218,8 @@ console.log(`DVAI live at ${dvai.baseUrl}`); // http://127.0.0.1:38883/v1
 
 const openai = new OpenAI({ baseURL: dvai.baseUrl, apiKey: "ignored" });
 const r = await openai.chat.completions.create({
-  model: dvai.transformersModelId,
-  messages: [{ role: "user", content: "Hello!" }],
+	model: dvai.transformersModelId,
+	messages: [{ role: "user", content: "Hello!" }],
 });
 console.log(r.choices[0].message.content);
 ```
@@ -227,22 +230,27 @@ console.log(r.choices[0].message.content);
 import { DVAIProvider, useDVAI } from "@dvai-bridge/react";
 
 function App() {
-  return (
-    <DVAIProvider
-      config={{
-        backend: "transformers",
-        transformersModelId: "onnx-community/gemma-3n-E2B-it-ONNX",
-      }}
-    >
-      <Chat />
-    </DVAIProvider>
-  );
+	return (
+		<DVAIProvider
+			config={{
+				backend: "transformers",
+				transformersModelId: "onnx-community/gemma-3n-E2B-it-ONNX",
+			}}
+		>
+			<Chat />
+		</DVAIProvider>
+	);
 }
 
 function Chat() {
-  const { isReady, progress, baseUrl, backend } = useDVAI();
-  if (!isReady) return <div>Loading ({backend}): {progress.text}</div>;
-  return <div>Local AI live at {baseUrl}</div>;
+	const { isReady, progress, baseUrl, backend } = useDVAI();
+	if (!isReady)
+		return (
+			<div>
+				Loading ({backend}): {progress.text}
+			</div>
+		);
+	return <div>Local AI live at {baseUrl}</div>;
 }
 ```
 
@@ -251,9 +259,9 @@ function Chat() {
 ```html
 <script src="https://cdn.jsdelivr.net/npm/@dvai-bridge/vanilla/dist/index.global.js"></script>
 <script>
-  const ai = new VanillaDVAI({ backend: "transformers" });
-  await ai.initialize();
-  console.log("Local AI live at", ai.getBaseUrl());
+	const ai = new VanillaDVAI({ backend: "transformers" });
+	await ai.initialize();
+	console.log("Local AI live at", ai.getBaseUrl());
 </script>
 ```
 
@@ -322,14 +330,14 @@ import { DVAIBridge } from "@dvai-bridge/capacitor";
 import OpenAI from "openai";
 
 const { baseUrl } = await DVAIBridge.start({
-  modelPath: "ggml-gemma-2b-q4.gguf",  // bundled with the app
+	modelPath: "ggml-gemma-2b-q4.gguf", // bundled with the app
 });
 // baseUrl: "http://127.0.0.1:38883/v1"
 
 const openai = new OpenAI({ baseURL: baseUrl, apiKey: "ignored" });
 const r = await openai.chat.completions.create({
-  model: "gemma-2b",
-  messages: [{ role: "user", content: "Hello!" }],
+	model: "gemma-2b",
+	messages: [{ role: "user", content: "Hello!" }],
 });
 ```
 
@@ -339,14 +347,14 @@ Useful inside a Web Worker or when you explicitly want to skip the server:
 
 ```ts
 const ai = new DVAI({
-  backend: "transformers",
-  transport: "none",
+	backend: "transformers",
+	transport: "none",
 });
 await ai.initialize();
 
 const r = await ai.chatCompletion({
-  messages: [{ role: "user", content: "Hello!" }],
-  max_tokens: 100,
+	messages: [{ role: "user", content: "Hello!" }],
+	max_tokens: 100,
 });
 ```
 
@@ -355,18 +363,18 @@ const r = await ai.chatCompletion({
 ```ts
 // Text-to-image
 const imageAI = new DVAI({
-  backend: "transformers",
-  transformersModelId: "Xenova/stable-diffusion-v1-4",
-  pipelineTask: "text-to-image",
+	backend: "transformers",
+	transformersModelId: "Xenova/stable-diffusion-v1-4",
+	pipelineTask: "text-to-image",
 });
 await imageAI.initialize();
 const img = await imageAI.runPipeline("A cute cat in space");
 
 // Speech recognition
 const asrAI = new DVAI({
-  backend: "transformers",
-  transformersModelId: "Xenova/whisper-tiny.en",
-  pipelineTask: "automatic-speech-recognition",
+	backend: "transformers",
+	transformersModelId: "Xenova/whisper-tiny.en",
+	pipelineTask: "automatic-speech-recognition",
 });
 await asrAI.initialize();
 const transcript = await asrAI.runPipeline(audioBuffer);
@@ -381,8 +389,8 @@ AI models eat RAM and battery. Unload when you're done:
 ```ts
 // React
 const { unload, init } = useDVAI();
-await unload();            // free model + stop transport
-await init();              // reload when needed
+await unload(); // free model + stop transport
+await init(); // reload when needed
 
 // Vanilla / Node
 await dvai.unload();
@@ -414,12 +422,12 @@ Acceleration is handled per platform; the developer never writes
 accelerator-specific code. Selection happens at runtime based on
 availability.
 
-| Platform | Primary | Secondary | CPU fallback |
-|---|---|---|---|
-| Web | WebGPU | WebNN | WASM SIMD |
-| Desktop (Electron, .NET) | CUDA / Metal / Vulkan | DirectML (Windows) | AVX2 / AVX-512 |
-| Android | MediaPipe LLM + QNN (Hexagon) | NNAPI, GPU delegate | XNNPACK |
-| iOS | Apple Foundation Models / CoreML / ANE | Metal | XNNPACK |
+| Platform                 | Primary                                | Secondary           | CPU fallback   |
+| ------------------------ | -------------------------------------- | ------------------- | -------------- |
+| Web                      | WebGPU                                 | WebNN               | WASM SIMD      |
+| Desktop (Electron, .NET) | CUDA / Metal / Vulkan                  | DirectML (Windows)  | AVX2 / AVX-512 |
+| Android                  | MediaPipe LLM + QNN (Hexagon)          | NNAPI, GPU delegate | XNNPACK        |
+| iOS                      | Apple Foundation Models / CoreML / ANE | Metal               | XNNPACK        |
 
 ---
 
@@ -428,36 +436,36 @@ availability.
 Core options (JS / TS — other platforms expose equivalent config on their
 start-options type):
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `backend` | `"webllm" \| "transformers" \| "native" \| "auto"` | `"auto"` | Inference backend. `"auto"` picks the best for the runtime. |
-| `modelId` | `string` | `"gemma-2-2b-it-q4f16_1-MLC"` | WebLLM model ID |
-| `transformersModelId` | `string` | `"onnx-community/gemma-3n-E2B-it-ONNX"` | HuggingFace model ID |
-| `pipelineTask` | `string` | `"text-generation"` | Transformers.js pipeline task |
-| `device` | `"webgpu" \| "cpu" \| "auto"` | `"auto"` | Transformers.js device |
-| `dtype` | `string` | — | Quantization (e.g. `"q4"`, `"q8"`, `"f16"`) |
-| `generationTimeout` | `number` | `60000` | Max generation time (ms) |
-| `maxBlankChunks` | `number` | `20` | Blank chunks before stream abort (WebLLM) |
-| `maxRetries` | `number` | `2` | Max auto-recovery retries |
-| `transport` | `"auto" \| "msw" \| "http" \| "none"` | `"auto"` | Transport selection. `"auto"` picks MSW in browser, HTTP in Node. |
-| `httpBasePort` | `number` | `38883` | HTTP transport base port (retries +1 up to 16 times) |
-| `httpMaxPortAttempts` | `number` | `16` | Max HTTP port fallback attempts |
-| `corsOrigin` | `string \| string[]` | `"*"` | HTTP `Access-Control-Allow-Origin` value or allowlist |
-| `mockUrl` | `string` | `"https://api.openai.local/v1/chat/completions"` | MSW intercept URL (ignored under HTTP) |
-| `serviceWorkerUrl` | `string` | `"/mockServiceWorker.js"` | Path to MSW service worker |
-| `webllmWorkerUrl` | `string` | `"/dvai-webllm.worker.js"` | Path to WebLLM inference worker |
-| `transformersWorkerUrl` | `string` | `"/dvai-transformers.worker.js"` | Path to Transformers.js inference worker |
-| `transformersModelClass` | `string` | — | Declarative multimodal loader class (e.g. `"Gemma4ForConditionalGeneration"`) |
-| `transformersProcessorClass` | `string` | `"AutoProcessor"` | Processor class for the declarative loader |
-| `transformersDisableEncoders` | `string[]` | `[]` | Null out model submodule fields post-load (e.g. `["vision_encoder"]`) |
-| `createPipeline` | `CreatePipelineFn` | — | Custom main-thread pipeline factory |
-| `nativeModelPath` | `string` | — | GGUF model path (native backend) |
-| `nativeGpuLayers` | `number` | `99` | GPU layers (iOS Metal) |
-| `nativeThreads` | `number` | `4` | CPU threads (native) |
-| `nativeContextSize` | `number` | `2048` | Context window (native) |
-| `nativeEmbeddingMode` | `boolean` | `false` | Initialize native context in embedding mode |
-| `licenseKey` | `string` | — | Commercial license key |
-| `autoInit` | `boolean` | `true` | Auto-initialize on mount (React/Vanilla) |
+| Option                        | Type               | Default                                          | Description                                                                  |
+| ----------------------------- | ------------------ | ------------------------------------------------ | ---------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------- | ---------------------------------------------------------------- |
+| `backend`                     | `"webllm"          | "transformers"                                   | "native"                                                                     | "auto"`                                              | `"auto"`               | Inference backend.`"auto"` picks the best for the runtime.       |
+| `modelId`                     | `string`           | `"gemma-2-2b-it-q4f16_1-MLC"`                    | WebLLM model ID                                                              |
+| `transformersModelId`         | `string`           | `"onnx-community/gemma-3n-E2B-it-ONNX"`          | HuggingFace model ID                                                         |
+| `pipelineTask`                | `string`           | `"text-generation"`                              | Transformers.js pipeline task                                                |
+| `device`                      | `"webgpu"          | "cpu"                                            | "auto"`                                                                      | `"auto"`                                             | Transformers.js device |
+| `dtype`                       | `string`           | —                                                | Quantization (e.g.`"q4"`, `"q8"`, `"f16"`)                                   |
+| `generationTimeout`           | `number`           | `60000`                                          | Max generation time (ms)                                                     |
+| `maxBlankChunks`              | `number`           | `20`                                             | Blank chunks before stream abort (WebLLM)                                    |
+| `maxRetries`                  | `number`           | `2`                                              | Max auto-recovery retries                                                    |
+| `transport`                   | `"auto"            | "msw"                                            | "http"                                                                       | "none"`                                              | `"auto"`               | Transport selection.`"auto"` picks MSW in browser, HTTP in Node. |
+| `httpBasePort`                | `number`           | `38883`                                          | HTTP transport base port (retries +1 up to 16 times)                         |
+| `httpMaxPortAttempts`         | `number`           | `16`                                             | Max HTTP port fallback attempts                                              |
+| `corsOrigin`                  | `string            | string[]`                                        | `"*"`                                                                        | HTTP`Access-Control-Allow-Origin` value or allowlist |
+| `mockUrl`                     | `string`           | `"https://api.openai.local/v1/chat/completions"` | MSW intercept URL (ignored under HTTP)                                       |
+| `serviceWorkerUrl`            | `string`           | `"/mockServiceWorker.js"`                        | Path to MSW service worker                                                   |
+| `webllmWorkerUrl`             | `string`           | `"/dvai-webllm.worker.js"`                       | Path to WebLLM inference worker                                              |
+| `transformersWorkerUrl`       | `string`           | `"/dvai-transformers.worker.js"`                 | Path to Transformers.js inference worker                                     |
+| `transformersModelClass`      | `string`           | —                                                | Declarative multimodal loader class (e.g.`"Gemma4ForConditionalGeneration"`) |
+| `transformersProcessorClass`  | `string`           | `"AutoProcessor"`                                | Processor class for the declarative loader                                   |
+| `transformersDisableEncoders` | `string[]`         | `[]`                                             | Null out model submodule fields post-load (e.g.`["vision_encoder"]`)         |
+| `createPipeline`              | `CreatePipelineFn` | —                                                | Custom main-thread pipeline factory                                          |
+| `nativeModelPath`             | `string`           | —                                                | GGUF model path (native backend)                                             |
+| `nativeGpuLayers`             | `number`           | `99`                                             | GPU layers (iOS Metal)                                                       |
+| `nativeThreads`               | `number`           | `4`                                              | CPU threads (native)                                                         |
+| `nativeContextSize`           | `number`           | `2048`                                           | Context window (native)                                                      |
+| `nativeEmbeddingMode`         | `boolean`          | `false`                                          | Initialize native context in embedding mode                                  |
+| `licenseKey`                  | `string`           | —                                                | Commercial license key                                                       |
+| `autoInit`                    | `boolean`          | `true`                                           | Auto-initialize on mount (React/Vanilla)                                     |
 
 ### Useful fields after `initialize()` / `start()`
 
