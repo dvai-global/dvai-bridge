@@ -1,0 +1,33 @@
+# Dart / Flutter
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+# pubspec.lock is gitignored for libraries (per Dart team guidance).
+pubspec.lock
+*.iml
+.idea/
+
+# Pigeon-generated codegen output. Run `dart run pigeon --input pigeons/messages.dart`
+# to regenerate locally / in CI before `flutter analyze` and `flutter test`.
+lib/src/messages.g.dart
+ios/Classes/Messages.g.swift
+android/src/main/kotlin/co/deepvoiceai/bridge/flutter/Messages.g.kt
+
+# iOS / CocoaPods
+ios/Pods/
+ios/Podfile.lock
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# Android / Gradle
+android/.gradle/
+android/local.properties
+android/captures/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp

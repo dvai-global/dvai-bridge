@@ -1,0 +1,36 @@
+name: dvai_bridge
+description: Local-LLM bridge with an OpenAI-compatible HTTP server for Flutter (iOS + Android). Wraps the native DVAIBridge SDKs via Pigeon-generated platform channels.
+version: 2.2.0
+homepage: https://github.com/Westenets/dvai-bridge
+repository: https://github.com/Westenets/dvai-bridge
+issue_tracker: https://github.com/Westenets/dvai-bridge/issues
+documentation: https://dvai-bridge.deepvoiceai.co/guide/flutter-sdk
+
+# Floor pinned at Flutter 3.39 (current stable −2 minor); Pigeon 26 generates
+# Dart 3.7-compatible code, so consumers below Flutter 3.41 still consume the
+# generated bindings cleanly. CI exercises 3.41.5 (latest) and 3.39.x (floor).
+environment:
+  sdk: ">=3.7.0 <4.0.0"
+  flutter: ">=3.39.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  meta: ^1.16.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  pigeon: ^26.3.4
+  mockito: ^5.4.5
+  build_runner: ^2.4.13
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: co.deepvoiceai.bridge.flutter
+        pluginClass: DVAIBridgeFlutterPlugin
+      ios:
+        pluginClass: DVAIBridgeFlutterPlugin
