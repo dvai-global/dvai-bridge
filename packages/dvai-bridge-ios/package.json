@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/ios",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "DVAI-Bridge iOS native SDK — embedded local OpenAI-compatible HTTP server with llama.cpp + Apple Foundation Models + CoreML backends.",
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",

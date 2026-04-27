@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/android-llama-core",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "DVAI-Bridge Android llama.cpp core — pure Kotlin + JNI embedded HTTP server + handlers + bridge. Capacitor-free.",
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",
