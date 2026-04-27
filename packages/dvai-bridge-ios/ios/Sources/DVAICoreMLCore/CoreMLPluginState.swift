@@ -1,6 +1,8 @@
 import Foundation
 import CoreML
+#if !COCOAPODS
 import DVAILlamaCore   // HttpServer, DVAIHandlers, HandlerContext, CORSConfig
+#endif
 
 /// Public PluginState mirroring DVAILlamaCore.PluginState's shape.
 /// Boots a Telegraph HTTP server on `127.0.0.1:<port>` (with port-fallback),

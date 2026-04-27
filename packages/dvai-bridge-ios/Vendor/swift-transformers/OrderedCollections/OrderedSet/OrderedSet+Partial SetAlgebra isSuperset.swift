@@ -12,7 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #if !COLLECTIONS_SINGLE_MODULE
+#if !COCOAPODS
 import InternalCollectionsUtilities
+#endif
 #endif
 
 // `OrderedSet` does not directly conform to `SetAlgebra` because its definition

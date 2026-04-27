@@ -1,5 +1,7 @@
 import Foundation
+#if !COCOAPODS
 import OrderedCollections
+#endif
 
 /// A node in the abstract syntax tree representing template content.
 public indirect enum Node: Hashable, Codable, Sendable {

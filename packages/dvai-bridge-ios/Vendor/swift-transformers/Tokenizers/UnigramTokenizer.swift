@@ -7,7 +7,9 @@
 //
 
 import Foundation
+#if !COCOAPODS
 import Hub
+#endif
 
 /// A Unigram tokenizer implementation based on the SentencePiece algorithm.
 ///

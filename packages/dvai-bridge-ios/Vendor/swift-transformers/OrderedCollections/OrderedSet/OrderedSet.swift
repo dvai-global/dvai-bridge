@@ -12,7 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #if !COLLECTIONS_SINGLE_MODULE
+#if !COCOAPODS
 import InternalCollectionsUtilities
+#endif
 #endif
 
 /// An ordered collection of unique elements.

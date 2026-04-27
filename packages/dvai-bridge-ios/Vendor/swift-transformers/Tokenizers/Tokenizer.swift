@@ -6,8 +6,12 @@
 //
 
 import Foundation
+#if !COCOAPODS
 import Hub
+#endif
+#if !COCOAPODS
 import Jinja
+#endif
 
 /// A type alias for chat messages, represented as key-value pairs.
 public typealias Message = [String: any Sendable]

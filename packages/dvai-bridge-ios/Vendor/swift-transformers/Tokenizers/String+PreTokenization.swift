@@ -1,6 +1,8 @@
 import Foundation
 
+#if !COCOAPODS
 import struct Hub.Config
+#endif
 
 enum StringSplitPattern {
     case regexp(regexp: String)
