@@ -1,0 +1,93 @@
+// Gradle module for the `dvai_bridge` Flutter plugin (Android side).
+//
+// This module is **thin**: no inference engine, no HTTP server, no model
+// downloader. It depends on the Phase 3D umbrella AAR
+// (`co.deepvoiceai:dvai-bridge`, declared below) and exposes its
+// `DVAIBridge` Kotlin singleton to Dart via a Pigeon-generated
+// platform channel.
+//
+// The plugin module is intentionally pinned to AGP 8.7.x (rather than the
+// Phase 3D umbrella's AGP 9.2) — Flutter 3.41's plugin Gradle templates
+// don't yet support AGP 9. Consumer apps can use AGP 9.2 (Phase 3D's
+// floor); Gradle resolves the plugin module's compile classpath
+// independently. See spec §6 question 7 + the README's "AGP asymmetry"
+// note.
+
+buildscript {
+    ext {
+        // Pinned Kotlin / AGP versions — AGP 8.7.x is the latest in the
+        // 8.x line that still works with Flutter's plugin Gradle helpers
+        // (Flutter 3.41). Kotlin 2.3.21 is the latest stable, picked up
+        // verbatim from the Phase 3D Android SDK.
+        kotlinVersion = project.findProperty('DVAIBridge_kotlinVersion') ?: '2.3.21'
+        agpVersion = project.findProperty('DVAIBridge_agpVersion') ?: '8.7.3'
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:${agpVersion}"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}"
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+def safeExtGet(prop, fallback) {
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
+
+android {
+    namespace "co.deepvoiceai.bridge.flutter"
+
+    compileSdk safeExtGet("compileSdkVersion", 36)
+    buildToolsVersion safeExtGet("buildToolsVersion", "36.0.0")
+
+    defaultConfig {
+        minSdk safeExtGet("minSdkVersion", 24)
+        // targetSdkVersion is set by the consumer app per AGP 8 conventions;
+        // libraries don't need it but specifying is harmless.
+        targetSdk safeExtGet("targetSdkVersion", 36)
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+repositories {
+    mavenCentral()
+    google()
+    // Local Maven repo for `bash scripts/android-publish-local.sh` builds.
+    mavenLocal()
+    maven {
+        // GitHub Packages Maven for the Phase 3D umbrella AAR. Consumer
+        // apps must export `gpr.user` / `gpr.key` (or the equivalent env
+        // vars) — see docs/guide/flutter-sdk.md for the snippet.
+        url = uri("https://maven.pkg.github.com/Westenets/dvai-bridge")
+        credentials {
+            username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
+            password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
+}
+
+def dvaiBridgeVersion = project.findProperty('dvaiBridgeVersion') ?: '2.2.0'
+
+dependencies {
+    // Phase 3D umbrella AAR — provides DVAIBridge, BackendKind, StartOptions,
+    // BoundServer, ProgressEvent, DVAIBridgeError. `api` exposes the symbols
+    // to consumer apps that need to catch `DVAIBridgeError` subtypes or
+    // pattern-match on `BackendKind`.
+    api "co.deepvoiceai:dvai-bridge:${dvaiBridgeVersion}"
+
+    // Coroutines for the Pigeon callback ↔ DVAIBridge suspend bridge.
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2"
+}

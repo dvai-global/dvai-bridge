@@ -1,0 +1,90 @@
+name: Flutter — dvai_bridge plugin
+
+on:
+  pull_request:
+    paths:
+      - 'packages/dvai-bridge-flutter/**'
+      - '.github/workflows/test-flutter.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/dvai-bridge-flutter/**'
+
+concurrency:
+  group: flutter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-and-test:
+    name: Analyze + flutter test (Flutter ${{ matrix.flutter-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Latest stable + the consumer-facing floor pinned in pubspec.yaml.
+        # Pigeon 26 needs Dart 3.9 to *generate*, but consumers only consume
+        # the generated `.g.dart` (plain Dart 3.7). Floor stays at 3.39.
+        flutter-version: ['3.41.5', '3.39.4']
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter ${{ matrix.flutter-version }}
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ matrix.flutter-version }}
+          channel: stable
+          cache: true
+
+      - name: Resolve Dart deps
+        working-directory: packages/dvai-bridge-flutter
+        run: flutter pub get
+
+      - name: Pigeon codegen
+        working-directory: packages/dvai-bridge-flutter
+        run: dart run pigeon --input pigeons/messages.dart
+
+      - name: flutter analyze
+        working-directory: packages/dvai-bridge-flutter
+        run: flutter analyze
+
+      - name: flutter test
+        working-directory: packages/dvai-bridge-flutter
+        run: flutter test --reporter expanded
+
+  pub-publish-dryrun:
+    name: pub publish --dry-run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only on tag pushes — gates the actual `dart pub publish` step in
+    # PUBLISHING.md. PR builds skip this so the maintainer's pub.dev
+    # auth doesn't get invoked accidentally.
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Flutter (latest stable)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.5'
+          channel: stable
+          cache: true
+
+      - name: Resolve Dart deps
+        working-directory: packages/dvai-bridge-flutter
+        run: flutter pub get
+
+      - name: Pigeon codegen
+        working-directory: packages/dvai-bridge-flutter
+        run: dart run pigeon --input pigeons/messages.dart
+
+      - name: dart pub publish --dry-run
+        working-directory: packages/dvai-bridge-flutter
+        run: dart pub publish --dry-run

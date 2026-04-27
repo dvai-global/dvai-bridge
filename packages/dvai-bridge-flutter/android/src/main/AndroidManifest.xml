@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AGP 8 stores the package attribute in build.gradle's `namespace` field;
+     this manifest stays empty so the consumer app's manifest merger
+     doesn't see any redundant declarations from the plugin. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+</manifest>

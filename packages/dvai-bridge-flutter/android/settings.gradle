@@ -1,0 +1,6 @@
+// Settings for the dvai_bridge Flutter plugin Gradle module. The
+// consumer app's `settings.gradle` includes this module via Flutter's
+// auto-pluggable mechanism (`include_flutter.groovy`); no plugin
+// management block is needed here because the consumer app provides one.
+
+rootProject.name = 'dvai_bridge'
