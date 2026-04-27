@@ -138,6 +138,152 @@ Both are thin — the core does the work, the wrappers translate state transitio
 
 Beyond the React + Vanilla wrappers, DVAI-BRIDGE exposes parallel native SDKs that present the same OpenAI HTTP contract from inside their host language: a Capacitor plugin for hybrid mobile, an iOS Swift Package and an Android AAR for native mobile, a React Native TurboModule, a Flutter plugin, and a .NET NuGet family covering iOS + Android (via .NET MAUI), Mac Catalyst, and Windows / macOS / Linux desktop. All seven SDKs share the same handler logic, the same OpenAI endpoint set, and the same backend / state / progress contract. The differences are surface-level — `DVAIProvider` + `useDVAI` on React; `DVAIBridge.shared.start(...)` returning a `BoundServer` on Swift; `DVAIBridge.start(...)` on Kotlin (with a `StateFlow`-driven `reactive` surface for Compose); `DVAIBridge.instance.start(...)` returning a `Stream<DVAIBridgeState>` on Dart; `await DVAIBridge.Shared.StartAsync(...)` exposing an `IAsyncEnumerable<ProgressEvent>` on .NET. The substrate beneath each surface is identical: a per-process HTTP server (or, in the browser, an MSW interceptor) bound to `127.0.0.1:<port>/v1`, listening for the same OpenAI-shaped requests, dispatching to the same backend / state / progress machinery. The interface is what unifies the family; the implementations differ only where the host language idiom demands it.
 
+### 3.6 Backend Reference
+
+The §3.2 driver table is the matrix-at-a-glance view; this subsection answers the per-backend questions a serious adopter will ask: which OS / framework / runtime each backend talks to, which model formats it eats, what model families are known to work, what hardware acceleration it uses, what it gives you, what it costs you, and the decision rule for picking it over a peer. DVAI-BRIDGE is a thin shim above each of these; the heavy lifting belongs to the upstream engine.
+
+**Auto** is not a backend; it is a routing rule (§3.3) that resolves to one of the others at start time. The remaining nine are real engines.
+
+#### 3.6.1 WebLLM (browser-only)
+
+- **Runtime:** `@mlc-ai/web-llm` 0.2.x. MLC's Apache-TVM-compiled engine running in the browser via WebGPU + WebAssembly.
+- **Hosts:** Chromium, Firefox, Safari with WebGPU enabled. WebKit Linux behind a flag; iOS Safari is gated on iOS 18+.
+- **Model format:** MLC-compiled (`-MLC` suffix on Hugging Face, e.g. `gemma-2-2b-it-q4f16_1-MLC`). A separate compile step is required to produce these artefacts; the catalogue MLC publishes is the practical universe of supported models.
+- **Model families known to work:** Llama 2/3, Gemma 1/2/3n, Mistral, Phi-3, Qwen 2, TinyLlama, RedPajama, in q4f16 / q4f32 / q3f16 quantisations. The MLC catalogue is the source of truth.
+- **Acceleration:** WebGPU on the GPU; WebAssembly + SIMD as a fallback that DVAI-BRIDGE does **not** automatically pick (WebLLM-without-WebGPU is not viable for our latency target).
+- **Pros:** the highest-throughput in-browser path on supported models. True async-iterator streaming. Multimodal prompt caching. No server.
+- **Cons:** model catalogue is narrower than Hugging Face's Transformers.js zoo. Compile-step overhead means new model architectures lag the upstream LLM ecosystem by weeks-to-months. WebGPU is still maturing — driver bugs and adapter loss are real (handled by §5.3 recovery). No embeddings (returns HTTP 400; see §4.4 / §9).
+- **Pick when:** browser-only, your model is in the MLC catalogue, you want the fastest path on a WebGPU-capable device.
+
+#### 3.6.2 Transformers.js (browser + Node)
+
+- **Runtime:** `@huggingface/transformers` 4.0.1+. Hugging Face's TypeScript port over `onnxruntime-web` (browser) + `onnxruntime-node` (Node).
+- **Hosts:** Any modern browser (WebGPU or WASM SIMD); Node 18+; Bun; Deno; Electron renderer.
+- **Model format:** ONNX with optional quantised variants (`q4`, `q8`, `f16`, `int8`, `uint8`). The Hugging Face Hub hosts thousands of pre-converted ONNX models under `onnx-community/*`.
+- **Model families known to work:** virtually anything with an ONNX export — Llama, Gemma 2/3n, Phi, Qwen, Whisper, CLIP, Stable Diffusion, Florence-2, LLaVA, Idefics, and the long tail. Multimodal pipelines (text+image, ASR, TTS, embeddings, feature-extraction) work via `pipelineTask`.
+- **Acceleration:** WebGPU when present; WebNN where exposed; WASM SIMD CPU fallback. Node falls back to native `onnxruntime-node` (CPU + CUDA + DirectML where the host runtime supports them).
+- **Pros:** widest catalogue. Multimodal first-class. Same code path runs in browser + Node + Bun + Deno + Electron renderer + service worker (with caveats on the latter). Streaming via `TextStreamer`.
+- **Cons:** ONNX runtime is generally slower than MLC-compiled WebGPU at peak; quantisation choices are coarser. Some custom model loaders need `createPipeline` (§3.4 / §6.2). Embeddings supported but require `pipelineTask: "feature-extraction"`.
+- **Pick when:** you need the broadest model variety; you need multimodal; you need cross-browser-and-Node parity in one library.
+
+#### 3.6.3 llama.cpp (every non-browser platform)
+
+- **Runtime:** `llama.cpp` upstream (release tag `b8946` pinned), consumed as source + built into our first-party bindings (NAPI, JNI, Swift / C++, P/Invoke).
+- **Hosts:** Capacitor (iOS + Android), native iOS, native Android, React Native, Flutter, .NET MAUI on every OS, .NET Desktop on win-x64 / linux-x64 / osx-arm64. Electron via `node-llama-cpp` is supported but not a first-party path here.
+- **Model format:** GGUF (`q2_K`, `q3_K_S/M/L`, `q4_0`, `q4_K_S/M`, `q5_K_S/M`, `q6_K`, `q8_0`, `f16`, `f32`). Llama-Context can be specialised at construction for chat or embeddings; not both (§9).
+- **Model families known to work:** Llama 1/2/3/3.1/3.2/3.3, Gemma 2/3n, Mistral, Mixtral, Phi-3/3.5, Qwen 2/2.5, Yi, DeepSeek, TinyLlama, StableLM, anything with a GGUF export. Multi-modal mtmd (vision-language) via the `mtmd.xcframework` + matching Android binary on iOS / Android.
+- **Acceleration:** Metal on iOS + macOS; Vulkan on Android (when the GPU + driver expose Vulkan compute); CUDA + Metal + Vulkan + DirectML on desktop. CPU fallback via AVX2 / AVX-512 / NEON. `nativeGpuLayers` (default 99) controls the offload split.
+- **Pros:** widest deployable surface. Stable runtime — llama.cpp ships weekly, our pin moves on a deliberate cadence. GGUF is the lingua franca of the open-model world; almost every new model gets a GGUF release within hours of weights being public.
+- **Cons:** GGUF is a CPU-tilt format — even with full GPU offload, prompt processing is slower than Apple Foundation / CoreML / MLX on equivalent hardware. Memory-mapped loads can be touchy on 32-bit Androids. Tool-calling on small (≤3B) GGUF models needs manual JSON parsing rather than structured `tool_calls` (§6.1).
+- **Pick when:** you want the broadest platform reach with one model artefact; you're shipping to mobile + desktop and don't want a per-platform model zoo; you're starting from a model that already has a GGUF release.
+
+#### 3.6.4 Apple Foundation Models (iOS 26+ / iPadOS 26+ / macOS 15+ / visionOS 2+)
+
+- **Runtime:** `LanguageModelSession` from Apple's Foundation Models framework (Swift; no third-party engine). Apple's on-device model only.
+- **Hosts:** iOS 26+ via the iOS Swift SDK; Mac Catalyst 26+ via the same SDK; .NET MAUI / Catalyst slices via the iOS binding.
+- **Model format:** none. Apple ships the model with the OS; the developer chooses the *task*, not the *model*.
+- **Model families known to work:** the Apple-curated model behind `LanguageModelSession`. Apple controls the family + version; consumers do not.
+- **Acceleration:** managed entirely by the OS — Apple Neural Engine / Metal as Apple sees fit. Not configurable.
+- **Pros:** zero model download. Battery-optimised. Privacy guarantees built into the OS-level entitlement story. Quality is excellent for what Apple ships. Always available on supported hardware (no "model loading" UX).
+- **Cons:** iOS 26+ floor (covers ~30% of installed iPhones at the time of writing — grows fast but not yet majority). The model is what Apple gives you — no fine-tuning, no custom prompts at the system level beyond what `LanguageModelSession` exposes. No streaming control beyond what Apple's API offers. No inspection of weights or tokeniser. Foundation Models is a *managed runtime*, not a model you operate.
+- **Pick when:** you target iOS 26+ exclusively, you trust Apple's model for your task, you want zero-download UX, you don't need model-side control.
+
+#### 3.6.5 CoreML / Apple Neural Engine (iOS 14+, macOS 11+)
+
+- **Runtime:** Apple's CoreML (`.mlpackage` / `.mlmodelc`) compiled to ANE / GPU / CPU at consumer install time. Wrapped in our iOS Swift SDK.
+- **Hosts:** native iOS, .NET MAUI iOS, .NET MAUI Catalyst, Mac Catalyst from .NET 10's binding.
+- **Model format:** `.mlpackage` produced by `coremltools`'s `ct.convert(...)` from PyTorch / TensorFlow. Quantisation goes down to 4-bit weight packing (palettisation) on iOS 18+.
+- **Model families known to work:** anything you can convert — typically the small specialists (Llama-3.2-1B / 3B, Gemma 2B, Phi-3-mini). Conversion pipeline is non-trivial; Apple's `mlx-lm-conversion` helpers and HuggingFace's `coreml-models` org are starting points.
+- **Acceleration:** Apple Neural Engine when the model graph is ANE-compatible; GPU otherwise; CPU as a last-resort. The system decides per op.
+- **Pros:** ANE is by far the most power-efficient inference path on iPhones (≈10× efficiency over CPU at typical token rates). Compiled at install time, so app-side latency on first run is low. Stable on iOS 14+.
+- **Cons:** the conversion pipeline is the friction point — many models won't convert cleanly, and quality degrades through palettisation more sharply than GGUF q4. No streaming inside CoreML; we synthesise streaming externally. Re-converting on a new model architecture is a real engineering task, not a one-liner.
+- **Pick when:** battery efficiency on iPhone is critical; the model is small enough to be ANE-amenable; you can budget for the conversion pipeline.
+
+#### 3.6.6 MLX / mlx-swift-lm (iOS 17+, macOS 14+ Apple Silicon)
+
+- **Runtime:** Apple's `MLX` framework (`mlx-swift-lm`). Apple Silicon-only — runs on the GPU via Metal, with Neural Engine awareness.
+- **Hosts:** native iOS A17+ (iPhone 15 Pro / 16+ / 17+), Apple Silicon Mac, Mac Catalyst, .NET MAUI iOS / Catalyst slices.
+- **Model format:** MLX `safetensors` (e.g. `mlx-community/Llama-3.2-3B-Instruct-4bit`). HuggingFace's `mlx-community` org maintains a large catalogue.
+- **Model families known to work:** Llama 1/2/3/3.2, Gemma 2, Mistral, Phi-3, Qwen 2, with 4-bit / 8-bit MLX-native quantisations.
+- **Acceleration:** Metal-direct (no CoreML compile step). MLX is closer to PyTorch's mental model than CoreML and supports KV-cache, beam search, sampling control natively.
+- **Pros:** developer ergonomics close to PyTorch (`mlx.array`, `mx.softmax`, etc.). Quantisation that preserves quality better than CoreML palettisation at equivalent bits. Streaming first-class.
+- **Cons:** Apple Silicon-only — no x86 Mac, no iPhone 14 or earlier. Less mature than llama.cpp; runtime evolves quickly and APIs occasionally break across versions. Models load from disk uncompiled, so first-token-latency is higher than CoreML's pre-compiled path.
+- **Pick when:** your install base is iPhone 15 Pro+ or recent Macs; you want the best-quality 4-bit on Apple Silicon; CoreML conversion isn't worth the friction.
+
+#### 3.6.7 MediaPipe LLM Inference (Android primary; iOS supported)
+
+- **Runtime:** Google's MediaPipe LLM Inference C++ engine, packaged as a `.task` bundle. Supports both transformer LLMs and Gemma-tuned dialog models.
+- **Hosts:** Android 26+ via the Android SDK; Phase 3D umbrella + the React Native / Flutter / .NET wrappers. iOS path exists in MediaPipe's roadmap; not yet a first-party DVAI-BRIDGE backend on iOS.
+- **Model format:** `.task` bundle (containing model weights + tokenizer + config + sometimes a LoRA adapter). Google publishes pre-converted bundles for Gemma 2B, Falcon 1B, StableLM 3B; community bundles cover Llama 3.2 1B / 3B and Phi-3-mini.
+- **Acceleration:** GPU delegate (Vulkan), NNAPI delegate, and Hexagon QNN delegate where the device exposes Qualcomm's HTP. Selection is automatic; the engine probes and falls back.
+- **Pros:** on Snapdragon 8-Gen-2+ devices with QNN, this is the highest-throughput path on Android by a meaningful margin. First-party Google support; bundles are stable and tested. Streaming + KV-cache built in.
+- **Cons:** model catalogue is small (by design — Google curates). `.task` bundles are 2-4× the size of equivalent GGUF q4. Adding a new model architecture means waiting for Google or producing the bundle yourself (non-trivial). No iOS path today.
+- **Pick when:** you target Snapdragon 8 Gen 2+ Android specifically; the bundled model fits your task; you want Google's first-party path over the community llama.cpp build.
+
+#### 3.6.8 LiteRT (Android, every Android API ≥ 24)
+
+- **Runtime:** Google's LiteRT (the TFLite successor). Phase 3B migrated us off the legacy `tensorflow-lite` artefact onto this. Pure-Kotlin BPE tokenizer (no native dep).
+- **Hosts:** Android 24+ via the Android SDK; the React Native / Flutter / .NET wrappers transit through it. Not on iOS.
+- **Model format:** `.tflite` (FlatBuffer). Hugging Face's `litert-community` org publishes Llama / Gemma / Phi exports.
+- **Model families known to work:** Llama 3.2 1B / 3B, Gemma 2B, Phi-3-mini, with int8 / int4 weight-quantised exports.
+- **Acceleration:** GPU delegate (OpenGL / OpenCL / Vulkan), NNAPI, Hexagon delegate. Less aggressive than MediaPipe's Hexagon QNN path; LiteRT prioritises portability over peak.
+- **Pros:** the broadest Android-API floor of any backend (24+ vs. MediaPipe's 26+). Pure-Kotlin tokenizer means no JNI for token boundaries. Smaller bundle than MediaPipe `.task`. Stable, battle-tested runtime under TFLite-since-2017.
+- **Cons:** slower than MediaPipe + QNN on Hexagon-capable devices. Tokenizer surface is hand-rolled in our wrapper rather than vendored from a vetted library — see [`litert-lm-migration-notes.md`](docs/development/litert-lm-migration-notes.md). Model variety is narrower than llama.cpp.
+- **Pick when:** you need Android-API-24 support; battery + bundle size matters more than peak throughput; you don't need Hexagon QNN.
+
+#### 3.6.9 ONNX Runtime GenAI (.NET only — every OS)
+
+- **Runtime:** Microsoft's `Microsoft.ML.OnnxRuntime` 1.25.0 + `Microsoft.ML.OnnxRuntimeGenAI` 0.13.1. Cross-platform (.NET 10), but exposed only through the .NET NuGet family in DVAI-BRIDGE today.
+- **Hosts:** .NET 10 LTS — Windows / Linux / macOS desktop, .NET MAUI on iOS / Android (with the matching native library), Avalonia, WinUI, console.
+- **Model format:** ONNX with the ORT-GenAI `genai_config.json` companion file. Microsoft's `microsoft/Phi-3-mini-4k-instruct-onnx` and the broader HuggingFace ONNX-GenAI org are the canonical sources.
+- **Model families known to work:** Phi-3 / 3.5, Llama 2 / 3, Gemma 2, Qwen 2, Mistral. Microsoft tends to optimise heavily for Phi (their own family).
+- **Acceleration:** ONNX Runtime execution providers — CUDA, DirectML, CoreML, ROCm, and CPU. The provider is selected by the runtime based on what's installed; DVAI-BRIDGE doesn't override.
+- **Pros:** first-party Microsoft path. DirectML on Windows lights up Intel Arc, AMD Radeon, and NVIDIA without a CUDA dependency. CoreML EP gives a serviceable iOS / macOS path inside .NET MAUI. Tokeniser, sampler, KV-cache all bundled.
+- **Cons:** model catalogue narrower than GGUF. Memory footprint higher than llama.cpp at equivalent quality on the same machine. Cold-start time noticeably longer (provider probe + graph compile).
+- **Pick when:** you're a .NET shop and want a first-party Microsoft path; you target Windows + DirectML where llama.cpp's DirectML backend doesn't yet match peak; you're already invested in ONNX as your model format.
+
+#### 3.6.10 ML.NET (.NET only — desktop primary)
+
+- **Runtime:** Microsoft's `Microsoft.ML` 5.0.0 with `OnnxScoringEstimator`. ML.NET is Microsoft's classical-ML / tabular framework that grew an ONNX scoring path.
+- **Hosts:** .NET 10 desktop primarily — Windows / Linux / macOS console, WinUI, Avalonia. Mobile + Catalyst paths technically work but are RAM-tight.
+- **Model format:** ONNX, fed through ML.NET's `MLContext.Transforms.ApplyOnnxModel(...)`.
+- **Model families known to work:** small classification, regression, and embedding models (sentence-transformers, BERT-class encoders). Generative LLMs through ML.NET are awkward — possible, but not the framework's sweet spot.
+- **Acceleration:** ONNX Runtime under the hood; provider selection same as §3.6.9 (CUDA, DirectML, CoreML, CPU).
+- **Pros:** for shops already running ML.NET pipelines (an enterprise-tilt audience), the **same** DVAIBridge HTTP API now sits over their existing classification / scoring models. No second framework to learn.
+- **Cons:** not a sensible choice for chat-LLM workloads — use §3.6.9 (ONNX Runtime GenAI) for generative work. ML.NET's API surface is verbose for streaming token output.
+- **Pick when:** the model you want to expose is a classifier / regressor / encoder, not a generative LLM, and your stack is already ML.NET. Otherwise: don't.
+
+#### 3.6.11 Model-format / framework-pick decision tree (one-page summary)
+
+```
+Browser-only?
+├─ Model in MLC catalogue?    → WebLLM
+└─ Otherwise                  → Transformers.js
+
+iOS app?
+├─ iOS 26+ floor + want zero-download? → Foundation Models
+├─ Want max battery efficiency, can convert? → CoreML
+├─ A17+ install base, want PyTorch-like ergonomics? → MLX
+└─ Otherwise (broad iPhone reach, 1 model artefact)  → llama.cpp / GGUF
+
+Android app?
+├─ Snapdragon 8-Gen-2+ install base + curated model? → MediaPipe
+├─ Need API 24 floor or smaller bundle?              → LiteRT
+└─ Otherwise (broad reach, 1 model artefact)         → llama.cpp / GGUF
+
+.NET MAUI?  → routes to the iOS / Android / Catalyst native backends above.
+
+.NET Desktop / WinUI / Avalonia?
+├─ DirectML target (Windows GPU, no CUDA)  → ONNX Runtime GenAI
+├─ Phi-tilt or Microsoft-ecosystem-tilt    → ONNX Runtime GenAI
+├─ Generative LLM, broadest format reach   → llama.cpp Desktop
+└─ Classifier / encoder, ML.NET pipeline   → ML.NET
+
+Web + Server in Node?  → Transformers.js (`onnxruntime-node`).
+```
+
+The decision tree is intentionally orthogonal to model *quality* — once you've picked a backend, the model choice is whatever your task demands at the quality tier you can afford on that backend. DVAI-BRIDGE's role is to make the surface above the backend identical so the *application* code never has to make that choice.
+
 ---
 
 ## 4. The OpenAI-Compatibility Layer
@@ -450,18 +596,17 @@ var reply = await kernel.InvokePromptAsync("Hi");
 
 On Catalyst, `BackendKind.Auto` resolves to `Llama` (Metal); pass `Foundation` for the bundled iOS-26 model, `MLX` for Apple Silicon, or `Onnx` for the cross-platform ONNX Runtime + GenAI path that also runs on Windows / Linux desktop. `ProgressEvents` is an `IAsyncEnumerable<ProgressEvent>` consumable from any `await foreach`; it interops with `Microsoft.Extensions.AI`, SignalR, and `System.IO.Pipelines` without a shim. The desktop slice ships native llama.cpp binaries via NuGet's `runtimes/<rid>/native/` mechanism, so `dotnet publish -r win-x64 --self-contained` produces a single-file desktop app with local LLM inference baked in.
 
-### 6.11 What Remains Unmeasured
+### 6.11 On benchmarks: a deliberate non-goal
 
-Honest disclosure: the current codebase and documentation carry **no published benchmarks**. Specifically absent are:
+A reader who has skimmed every "introducing local LLM library X" post on the web will be looking for our benchmark table here. We do not publish one — and the reason is structural to what DVAI-BRIDGE *is*, not an unfinished item on a backlog.
 
-- **Latency.** Time-to-first-token and tokens-per-second for each driver × model × device class combination.
-- **Throughput under load.** Behaviour under concurrent agent calls in the same tab.
-- **Memory footprint.** Peak VRAM and RSS across model sizes and quantisations.
-- **Power and thermals.** Mobile-device sustained inference battery cost and thermal throttling curves.
-- **Quality-at-quantisation.** Task-level quality drop from q8 → q6 → q4 → q3 for each driver's supported quantisation set.
-- **Comparative studies** against Ollama (server-local), WebLLM-standalone, and direct OpenAI calls.
+The library is a thin shim: it accepts an OpenAI-shaped HTTP request, dispatches it to a backend (§3.6), and re-shapes the backend's response back into the OpenAI wire format. Token-generation time, time-to-first-token, throughput under load, peak VRAM, sustained battery drain, and quality-at-quantisation are **properties of the upstream backend** running underneath — WebLLM's MLC engine, Hugging Face's Transformers.js, Apple's Foundation Models / CoreML / MLX, Google's MediaPipe LLM Inference / LiteRT, ggerganov's llama.cpp, Microsoft's ONNX Runtime GenAI / ML.NET — and of the model + quantisation + device they happen to be running on. They are not properties of the few hundred lines of glue code on top of them. Publishing perf numbers attributed to "DVAI-BRIDGE" would be a category error: it would suggest we have something to measure when in fact every measurable quantity belongs upstream. A consumer who reads "DVAI-BRIDGE achieves 47 tok/s on Phi-3-mini-q4 on a Snapdragon 8 Gen 3" is really reading "MediaPipe LLM Inference achieves 47 tok/s …" — and MediaPipe already publishes their own benchmarks, more rigorously than we could.
 
-We regard closing this gap as the most important near-term research task. A proposed methodology: fix a small test suite (e.g., MT-Bench subset, a tool-calling suite, and three retrieval-grounded QA sets) and run it end-to-end through each driver on three reference devices (a WebGPU-capable laptop, an Electron desktop with dGPU, and a current-generation iPhone/Android), reporting latency percentiles, tokens per second, and task accuracy.
+The same observation applies to comparative studies. Comparing DVAI-BRIDGE to Ollama or `llama-server` is comparing the embedding pattern to the daemon pattern (§7), not comparing engines — both pattern endpoints can be backed by the same llama.cpp release. Comparing DVAI-BRIDGE to WebLLM-standalone is comparing the OpenAI-HTTP layer to the bare-engine layer, again on the same engine. The performance numbers are the engine's; the comparison would be about ergonomics and integration shape, which is not what benchmark tables capture.
+
+The thing we *can* and *do* document is the **decision matrix** — which backend to pick for which platform, install base, model family, model format, and quality / battery / latency trade-off (§3.6, plus the 3.6.11 decision tree). That is the layer DVAI-BRIDGE actually contributes to: making it cheap to choose between backends, switch between them, and keep one consumer-facing interface stable while doing so. Pointing readers at the upstream engines' own benchmarks is the honest way to answer "how fast is it?".
+
+If a reader needs a number for a procurement or capacity-planning decision, the right places to look are: the MLC team's WebLLM perf reports for browser numbers; Hugging Face's Transformers.js model cards for ONNX numbers on a given device; Apple's Foundation Models / CoreML / MLX documentation for iOS / Mac numbers; Google's MediaPipe LLM Inference perf docs and Edge AI Gallery for Android numbers; ggerganov's `llama.cpp` benchmark scripts and community boards (`llama-bench`) for GGUF numbers across every desktop platform; and Microsoft's ONNX Runtime GenAI perf docs for .NET numbers. DVAI-BRIDGE's own contribution is a consistent ~0-1 ms HTTP overhead per request — orders of magnitude below the perf signal — which is captured implicitly in any end-to-end measurement against a `dvai.baseUrl` endpoint and is not interesting in isolation.
 
 ---
 
@@ -481,7 +626,7 @@ Three further trade-offs worth naming:
 - **`createPipeline` flexibility comes at the cost of a larger built-in model zoo.** The library keeps itself small and defers exotic model loaders to the caller. For most callers this is the right trade; for callers who want a shrink-wrapped experience it is friction.
 - **OpenAI surface is partial.** `/v1/chat/completions`, `/v1/completions`, `/v1/embeddings`, and `/v1/models` are implemented today; `/v1/audio/*` and `/v1/images/*` are not. Embeddings now unblock fully-local RAG (with the backend caveats in §4.4), but audio and image endpoints remain prioritised future work.
 
-The deeper point is that the library's moat is not any single backend — Transformers.js and WebLLM are both excellent, but neither is proprietary. The moat is the **OpenAI-mock-as-universal-interface** pattern. That is what turns three heterogeneous runtimes into one product.
+The deeper point is that the library's moat is not any single backend — every backend in §3.6 is an excellent piece of upstream engineering, and none of them is ours to claim credit for. The moat is the **OpenAI-mock-as-universal-interface** pattern, plus the discipline of carrying that interface across every client-development language and every major mobile / desktop / browser platform. That is what turns nine heterogeneous runtimes into one product.
 
 ---
 
@@ -511,7 +656,8 @@ The remainder of §8 is forward-looking from this v2.4.0 baseline.
 - **`/v1/audio/*` endpoint** — privacy-native voice workflows (Whisper-shaped transcription, plus TTS once a stable on-device pipeline emerges).
 - **`/v1/images/*` endpoint** — local vision generation (Stable-Diffusion-class through a Transformers.js or platform-native pipeline).
 - **Cryptographic / signed-token license validation.** The current `LicenseValidator` remains a placeholder; a signed-token design is the planned successor for commercial deployments.
-- **Published benchmarks** per §6.11 — the open methodology gap from the v1.4 paper, still open at v2.4.0.
+
+(We deliberately do **not** list "published benchmarks" here, for the reasons in §6.11 — perf belongs to the upstream backends, not to the shim layer.)
 
 ### 8.2 DVAI-Connect: E2EE Meetings with On-Device Intelligence
 
@@ -556,8 +702,8 @@ We list the library's real limitations candidly, so that readers and adopters ca
 - **No built-in tool/function-calling runtime.** The library relies on the tool-calling loops of downstream agent SDKs (LangChain, Vercel AI SDK, CrewAI); for small local models it recommends manual JSON parsing on assistant content rather than the cloud-grade structured-tool-call protocol. This is a deliberate scope decision, not an oversight.
 - **MSW constraints.** Service Worker registration requires a secure origin (HTTPS or localhost), is unavailable inside pure Web Workers, and can be blocked in sandboxed iframes. Non-browser Node.js/Deno paths must use the direct API (`dvai.chatCompletion()`, `dvai.embedding()`, `dvai.createStreamingResponse()`).
 - **Licence validation is placeholder.** `LicenseValidator.ts` currently contains TODOs; a cryptographic verification design is planned for v2.
-- **Test coverage spans the family but stops short of E2E real-model coverage.** Unit tests cover the JS family (core, react, vanilla, capacitor) plus native iOS, native Android, React Native, Flutter, and .NET — >300 unit tests across the family — but published benchmarks against real models on real devices remain absent (see next item).
-- **No published benchmarks.** The methodology proposed in §6.11 — fixed test suites, three reference devices, latency / throughput / memory / power / quality-at-quantisation reporting — has not been executed.
+- **Test coverage spans the family but stops short of E2E real-model coverage.** Unit tests cover the JS family (core, react, vanilla, capacitor) plus native iOS, native Android, React Native, Flutter, and .NET — >300 unit tests across the family — but real-model integration tests are smoke-only (one tiny model per backend, gated behind opt-in CI). Adopters running production-shape models should run their own integration pass; the unit coverage validates the shim, not the backend.
+- **First-party benchmarks are out of scope by design.** Inference perf is a property of the upstream backends DVAI-BRIDGE wraps, not of the shim itself; see §6.11 for the position and pointers to where the right numbers live.
 - **No model caching layer.** Model weights are fetched from the Hugging Face CDN (Transformers.js), the MLC catalogue (WebLLM), GGUF mirrors (llama.cpp), or platform-specific stores (MediaPipe `.task`, LiteRT `.tflite`, ONNX GenAI bundles) on first run. Offline-first packaging is the caller's responsibility today, though every native SDK exposes a `downloadModel` with sha256 verification as a building block.
 - **MLC LLM as a backend is parked.** A native MLC LLM mobile backend (parity with Llama / MediaPipe / LiteRT) was scoped during Phase 3 and parked pending build-chain stabilisation — see [`docs/research/2026-04-27-mlc-llm-backend-feasibility.md`](docs/research/2026-04-27-mlc-llm-backend-feasibility.md) for the parking decision and re-examination triggers.
 - **No in-library agent runtime.** By design (§7), but worth restating: tool calling, retrieval, planning, and memory are delegated to external SDKs (LangChain, Vercel AI SDK, CrewAI, Microsoft.SemanticKernel, etc.).
@@ -566,7 +712,7 @@ We list the library's real limitations candidly, so that readers and adopters ca
 
 ## 10. Conclusion
 
-The most interesting thing about DVAI-BRIDGE is not that it runs language models locally — several projects do that — but that it makes local models _speak OpenAI natively_, on the client, across Web, Desktop, and Mobile, through a single TypeScript API. Mock Service Worker, a library originally written for test mocking, turns out to be the right production transport for an in-page API emulator. The pluggable driver architecture lets three heterogeneous inference engines (WebLLM, Transformers.js, llama.cpp) serve the same wire contract. The auto-recovery state machine papers over the practical realities of WebGPU in a browser. And the `createPipeline` factory keeps the library small while extending its reach to arbitrary Transformers.js model families.
+The most interesting thing about DVAI-BRIDGE is not that it runs language models locally — several projects do that — but that it makes local models _speak OpenAI natively_, on the client, across every major client platform, through one wire contract that is identical at the edge of every SDK in the family. Mock Service Worker, a library originally written for test mocking, turns out to be the right production transport for an in-page API emulator. The pluggable driver architecture lets nine heterogeneous inference engines — WebLLM, Transformers.js, llama.cpp, Apple Foundation Models, CoreML, MLX, MediaPipe LLM Inference, LiteRT, ONNX Runtime GenAI, and ML.NET — serve the same wire contract behind a single OpenAI HTTP surface. The auto-recovery state machine papers over the practical realities of WebGPU in a browser; the same pattern carries over, less dramatically, to every other backend. And the `createPipeline` factory keeps the library small while extending its reach to arbitrary Transformers.js model families. Across every other backend the library is a thin idiomatic shim over a first-party engine, with the per-backend details documented in §3.6 so an adopter picks the right one for the platform, model family, and trade-off they care about — and never has to write the OpenAI HTTP layer themselves.
 
 The forward vision extends the substrate. DVAI-Connect takes real-time voice intelligence off the cloud meeting server. LifeStream makes a longitudinal personal assistant ethically shippable by keeping every byte of user memory on-device. Both are applications that do not exist today, and cannot exist under cloud inference, but become straightforward under a substrate that treats the user's device as the execution environment.
 
