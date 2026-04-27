@@ -3,6 +3,119 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.4.0] — 2026-04-27
+
+Phase 3G — `.NET` NuGet family ships. Wraps the iOS + Android SDKs for
+.NET MAUI / Avalonia / WinUI / Xamarin consumers, **plus** ships
+desktop-only and .NET-specific backends so Windows / macOS / Linux .NET
+hosts get full coverage instead of platform-not-supported stubs.
+Mobile + desktop now share one OpenAI-compatible HTTP surface and one
+`DVAIBridge.Shared` core. All other dvai-bridge packages get a
+coordinated minor bump for build-graph alignment (no source changes
+outside the new .NET tree).
+
+### Added
+
+- **`DVAIBridge.Shared` (NuGet, `co.deepvoiceai.dvai-bridge`)** — public
+  facade `DVAIBridge` (singleton-style static class), `BackendKind` enum
+  (9 values: `Auto` / `Llama` / `Foundation` / `CoreML` / `MLX` /
+  `MediaPipe` / `LiteRT` / `Onnx` / `MLNet`), `DVAIBridgeOptions`,
+  `DVAIBridgeState`, multi-consumer `ProgressBroadcaster` (per-subscriber
+  bounded channels with `BoundedChannelFullMode.DropOldest`),
+  `INativeBridge` abstraction, `PlatformBridgeFactory` runtime selector,
+  and `UnsupportedPlatformBridge` last-resort stub.
+- **`DVAIBridge.iOS`** (TFMs `net10.0-ios26.2;net10.0-maccatalyst26.2`)
+  — ObjC binding shims wrapping `DVAIBridge ~> 2.3` Swift actor.
+  Mac Catalyst lights up native bridging on macOS the same as iOS.
+- **`DVAIBridge.Android`** (TFM `net10.0-android36.0`) — JNI/AndroidJavaObject
+  shims for `co.deepvoiceai:dvai-bridge:$dvaiBridgeVersion` from GitHub
+  Packages Maven (Phase 3D umbrella).
+- **`DVAIBridge.Desktop`** (TFM `net10.0`, RIDs `win-x64` / `linux-x64` /
+  `osx-arm64`) — first-class llama.cpp backend for Windows / Linux /
+  macOS .NET hosts. P/Invoke (`DllImport`) into prebuilt
+  `llama.cpp` release `b8946` binaries fetched + checksum-verified by
+  `scripts/fetch-llama-binaries.sh` + `scripts/verify-llama-checksums.sh`.
+  Embeds the same Kestrel OpenAI-compatible HTTP server as iOS / Android.
+- **`DVAIBridge.OnnxRuntime`** (TFM `net10.0`) — ONNX Runtime backend
+  via `Microsoft.ML.OnnxRuntime 1.25.0` + `Microsoft.ML.OnnxRuntimeGenAI 0.13.1`.
+  `OnnxGenAIRunner` handles tokenizer + sampler + KV-cache; routed via
+  `OnnxNativeBridge` and the shared Kestrel server. Targets the .NET
+  ecosystem's most portable model format (CPU / CUDA / DirectML /
+  CoreML EPs).
+- **`DVAIBridge.MLNet`** (TFM `net10.0`) — `Microsoft.ML 5.0.0` (ML.NET)
+  backend with `OnnxScoringEstimator` for classification / regression
+  workloads. `MLNetInferenceEngine` + `MLNetNativeBridge`; same shared
+  Kestrel surface. Caters to the "I have an ML.NET model already, give
+  me the same DVAIBridge HTTP API on top of it" use case.
+- **Shared Kestrel server** (`packages/dvai-bridge-dotnet/src/shared/DVAIBridge.Shared.Hosting/`)
+  — three files (`IInferenceEngine.cs`, `OpenAIServer.cs`,
+  `PortPicker.cs`) consumed by Desktop, ONNX, and MLNet backends so
+  every .NET-side backend exposes the **same** OpenAI-compatible
+  `/v1/chat/completions` (streaming + non-streaming) endpoint as the
+  iOS / Android wrappers.
+- **`scripts/sync-versions.js`** picks up `Directory.Build.props`
+  (`<Version>` element) so the .NET family stays in lockstep with the
+  rest of the monorepo via the existing root-`package.json`-version flow.
+- **Docs** —
+  - `docs/guide/dotnet-sdk.md` (~445 lines): 6-package install matrix,
+    9-row `BackendKind` decision matrix, ONNX-vs-MLNet trade-off
+    section, decision tree.
+  - `docs/migration/v2.3-to-v2.4.md`: additive scope (no breaking
+    changes for non-.NET consumers); covers Desktop slice, Mac Catalyst
+    TPV `26.2` rationale (`.NET 10` SDK 10.0.203 ships `26.0`/`26.2`
+    only — no `18.0`), ONNX Runtime install, ML.NET install, broadcaster
+    cancellation fix.
+- **CI** — `.github/workflows/test-dotnet.yml` runs Windows + macOS
+  matrix (`dotnet test` for `DVAIBridge`, `DVAIBridge.Desktop`,
+  `DVAIBridge.OnnxRuntime`, `DVAIBridge.MLNet`); host-gated tests for
+  `DVAIBridge.iOS` (Catalyst on macOS) and `DVAIBridge.Android` (Windows
+  + macOS). Tag-gated `dotnet pack --include-symbols` validates
+  pre-release artifacts.
+
+### Changed
+
+- All Android module versions bumped 2.3.0 → 2.4.0 via the
+  `dvaiBridgeVersion` Gradle property (5 cores + RN bridge + Flutter
+  bridge = 7 modules, no source changes).
+- `@dvai-bridge/android` umbrella republishes at 2.4.0 (build-graph
+  alignment with the .NET wrappers' `dvai-bridge:$dvaiBridgeVersion`
+  consumption).
+- All other `@dvai-bridge/*` npm packages bump to 2.4.0 in lockstep via
+  `scripts/sync-versions.js`.
+- **`ProgressBroadcaster` cancellation fix** — `MoveNextAsync` now
+  yield-breaks on `OperationCanceledException` when the per-subscriber
+  cancellation token is signalled, instead of letting it bubble out as
+  an unhandled exception. Internal-only; consumer surface unchanged.
+
+### Distribution asymmetry (new with 3G)
+
+`co.deepvoiceai.dvai-bridge.*` is the **first** family member published
+to **public NuGet.org**. Other family members continue on private
+GitHub Packages npm + Maven; Flutter remains on public pub.dev (Phase
+3F). See `PUBLISHING.md` §"NuGet — `.NET` family (Phase 3G)" for the
+publish flow.
+
+### Pinned dependency versions (verified 2026-04-27)
+
+| Tool | Pin |
+|---|---|
+| `dotnet` SDK floor | `10.0.203` (LTS) |
+| `Microsoft.ML.OnnxRuntime` | `1.25.0` |
+| `Microsoft.ML.OnnxRuntimeGenAI` | `0.13.1` |
+| `Microsoft.ML` | `5.0.0` |
+| iOS / Catalyst TPV | `26.2` (the only mobile TPVs `.NET 10` SDK 10.0.203 ships — `18.0` is `.NET 9`) |
+| Android TPV | `36.0` |
+| llama.cpp binaries | release tag `b8946` |
+
+### Known follow-ups after 2.4.0
+
+- **Docs / launch polish** (Phase 3H) — public-facing v2.x release
+  story, sample-app scripts, marketing pages. Active next.
+- **MLC LLM backend** — still *parked* (see 2.3.0 entry + research
+  doc). Not on active backlog.
+
+---
+
 ## [2.3.0] — 2026-04-27
 
 Phase 3F — Flutter plugin ships. The Flutter side wraps the v2.2 iOS
