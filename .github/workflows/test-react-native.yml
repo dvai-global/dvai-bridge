@@ -1,0 +1,48 @@
+name: React Native — DVAIBridge module
+
+on:
+  pull_request:
+    paths:
+      - 'packages/dvai-bridge-react-native/**'
+      - '.github/workflows/test-react-native.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/dvai-bridge-react-native/**'
+
+concurrency:
+  group: react-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build + Jest — @dvai-bridge/react-native
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Type-check
+        run: pnpm -F @dvai-bridge/react-native typecheck
+
+      - name: Build (react-native-builder-bob)
+        run: pnpm -F @dvai-bridge/react-native build
+
+      - name: Jest unit tests
+        run: pnpm -F @dvai-bridge/react-native test

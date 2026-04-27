@@ -1,0 +1,39 @@
+# Build outputs
+lib/
+*.tgz
+.tsbuildinfo
+
+# RN codegen output (generated at pod install / Gradle sync)
+generated/
+build/
+
+# iOS
+ios/build/
+ios/Pods/
+ios/*.xcworkspace
+ios/*.xcodeproj
+ios/Podfile.lock
+ios/.build/
+ios/DerivedData/
+
+# Android
+android/build/
+android/.gradle/
+android/local.properties
+android/captures/
+android/.cxx/
+
+# Node
+node_modules/
+.pnp.*
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage/

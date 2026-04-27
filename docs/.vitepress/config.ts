@@ -55,6 +55,7 @@ export default defineConfig({
 					{ text: "Capacitor Quickstart", link: "/guide/quickstart-capacitor" },
 					{ text: "iOS Native SDK", link: "/guide/ios-native-sdk" },
 					{ text: "Android Native SDK", link: "/guide/android-native-sdk" },
+					{ text: "React Native SDK", link: "/guide/react-native-sdk" },
 					{ text: "MLX Backend", link: "/guide/mlx-backend" },
 					{ text: "Model Distribution", link: "/guide/model-distribution" },
 					{ text: "Multimodal", link: "/guide/multimodal" },
