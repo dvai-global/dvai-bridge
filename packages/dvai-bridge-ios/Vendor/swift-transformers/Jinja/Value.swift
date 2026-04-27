@@ -7,7 +7,7 @@ import Foundation
 ///
 /// Values are the runtime representation of data in Jinja templates,
 /// supporting various types including primitives, collections, and callable objects.
-public enum Value: Sendable {
+public enum JinjaValue: Sendable {
     /// Null value representing absence of data.
     case null
     /// Undefined value for uninitialized variables.
@@ -21,15 +21,15 @@ public enum Value: Sendable {
     /// String value containing text data.
     case string(String)
     /// Array containing ordered collection of values.
-    case array([Value])
+    case array([JinjaValue])
     /// Object containing key-value pairs with preserved insertion order.
-    case object(OrderedDictionary<String, Value>)
+    case object(OrderedDictionary<String, JinjaValue>)
     /// Function value that can be called with arguments.
-    case function(@Sendable ([Value], [String: Value], Environment) throws -> Value)
+    case function(@Sendable ([JinjaValue], [String: JinjaValue], Environment) throws -> JinjaValue)
     /// Macro value that can be invoked with arguments.
     case macro(Macro)
 
-    /// Creates a Value from any Swift value.
+    /// Creates a JinjaValue from any Swift value.
     ///
     /// This initializer attempts to convert common Swift types to their Jinja equivalents.
     /// Supported types include strings, numbers, booleans, arrays, dictionaries, and macros.
@@ -38,7 +38,7 @@ public enum Value: Sendable {
     /// - Throws: `JinjaError.runtime` if the value type cannot be converted
     public init(any value: Any?) throws {
         switch value {
-        case let value as Value:
+        case let value as JinjaValue:
             self = value
         case nil:
             self = .null
@@ -53,19 +53,19 @@ public enum Value: Sendable {
         case let bool as Bool:
             self = .boolean(bool)
         case let array as [Any?]:
-            let values = try array.map { try Value(any: $0) }
+            let values = try array.map { try JinjaValue(any: $0) }
             self = .array(values)
         case let dict as [String: Any?]:
-            var orderedDict = OrderedDictionary<String, Value>()
+            var orderedDict = OrderedDictionary<String, JinjaValue>()
             for (key, value) in dict.sorted(by: { $0.key < $1.key }) {
-                orderedDict[key] = try Value(any: value)
+                orderedDict[key] = try JinjaValue(any: value)
             }
             self = .object(orderedDict)
         case let macro as Macro:
             self = .macro(macro)
         default:
             throw JinjaError.runtime(
-                "Cannot convert value of type \(type(of: value)) to Jinja Value"
+                "Cannot convert value of type \(type(of: value)) to Jinja JinjaValue"
             )
         }
     }
@@ -159,7 +159,7 @@ public enum Value: Sendable {
     /// - Parameters:
     ///   - other: The value to add to the current value
     /// - Throws: `JinjaError.runtime` if the values cannot be added
-    public func add(with other: Value) throws -> Value {
+    public func add(with other: JinjaValue) throws -> JinjaValue {
         switch (self, other) {
         case let (.int(a), .int(b)):
             return .int(a + b)
@@ -186,7 +186,7 @@ public enum Value: Sendable {
     /// - Parameters:
     ///   - other: The value to concatenate to the current value
     /// - Throws: `JinjaError.runtime` if the values cannot be concatenated
-    public func concatenate(with other: Value) throws -> Value {
+    public func concatenate(with other: JinjaValue) throws -> JinjaValue {
         switch (self, other) {
         case let (.string(a), .string(b)):
             return .string(a + b)
@@ -205,7 +205,7 @@ public enum Value: Sendable {
     /// - Parameters:
     ///   - other: The value to subtract from the current value
     /// - Throws: `JinjaError.runtime` if the values cannot be subtracted
-    public func subtract(by other: Value) throws -> Value {
+    public func subtract(by other: JinjaValue) throws -> JinjaValue {
         switch (self, other) {
         case let (.int(a), .int(b)):
             return .int(a - b)
@@ -224,7 +224,7 @@ public enum Value: Sendable {
     /// - Parameters:
     ///   - other: The value to multiply the current value by
     /// - Throws: `JinjaError.runtime` if the values cannot be multiplied
-    public func multiply(by other: Value) throws -> Value {
+    public func multiply(by other: JinjaValue) throws -> JinjaValue {
         switch (self, other) {
         case let (.int(a), .int(b)):
             return .int(a * b)
@@ -247,7 +247,7 @@ public enum Value: Sendable {
     /// - Parameters:
     ///   - other: The value to divide the current value by
     /// - Throws: `JinjaError.runtime` if the values cannot be divided
-    public func divide(by other: Value) throws -> Value {
+    public func divide(by other: JinjaValue) throws -> JinjaValue {
         switch (self, other) {
         case let (.int(a), .int(b)):
             guard b != 0 else { throw JinjaError.runtime("Division by zero") }
@@ -270,7 +270,7 @@ public enum Value: Sendable {
     /// - Parameters:
     ///   - other: The value to compute the modulo of the current value by
     /// - Throws: `JinjaError.runtime` if the values cannot be moduloed
-    public func modulo(by other: Value) throws -> Value {
+    public func modulo(by other: JinjaValue) throws -> JinjaValue {
         switch (self, other) {
         case let (.int(a), .int(b)):
             guard b != 0 else { throw JinjaError.runtime("Modulo by zero") }
@@ -284,7 +284,7 @@ public enum Value: Sendable {
     /// - Parameters:
     ///   - other: The value to compute the floor division of the current value by
     /// - Throws: `JinjaError.runtime` if the values cannot be floor divided
-    public func floorDivide(by other: Value) throws -> Value {
+    public func floorDivide(by other: JinjaValue) throws -> JinjaValue {
         switch (self, other) {
         case let (.int(a), .int(b)):
             guard b != 0 else { throw JinjaError.runtime("Division by zero") }
@@ -309,7 +309,7 @@ public enum Value: Sendable {
     /// - Parameters:
     ///   - other: The value to raise the current value to the power of
     /// - Throws: `JinjaError.runtime` if the values cannot be raised to a power
-    public func power(by other: Value) throws -> Value {
+    public func power(by other: JinjaValue) throws -> JinjaValue {
         switch (self, other) {
         case let (.int(a), .int(b)):
             guard b >= 0 else {
@@ -333,7 +333,7 @@ public enum Value: Sendable {
     /// - Parameters:
     ///   - other: The value to compare the current value to
     /// - Throws: `JinjaError.runtime` if the values cannot be compared
-    public func compare(to other: Value) throws -> Int {
+    public func compare(to other: JinjaValue) throws -> Int {
         switch (self, other) {
         case let (.int(a), .int(b)):
             return a < b ? -1 : a > b ? 1 : 0
@@ -358,7 +358,7 @@ public enum Value: Sendable {
     /// - Parameters:
     ///   - collection: The value to check if the current value is contained in
     /// - Throws: `JinjaError.runtime` if the values cannot be checked for containment
-    public func isContained(in collection: Value) throws -> Bool {
+    public func isContained(in collection: JinjaValue) throws -> Bool {
         switch collection {
         case .undefined:
             return false
@@ -390,7 +390,7 @@ public enum Value: Sendable {
     /// - Parameters:
     ///   - other: The value to compare for equivalence.
     /// - Returns: `true` if the values are equivalent, otherwise `false`.
-    public func isEquivalent(to other: Value) -> Bool {
+    public func isEquivalent(to other: JinjaValue) -> Bool {
         switch (self, other) {
         case let (.int(a), .int(b)):
             return a == b
@@ -430,7 +430,7 @@ public enum Value: Sendable {
 
 // MARK: - CustomStringConvertible
 
-extension Value: CustomStringConvertible {
+extension JinjaValue: CustomStringConvertible {
     /// String representation of the value for template output.
     public var description: String {
         switch self {
@@ -460,9 +460,9 @@ extension Value: CustomStringConvertible {
 
 // MARK: - Equatable
 
-extension Value: Equatable {
+extension JinjaValue: Equatable {
     /// Compares two values for equality.
-    public static func == (lhs: Value, rhs: Value) -> Bool {
+    public static func == (lhs: JinjaValue, rhs: JinjaValue) -> Bool {
         switch (lhs, rhs) {
         case let (.string(lhs), .string(rhs)): return lhs == rhs
         case let (.double(lhs), .double(rhs)): return lhs == rhs
@@ -481,7 +481,7 @@ extension Value: Equatable {
 
 // MARK: - Hashable
 
-extension Value: Hashable {
+extension JinjaValue: Hashable {
     /// Hashes the value into the given hasher.
     public func hash(into hasher: inout Hasher) {
         switch self {
@@ -501,7 +501,7 @@ extension Value: Hashable {
 
 // MARK: - Encodable
 
-extension Value: Encodable {
+extension JinjaValue: Encodable {
     private struct DynamicCodingKey: CodingKey {
         var stringValue: String
         var intValue: Int? { nil }
@@ -565,7 +565,7 @@ extension Value: Encodable {
 
 // MARK: - Decodable
 
-extension Value: Decodable {
+extension JinjaValue: Decodable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if container.decodeNil() {
@@ -578,10 +578,10 @@ extension Value: Decodable {
             self = .double(number)
         } else if let boolean = try? container.decode(Bool.self) {
             self = .boolean(boolean)
-        } else if let value = try? container.decode([Value].self) {
+        } else if let value = try? container.decode([JinjaValue].self) {
             self = .array(value)
-        } else if let value = try? container.decode([String: Value].self) {
-            var orderedDictionary: OrderedDictionary<String, Value> = [:]
+        } else if let value = try? container.decode([String: JinjaValue].self) {
+            var orderedDictionary: OrderedDictionary<String, JinjaValue> = [:]
             for (key) in value.keys.sorted() {
                 orderedDictionary[key] = value[key]
             }
@@ -590,10 +590,10 @@ extension Value: Decodable {
             self = .macro(macro)
         } else {
             throw DecodingError.typeMismatch(
-                Value.self,
+                JinjaValue.self,
                 DecodingError.Context(
                     codingPath: decoder.codingPath,
-                    debugDescription: "Cannot decode Value from any supported container type"
+                    debugDescription: "Cannot decode JinjaValue from any supported container type"
                 )
             )
 
@@ -603,7 +603,7 @@ extension Value: Decodable {
 
 // MARK: - ExpressibleByNilLiteral
 
-extension Value: ExpressibleByNilLiteral {
+extension JinjaValue: ExpressibleByNilLiteral {
     public init(nilLiteral: ()) {
         self = .null
     }
@@ -611,7 +611,7 @@ extension Value: ExpressibleByNilLiteral {
 
 // MARK: - ExpressibleByBooleanLiteral
 
-extension Value: ExpressibleByBooleanLiteral {
+extension JinjaValue: ExpressibleByBooleanLiteral {
     public init(booleanLiteral value: Bool) {
         self = .boolean(value)
     }
@@ -619,7 +619,7 @@ extension Value: ExpressibleByBooleanLiteral {
 
 // MARK: - ExpressibleByIntegerLiteral
 
-extension Value: ExpressibleByIntegerLiteral {
+extension JinjaValue: ExpressibleByIntegerLiteral {
     public init(integerLiteral value: Int) {
         self = .int(value)
     }
@@ -627,7 +627,7 @@ extension Value: ExpressibleByIntegerLiteral {
 
 // MARK: - ExpressibleByFloatLiteral
 
-extension Value: ExpressibleByFloatLiteral {
+extension JinjaValue: ExpressibleByFloatLiteral {
     public init(floatLiteral value: Double) {
         self = .double(value)
     }
@@ -635,7 +635,7 @@ extension Value: ExpressibleByFloatLiteral {
 
 // MARK: - ExpressibleByStringLiteral
 
-extension Value: ExpressibleByStringLiteral {
+extension JinjaValue: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
         self = .string(value)
     }
@@ -643,17 +643,17 @@ extension Value: ExpressibleByStringLiteral {
 
 // MARK: - ExpressibleByArrayLiteral
 
-extension Value: ExpressibleByArrayLiteral {
-    public init(arrayLiteral elements: Value...) {
+extension JinjaValue: ExpressibleByArrayLiteral {
+    public init(arrayLiteral elements: JinjaValue...) {
         self = .array(elements)
     }
 }
 
 // MARK: - ExpressibleByDictionaryLiteral
 
-extension Value: ExpressibleByDictionaryLiteral {
-    public init(dictionaryLiteral elements: (String, Value)...) {
-        var dict = OrderedDictionary<String, Value>()
+extension JinjaValue: ExpressibleByDictionaryLiteral {
+    public init(dictionaryLiteral elements: (String, JinjaValue)...) {
+        var dict = OrderedDictionary<String, JinjaValue>()
         for (key, value) in elements {
             dict[key] = value
         }

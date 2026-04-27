@@ -8,8 +8,8 @@ public enum Tests {
 
     /// Tests if the input is defined (not undefined).
     @Sendable public static func defined(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -24,8 +24,8 @@ public enum Tests {
 
     /// Tests if the input is undefined.
     @Sendable public static func undefined(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -40,8 +40,8 @@ public enum Tests {
 
     /// Tests if the input is none/null.
     @Sendable public static func none(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -56,8 +56,8 @@ public enum Tests {
 
     /// Tests if the input is a string.
     @Sendable public static func string(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -72,8 +72,8 @@ public enum Tests {
 
     /// Tests if the input is a number.
     @Sendable public static func number(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -88,8 +88,8 @@ public enum Tests {
 
     /// Tests if the input is a Boolean.
     @Sendable public static func boolean(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -104,8 +104,8 @@ public enum Tests {
 
     /// Tests if the input is iterable.
     @Sendable public static func iterable(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -122,8 +122,8 @@ public enum Tests {
 
     /// Tests if a number is even.
     @Sendable public static func even(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -145,8 +145,8 @@ public enum Tests {
 
     /// Tests if a number is odd.
     @Sendable public static func odd(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -169,8 +169,8 @@ public enum Tests {
 
     /// Tests if a number is divisible by another number.
     @Sendable public static func divisibleby(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -200,8 +200,8 @@ public enum Tests {
 
     /// Tests if a == b.
     @Sendable public static func eq(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -216,8 +216,8 @@ public enum Tests {
 
     /// Tests if a != b.
     @Sendable public static func ne(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -232,8 +232,8 @@ public enum Tests {
 
     /// Tests if a > b.
     @Sendable public static func gt(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -252,8 +252,8 @@ public enum Tests {
 
     /// Tests if a >= b.
     @Sendable public static func ge(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -272,8 +272,8 @@ public enum Tests {
 
     /// Tests if a < b.
     @Sendable public static func lt(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -292,8 +292,8 @@ public enum Tests {
 
     /// Tests if a <= b.
     @Sendable public static func le(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -312,8 +312,8 @@ public enum Tests {
 
     /// Tests if the input is a mapping (dictionary/object).
     @Sendable public static func mapping(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -328,8 +328,8 @@ public enum Tests {
 
     /// Tests if the input is callable (function or macro).
     @Sendable public static func callable(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -344,8 +344,8 @@ public enum Tests {
 
     /// Tests if the input is an integer.
     @Sendable public static func integer(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -360,8 +360,8 @@ public enum Tests {
 
     /// Tests if a string is all lowercase.
     @Sendable public static func lower(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -379,8 +379,8 @@ public enum Tests {
 
     /// Tests if a string is all uppercase.
     @Sendable public static func upper(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -398,8 +398,8 @@ public enum Tests {
 
     /// Tests if the input is true.
     @Sendable public static func `true`(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -414,8 +414,8 @@ public enum Tests {
 
     /// Tests if the input is false.
     @Sendable public static func `false`(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -430,8 +430,8 @@ public enum Tests {
 
     /// Tests if the input is a float.
     @Sendable public static func float(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -446,8 +446,8 @@ public enum Tests {
 
     /// Tests if the input is a sequence (array or string).
     @Sendable public static func sequence(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -467,8 +467,8 @@ public enum Tests {
 
     /// Tests if the input is escaped (always returns false for basic implementation).
     @Sendable public static func escaped(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         _ = try resolveCallArguments(
@@ -483,8 +483,8 @@ public enum Tests {
 
     /// Tests if a filter exists by name.
     @Sendable public static func filter(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -501,8 +501,8 @@ public enum Tests {
 
     /// Tests if a test exists by name.
     @Sendable public static func test(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -519,8 +519,8 @@ public enum Tests {
 
     /// Tests if two inputs point to the same memory address (identity test).
     @Sendable public static func sameas(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -535,8 +535,8 @@ public enum Tests {
 
     /// Tests if the input is in a sequence.
     @Sendable public static func `in`(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
     ) throws -> Bool {
         let arguments = try resolveCallArguments(
@@ -571,7 +571,7 @@ public enum Tests {
     ///
     /// Each test function accepts an array of values, optional keyword arguments,
     /// and the current environment, then returns a boolean result.
-    public static let builtIn: [String: @Sendable ([Value], [String: Value], Environment) throws -> Bool] = [
+    public static let builtIn: [String: @Sendable ([JinjaValue], [String: JinjaValue], Environment) throws -> Bool] = [
         "defined": defined,
         "undefined": undefined,
         "none": none,

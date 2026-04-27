@@ -15,7 +15,7 @@ public enum PropertyMembers {
     ///   - propertyName: The name of the property to access
     /// - Returns: The property value or `.undefined` if not found
     /// - Throws: `JinjaError.runtime` for invalid operations
-    public static func evaluate(_ object: Value, _ propertyName: String) throws -> Value {
+    public static func evaluate(_ object: JinjaValue, _ propertyName: String) throws -> JinjaValue {
         switch object {
         case let .string(str):
             return try evaluateStringProperty(str, propertyName)
@@ -29,7 +29,7 @@ public enum PropertyMembers {
     // MARK: - String Properties
 
     private static func evaluateStringProperty(_ str: String, _ propertyName: String) throws
-        -> Value
+        -> JinjaValue
     {
         switch propertyName {
         case "upper":
@@ -86,7 +86,7 @@ public enum PropertyMembers {
                 }()
 
                 let components = split(string: str, separator: separator, limit: limit)
-                return .array(components.map(Value.string))
+                return .array(components.map(JinjaValue.string))
             }
         case "replace":
             return .function { args, kwargs, _ in
@@ -150,22 +150,22 @@ public enum PropertyMembers {
     // MARK: - Object Properties
 
     private static func evaluateObjectProperty(
-        _ obj: OrderedDictionary<String, Value>,
+        _ obj: OrderedDictionary<String, JinjaValue>,
         _ propertyName: String
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         switch propertyName {
         case "items":
-            let fn: @Sendable ([Value], [String: Value], Environment) throws -> Value = {
+            let fn: @Sendable ([JinjaValue], [String: JinjaValue], Environment) throws -> JinjaValue = {
                 args,
                 kwargs,
                 _ in
                 _ = try resolveCallArguments(args: args, kwargs: kwargs, parameters: [])
-                let pairs = obj.map { key, value in Value.array([.string(key), value]) }
+                let pairs = obj.map { key, value in JinjaValue.array([.string(key), value]) }
                 return .array(pairs)
             }
             return .function(fn)
         case "get":
-            let fn: @Sendable ([Value], [String: Value], Environment) throws -> Value = {
+            let fn: @Sendable ([JinjaValue], [String: JinjaValue], Environment) throws -> JinjaValue = {
                 args,
                 kwargs,
                 _ in
@@ -193,17 +193,17 @@ public enum PropertyMembers {
             }
             return .function(fn)
         case "keys":
-            let fn: @Sendable ([Value], [String: Value], Environment) throws -> Value = {
+            let fn: @Sendable ([JinjaValue], [String: JinjaValue], Environment) throws -> JinjaValue = {
                 args,
                 kwargs,
                 _ in
                 _ = try resolveCallArguments(args: args, kwargs: kwargs, parameters: [])
-                let keys = obj.keys.map { Value.string($0) }
+                let keys = obj.keys.map { JinjaValue.string($0) }
                 return .array(keys)
             }
             return .function(fn)
         case "values":
-            let fn: @Sendable ([Value], [String: Value], Environment) throws -> Value = {
+            let fn: @Sendable ([JinjaValue], [String: JinjaValue], Environment) throws -> JinjaValue = {
                 args,
                 kwargs,
                 _ in

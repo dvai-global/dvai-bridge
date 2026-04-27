@@ -10,7 +10,7 @@ public struct TemplateException: Error {
 
 /// Built-in global functions available in the Jinja environment.
 public enum Globals: Sendable {
-    public static let builtIn: [String: Value] = [
+    public static let builtIn: [String: JinjaValue] = [
         "raise_exception": .function(raiseException),
         "range": .function(range),
         "lipsum": .function(lipsum),
@@ -33,10 +33,10 @@ public enum Globals: Sendable {
     /// - Returns: Never returns a value as it always throws.
     @discardableResult
     public static func raiseException(
-        _ args: [Value],
-        _ kwargs: [String: Value],
+        _ args: [JinjaValue],
+        _ kwargs: [String: JinjaValue],
         _ env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         let arguments = try resolveCallArguments(
             args: args,
             kwargs: kwargs,
@@ -62,10 +62,10 @@ public enum Globals: Sendable {
     ///   - env: The current environment
     /// - Returns: Array of integers in the specified range
     public static func range(
-        _ args: [Value],
-        _ kwargs: [String: Value],
+        _ args: [JinjaValue],
+        _ kwargs: [String: JinjaValue],
         _ env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         let start: Int
         let stop: Int
         let step: Int
@@ -105,7 +105,7 @@ public enum Globals: Sendable {
             throw JinjaError.runtime("range() step argument must not be zero")
         }
 
-        var result: [Value] = []
+        var result: [JinjaValue] = []
         if step > 0 {
             var current = start
             while current < stop {
@@ -131,10 +131,10 @@ public enum Globals: Sendable {
     ///   - env: The current environment
     /// - Returns: Generated lorem ipsum text
     public static func lipsum(
-        _ args: [Value],
-        _ kwargs: [String: Value],
+        _ args: [JinjaValue],
+        _ kwargs: [String: JinjaValue],
         _ env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         let arguments = try resolveCallArguments(
             args: args,
             kwargs: kwargs,
@@ -202,11 +202,11 @@ public enum Globals: Sendable {
     ///   - env: The current environment
     /// - Returns: Object containing the provided key-value pairs
     public static func dict(
-        _ args: [Value],
-        _ kwargs: [String: Value],
+        _ args: [JinjaValue],
+        _ kwargs: [String: JinjaValue],
         _ env: Environment
-    ) throws -> Value {
-        var orderedDict = OrderedDictionary<String, Value>()
+    ) throws -> JinjaValue {
+        var orderedDict = OrderedDictionary<String, JinjaValue>()
         for (key, value) in kwargs.sorted(by: { $0.key < $1.key }) {
             orderedDict[key] = value
         }
@@ -215,21 +215,21 @@ public enum Globals: Sendable {
 
     /// An object that cycles through values.
     private final class Cycler: @unchecked Sendable {
-        private let items: [Value]
+        private let items: [JinjaValue]
         private let lock = NSLock()
         private var currentIndex: Int = 0
 
-        init(items: [Value]) {
+        init(items: [JinjaValue]) {
             self.items = items
         }
 
-        var current: Value {
+        var current: JinjaValue {
             lock.lock()
             defer { lock.unlock() }
             return items.isEmpty ? .null : items[currentIndex]
         }
 
-        func next() -> Value {
+        func next() -> JinjaValue {
             lock.lock()
             defer { lock.unlock() }
 
@@ -255,22 +255,22 @@ public enum Globals: Sendable {
     ///   - env: The current environment
     /// - Returns: Object with cycling functionality
     public static func cycler(
-        _ args: [Value],
-        _ kwargs: [String: Value],
+        _ args: [JinjaValue],
+        _ kwargs: [String: JinjaValue],
         _ env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard !args.isEmpty else {
             throw JinjaError.runtime("cycler() requires at least one argument")
         }
 
         let cyclerInstance = Cycler(items: args)
 
-        var cyclerDict = OrderedDictionary<String, Value>()
+        var cyclerDict = OrderedDictionary<String, JinjaValue>()
         cyclerDict["current"] = cyclerInstance.current
-        cyclerDict["next"] = .function { (_, _, _) throws -> Value in
+        cyclerDict["next"] = .function { (_, _, _) throws -> JinjaValue in
             return cyclerInstance.next()
         }
-        cyclerDict["reset"] = .function { (_, _, _) throws -> Value in
+        cyclerDict["reset"] = .function { (_, _, _) throws -> JinjaValue in
             cyclerInstance.reset()
             return .null
         }
@@ -309,10 +309,10 @@ public enum Globals: Sendable {
     ///   - env: The current environment
     /// - Returns: Function that returns separator after first call
     public static func joiner(
-        _ args: [Value],
-        _ kwargs: [String: Value],
+        _ args: [JinjaValue],
+        _ kwargs: [String: JinjaValue],
         _ env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         let arguments = try resolveCallArguments(
             args: args,
             kwargs: kwargs,
@@ -325,7 +325,7 @@ public enum Globals: Sendable {
         }
 
         let joinerInstance = Joiner(separator: separator)
-        return .function { (_, _, _) throws -> Value in
+        return .function { (_, _, _) throws -> JinjaValue in
             return .string(joinerInstance.join())
         }
     }
@@ -338,11 +338,11 @@ public enum Globals: Sendable {
     ///   - env: The current environment
     /// - Returns: Object that can be used for attribute storage
     public static func namespace(
-        _ args: [Value],
-        _ kwargs: [String: Value],
+        _ args: [JinjaValue],
+        _ kwargs: [String: JinjaValue],
         _ env: Environment
-    ) throws -> Value {
-        var namespaceDict = OrderedDictionary<String, Value>()
+    ) throws -> JinjaValue {
+        var namespaceDict = OrderedDictionary<String, JinjaValue>()
         for (key, value) in kwargs.sorted(by: { $0.key < $1.key }) {
             namespaceDict[key] = value
         }
@@ -360,10 +360,10 @@ public enum Globals: Sendable {
     ///   - env: The current environment
     /// - Returns: Formatted current date and time as a string
     public static func strftimeNow(
-        _ args: [Value],
-        _ kwargs: [String: Value],
+        _ args: [JinjaValue],
+        _ kwargs: [String: JinjaValue],
         _ env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard args.count == 1 else {
             throw JinjaError.runtime("strftime_now takes exactly 1 argument")
         }
