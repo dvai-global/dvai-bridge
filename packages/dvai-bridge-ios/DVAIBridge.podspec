@@ -99,6 +99,14 @@ Pod::Spec.new do |s|
     'OTHER_SWIFT_FLAGS' => '$(inherited) -package-name DVAIBridgeVendored -enable-experimental-feature Lifetimes',
     # Pin the test-app deployment target to our pod's iOS minimum.
     'IPHONEOS_DEPLOYMENT_TARGET' => '18.1',
+    # CocoaPods auto-adds `-framework llama -framework mtmd` to the
+    # consumer's app target's OTHER_LDFLAGS but NOT to our pod's own
+    # framework target — so symbols from the xcframeworks (referenced
+    # by LlamaCppBridge.mm) are unresolved at pod-link time. Add them
+    # explicitly here. The xcframework integration script already places
+    # the right slice in PODS_XCFRAMEWORKS_BUILD_DIR/DVAIBridge before
+    # the link step.
+    'OTHER_LDFLAGS' => '$(inherited) -framework "llama" -framework "mtmd"',
   }
 
   # Telegraph stays at ~> 0.30 because Building42 publishes 0.40+ as GitHub
