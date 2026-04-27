@@ -1,5 +1,7 @@
 import Foundation
+#if !COCOAPODS
 @_exported import OrderedCollections
+#endif
 
 /// Property member access handlers for different value types.
 ///

@@ -42,9 +42,10 @@ SCAN_ROOTS = [
 ]
 
 # Matches: `import Hub`, `import struct Hub.Config`, `import class Foo.Bar`,
-# optionally followed by a `//`-style trailing comment.
+# `@_exported import Foo`, `@_implementationOnly import Foo`, optionally
+# followed by a `//`-style trailing comment.
 IMPORT_RE = re.compile(
-    r"^import\s+(?:(?:struct|class|enum|protocol|typealias|func|var|let)\s+)?([A-Za-z_][A-Za-z0-9_]*)(?:\.[A-Za-z_][A-Za-z0-9_]*)?\s*(?://.*)?\s*$"
+    r"^(?:@_(?:exported|implementationOnly|spi(?:_available)?)\s+)?import\s+(?:(?:struct|class|enum|protocol|typealias|func|var|let)\s+)?([A-Za-z_][A-Za-z0-9_]*)(?:\.[A-Za-z_][A-Za-z0-9_]*)?\s*(?://.*)?\s*$"
 )
 
 

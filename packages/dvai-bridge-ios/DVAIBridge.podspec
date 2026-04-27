@@ -41,20 +41,36 @@ Pod::Spec.new do |s|
     'Vendor/swift-transformers/InternalCollectionsUtilities/**/*.swift',
   ]
 
-  s.public_header_files = '../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC/include/*.h'
-
   # Tokenizer fallback configs (gpt2_tokenizer_config.json, t5_..) are looked
   # up via Bundle.module by the vendored Hub.swift. Vendor/.../Hub/BundleModuleShim.swift
   # provides Bundle.module under !SWIFT_PACKAGE so the lookup resolves to the
   # framework's main bundle, where these resources land.
   s.resources = ['Vendor/swift-transformers/Hub/Resources/*.json']
 
-  # Prebuilt llama.cpp + mtmd binaries — produced by
-  # scripts/mac-side-prepare-xcframework.sh. Both are gitignored; the script
-  # rebuilds them whenever the llama.cpp submodule SHA changes.
+  # CocoaPods' pod-validator treats the pod as a self-contained tree and
+  # refuses `..` paths in `vendored_frameworks`. The xcframeworks are
+  # produced by scripts/mac-side-prepare-xcframework.sh in the llama.cpp
+  # submodule's build-apple/ directory (so SwiftPM's binaryTarget paths
+  # resolve from Package.swift). For CocoaPods we copy them into a
+  # pod-local Frameworks/ folder via prepare_command, which runs in the
+  # source tree before validation.
+  s.prepare_command = <<-SH
+    set -e
+    XCF_SRC="../dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple"
+    mkdir -p Frameworks
+    if [ -d "$XCF_SRC/llama.xcframework" ]; then
+      rm -rf Frameworks/llama.xcframework
+      cp -R "$XCF_SRC/llama.xcframework" Frameworks/llama.xcframework
+    fi
+    if [ -d "$XCF_SRC/mtmd.xcframework" ]; then
+      rm -rf Frameworks/mtmd.xcframework
+      cp -R "$XCF_SRC/mtmd.xcframework" Frameworks/mtmd.xcframework
+    fi
+  SH
+
   s.vendored_frameworks = [
-    '../dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/llama.xcframework',
-    '../dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/mtmd.xcframework',
+    'Frameworks/llama.xcframework',
+    'Frameworks/mtmd.xcframework',
   ]
 
   s.frameworks = ['Foundation', 'CoreML']
