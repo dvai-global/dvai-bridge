@@ -23,10 +23,11 @@ final class DVAIBridgeErrorTests: XCTestCase {
     }
 
     func testBackendKindAllCases() {
-        XCTAssertEqual(BackendKind.allCases.count, 4)
+        XCTAssertEqual(BackendKind.allCases.count, 5)
         XCTAssertTrue(BackendKind.allCases.contains(.auto))
         XCTAssertTrue(BackendKind.allCases.contains(.llama))
         XCTAssertTrue(BackendKind.allCases.contains(.foundation))
         XCTAssertTrue(BackendKind.allCases.contains(.coreml))
+        XCTAssertTrue(BackendKind.allCases.contains(.mlx))
     }
 }
