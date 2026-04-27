@@ -38,16 +38,20 @@ EOF
 # Initialize Capacitor
 npx --yes @capacitor/cli@8 init dvai-cap-test com.dvai.captest --web-dir www
 
-# Install all Phase 3A packages from the local monorepo. Note: order matters
-# for npm to resolve workspace peerDeps cleanly.
+# Install all Phase 3 packages from the local monorepo. Order matters for
+# npm to resolve workspace peerDeps cleanly: install shared cores first,
+# then per-backend cores, then Capacitor wrappers.
 npm install --no-save \
   "file:${REPO_ROOT}/packages/dvai-bridge-capacitor" \
+  "file:${REPO_ROOT}/packages/dvai-bridge-ios-shared-core" \
   "file:${REPO_ROOT}/packages/dvai-bridge-ios-llama-core" \
   "file:${REPO_ROOT}/packages/dvai-bridge-android-llama-core" \
   "file:${REPO_ROOT}/packages/dvai-bridge-ios-foundation-core" \
+  "file:${REPO_ROOT}/packages/dvai-bridge-ios-mlx-core" \
   "file:${REPO_ROOT}/packages/dvai-bridge-android-mediapipe-core" \
   "file:${REPO_ROOT}/packages/dvai-bridge-capacitor-llama" \
   "file:${REPO_ROOT}/packages/dvai-bridge-capacitor-foundation" \
+  "file:${REPO_ROOT}/packages/dvai-bridge-capacitor-mlx" \
   "file:${REPO_ROOT}/packages/dvai-bridge-capacitor-mediapipe"
 
 # Add platforms

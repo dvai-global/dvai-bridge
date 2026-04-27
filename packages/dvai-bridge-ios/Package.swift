@@ -23,9 +23,13 @@ let package = Package(
         .package(path: "../dvai-bridge-ios-llama-core"),
         .package(path: "../dvai-bridge-ios-foundation-core"),
         .package(path: "../dvai-bridge-ios-mlx-core"),
-        // swift-transformers 1.3.0 (latest stable as of 2026-04-26).
-        // Provides Tokenizers product for HuggingFace tokenizer loading.
-        .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.3.0"),
+        // swift-transformers — provides Tokenizers product for HuggingFace
+        // tokenizer loading. Constraint relaxed to `from: 1.2.0` to keep
+        // our resolver compatible with mlx-swift-lm 2.x (which pins
+        // swift-transformers `<1.3.0`). Our usage of AutoTokenizer.from(modelFolder:)
+        // / applyChatTemplate / encode / decode is API-compatible across
+        // 1.2.x → 1.3.x.
+        .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.2.0"),
         // Telegraph HTTP server — transitively used by shared-core; we pull
         // it directly for DVAICoreMLCore so the target's link line is
         // self-explanatory.
