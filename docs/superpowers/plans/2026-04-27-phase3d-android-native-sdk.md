@@ -82,7 +82,7 @@ From `packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepv
 - [ ] Extract `HandlerContext`, `DVAIHandlers` interface, `CORSConfig` (sealed class with `Wildcard` / `Exact(String)` / `Allowlist(List<String>)` cases) into their own `*.kt` files in shared-core.
 - [ ] Update llama-core's `LlamaHandlers.kt` and `PluginState.kt` to `import co.deepvoiceai.bridge.shared.core.*` for the moved types; delete the now-moved `HttpServer.kt` + `HandlerDispatch.kt` from llama-core.
 - [ ] Same for mediapipe-core.
-- [ ] Update llama-core's and mediapipe-core's `build.gradle` to add `implementation(project(":dvai-bridge-android-shared-core"))` — but since each package is its own Gradle root, this becomes `implementation files("../../dvai-bridge-android-shared-core/android/build/outputs/aar/...")` OR (preferred) a published Maven coordinate during dev via local Maven repo.
+- [ ] Update llama-core's and mediapipe-core's `build.gradle` to add `implementation("co.deepvoiceai:android-shared-core:<version>")` resolved via `mavenLocal()`. Each package is its own Gradle root, so we cannot use `project(":...")` style; the mavenLocal route is the standard pattern in this monorepo.
 
 > **Mac-side note:** The Android cores aren't currently nested under a single `settings.gradle`. Cross-module dependencies need either: (a) a root settings.gradle.kts that includes both, or (b) `mavenLocal()` + publish-to-local during dev. Choose (b) per-package — it matches how the Capacitor wrappers depend on the cores today (via `implementation` of a versioned npm-distributed AAR). For development, both packages need to publish to mavenLocal first, then the umbrella consumes them. Add a `scripts/android-publish-local.sh` helper to publish all four cores to mavenLocal in one shot.
 
@@ -425,7 +425,8 @@ From `packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepv
 
 **Steps:**
 
-- [ ] Standard publishing block (consistent across all five):
+- [ ] Move the standard publishing block into a `buildSrc/dvai-publishing.gradle.kts` convention plugin used by all five Android modules. Reason: avoids five copies that drift independently. Each module then applies it via `plugins { id("dvai-publishing") }`.
+- [ ] Standard publishing block (consistent across all five, lives in the convention plugin):
   ```kotlin
   publishing {
       publications {
@@ -472,7 +473,7 @@ From `packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepv
 ## Risk register
 
 1. **`com.google.ai.edge.litert:litert-llm` GA status uncertain.** If it's still in alpha at 3D start, fall back to manual `Interpreter`-based generation — slower implementation but feasible.
-2. **JitPack outage.** HuggingFace tokenizers via JitPack means a JitPack failure breaks consumer builds. Document a workaround (vendoring the AAR) in the migration guide. Long-term, vendor it ourselves once Phase 3D ships.
+2. **JitPack outage.** HuggingFace tokenizers via JitPack means a JitPack failure breaks consumer builds. JitPack is the canonical distribution for `huggingface/tokenizers-android`; document the required `maven { url = uri("https://jitpack.io") }` declaration in the consumer's `settings.gradle.kts`. We do not maintain a vendored fork — if JitPack goes down mid-build, consumers can pin to a previously-fetched local AAR.
 3. **mavenLocal / cross-package dependency churn.** Five packages publishing to the same local Maven repo + each having its own Gradle root means version mismatches surface easily. Add a `scripts/verify-android-versions.sh` that reads each `package.json`'s `version` and asserts they're all equal.
 4. **Emulator flakiness on CI.** Real-model instrumented tests can hang downloading large models. Set per-test timeouts to 25 minutes (matches iOS's 30) and use `Assume.assumeTrue` for env-var gating.
 
@@ -481,7 +482,6 @@ From `packages/dvai-bridge-android-mediapipe-core/android/src/main/java/co/deepv
 - React Native (3E), Flutter (3F), .NET (3G) wrappers around this SDK.
 - Maven Central Sonatype OSSRH onboarding (3H or later).
 - Wear OS / Android TV / Auto support.
-- Vendoring the HuggingFace tokenizer JNI (3D ships JitPack-distributed; vendor in a follow-up if JitPack causes friction).
 - Renaming or restructuring existing `android-llama-core` / `android-mediapipe-core` packages beyond the Task-2 import surgery.
 
 ## References
