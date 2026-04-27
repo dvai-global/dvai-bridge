@@ -8,19 +8,19 @@
 /// See: https://github.com/pallets/jinja/blob/main/src/jinja2/filters.py
 ///
 /// - Parameters:
-///   - args: An array of positional arguments (`Value`).
-///   - kwargs: A dictionary of keyword arguments (`[String: Value]`).
+///   - args: An array of positional arguments (`JinjaValue`).
+///   - kwargs: A dictionary of keyword arguments (`[String: JinjaValue]`).
 ///   - parameters: An ordered list of parameter names for the filter.
 ///   - defaults: A dictionary of default values for optional parameters.
-/// - Returns: A dictionary of resolved argument names and their `Value`.
+/// - Returns: A dictionary of resolved argument names and their `JinjaValue`.
 /// - Throws: `JinjaError.runtime` if arguments are invalid (e.g., duplicate, unexpected).
 internal func resolveCallArguments(
-    args: [Value],
-    kwargs: [String: Value],
+    args: [JinjaValue],
+    kwargs: [String: JinjaValue],
     parameters: [String],
-    defaults: [String: Value] = [:]
-) throws -> [String: Value] {
-    var resolvedArgs: [String: Value] = [:]
+    defaults: [String: JinjaValue] = [:]
+) throws -> [String: JinjaValue] {
+    var resolvedArgs: [String: JinjaValue] = [:]
 
     // Handle positional arguments
     for (i, arg) in args.enumerated() {

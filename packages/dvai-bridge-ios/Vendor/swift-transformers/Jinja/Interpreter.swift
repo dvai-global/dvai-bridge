@@ -6,7 +6,7 @@ import Foundation
 // MARK: - Context
 
 /// A context is a dictionary of variables and their values.
-public typealias Context = [String: Value]
+public typealias Context = [String: JinjaValue]
 
 // MARK: - Environment
 
@@ -16,7 +16,7 @@ public typealias Context = [String: Value]
 /// configuration options that affect rendering behavior.
 public final class Environment: @unchecked Sendable {
     private let parent: Environment?
-    private(set) var variables: [String: Value] = [:]
+    private(set) var variables: [String: JinjaValue] = [:]
 
     // Options
 
@@ -39,7 +39,7 @@ public final class Environment: @unchecked Sendable {
     ///   - includeBuiltIns: Whether to include built-in functions (default: true)
     public init(
         parent: Environment? = nil,
-        initial: [String: Value] = [:]
+        initial: [String: JinjaValue] = [:]
     ) {
         self.parent = parent
         self.variables = initial
@@ -59,7 +59,7 @@ public final class Environment: @unchecked Sendable {
     ///
     /// - Parameter name: The variable name
     /// - Returns: The value associated with the variable name, or `.undefined`
-    public subscript(name: String) -> Value {
+    public subscript(name: String) -> JinjaValue {
         get {
             if let value = variables[name] {
                 return value
@@ -80,7 +80,7 @@ public final class Environment: @unchecked Sendable {
     /// Sets a variable in the environment where it was originally defined.
     /// This searches up the environment chain to find where the variable exists
     /// and updates it there, ensuring namespace mutations persist across scopes.
-    func setInChain(name: String, value: Value) {
+    func setInChain(name: String, value: JinjaValue) {
         // Check if the variable exists in the current environment's variables
         if variables[name] != nil {
             self[name] = value
@@ -164,7 +164,7 @@ public enum Interpreter {
         }
     }
 
-    static func evaluateExpression(_ expr: Expression, env: Environment) throws -> Value {
+    static func evaluateExpression(_ expr: Expression, env: Environment) throws -> JinjaValue {
         switch expr {
         case let .string(value):
             return .string(value)
@@ -253,7 +253,7 @@ public enum Interpreter {
             let callableValue = try evaluateExpression(callableExpr, env: env)
 
             // Handle unpacking in arguments
-            var argValues: [Value] = []
+            var argValues: [JinjaValue] = []
             for argExpr in argsExpr {
                 if case let .unary(.splat, expr) = argExpr {
                     // Unpack the array/tuple
@@ -386,7 +386,7 @@ public enum Interpreter {
                     }
                 }
             case let .string(str):
-                let chars = str.map { Value.string(String($0)) }
+                let chars = str.map { JinjaValue.string(String($0)) }
                 if chars.isEmpty {
                     for node in elseBody { try interpretNode(node, env: env, into: &buffer) }
                 } else {
@@ -420,7 +420,7 @@ public enum Interpreter {
                 var bodyBuffer = ""
                 try interpret(body, env: env, into: &bodyBuffer)
                 let renderedBody = bodyBuffer
-                let valueToAssign = Value.string(renderedBody)
+                let valueToAssign = JinjaValue.string(renderedBody)
                 try assign(target: target, value: valueToAssign, env: env)
             }
 
@@ -492,7 +492,7 @@ public enum Interpreter {
             let renderedBody = bodyBuffer
 
             if case let .filter(_, name, args, _) = filterExpr {
-                var filterArgs = [Value.string(renderedBody)]
+                var filterArgs = [JinjaValue.string(renderedBody)]
                 filterArgs.append(contentsOf: try args.map { try evaluateExpression($0, env: env) })
                 // TODO: Handle kwargs in filters if necessary
                 let filteredValue = try evaluateFilter(name, filterArgs, kwargs: [:], env: env)
@@ -529,7 +529,7 @@ public enum Interpreter {
                 var bodyBuffer = ""
                 try interpret(body, env: env, into: &bodyBuffer)
                 let renderedBody = bodyBuffer
-                let valueToAssign = Value.string(renderedBody)
+                let valueToAssign = JinjaValue.string(renderedBody)
                 try assign(target: target, value: valueToAssign, env: env)
             }
 
@@ -548,7 +548,7 @@ public enum Interpreter {
         }
     }
 
-    static func assign(target: Expression, value: Value, env: Environment) throws {
+    static func assign(target: Expression, value: JinjaValue, env: Environment) throws {
         switch target {
         case .identifier(let name):
             env[name] = value
@@ -613,10 +613,10 @@ public enum Interpreter {
 
     static func callMacro(
         macro: Macro,
-        arguments: [Value],
-        keywordArguments: [String: Value],
+        arguments: [JinjaValue],
+        keywordArguments: [String: JinjaValue],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         let macroEnv = Environment(parent: env)
 
         let caller = env["caller"]
@@ -650,10 +650,10 @@ public enum Interpreter {
 
     static func evaluateBinaryValues(
         _ op: Expression.BinaryOp,
-        _ left: Value,
-        _ right: Value
+        _ left: JinjaValue,
+        _ right: JinjaValue
     ) throws
-        -> Value
+        -> JinjaValue
     {
         switch op {
         case .add:
@@ -695,7 +695,7 @@ public enum Interpreter {
         }
     }
 
-    static func evaluateUnaryValue(_ op: Expression.UnaryOp, _ value: Value) throws -> Value {
+    static func evaluateUnaryValue(_ op: Expression.UnaryOp, _ value: JinjaValue) throws -> JinjaValue {
         switch op {
         case .not:
             return .boolean(!value.isTruthy)
@@ -721,7 +721,7 @@ public enum Interpreter {
         }
     }
 
-    static func evaluateComputedMember(_ object: Value, _ property: Value) throws -> Value {
+    static func evaluateComputedMember(_ object: JinjaValue, _ property: JinjaValue) throws -> JinjaValue {
         switch (object, property) {
         case let (.array(arr), .int(index)):
             let safeIndex = index < 0 ? arr.count + index : index
@@ -746,7 +746,7 @@ public enum Interpreter {
         }
     }
 
-    static func evaluateTest(_ testName: String, _ argValues: [Value], env: Environment)
+    static func evaluateTest(_ testName: String, _ argValues: [JinjaValue], env: Environment)
         throws -> Bool
     {
         // Try environment-provided tests first
@@ -767,11 +767,11 @@ public enum Interpreter {
 
     static func evaluateFilter(
         _ filterName: String,
-        _ argValues: [Value],
-        kwargs: [String: Value],
+        _ argValues: [JinjaValue],
+        kwargs: [String: JinjaValue],
         env: Environment
     )
-        throws -> Value
+        throws -> JinjaValue
     {
         // Try environment-provided filters first
         let filterValue = env[filterName]
@@ -787,8 +787,8 @@ public enum Interpreter {
         throw JinjaError.runtime("Unknown filter: \(filterName)")
     }
 
-    private static func makeLoopObject(index: Int, totalCount: Int) -> Value {
-        var loopContext: OrderedDictionary<String, Value> = [
+    private static func makeLoopObject(index: Int, totalCount: Int) -> JinjaValue {
+        var loopContext: OrderedDictionary<String, JinjaValue> = [
             "index": .int(index + 1),
             "index0": .int(index),
             "first": .boolean(index == 0),
@@ -808,12 +808,12 @@ public enum Interpreter {
     }
 
     private static func evaluateSlice(
-        value: Value,
+        value: JinjaValue,
         start: Expression?,
         stop: Expression?,
         step: Expression?,
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         let startVal = try start.map { try evaluateExpression($0, env: env) }
         let stopVal = try stop.map { try evaluateExpression($0, env: env) }
         let stepVal = try step.map { try evaluateExpression($0, env: env) }
@@ -844,7 +844,7 @@ public enum Interpreter {
                 stopIdx = step > 0 ? count : -1
             }
 
-            var result: [Value] = []
+            var result: [JinjaValue] = []
             for i in stride(from: startIdx, to: stopIdx, by: step) {
                 if i >= 0 && i < count {
                     result.append(items[i])

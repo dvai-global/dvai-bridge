@@ -78,7 +78,7 @@ public struct Template: Hashable, Sendable {
     /// - Returns: The rendered template as a string
     /// - Throws: `JinjaError` if an error occurs during template rendering
     public func render(
-        _ context: [String: Value],
+        _ context: [String: JinjaValue],
         environment: Environment? = nil
     ) throws -> String {
         let env = environment ?? Environment()

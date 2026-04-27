@@ -33,15 +33,35 @@ PATCHES = [
         ],
     ),
     (
-        "Strip `Jinja.` qualifier — with one CocoaPods module the qualifier "
-        "is invalid; `Value` resolves directly. SwiftPM consumers use the "
-        "real Jinja module.",
+        "Rename Jinja's `Value` enum to `JinjaValue` so it doesn't collide "
+        "with `Config.Value` (which `ExpressibleByDictionaryLiteral` infers "
+        "as `Config` itself even with our explicit typealias removed). The "
+        "rename is verbatim across all Jinja files — Jinja's only `Value` "
+        "is the enum.",
+        list((VENDOR / "Jinja").glob("*.swift")),
         [
-            VENDOR / "Hub" / "Config.swift",
-            VENDOR / "Tokenizers" / "Tokenizer.swift",
+            (re.compile(r"\bValue\b"), "JinjaValue"),
         ],
+    ),
+    (
+        "Update Hub/Config.swift's jinjaValue() function to use the renamed "
+        "JinjaValue. The `Value` references inside this function were "
+        "originally `Jinja.Value`; the qualifier is invalid in the "
+        "single-module CocoaPods build, and bare `Value` resolves to "
+        "Config.Value (=Config itself).",
+        [VENDOR / "Hub" / "Config.swift"],
         [
-            (re.compile(r"\bJinja\.([A-Z][A-Za-z0-9_]*)"), r"\1"),
+            (re.compile(r"\bjinjaValue\(\) -> Value\b"), "jinjaValue() -> JinjaValue"),
+            (re.compile(r"\[String: Value\]"), "[String: JinjaValue]"),
+            (re.compile(r"\bJinja\.Value\b"), "JinjaValue"),
+        ],
+    ),
+    (
+        "Same JinjaValue update in Tokenizer.swift's chat-template path.",
+        [VENDOR / "Tokenizers" / "Tokenizer.swift"],
+        [
+            (re.compile(r"\[String: Value\](?=\s*=\s*try)"), "[String: JinjaValue]"),
+            (re.compile(r"\bJinja\.Value\b"), "JinjaValue"),
         ],
     ),
     (

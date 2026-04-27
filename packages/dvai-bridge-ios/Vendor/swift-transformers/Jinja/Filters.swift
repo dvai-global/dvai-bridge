@@ -10,10 +10,10 @@ public enum Filters {
 
     /// Converts a string to uppercase.
     @Sendable public static func upper(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(str) = args.first else {
             throw JinjaError.runtime("upper filter requires string")
         }
@@ -30,10 +30,10 @@ public enum Filters {
 
     /// Converts a string to lowercase.
     @Sendable public static func lower(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(str) = args.first else {
             throw JinjaError.runtime("lower filter requires string")
         }
@@ -50,10 +50,10 @@ public enum Filters {
 
     /// Returns the length of a string, array, or object.
     @Sendable public static func length(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         _ = try resolveCallArguments(
             args: Array(args.dropFirst()),
             kwargs: kwargs,
@@ -77,10 +77,10 @@ public enum Filters {
 
     /// Joins an array of values with a separator.
     @Sendable public static func join(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .array(array) = args.first else {
             throw JinjaError.runtime("join filter requires array")
         }
@@ -111,10 +111,10 @@ public enum Filters {
     /// Returns a default value if the input is undefined,
     /// or if the input is false and the second / `boolean` argument is `true`.
     @Sendable public static func `default`(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         let input = args.first ?? .undefined
 
         let arguments = try resolveCallArguments(
@@ -145,10 +145,10 @@ public enum Filters {
 
     /// Returns the first item from an array.
     @Sendable public static func first(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else {
             return .undefined
         }
@@ -172,10 +172,10 @@ public enum Filters {
 
     /// Returns the last item from an array.
     @Sendable public static func last(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else {
             return .undefined
         }
@@ -199,10 +199,10 @@ public enum Filters {
 
     /// Returns a random item from an array.
     @Sendable public static func random(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else {
             return .undefined
         }
@@ -231,10 +231,10 @@ public enum Filters {
 
     /// Reverses an array or string.
     @Sendable public static func reverse(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else {
             return .undefined
         }
@@ -258,10 +258,10 @@ public enum Filters {
 
     /// Sorts an array.
     @Sendable public static func sort(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
@@ -280,12 +280,12 @@ public enum Filters {
         let reverse = arguments["reverse"]!.isTruthy
         let caseSensitive = arguments["case_sensitive"]!.isTruthy
 
-        func compare(_ lhs: Value, _ rhs: Value) throws -> Int {
+        func compare(_ lhs: JinjaValue, _ rhs: JinjaValue) throws -> Int {
             try compareValues(lhs, rhs, caseSensitive: caseSensitive)
         }
 
-        func stableSorted(_ values: [Value], by comparator: (Value, Value) throws -> Int) rethrows
-            -> [Value]
+        func stableSorted(_ values: [JinjaValue], by comparator: (JinjaValue, JinjaValue) throws -> Int) rethrows
+            -> [JinjaValue]
         {
             return try values.enumerated().sorted { a, b in
                 let comparison = try comparator(a.element, b.element)
@@ -294,7 +294,7 @@ public enum Filters {
             }.map(\.element)
         }
 
-        let sortedItems: [Value]
+        let sortedItems: [JinjaValue]
         if case let .string(attribute) = arguments["attribute"] {
             let attributes = attribute.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
@@ -321,10 +321,10 @@ public enum Filters {
 
     /// Groups items by a given attribute.
     @Sendable public static func groupby(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
@@ -343,14 +343,14 @@ public enum Filters {
         let defaultValue = arguments["default"] ?? .null
         let caseSensitive = arguments["case_sensitive"]!.isTruthy
 
-        func normalizedKey(_ key: Value) -> Value {
+        func normalizedKey(_ key: JinjaValue) -> JinjaValue {
             if !caseSensitive, case let .string(str) = key {
                 return .string(str.lowercased())
             }
             return key
         }
 
-        func compare(_ lhs: Value, _ rhs: Value) -> Int {
+        func compare(_ lhs: JinjaValue, _ rhs: JinjaValue) -> Int {
             (try? compareValues(
                 lhs,
                 rhs,
@@ -360,7 +360,7 @@ public enum Filters {
             )) ?? 0
         }
 
-        let keyedItems: [(item: Value, displayKey: Value, normalized: Value)] = try items.map {
+        let keyedItems: [(item: JinjaValue, displayKey: JinjaValue, normalized: JinjaValue)] = try items.map {
             let rawKey = try PropertyMembers.evaluate($0, attribute)
             let displayKey = rawKey == .undefined ? defaultValue : rawKey
             return (item: $0, displayKey: displayKey, normalized: normalizedKey(displayKey))
@@ -372,7 +372,7 @@ public enum Filters {
             return comparison < 0
         }.map(\.element)
 
-        var grouped: [(displayKey: Value, normalized: Value, items: [Value])] = []
+        var grouped: [(displayKey: JinjaValue, normalized: JinjaValue, items: [JinjaValue])] = []
         for item in sortedKeyedItems {
             if let last = grouped.last, last.normalized.isEquivalent(to: item.normalized) {
                 grouped[grouped.count - 1].items.append(item.item)
@@ -382,7 +382,7 @@ public enum Filters {
         }
 
         let result = grouped.map { group in
-            Value.object([
+            JinjaValue.object([
                 "grouper": group.displayKey,
                 "list": .array(group.items),
             ])
@@ -392,10 +392,10 @@ public enum Filters {
 
     /// Slices an array into multiple slices.
     @Sendable public static func slice(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
@@ -412,7 +412,7 @@ public enum Filters {
         }
 
         let fillWith = arguments["fillWith"]!
-        var result = Array(repeating: [Value](), count: numSlices)
+        var result = Array(repeating: [JinjaValue](), count: numSlices)
         let itemsPerSlice = (items.count + numSlices - 1) / numSlices
 
         for i in 0 ..< itemsPerSlice {
@@ -431,10 +431,10 @@ public enum Filters {
 
     /// Maps items through a filter or extracts attribute values.
     @Sendable public static func map(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
@@ -468,10 +468,10 @@ public enum Filters {
 
     /// Selects items that pass a test.
     @Sendable public static func select(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
@@ -500,10 +500,10 @@ public enum Filters {
 
     /// Rejects items that pass a test.
     @Sendable public static func reject(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
@@ -534,10 +534,10 @@ public enum Filters {
     /// If no test is specified,
     /// the attribute's value will be evaluated as a Boolean.
     @Sendable public static func selectattr(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .array(items)? = args.first else {
             return .array([])
         }
@@ -574,10 +574,10 @@ public enum Filters {
     /// If no test is specified,
     /// the attribute's value will be evaluated as a Boolean.
     @Sendable public static func rejectattr(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
@@ -614,10 +614,10 @@ public enum Filters {
 
     /// Gets an attribute from an object.
     @Sendable public static func attr(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let obj = args.first else {
             return .undefined
         }
@@ -638,10 +638,10 @@ public enum Filters {
 
     /// Sorts a dictionary by keys and returns key-value pairs.
     @Sendable public static func dictsort(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .object(dict) = args.first else {
             return .array([])
         }
@@ -666,7 +666,7 @@ public enum Filters {
         }
         let reverse = arguments["reverse"]!.isTruthy
 
-        let sortedPairs: [(key: String, value: Value)]
+        let sortedPairs: [(key: String, value: JinjaValue)]
         if by == "value" {
             sortedPairs = dict.sorted { a, b in
                 let comparison =
@@ -686,7 +686,7 @@ public enum Filters {
         }
 
         let resultArray = sortedPairs.map { key, value in
-            Value.array([.string(key), value])
+            JinjaValue.array([.string(key), value])
         }
         return .array(resultArray)
     }
@@ -695,10 +695,10 @@ public enum Filters {
 
     /// Escapes HTML characters.
     @Sendable public static func forceescape(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(str) = args.first else {
             return .string("")
         }
@@ -722,10 +722,10 @@ public enum Filters {
 
     /// Marks a string as safe (no-op for basic implementation).
     @Sendable public static func safe(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         _ = try resolveCallArguments(
             args: Array(args.dropFirst()),
             kwargs: kwargs,
@@ -738,10 +738,10 @@ public enum Filters {
 
     /// Strips HTML tags from a string.
     @Sendable public static func striptags(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(str) = args.first else {
             return .string("")
         }
@@ -761,10 +761,10 @@ public enum Filters {
 
     /// Basic string formatting.
     @Sendable public static func format(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard args.count > 1, case let .string(formatString) = args[0] else {
             return args.first ?? .string("")
         }
@@ -808,10 +808,10 @@ public enum Filters {
 
     /// Wraps text to a specified width.
     @Sendable public static func wordwrap(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .string(str) = value else {
             return .string("")
         }
@@ -916,10 +916,10 @@ public enum Filters {
 
     /// Formats file size in human readable format.
     @Sendable public static func filesizeformat(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else {
             return .string("")
         }
@@ -963,10 +963,10 @@ public enum Filters {
 
     /// Formats object attributes as XML attributes.
     @Sendable public static func xmlattr(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .object(dict) = value else {
             return .string("")
         }
@@ -1004,10 +1004,10 @@ public enum Filters {
 
     /// Converts a value to a string.
     @Sendable public static func string(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else { return .string("") }
 
         _ = try resolveCallArguments(
@@ -1024,10 +1024,10 @@ public enum Filters {
 
     /// Trims whitespace from a string.
     @Sendable public static func trim(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(str) = args.first else {
             return .string("")
         }
@@ -1051,10 +1051,10 @@ public enum Filters {
 
     /// Escapes HTML characters (alias for forceescape).
     @Sendable public static func escape(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         _ = try resolveCallArguments(
             args: Array(args.dropFirst()),
             kwargs: kwargs,
@@ -1073,10 +1073,10 @@ public enum Filters {
     ///   - ensure_ascii: If true (default), escape non-ASCII characters as `\uXXXX`.
     ///                   If false, output Unicode characters directly.
     @Sendable public static func tojson(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else { return .string("null") }
 
         let arguments = try resolveCallArguments(
@@ -1131,10 +1131,10 @@ public enum Filters {
 
     /// Returns absolute value of a number.
     @Sendable public static func abs(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else {
             return .int(0)
         }
@@ -1158,10 +1158,10 @@ public enum Filters {
 
     /// Capitalizes the first letter and lowercases the rest.
     @Sendable public static func capitalize(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(str) = args.first else {
             return .string("")
         }
@@ -1178,10 +1178,10 @@ public enum Filters {
 
     /// Centers a string within a specified width.
     @Sendable public static func center(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(str) = args.first else {
             return args.first ?? .string("")
         }
@@ -1208,10 +1208,10 @@ public enum Filters {
 
     /// Converts a value to float.
     @Sendable public static func float(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else { return .double(0.0) }
 
         let arguments = try resolveCallArguments(
@@ -1241,10 +1241,10 @@ public enum Filters {
 
     /// Converts a value to integer.
     @Sendable public static func int(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else { return .int(0) }
 
         let arguments = try resolveCallArguments(
@@ -1299,10 +1299,10 @@ public enum Filters {
     /// Converts a value to list.
     /// If it was a string the returned list will be a list of characters.
     @Sendable public static func list(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else { return .array([]) }
 
         _ = try resolveCallArguments(
@@ -1326,10 +1326,10 @@ public enum Filters {
 
     /// Returns the maximum value from an array.
     @Sendable public static func max(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .array(items) = value else { return .undefined }
 
         let arguments = try resolveCallArguments(
@@ -1360,10 +1360,10 @@ public enum Filters {
 
     /// Returns the minimum value from an array.
     @Sendable public static func min(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .array(items) = value else { return .undefined }
 
         let arguments = try resolveCallArguments(
@@ -1394,10 +1394,10 @@ public enum Filters {
 
     /// Rounds a number to specified precision.
     @Sendable public static func round(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else { return .double(0.0) }
 
         let arguments = try resolveCallArguments(
@@ -1446,10 +1446,10 @@ public enum Filters {
 
     /// Capitalizes each word in a string.
     @Sendable public static func title(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(str) = args.first else {
             return .string("")
         }
@@ -1466,10 +1466,10 @@ public enum Filters {
 
     /// Counts words in a string.
     @Sendable public static func wordcount(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(str) = args.first else {
             return .int(0)
         }
@@ -1491,10 +1491,10 @@ public enum Filters {
     /// If the optional third argument count is given,
     /// only the first count occurrences are replaced.
     @Sendable public static func replace(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(str) = args.first else {
             return args.first ?? .string("")
         }
@@ -1565,10 +1565,10 @@ public enum Filters {
 
     /// URL encodes a string or object.
     @Sendable public static func urlencode(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else {
             return .string("")
         }
@@ -1595,10 +1595,10 @@ public enum Filters {
 
     /// Batches items into groups.
     @Sendable public static func batch(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
@@ -1616,8 +1616,8 @@ public enum Filters {
 
         let fillWith = arguments["fillWith"]!
 
-        var result = [Value]()
-        var batch = [Value]()
+        var result = [JinjaValue]()
+        var batch = [JinjaValue]()
         for item in items {
             batch.append(item)
             if batch.count == batchSize {
@@ -1636,10 +1636,10 @@ public enum Filters {
 
     /// Sums values in an array.
     @Sendable public static func sum(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .array(items) = value else {
             return .int(0)
         }
@@ -1653,7 +1653,7 @@ public enum Filters {
 
         let start = arguments["start"]!
 
-        let valuesToSum: [Value]
+        let valuesToSum: [JinjaValue]
         if case let .string(attribute) = arguments["attribute"] {
             valuesToSum = try items.map { item in
                 try PropertyMembers.evaluate(item, attribute)
@@ -1670,10 +1670,10 @@ public enum Filters {
 
     /// Truncates a string to a specified length.
     @Sendable public static func truncate(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(str) = args.first else {
             return .string("")
         }
@@ -1731,10 +1731,10 @@ public enum Filters {
 
     /// Returns unique items from an array.
     @Sendable public static func unique(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first, case let .array(items) = value else {
             return .array([])
         }
@@ -1748,17 +1748,17 @@ public enum Filters {
 
         let caseSensitive = arguments["case_sensitive"]!.isTruthy
 
-        func normalizedKey(_ value: Value) -> Value {
+        func normalizedKey(_ value: JinjaValue) -> JinjaValue {
             if !caseSensitive, case let .string(str) = value {
                 return .string(str.lowercased())
             }
             return value
         }
 
-        var seen = Set<Value>()
-        var result = [Value]()
+        var seen = Set<JinjaValue>()
+        var result = [JinjaValue]()
         for item in items {
-            let key: Value
+            let key: JinjaValue
             if let attribute = arguments["attribute"], attribute != .null {
                 key = try resolveAttributeValue(item, attribute: attribute)
             } else {
@@ -1775,10 +1775,10 @@ public enum Filters {
 
     /// Indents text.
     @Sendable public static func indent(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(str) = args.first else {
             return .string("")
         }
@@ -1823,10 +1823,10 @@ public enum Filters {
 
     /// Returns items (key-value pairs) of a dictionary/object.
     @Sendable public static func items(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else {
             return .array([])
         }
@@ -1840,7 +1840,7 @@ public enum Filters {
 
         if case let .object(obj) = value {
             let pairs = obj.map { key, value in
-                Value.array([.string(key), value])
+                JinjaValue.array([.string(key), value])
             }
             return .array(pairs)
         }
@@ -1850,10 +1850,10 @@ public enum Filters {
 
     /// Pretty prints a variable (useful for debugging).
     @Sendable public static func pprint(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard let value = args.first else { return .string("") }
 
         _ = try resolveCallArguments(
@@ -1863,7 +1863,7 @@ public enum Filters {
             defaults: [:]
         )
 
-        func prettyPrint(_ val: Value, indent: Int = 0) -> String {
+        func prettyPrint(_ val: JinjaValue, indent: Int = 0) -> String {
             let indentString = String(repeating: "  ", count: indent)
             switch val {
             case let .array(arr):
@@ -1889,10 +1889,10 @@ public enum Filters {
 
     /// Converts URLs in text into clickable links.
     @Sendable public static func urlize(
-        _ args: [Value],
-        kwargs: [String: Value] = [:],
+        _ args: [JinjaValue],
+        kwargs: [String: JinjaValue] = [:],
         env: Environment
-    ) throws -> Value {
+    ) throws -> JinjaValue {
         guard case let .string(text) = args.first else {
             return .string("")
         }
@@ -2031,7 +2031,7 @@ public enum Filters {
     ///
     /// Each filter function accepts an array of values (with the input as the first element),
     /// optional keyword arguments, and the current environment, then returns a transformed value.
-    public static let builtIn: [String: @Sendable ([Value], [String: Value], Environment) throws -> Value] = [
+    public static let builtIn: [String: @Sendable ([JinjaValue], [String: JinjaValue], Environment) throws -> JinjaValue] = [
         "upper": upper,
         "lower": lower,
         "length": length,
@@ -2091,7 +2091,7 @@ public enum Filters {
 
 // MARK: -
 
-private func resolveAttributeValue(_ item: Value, attribute: Value) throws -> Value {
+private func resolveAttributeValue(_ item: JinjaValue, attribute: JinjaValue) throws -> JinjaValue {
     switch attribute {
     case let .string(name):
         return try PropertyMembers.evaluate(item, name)
@@ -2113,8 +2113,8 @@ private func resolveAttributeValue(_ item: Value, attribute: Value) throws -> Va
 }
 
 private func compareValues(
-    _ lhs: Value,
-    _ rhs: Value,
+    _ lhs: JinjaValue,
+    _ rhs: JinjaValue,
     caseSensitive: Bool,
     useStringComparisonWhenCaseSensitive: Bool = false,
     fallbackToDescription: Bool = false
