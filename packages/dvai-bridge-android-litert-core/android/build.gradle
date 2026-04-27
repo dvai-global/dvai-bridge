@@ -1,3 +1,10 @@
+// LiteRT core module — wraps Google's LiteRT (TFLite successor) runtime for
+// generic .tflite / .litertlm Llama-style stateful checkpoints. Distinct
+// from android-mediapipe-core, which uses the bundled `litertlm-android`
+// MediaPipe-shaped artifact: this module pulls litert + litert-llm
+// directly so consumers running their own LiteRT graphs (without
+// MediaPipe's bundled-task wrappers) have a clean dependency surface.
+
 buildscript {
     ext {
         kotlinVersion = '2.3.21'
@@ -16,35 +23,38 @@ ext {
     junitVersion = '4.13.2'
     androidxAppCompatVersion = '1.7.1'
     coroutinesVersion = '1.10.2'
-    // Pinned within Ktor 2.x — Ktor 3 has breaking API changes around server
-    // configuration that would require non-trivial refactors. Stay on the
-    // latest 2.x patch (2.3.13) until a deliberate Ktor 3 migration.
+    // Pinned within Ktor 2.x to match the rest of the Android cores.
     ktorVersion = '2.3.13'
-    // LiteRT-LM — replaces the deprecated `com.google.mediapipe:tasks-genai`
-    // (Phase 3B, Tasks 18-19). `litertlm-android` bundles the full runtime;
-    // no separate `tasks-core` companion is required.
-    // Hosted on Google Maven (google() repo, already declared in allprojects).
-    litertLmVersion = '0.10.2'
+    // LiteRT runtime — Google's TFLite-successor.
+    // litert: core Interpreter + delegate APIs.
+    // litert-llm: LLM-specific helpers (KV-cache, sampler, tokenizer adapters).
+    // Verify latest stable on Maven Central before bumping; coordinated
+    // with HuggingFace tokenizers-android which speaks the same .json format.
+    litertVersion = '1.4.0'
+    // HuggingFace tokenizers (JNI) for tokenizer.json parsing. JitPack
+    // distribution; consumers add `maven { url 'https://jitpack.io' }` to
+    // their settings.gradle.kts repos block (documented in the consumer
+    // guide produced by Phase 3D Task 18).
+    huggingfaceTokenizersVersion = '0.21.4'
 }
 
 allprojects {
     repositories {
         google()
         mavenCentral()
-        // Phase 3D: shared-core lives here in dev (after `publishToMavenLocal`).
-        // Production publishes resolve from GitHub Packages.
+        // Phase 3D: shared-core lives in mavenLocal during dev, GitHub
+        // Packages in production.
         mavenLocal()
+        // JitPack — required for `com.github.huggingface:tokenizers-android`.
+        maven { url = uri('https://jitpack.io') }
     }
 }
 
-// AGP 9+ ships built-in Kotlin support; the standalone 'kotlin-android'
-// plugin is no longer needed (and is rejected by the build).
-// See https://kotl.in/gradle/agp-built-in-kotlin
 apply plugin: 'com.android.library'
 apply plugin: 'maven-publish'
 
 android {
-    namespace 'co.deepvoiceai.bridge.mediapipe.core'
+    namespace 'co.deepvoiceai.bridge.litert.core'
     compileSdk 36
 
     defaultConfig {
@@ -68,9 +78,8 @@ android {
     }
 }
 
-// AGP 9 / Kotlin 2.x: the legacy android.kotlinOptions block is gone. The
-// replacement is the standalone `kotlin { compilerOptions { ... } }` extension
-// (provided by AGP's built-in Kotlin integration).
+// AGP 9 / Kotlin 2.x: legacy android.kotlinOptions is gone; use the
+// standalone `kotlin { compilerOptions { ... } }` extension.
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
@@ -78,7 +87,7 @@ kotlin {
 }
 
 dependencies {
-    // Phase 3D: shared HTTP server + handler dispatch types live here.
+    // Phase 3D: shared HTTP server + handler dispatch types.
     implementation 'co.deepvoiceai:android-shared-core:2.0.0'
 
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
@@ -89,10 +98,12 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
     implementation 'com.squareup.okhttp3:okhttp:5.3.2'
 
-    // LiteRT-LM: non-deprecated successor to tasks-genai (Phase 3B Task 18-19).
-    // Bundles the full LLM runtime including vision support via EngineConfig.visionBackend.
-    // ~100MB native libs per ABI — first build will be slow.
-    implementation "com.google.ai.edge.litertlm:litertlm-android:$litertLmVersion"
+    // LiteRT runtime — pulled in by Phase 3D Task 6 (LiteRTEngine).
+    implementation "com.google.ai.edge.litert:litert:$litertVersion"
+    implementation "com.google.ai.edge.litert:litert-llm:$litertVersion"
+
+    // HuggingFace tokenizer (JNI). Brings ~10MB of native code per ABI.
+    implementation "com.github.huggingface:tokenizers-android:$huggingfaceTokenizersVersion"
 
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion"
@@ -111,7 +122,7 @@ afterEvaluate {
         publications {
             release(MavenPublication) {
                 groupId = 'co.deepvoiceai'
-                artifactId = 'android-mediapipe-core'
+                artifactId = 'android-litert-core'
                 version = (project.findProperty('dvaiBridgeVersion') ?: '2.0.0').toString()
                 from components.release
             }
