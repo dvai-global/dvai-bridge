@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  EnumFields.xml — Java/Kotlin enum field rename rules.
+
+  The Phase 3D AAR's `co.deepvoiceai.bridge.BackendKind` Kotlin enum already
+  uses idiomatic PascalCase identifiers (`Auto`, `Llama`, `MediaPipe`,
+  `LiteRT`); the binding generator preserves them as-is. We don't need any
+  rename rules here — the file exists as a placeholder so an iteration
+  cycle can plug in additional enum-name transforms without touching the
+  csproj.
+-->
+<enum-field-mappings />

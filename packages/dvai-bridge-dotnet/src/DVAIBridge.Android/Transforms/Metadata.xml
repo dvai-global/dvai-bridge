@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Metadata.xml — Java/Kotlin binding generator transform rules.
+
+  Rules applied to the auto-generated C# bindings before they're compiled
+  into DVAIBridge.Android.dll. The binding generator parses class shapes
+  via `class-parse` (Microsoft's Java class file parser); these `<attr>`
+  rules tweak names, return types, and visibility on a per-member basis.
+
+  References:
+    - https://learn.microsoft.com/en-us/dotnet/maui/migration/android-binding-projects
+    - https://learn.microsoft.com/en-us/dotnet/android/binding-libs/customizing-bindings/java-bindings-metadata
+-->
+<metadata>
+
+  <!--
+    Rename the Kotlin object `co.deepvoiceai.bridge.DVAIBridge` to
+    `NativeDVAIBridge` to avoid colliding with the facade's public C# class
+    name `DVAIBridge` in the same logical namespace tree. The facade's
+    AndroidNativeBridge wraps NativeDVAIBridge.
+  -->
+  <attr path="/api/package[@name='co.deepvoiceai.bridge']/class[@name='DVAIBridge']"
+        name="managedName">NativeDVAIBridge</attr>
+
+  <!--
+    suspend fun → Task<T>: the .NET 10 Android binding generator handles
+    most Kotlin coroutine continuations automatically when the AAR's
+    .kotlin_metadata is present (the Phase 3D AAR ships it). These rules
+    are fallback overrides if the auto-conversion picks up the wrong
+    return type for a generic-erased continuation. Adjust during the
+    "first dotnet build cycle" iteration described in the plan
+    (Task 6 sub-task: "expect 2-3 dotnet-build cycles").
+  -->
+
+  <!--
+    Fluent rename: Kotlin emits `Companion` objects bound as a nested
+    `Companion` class. The Phase 3D `DVAIBridge` is a Kotlin object (not a
+    class with a companion); skip the Companion rule unless an iteration
+    cycle reveals one.
+  -->
+
+  <!--
+    Hide the auto-generated `Continuation`-form overloads: the binding
+    generator emits both `start(opts, continuation)` (Kotlin coroutine
+    form) and `startAsync(opts)` (the Task<T> form). We only want the
+    latter visible in C#. Suppress the former.
+  -->
+  <remove-node path="/api/package[@name='co.deepvoiceai.bridge']/class[@name='NativeDVAIBridge']/method[parameter[@type='kotlin.coroutines.Continuation']]" />
+
+</metadata>

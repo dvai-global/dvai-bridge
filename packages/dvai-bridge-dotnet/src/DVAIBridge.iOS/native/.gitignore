@@ -1,0 +1,8 @@
+# SwiftPM build outputs
+.build/
+build/
+Package.resolved
+
+# Generated xcframework — produced by build-xcframework.sh, bundled into
+# the DVAIBridge.iOS NuGet at pack time. Never committed.
+*.xcframework/

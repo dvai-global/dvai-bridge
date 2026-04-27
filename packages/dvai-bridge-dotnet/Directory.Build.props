@@ -1,0 +1,32 @@
+<Project>
+  <!--
+    Repo-wide MSBuild defaults for the DVAIBridge .NET NuGet family.
+    Inherited by every csproj under packages/dvai-bridge-dotnet/.
+    Version is bumped in lockstep by scripts/sync-versions.js (Task 14).
+  -->
+  <PropertyGroup>
+    <Version>2.3.0</Version>
+    <Authors>Deep Voice AI</Authors>
+    <Company>Deep Voice AI</Company>
+    <Copyright>Copyright (c) 2026 Deep Voice AI</Copyright>
+    <PackageProjectUrl>https://github.com/Westenets/dvai-bridge</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Westenets/dvai-bridge.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!--
+      CS1591 = "missing xmldoc on public member" — silenced for tests + binding shims;
+      facade csproj re-enables it via <NoWarn /> override (Task 2).
+    -->
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>portable</DebugType>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <IncludeSymbols>true</IncludeSymbols>
+  </PropertyGroup>
+</Project>

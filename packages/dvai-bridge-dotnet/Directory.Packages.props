@@ -1,0 +1,28 @@
+<Project>
+  <!--
+    Central Package Management (CPM). Every PackageReference across the solution
+    inherits versions from this file — there are no <Version> attributes on
+    PackageReference items in any csproj. Single source of truth.
+
+    Pinned versions (latest stable at 2026-04-27 — verify before tag):
+      - Microsoft.NET.Test.Sdk 17.13.0  (Visual Studio Test Platform shim, .NET 10-ready)
+      - xunit 2.9.x                    (xUnit v2 LTS line; v3 is GA but still maturing for CI ergonomics)
+      - xunit.runner.visualstudio 3.0  (matches xunit 2.9.x)
+      - Moq 4.20.x                     (latest stable; we use it for INativeBridge fakes)
+      - coverlet.collector 6.0.x       (XPlat Code Coverage in CI)
+      - Microsoft.SourceLink.GitHub 8.0.0 (deterministic builds + sourcelink)
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Test stack -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.0.0" />
+    <PackageVersion Include="Moq" Version="4.20.72" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <!-- Source link -->
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
+  </ItemGroup>
+</Project>

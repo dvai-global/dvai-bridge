@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Hand-written .nuspec used by `dotnet pack` (referenced via the
+  `NuspecFile` MSBuild property in DVAIBridge.csproj at pack time).
+
+  Why hand-written rather than the SDK's auto-generated .nuspec?
+  We need TFM-conditional <dependency> entries that point at the iOS /
+  Android binding NuGets — and those NuGets aren't ProjectReferences
+  (the facade project graph is acyclic by design). The auto-generated
+  .nuspec from `dotnet pack` only carries deps from PackageReferences;
+  it doesn't synthesize TFM-conditional NuGet deps from arbitrary
+  project metadata.
+
+  Tokens populated at pack time via `-p:Version=$(Version)` and
+  `-p:NuspecProperties="..."`.
+-->
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+  <metadata minClientVersion="6.10">
+    <id>DVAIBridge</id>
+    <version>$version$</version>
+    <title>DVAIBridge — local LLM bridge for .NET MAUI / Avalonia / WinUI</title>
+    <authors>Deep Voice AI</authors>
+    <owners>Deep Voice AI</owners>
+    <license type="expression">Apache-2.0</license>
+    <projectUrl>https://github.com/Westenets/dvai-bridge</projectUrl>
+    <repository type="git" url="https://github.com/Westenets/dvai-bridge.git" />
+    <description>Local-LLM bridge with OpenAI-compatible HTTP server for .NET MAUI, Avalonia, WinUI, and Xamarin (legacy) apps on iOS and Android. Wraps the DVAIBridge iOS + Android native SDKs behind an idiomatic C# API. Reactive progress via IAsyncEnumerable&lt;ProgressEvent&gt;. Backends: llama.cpp, Apple Foundation Models, CoreML/ANE, MLX, MediaPipe, LiteRT.</description>
+    <copyright>Copyright (c) 2026 Deep Voice AI</copyright>
+    <tags>llm ai openai ios android maui avalonia winui local-inference llama-cpp mediapipe litert mlx coreml foundation-models</tags>
+    <readme>README.md</readme>
+    <dependencies>
+      <!-- Bare net10.0: WinUI / Avalonia / Blazor / desktop. No native deps. -->
+      <group targetFramework="net10.0" />
+      <!-- iOS: pulls in the iOS binding NuGet (which bundles the xcframework). -->
+      <group targetFramework="net10.0-ios18.0">
+        <dependency id="DVAIBridge.iOS" version="[$version$]" />
+      </group>
+      <!-- Android: pulls in the Android binding NuGet (consumer-build AAR fetch). -->
+      <group targetFramework="net10.0-android36.0">
+        <dependency id="DVAIBridge.Android" version="[$version$]" />
+      </group>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="..\..\README.md" target="README.md" />
+    <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0\" />
+    <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0\" />
+    <!--
+      Same facade DLL re-shipped under the platform TFM folders. NuGet's
+      lib-resolver picks the most-specific match (`net10.0-ios18.0` over
+      `net10.0`) and the NuGet dep group above pulls in the iOS slice
+      transitively. Without this, restoring net10.0-ios18.0 would fall
+      back to the bare net10.0 folder and miss the slice.
+      `_._` would also work but most consumers prefer a real DLL match
+      so reflection-loaded type lookup (PlatformBridgeFactory) Just Works.
+    -->
+    <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-ios18.0\" />
+    <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-ios18.0\" />
+    <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-android36.0\" />
+    <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-android36.0\" />
+  </files>
+</package>

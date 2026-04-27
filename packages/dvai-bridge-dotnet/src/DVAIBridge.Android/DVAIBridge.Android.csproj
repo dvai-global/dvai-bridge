@@ -1,0 +1,78 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Android binding library. Wraps the Phase 3D `co.deepvoiceai:dvai-bridge`
+    AAR via Microsoft's Java/Kotlin binding generator (class-parse +
+    XAJavaInterop1).
+
+    The AAR is fetched from GitHub Packages Maven by CI before `dotnet
+    build` runs (see .github/workflows/test-dotnet.yml Task 13). It's
+    gitignored so we don't pin a binary to the repo. The fetched filename
+    is `native/dvai-bridge-2.4.0.aar`.
+
+    `Transforms/Metadata.xml` rewrites Kotlin's `suspend fun(continuation)`
+    surface to idiomatic C# `Task<T>`-returning methods, and renames the
+    bound `co.deepvoiceai.bridge.DVAIBridge` Kotlin object to
+    `Co.Deepvoiceai.Bridge.NativeDVAIBridge` to avoid colliding with the
+    facade's public C# class name `DVAIBridge`.
+
+    TFM `net10.0-android36.0` matches the .NET 10 default Android API. The
+    runtime floor is API 24 — same as the Phase 3D AAR.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-android36.0</TargetFramework>
+    <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
+    <IsBindingProject>true</IsBindingProject>
+    <AndroidClassParser>class-parse</AndroidClassParser>
+    <AndroidCodegenTarget>XAJavaInterop1</AndroidCodegenTarget>
+    <PackageId>DVAIBridge.Android</PackageId>
+    <Title>DVAIBridge.Android — Android native bindings (internal slice)</Title>
+    <Description>Android native bindings for DVAIBridge — internal slice of the DVAIBridge NuGet family. Pulled in transitively by DVAIBridge when targeting net10.0-android. Consumers should depend on DVAIBridge directly. The underlying co.deepvoiceai:dvai-bridge AAR is fetched from GitHub Packages Maven at consumer build time (NOT bundled in this NuGet); see docs/guide/dotnet-sdk.md for the consumer-side configuration.</Description>
+    <PackageTags>llm;ai;android;binding;internal;dvai-bridge</PackageTags>
+    <RootNamespace>DVAIBridge.Android</RootNamespace>
+    <AssemblyName>DVAIBridge.Android</AssemblyName>
+    <!--
+      Toggle the AndroidNativeBridge implementation on once the AAR is
+      fetched and the binding generator has produced clean Native.* types.
+      The CI workflow turns this on after the AAR-fetch step; local dev
+      can override per-build with `dotnet build -p:BindingsGenerated=true`.
+    -->
+    <DefineConstants Condition="'$(BindingsGenerated)' == 'true'">$(DefineConstants);BINDINGS_GENERATED</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      AAR fetched by CI from GitHub Packages Maven before build:
+        curl -L -u "$GITHUB_USER:$GITHUB_TOKEN" \
+          "https://maven.pkg.github.com/Westenets/dvai-bridge/co/deepvoiceai/dvai-bridge/2.4.0/dvai-bridge-2.4.0.aar" \
+          -o native/dvai-bridge-2.4.0.aar
+      Bind=true tells the binding generator to emit C# wrappers from the
+      AAR's classes.jar.
+    -->
+    <AndroidLibrary Include="native\dvai-bridge-2.4.0.aar">
+      <Bind>true</Bind>
+    </AndroidLibrary>
+    <TransformFile Include="Transforms\Metadata.xml" />
+    <TransformFile Include="Transforms\EnumFields.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Compile-time reference to the facade for the public types we marshal
+      to/from (BoundServer, StartOptions, ProgressEvent, …). PrivateAssets=all
+      stops this from becoming a transitive NuGet dependency on the facade —
+      the facade's own .nuspec declares the TFM-conditional dep in the other
+      direction, and we don't want a circular NuGet graph.
+    -->
+    <ProjectReference Include="..\DVAIBridge\DVAIBridge.csproj">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>compile;build</IncludeAssets>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+</Project>
