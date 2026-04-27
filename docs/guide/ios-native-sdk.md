@@ -107,7 +107,7 @@ try await DVAIBridge.shared.stop()
 |---|---|---|---|---|
 | `.llama` | llama.cpp / Metal | GGUF | 14 (link), 14 (runtime) | Broadest model coverage. |
 | `.foundation` | Apple Foundation Models | (no file) | 18.1 (link), 26 (runtime) | Zero-download text on iOS 26+. SwiftPM-only. |
-| `.coreml` | CoreML / ANE | `.mlmodelc` directory | 18 (runtime) | Stateful 4-bit Llama-3.2 reference. |
+| `.coreml` | CoreML / ANE | `.mlmodelc` directory | 18 (runtime) | Stateful 4-bit Llama-3.2 reference. **Experimental — see [Known issues](#known-issues).** |
 | `.mlx` | MLX (Apple Silicon GPU/ANE) | HuggingFace Hub id | 17 (link), Apple Silicon (runtime) | See the [MLX backend page](./mlx-backend.md). SwiftPM-only. |
 | `.auto` | Resolve at runtime | Inferred from `modelPath` | — | See [auto-resolution](#auto-resolution-rules) below. |
 
@@ -263,6 +263,43 @@ If you want to run the SDK's own tests against real models, populate
 `scripts/smoke.local.env` (gitignored) and use `xcodebuild test` against
 the `DVAIBridge-Package` scheme. See `[1.8.0]` in the CHANGELOG for the
 env-var list and the public reference checkpoints used.
+
+## Known issues
+
+### CoreML backend: IRValue crash at first prediction (experimental)
+
+The `.coreml` backend is shipped in v2.0.0 as **experimental**. Model
+load + tokenizer load + HTTP server boot all succeed against the
+reference checkpoint
+[`finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit`](https://huggingface.co/finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit).
+However, the first call to `MLModel.prediction(from:using:)` crashes
+inside CoreML's C++ IR layer with:
+
+```
+Error: Cannot retrieve vector from IRValue format int32
+```
+
+The crash is a process exit (not a Swift `Error` you can catch) and
+reproduces on **both** iOS Simulator and macOS-native, which rules out
+the previously-suspected simulator-only Espresso translation
+limitation. The integration test (`testCoreMLBackendIntegration`) is
+gated off via `XCTSkip` until the cause is understood — live debug on
+a physical iOS device with Instruments is the next step.
+
+**What works:**
+- Model + tokenizer file load via `DVAIBridge.shared.start(.init(backend: .coreml, ...))`
+- HTTP server bind + `/v1/models` listing
+
+**What doesn't (yet):**
+- `/v1/chat/completions` against the reference checkpoint (crashes)
+
+**If you want to experiment:** any pre-converted `.mlmodelc` Llama-style
+stateful checkpoint may exhibit the same issue — this isn't specific
+to the finnvoorhees mirror. Until the bug is fixed, prefer `.llama` or
+`.mlx` for production iOS LLM workloads.
+
+This is tracked as the top-priority CoreML follow-up under "Known
+Phase 3D follow-ups" in [CHANGELOG.md](../../CHANGELOG.md).
 
 ## Reference
 

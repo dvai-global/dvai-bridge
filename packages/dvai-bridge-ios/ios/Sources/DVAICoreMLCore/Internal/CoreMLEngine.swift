@@ -84,13 +84,25 @@ internal final class CoreMLEngine: @unchecked Sendable {
         // pattern for primitive multiarray data and avoids unnecessary
         // bridging overhead.
         //
-        // Note: the iOS Simulator's CoreML runtime emits
-        // "Cannot retrieve vector from IRValue form int32" at predict
-        // time on some stateful 4-bit MIL graphs regardless of how the
-        // input is encoded. That's a simulator-only IR-layer
-        // limitation; the integration test catches the pattern and
-        // skips. macOS-native and real iOS devices run the same input
-        // path end-to-end.
+        // KNOWN ISSUE: on the reference Apple-converted Llama-3.2 stateful
+        // 4-bit checkpoint, the FIRST `model.prediction(from:using:)` call
+        // crashes hard inside CoreML's C++ IR layer with:
+        //
+        //   Error: Cannot retrieve vector from IRValue format int32
+        //
+        // The crash is reproducible on BOTH iOS Simulator and macOS-native,
+        // which rules out the previously-suspected simulator-only Espresso
+        // limitation. Verified that:
+        //   - Model loads fine (no "Failed to build execution plan").
+        //   - input_ids name + shape match the model description.
+        //   - causal_mask name + shape match Apple's published convention.
+        //
+        // The error manifests as a process crash (xctest exits unexpectedly,
+        // not a Swift Error throw), so callers can't try/catch it. The
+        // RealModelIntegrationTest gates the test off until the cause is
+        // understood. Live debugging on a real iOS device with Instruments
+        // is the next step. See:
+        //   packages/dvai-bridge-ios/ios/Tests/DVAIBridgeTests/RealModelIntegrationTest.swift
         let inputArr = try MLMultiArray(shape: [1, 1], dataType: .int32)
         inputArr.dataPointer.bindMemory(to: Int32.self, capacity: 1).pointee = Int32(token)
         features[inputName] = MLFeatureValue(multiArray: inputArr)

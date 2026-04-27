@@ -49,19 +49,19 @@ Everything documented in `[1.7.0]` and `[1.8.0]` below, **plus**:
   `@dvai-bridge/capacitor` shim's `CapacitorBackend` type-union now
   includes `"mlx"`. Android selecting `.mlx` returns the same `iOS-only`
   error as `.foundation`.
-- **CoreML integration test now runs on iOS Simulator + macOS native**
-  — rewrote to download the `.mlmodelc/` directory file-by-file from a
-  public HF mirror (`finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit`)
-  rather than zip-and-unzip, so the iOS Simulator's lack of `Process`
-  is no longer a blocker. The public mirror also bundles
-  `tokenizer.json` + `tokenizer_config.json`, so the gated meta-llama
-  repo + `SMOKE_HF_TOKEN` are no longer required.
-  - On iOS Simulator the test still hard-skips when the simulator's
-    CoreML runtime fails the stateful 4-bit MIL→EIR translation
-    (Espresso status=-14 — a known simulator constraint that doesn't
-    repro on macOS native or real devices).
+- **CoreML integration test infrastructure** — rewrote the test to
+  download the `.mlmodelc/` directory file-by-file from a public HF
+  mirror (`finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit`) rather
+  than zip-and-unzip, so the iOS Simulator's lack of `Process` is no
+  longer a blocker. The public mirror also bundles `tokenizer.json` +
+  `tokenizer_config.json`, so the gated meta-llama repo +
+  `SMOKE_HF_TOKEN` are no longer required.
   - Single env var: `SMOKE_COREML_MODEL_BASE_URL`. The old four
     `SMOKE_COREML_*` + `SMOKE_HF_TOKEN` vars are no longer needed.
+  - The test itself is currently **gated off** (XCTSkip) — see the
+    "CoreML backend — IRValue crash at first prediction" follow-up
+    in §"Known Phase 3D follow-ups" below. Re-enabling is a one-line
+    change once the IRValue cause is understood.
 
 ### Documentation
 
@@ -86,14 +86,22 @@ Everything documented in `[1.7.0]` and `[1.8.0]` below, **plus**:
   `llama.xcframework` — those backends can run on Catalyst as soon as
   the consumer's app target requests it. Concrete Catalyst test
   destination wiring is deferred until a Catalyst consumer surfaces.
-- **`CoreMLGenerator` `causal_mask` input.** The macOS-native
-  integration test exercises model load + tokenizer load + chat
-  completion against `finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit`
-  end-to-end. Generation currently throws *"Feature causal_mask is
-  required but not specified"* — `CoreMLGenerator`'s input dictionary
-  doesn't feed the model's causal-mask tensor. The test now hard-skips
-  that specific error pattern; fixing the generator is the next
-  CoreML follow-up.
+- **CoreML backend — IRValue crash at first prediction.** The
+  `CoreMLGenerator` `causal_mask` wiring (and KV-cache position
+  tracking) is now in place and matches Apple's published shape
+  conventions. `MLModel` load + tokenizer load + bridge boot all
+  succeed on macOS-native. However, the first
+  `model.prediction(from:using:)` call against
+  `finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit` crashes hard
+  inside CoreML's C++ IR layer with *"Cannot retrieve vector from
+  IRValue format int32"*. The crash is a process exit, not a
+  catchable Swift error; it reproduces on **both** iOS Simulator and
+  macOS-native. The `RealModelIntegrationTest.testCoreMLBackendIntegration`
+  is gated off via `XCTSkip` until the cause is understood — live
+  debug on a real iOS device with Instruments is the next step.
+  Other backends (llama / foundation / mlx) are unaffected. Tracking
+  comments live in `CoreMLEngine.swift` (the `runStep` doc) and the
+  test method itself.
 
 ---
 
