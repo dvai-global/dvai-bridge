@@ -108,12 +108,16 @@ final class RealModelIntegrationTest: XCTestCase {
         }
         let hfToken = env["SMOKE_HF_TOKEN"]
 
-        // 1. Download the .mlmodelc.zip + tokenizer.json
+        // 1. Download the .mlmodelc.zip + tokenizer.json. As of 2026-04
+        //    apple/coreml-Llama-3.2-1B-Instruct-4bit returns 401 without
+        //    a Bearer token (the repo became gated), so pass the token
+        //    on both downloads. The token is rejected gracefully if the
+        //    repo turns out to be public again.
         let modelZip = try await downloadFile(
             url: modelUrl,
             sha256: modelSha,
             destFilename: "model.mlmodelc.zip",
-            authBearer: nil
+            authBearer: hfToken
         )
         let tokFile = try await downloadFile(
             url: tokUrl,

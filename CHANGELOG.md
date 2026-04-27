@@ -61,26 +61,103 @@ backends.
   consumers (DVAIBridge) can pattern-match `.checksumMismatch` instead
   of grepping the localized error string.
 
+### CocoaPods packaging
+
+- **`pod lib lint DVAIBridge.podspec` — passes** on Xcode 26 / iOS 26 SDK.
+  The podspec is now a single-target spec that mirrors our SwiftPM module
+  graph by vendoring the upstream HuggingFace stack and gating
+  cross-target imports behind `#if !COCOAPODS`.
+- Vendored under `packages/dvai-bridge-ios/Vendor/swift-transformers/`
+  (gitignored only at the level of build output, but source tree is
+  checked in):
+  - `huggingface/swift-transformers @ 1.3.0` — `Tokenizers` + `Hub`
+    (the upstream `Hub/HubApi.swift` is replaced by a stripped 80-line
+    variant that drops Crypto / HuggingFace / yyjson / EventSource /
+    swift-xet / swift-crypto code paths we never call. JSON parsing
+    backed by `Foundation.JSONSerialization`).
+  - `huggingface/swift-jinja @ 2.3.5`.
+  - `apple/swift-collections @ 1.4.1` — `OrderedCollections` +
+    `InternalCollectionsUtilities`.
+  - Apache-2.0 LICENSE preserved as
+    `Vendor/swift-transformers/LICENSE-<dep>`.
+- New helper scripts:
+  - `scripts/wrap-cocoapods-imports.py` — idempotent post-vendor pass
+    that wraps every cross-target `import` with `#if !COCOAPODS` so the
+    same source tree compiles cleanly under both SwiftPM (which pulls
+    the real upstream packages) and CocoaPods (which collapses the pod
+    into a single `DVAIBridge` Swift module).
+  - `scripts/patch-cocoapods-vendor.py` — idempotent patches that
+    rename collisions (Tokenizers' `Decoder` → `TokenizerStepDecoder`,
+    Jinja's `Value` → `JinjaValue`) so the flattened CocoaPods module
+    has no shadowing.
+- `mac-side-prepare-xcframework.sh` is unchanged; the podspec uses a
+  `prepare_command` that copies the built `llama.xcframework` /
+  `mtmd.xcframework` and the sibling-package source dirs into a
+  pod-local `Frameworks/` and `Sources/_external/` so CocoaPods'
+  globbing (which doesn't follow `..` paths) can find them.
+
+### CocoaPods vs SwiftPM asymmetries (intentional)
+
+The two distribution channels are not symmetric. SwiftPM remains the
+primary path; CocoaPods is a best-effort wrapper for shops on that
+toolchain.
+
+- **`DVAIBridgeReactiveState` is not an `ObservableObject` under
+  CocoaPods.** Xcode 26 / iOS 26 SDK's static linker emits an implicit
+  link directive for `SwiftUICore` (a private framework non-Apple
+  products cannot link) for any module that conforms a type to
+  `ObservableObject`, even if the module never imports SwiftUI.
+  CocoaPods bundles the whole pod into one Swift module, so the
+  trigger lands on every consumer's link line and pod lib lint /
+  release builds fail with `cannot link directly with 'SwiftUICore'`.
+  SwiftPM is unaffected because the ObservableObject conformance ends
+  up in a library that's link-resolved at the consumer's app target,
+  where SwiftUICore access *is* allowed.
+  In place of the conformance + `@Published` wrappers, CocoaPods
+  consumers get a `stateChanges: AnyPublisher<Void, Never>` that
+  fires on every property change. Pattern:
+  ```
+  .onReceive(DVAIBridge.shared.reactive.stateChanges) { _ in
+      // re-render off DVAIBridge.shared.reactive.<prop>
+  }
+  ```
+  See [ReactiveState.swift](packages/dvai-bridge-ios/ios/Sources/DVAIBridge/ReactiveState.swift) for the full doc-comment rationale.
+- **The Foundation Models backend is SwiftPM-only.** `import
+  FoundationModels` emits implicit autolink directives for the same
+  family of private frameworks (`SwiftUICore`, `UIUtilities`,
+  `CoreAudioTypes`) that CocoaPods consumers cannot link.
+  `BackendKind.foundation` remains in the public API for symmetry, but
+  selecting it under a CocoaPods build throws
+  `DVAIBridgeError.backendUnavailable(.foundation, reason: "...use
+  SwiftPM if your app needs the Foundation backend...")`.
+  CocoaPods consumers get `.llama` and `.coreml` which together cover
+  the broad on-device-LLM use case.
+- **Telegraph version differs by channel.** SwiftPM resolves Telegraph
+  `0.40.0` (latest GitHub tag); CocoaPods resolves `~> 0.30` (latest
+  on CocoaPods trunk — Building42 hasn't published 0.40+ to trunk).
+  Our usage only touches stable core types
+  (`Server` / `HTTPRequest` / `HTTPResponse` / `HTTPStatus` /
+  `HTTPHeaders`) which are unchanged across the 0.30→0.40 range.
+
 ### Verified
 
-- 44 XCTest cases pass (42 unit + 1 llama integration end-to-end +
-  1 expected skip for Foundation Models which needs iOS 26+ runtime;
-  CoreML integration skips cleanly on iOS Simulator pending the
-  in-process unzip work).
+- 44 XCTest cases pass on iOS Simulator (42 unit + 1 llama
+  integration end-to-end + 1 expected skip for Foundation Models which
+  needs iOS 26+ runtime).
+- 1 CoreML real-model integration test passes on the native-macOS
+  destination (`platform=macOS,arch=arm64`) using
+  `apple/coreml-Llama-3.2-1B-Instruct-4bit` +
+  `meta-llama/Llama-3.2-1B-Instruct` tokenizer (gated meta-llama HF
+  repo, requires `SMOKE_HF_TOKEN`).
+  CoreML still skips cleanly on iOS Simulator — that destination
+  lacks `Process` for the unzip step, AND the llama.xcframework
+  doesn't currently contain a Mac Catalyst slice. Phase 3D may land
+  an in-process zip reader (`Compression` framework or
+  `ZIPFoundation`) to enable the simulator path; for now native macOS
+  is the verified runner for CoreML end-to-end.
+- `pod lib lint DVAIBridge.podspec --allow-warnings` passes on Xcode
+  26.4 / CocoaPods 1.15.2.
 - Existing Capacitor tests + Phase 3A/3B test suites unaffected.
-
-### Deferred to Phase 3D
-
-- `pod lib lint DVAIBridge.podspec` — CocoaPods isn't fully installed
-  on the self-hosted Mac runner (ffi gem extension issue). The podspec
-  is well-formed and committed; consumers using DVAIBridge via
-  CocoaPods will catch any issues during integration. SwiftPM is the
-  primary path and is verified by the new CI workflow.
-- CoreML real-model end-to-end on iOS Simulator. The unzip helper
-  uses `/usr/bin/unzip` via `Process`, which is unavailable in the iOS
-  SDK. Run via Mac Catalyst destination locally, or land an in-process
-  unzip path (Compression framework, `ZIPFoundation`, etc.) before
-  Phase 3D ships.
 
 ### Manual setup for the CoreML integration test (first-time only)
 
