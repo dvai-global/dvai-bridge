@@ -795,18 +795,18 @@ public class PreTrainedTokenizer: @unchecked Sendable, Tokenizer {
 
         let template = try compiledTemplate(for: selectedChatTemplate)
         var context: [String: JinjaValue] = try [
-            "messages": .array(messages.map { try Value(any: $0) }),
+            "messages": .array(messages.map { try JinjaValue(any: $0) }),
             "add_generation_prompt": .boolean(addGenerationPrompt),
         ]
         if let tools {
-            context["tools"] = try .array(tools.map { try Value(any: $0) })
+            context["tools"] = try .array(tools.map { try JinjaValue(any: $0) })
         }
         if let additionalContext {
             // Additional keys and values to be added to the context provided to the prompt templating engine.
             // For example, the app could set "tools_in_user_message" to false for Llama 3.1 and 3.2 if a system message is provided.
             // The default value is true in the Llama 3.1 and 3.2 chat templates, but these models will perform better if the tools are included in a system message.
             for (key, value) in additionalContext {
-                context[key] = try Value(any: value)
+                context[key] = try JinjaValue(any: value)
             }
         }
 
@@ -821,7 +821,7 @@ public class PreTrainedTokenizer: @unchecked Sendable, Tokenizer {
                 } else if let array: [String] = value.get() {
                     context[key.string] = .array(array.map { .string($0) })
                 } else {
-                    context[key.string] = try Value(any: value)
+                    context[key.string] = try JinjaValue(any: value)
                 }
             }
         }

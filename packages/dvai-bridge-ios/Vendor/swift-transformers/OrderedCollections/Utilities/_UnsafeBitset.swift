@@ -18,8 +18,10 @@ import InternalCollectionsUtilities
 
 #if !COCOAPODS
 #if !COCOAPODS
+#if !COCOAPODS
 @usableFromInline
 internal typealias _UnsafeBitSet = InternalCollectionsUtilities._UnsafeBitSet
+#endif
 #endif
 #endif
 #endif

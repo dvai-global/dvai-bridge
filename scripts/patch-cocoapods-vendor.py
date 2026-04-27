@@ -57,11 +57,14 @@ PATCHES = [
         ],
     ),
     (
-        "Same JinjaValue update in Tokenizer.swift's chat-template path.",
+        "Same JinjaValue update in Tokenizer.swift's chat-template path. The "
+        "function calls `Value(any: ...)` to construct Jinja values from "
+        "tokenizer-config primitives.",
         [VENDOR / "Tokenizers" / "Tokenizer.swift"],
         [
             (re.compile(r"\[String: Value\](?=\s*=\s*try)"), "[String: JinjaValue]"),
             (re.compile(r"\bJinja\.Value\b"), "JinjaValue"),
+            (re.compile(r"\btry Value\(any:"), "try JinjaValue(any:"),
         ],
     ),
     (
