@@ -45,17 +45,18 @@ PATCHES = [
         ],
     ),
     (
-        "Drop the InternalCollectionsUtilities re-export typealias — under "
-        "SwiftPM it bridges modules, under CocoaPods it becomes a self-"
-        "referential alias and breaks compilation.",
+        "Wrap the InternalCollectionsUtilities re-export typealias and its "
+        "@usableFromInline attribute in `#if !COCOAPODS` — under SwiftPM it "
+        "bridges modules, under CocoaPods (single-module build) it becomes "
+        "a self-referential alias.",
         [VENDOR / "OrderedCollections" / "Utilities" / "_UnsafeBitset.swift"],
         [
             (
                 re.compile(
-                    r"^internal typealias _UnsafeBitSet = InternalCollectionsUtilities\._UnsafeBitSet$",
+                    r"^@usableFromInline\ninternal typealias _UnsafeBitSet = InternalCollectionsUtilities\._UnsafeBitSet$",
                     re.MULTILINE,
                 ),
-                "// CocoaPods: re-export typealias dropped — single-module compile makes it self-referential.\n// internal typealias _UnsafeBitSet = InternalCollectionsUtilities._UnsafeBitSet",
+                "#if !COCOAPODS\n@usableFromInline\ninternal typealias _UnsafeBitSet = InternalCollectionsUtilities._UnsafeBitSet\n#endif",
             ),
         ],
     ),

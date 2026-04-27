@@ -16,7 +16,8 @@
 import InternalCollectionsUtilities
 #endif
 
+#if !COCOAPODS
 @usableFromInline
-// CocoaPods: re-export typealias dropped — single-module compile makes it self-referential.
-// internal typealias _UnsafeBitSet = InternalCollectionsUtilities._UnsafeBitSet
+internal typealias _UnsafeBitSet = InternalCollectionsUtilities._UnsafeBitSet
+#endif
 #endif
