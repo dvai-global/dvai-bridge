@@ -93,6 +93,10 @@ packages/*/android/local.properties
 # Marketing scripts + blog drafts — private, not for the public repo
 docs/marketing/
 
+# Per-developer publishing checklist — not for the public repo (contains
+# tokens, manual gotchas, and registry-specific quirks the user maintains).
+PUBLISHING.md
+
 # CocoaPods — pod install / pod lib lint output (per-developer, regenerated)
 **/Pods/
 
