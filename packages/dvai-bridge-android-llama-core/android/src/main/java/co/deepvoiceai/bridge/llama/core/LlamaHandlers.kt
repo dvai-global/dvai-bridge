@@ -173,10 +173,15 @@ class LlamaHandlers(
         val chatResp = handleChatCompletion(chatBody, ctx)
         return when (chatResp) {
             is HandlerResponse.Json -> {
-                if (chatResp.status != 200 || chatResp.body !is JsonObject) {
+                // Kotlin can't smart-cast `chatResp.body` to JsonObject because
+                // HandlerResponse now lives in a different module (shared-core)
+                // — its public `val body` could in principle be a custom getter.
+                // Bind to a local `val` and cast once.
+                val respBody = chatResp.body
+                if (chatResp.status != 200 || respBody !is JsonObject) {
                     chatResp
                 } else {
-                    HandlerResponse.Json(200, chatToLegacyCompletion(chatResp.body))
+                    HandlerResponse.Json(200, chatToLegacyCompletion(respBody))
                 }
             }
             is HandlerResponse.Sse -> {
