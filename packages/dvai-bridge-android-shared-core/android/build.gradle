@@ -1,0 +1,114 @@
+// Shared-core module — pure Kotlin + Ktor. No JNI, no native code, no Android UI deps.
+// Every other Android core (llama / mediapipe / litert) and the umbrella
+// dvai-bridge-android module depend on this as `implementation
+// "co.deepvoiceai:android-shared-core:<version>"` resolved via mavenLocal in
+// dev (and via GitHub Packages in production).
+
+buildscript {
+    ext {
+        kotlinVersion = '2.3.21'
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:9.2.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+    }
+}
+
+ext {
+    junitVersion = '4.13.2'
+    coroutinesVersion = '1.10.2'
+    // Pinned within Ktor 2.x; matches the rest of the Android cores. Ktor 3
+    // has breaking API changes around server config — coordinate any bump
+    // across all four cores at once.
+    ktorVersion = '2.3.13'
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'maven-publish'
+
+android {
+    namespace 'co.deepvoiceai.bridge.shared.core'
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 24
+        targetSdk 36
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    testOptions {
+        unitTests.includeAndroidResources = true
+    }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
+}
+
+// AGP 9 / Kotlin 2.x: the legacy android.kotlinOptions block is gone. The
+// replacement is the standalone `kotlin { compilerOptions { ... } }` extension.
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
+dependencies {
+    implementation "io.ktor:ktor-server-core:$ktorVersion"
+    implementation "io.ktor:ktor-server-cio:$ktorVersion"
+    implementation "io.ktor:ktor-server-cors:$ktorVersion"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion"
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
+    // OkHttp powers the resumable Range-download path — moves into shared-core
+    // alongside ModelDownloader in Phase 3D Task 14 (umbrella `downloadModel`).
+    // Declared as an api dep so consumer cores re-expose it transitively.
+    api 'com.squareup.okhttp3:okhttp:5.3.2'
+
+    testImplementation "junit:junit:$junitVersion"
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion"
+    testImplementation 'org.robolectric:robolectric:4.16.1'
+    testImplementation "io.ktor:ktor-server-test-host:$ktorVersion"
+    testImplementation 'com.squareup.okhttp3:mockwebserver:5.3.2'
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                groupId = 'co.deepvoiceai'
+                artifactId = 'android-shared-core'
+                version = project.findProperty('dvaiBridgeVersion') ?: '2.0.0'
+                from components.release
+            }
+        }
+        repositories {
+            // GitHub Packages — populated for production publish; mavenLocal
+            // is used implicitly by `publishToMavenLocal` for dev.
+            maven {
+                name = 'GitHubPackages'
+                url = uri('https://maven.pkg.github.com/Westenets/dvai-bridge')
+                credentials {
+                    username = (project.findProperty('gpr.user') as String?) ?: System.getenv('GITHUB_ACTOR')
+                    password = (project.findProperty('gpr.key') as String?) ?: System.getenv('GITHUB_TOKEN')
+                }
+            }
+        }
+    }
+}
