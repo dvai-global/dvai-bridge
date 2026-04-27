@@ -27,6 +27,11 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // Phase 3D: android-llama-core's transitive dep on shared-core resolves
+        // here in dev (after `bash scripts/android-publish-local.sh`).
+        // Production consumers add the GitHub Packages Maven repo per the
+        // consumer-integration docs.
+        mavenLocal()
     }
 }
 
