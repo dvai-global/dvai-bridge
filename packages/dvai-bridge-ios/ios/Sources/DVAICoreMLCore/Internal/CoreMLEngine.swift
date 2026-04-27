@@ -80,8 +80,14 @@ internal final class CoreMLEngine: @unchecked Sendable {
         var features: [String: MLFeatureValue] = [:]
 
         // input_ids: [1, 1] Int32 with the new token.
+        //
+        // Direct memory write rather than `NSNumber` subscript — CoreML's
+        // internal IR ("Cannot retrieve vector from IRValue format int32")
+        // sometimes mis-handles NSNumber-bridged Int32 values for stateful
+        // model inputs. Writing the raw Int32 into the buffer is the
+        // safer/Apple-recommended path.
         let inputArr = try MLMultiArray(shape: [1, 1], dataType: .int32)
-        inputArr[[0, 0] as [NSNumber]] = NSNumber(value: token)
+        inputArr.dataPointer.bindMemory(to: Int32.self, capacity: 1).pointee = Int32(token)
         features[inputName] = MLFeatureValue(multiArray: inputArr)
 
         // causal_mask: [1, 1, 1, kvCachePosition+1] Float16, all zeros.
