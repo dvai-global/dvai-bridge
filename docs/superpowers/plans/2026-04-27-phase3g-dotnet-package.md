@@ -4,48 +4,87 @@
 
 **Branch:** `feat/phase3g-dotnet-nuget`
 
-**Goal:** Stand up `packages/dvai-bridge-dotnet/` — three NuGet packages (`DVAIBridge` facade, `DVAIBridge.iOS` bindings, `DVAIBridge.Android` bindings) on NuGet.org. Wraps the v2.3 iOS DVAIBridge SDK + v2.4 Android DVAIBridge SDK behind a shared C# API for .NET MAUI / Avalonia / WinUI / desktop .NET 10 consumers.
+## Revision history
 
-**Architecture:** C# facade (`DVAIBridge.Shared` singleton + `IAsyncEnumerable<ProgressEvent>` progress + `ValueTask<DVAIBridgeState> GetStateAsync()` snapshot) → internal `INativeBridge` interface → `IOSNativeBridge` (calls @objc-bound `DVAIBridgeNetBridge.shared` Swift wrapper) on iOS / `AndroidNativeBridge` (calls Xamarin-bound `Co.Deepvoiceai.Bridge.NativeDVAIBridge` AAR) on Android. Reactive state surfaced via `Channel<ProgressEvent>` over native progress callbacks.
+| Date       | Rev | Author    | Notes                                                                                                                                                                                                                                                                  |
+|------------|-----|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 2026-04-27 | 1   | dchak     | Initial 14-task plan — iOS + Android only. Tasks 1–13 implemented as v2.4.0-rc1 (committed, not yet tagged). Task 14 (final tag + NuGet.org publish) deferred until rev 2 expansion lands.                                                                              |
+| 2026-04-27 | 2   | dchak     | Scope expansion. Tasks 1–13 marked done. Adds Tasks 14–26 (renumbered): Mac Catalyst slice, Desktop slice (Llama via P/Invoke + Kestrel) with cross-compile / prebuilt-fetch infra, ONNX Runtime backend, ML.NET backend, broadcaster cancellation bugfix surfaced during v2.4.0-rc1 build verification, BackendKind expansion to 9 cases, updated docs across all backends, updated CI workflow for the desktop matrix, and the final 2.4.0 tag + 6-NuGet publish step. New total: **26 tasks**, ~12 days additional effort vs the original ~3-day mobile-only scope. |
+
+**Goal:** Stand up `packages/dvai-bridge-dotnet/` — **six NuGet packages** (`DVAIBridge` facade, `DVAIBridge.iOS` bindings + Mac Catalyst, `DVAIBridge.Android` bindings, `DVAIBridge.Desktop` Llama-via-llama.cpp slice, `DVAIBridge.OnnxRuntime` backend, `DVAIBridge.MLNet` backend) on NuGet.org. Wraps the v2.3 iOS DVAIBridge SDK + v2.4 Android DVAIBridge SDK + upstream `llama.cpp` `b8946` + Microsoft's first-party ONNX Runtime / ML.NET NuGets behind a shared C# API for .NET MAUI / Avalonia / WinUI / Mac Catalyst / desktop / console / server .NET 10 consumers.
+
+**Architecture:** C# facade (`DVAIBridge.Shared` singleton + `IAsyncEnumerable<ProgressEvent>` progress + `ValueTask<DVAIBridgeState> GetStateAsync()` snapshot) → internal `INativeBridge` interface → one of:
+- `IOSNativeBridge` (iOS + Mac Catalyst — both routed via the same instance via the multi-target `DVAIBridge.iOS` NuGet) — calls `@objc`-bound `DVAIBridgeNetBridge.shared` Swift wrapper.
+- `AndroidNativeBridge` (Android) — calls Xamarin-bound `Co.Deepvoiceai.Bridge.NativeDVAIBridge` AAR.
+- `DesktopNativeBridge` (Windows / macOS-desktop / Linux per RID) — `[DllImport("llama")]` into the RID-keyed `llama.cpp` `b8946` native + Kestrel ASP.NET Core minimal-API host.
+- `OnnxNativeBridge` (cross-platform; opt-in via `DVAIBridge.OnnxRuntime` NuGet) — `Microsoft.ML.OnnxRuntimeGenAI.Generator` + Kestrel host.
+- `MLNetNativeBridge` (desktop-primary; opt-in via `DVAIBridge.MLNet` NuGet) — `MLContext` + `OnnxScoringEstimator` + Kestrel host.
+
+Reactive state surfaced via `ProgressBroadcaster` (per-subscriber `BoundedChannel<ProgressEvent>` with `DropOldest` over native progress callbacks).
 
 **Tech stack (latest stable as of 2026-04-27):**
 - .NET 10 (10.0.7 LTS — released November 11, 2025; supported through November 14, 2028)
-- `net10.0` (facade), `net10.0-ios18.0` (iOS bindings — TPV 18.7 default but pin 18.0 explicitly for binding stability), `net10.0-android36.0` (Android bindings)
-- `<SupportedOSPlatformVersion>15.1</SupportedOSPlatformVersion>` for iOS runtime floor (matches Phase 3C)
+- `net10.0` (facade + Desktop + ONNX + MLNet), `net10.0-ios18.0` + `net10.0-maccatalyst18.0` (iOS slice multi-target), `net10.0-android36.0` (Android bindings)
+- `<SupportedOSPlatformVersion>15.1</SupportedOSPlatformVersion>` for iOS + Catalyst runtime floor (matches Phase 3C)
 - `<SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>` for Android runtime floor (matches Phase 3D)
 - C# 14 (`<LangVersion>latest</LangVersion>`)
-- Swift 5.9+ (matches Phase 3C; the @objc wrapper compiles against the same toolchain)
+- Swift 5.9+ (matches Phase 3C; the @objc wrapper compiles against the same toolchain for iOS / sim / Catalyst slices)
 - Kotlin 2.1.x (matches Phase 3D; only relevant if the optional shim is needed)
 - xUnit 2.9.x (verify latest at task start) for tests; `Microsoft.NET.Test.Sdk` 17.x
 - Central Package Management via `Directory.Packages.props`
+- **llama.cpp `b8946`** (released 2026-04-27) — upstream prebuilt binaries per RID; SHA256-pinned in `scripts/llama-checksums.txt`
+- **`Microsoft.ML.OnnxRuntime` 1.25.0** (released 2026-04-24) — generic ONNX runtime
+- **`Microsoft.ML.OnnxRuntimeGenAI` 0.13.1** (released 2026-04-07) — LLM Generator API (KV cache, sampling, tokenizer)
+- **`Microsoft.ML` 5.0.0** (released 2025-11-11, .NET 10 GA companion) — ML.NET pipeline runtime
+- **`Microsoft.ML.OnnxTransformer` 5.0.0** — ONNX integration into ML.NET pipelines
+- **`Microsoft.AspNetCore.App` 10.0.0** (Kestrel + minimal-API host inside library — used by Desktop / Onnx / MLNet via the `DVAIBridge.Shared.Hosting` shared-source project)
 
 **Spec:** [`docs/superpowers/specs/2026-04-27-phase3g-dotnet-package-design.md`](../specs/2026-04-27-phase3g-dotnet-package-design.md)
 
 **Resolution of spec open questions (decided here, applied throughout):**
 
-1. **Package structure**: split into three NuGet packages (`DVAIBridge`, `DVAIBridge.iOS`, `DVAIBridge.Android`) with TFM-conditional `<dependency>` deps in the facade's nuspec.
+1. **Package structure**: split into **six NuGet packages** (`DVAIBridge`, `DVAIBridge.iOS`, `DVAIBridge.Android`, `DVAIBridge.Desktop`, `DVAIBridge.OnnxRuntime`, `DVAIBridge.MLNet`) with TFM-conditional `<dependency>` deps in the facade's nuspec for the platform slices. ONNX / MLNet are explicit consumer-opt-in.
 2. **Distribution**: NuGet.org as public packages. Family asymmetry documented in `docs/migration/v2.3-to-v2.4.md`.
-3. **Streaming pattern**: `IAsyncEnumerable<ProgressEvent>` backed by `System.Threading.Channels.Channel<T>` writer.
-4. **Min .NET version**: `net10.0` only (with `-ios18.0` / `-android36.0` slices). No multi-target.
-5. **iOS / Android floors**: iOS 15.1, Android API 24 (matches the underlying SDKs, set via `SupportedOSPlatformVersion`).
-6. **iOS bindings approach**: `@objc` Swift wrapper (`DVAIBridgeNetBridge`) + `ApiDefinition.cs` `[BaseType]` interface. Wrapper xcframework bundled inside `DVAIBridge.iOS.nupkg`.
-7. **Android bindings approach**: direct AAR binding via `<AndroidLibrary>` + `Transforms/Metadata.xml`. Optional `DVAIBridgeAndroidShim.kt` only if the auto-generated `Flow<ProgressEvent>` wrapper proves unergonomic (defer to Task 4 empirics).
+3. **Streaming pattern**: `IAsyncEnumerable<ProgressEvent>` backed by `ProgressBroadcaster` (per-subscriber `BoundedChannel<T>` with `DropOldest`). Rev 1's bare `Channel<T>.CreateUnbounded` was replaced because it competition-multicasts rather than fan-out-multicasting.
+4. **Min .NET version**: `net10.0` only (with `-ios18.0` + `-maccatalyst18.0` + `-android36.0` slices). No multi-target.
+5. **iOS / Catalyst / Android floors**: iOS 15.1, Mac Catalyst 15.1, Android API 24 (matches the underlying SDKs, set via `SupportedOSPlatformVersion`).
+6. **iOS / Catalyst bindings approach**: `@objc` Swift wrapper (`DVAIBridgeNetBridge`) + `ApiDefinition.cs` `[BaseType]` interface. Wrapper xcframework with iOS device + iOS sim + Catalyst slices bundled inside `DVAIBridge.iOS.nupkg`. **Multi-target TFM** in one csproj (decided rev 2 Q12) rather than separate `DVAIBridge.MacCatalyst` NuGet.
+7. **Android bindings approach**: direct AAR binding via `<AndroidLibrary>` + `Transforms/Metadata.xml`. Optional `DVAIBridgeAndroidShim.kt` only if the auto-generated `Flow<ProgressEvent>` wrapper proves unergonomic (defer to Task 6 empirics).
 8. **NativeAOT**: not in v2.4 — the binding slices are not AOT-clean. Document; consumers can opt in with trim warnings.
 9. **Sample app**: out of scope (per project convention). Consumer guide at `docs/guide/dotnet-sdk.md`.
+10. **Desktop slice native sourcing** (rev 2): upstream `llama.cpp` release `b8946` prebuilts per RID, fetched at CI time, SHA256-pinned. No from-source per-RID build farm in v2.4.
+11. **`BackendKind.Onnx` / `BackendKind.MLNet` cross-family scope** (rev 2 Q11): **.NET-only**. iOS / Android / RN / Flutter `BackendKind` enums stay at 7 cases; .NET has 9.
+12. **Mac Catalyst packaging** (rev 2 Q12): multi-target TFM in `DVAIBridge.iOS.csproj`, **not** a separate `DVAIBridge.MacCatalyst` NuGet.
+13. **ONNX vs ML.NET positioning** (rev 2 Q13): both ship; ONNX is the recommended default; ML.NET is for "you're already using ML.NET pipelines." Honest overlap documented in `docs/guide/dotnet-sdk.md`.
 
 **Phase boundaries:**
 
-- **Tasks 1-2**: Package scaffold + Directory.Build.props + Directory.Packages.props + sln.
-- **Task 3**: Public C# facade types (BackendKind, StartOptions, BoundServer, etc.).
-- **Task 4**: Facade DVAIBridge class + INativeBridge + Channel<T>-backed IAsyncEnumerable.
-- **Tasks 5-6**: iOS Swift @objc wrapper + xcframework build script.
-- **Task 7**: iOS binding csproj + ApiDefinition.cs + IOSNativeBridge.cs.
-- **Task 8**: Android binding csproj + Transforms/Metadata.xml + AndroidNativeBridge.cs.
-- **Task 9**: Phase 3D Android AAR republish at 2.4.0 (build-graph alignment, no source changes).
-- **Task 10**: xUnit unit tests on facade with mocked INativeBridge.
-- **Tasks 11-12**: Docs (`dotnet-sdk.md` + migration entry) + sidebar.
-- **Task 13**: CI workflow (Linux + macOS matrix; build, test, pack, dry-run push).
-- **Task 14**: Version bump (2.3.0 → 2.4.0) + CHANGELOG + tag + NuGet.org publish prep.
+Rev 1 (mobile-only — implemented as v2.4.0-rc1):
+- **Tasks 1-2** ✅: Package scaffold + Directory.Build.props + Directory.Packages.props + sln.
+- **Task 3** ✅: Public C# facade types (BackendKind, StartOptions, BoundServer, etc.).
+- **Task 4** ✅: Facade DVAIBridge class + INativeBridge + Channel<T>-backed IAsyncEnumerable (later refactored to `ProgressBroadcaster`).
+- **Tasks 5-6** ✅: iOS Swift @objc wrapper + xcframework build script.
+- **Task 7** ✅: iOS binding csproj + ApiDefinition.cs + IOSNativeBridge.cs.
+- **Task 8** ✅: Android binding csproj + Transforms/Metadata.xml + AndroidNativeBridge.cs.
+- **Task 9** ✅: Phase 3D Android AAR republish at 2.4.0 (build-graph alignment, no source changes).
+- **Task 10** ✅: xUnit unit tests on facade with mocked INativeBridge.
+- **Tasks 11-12** ✅: Docs (`dotnet-sdk.md` + migration entry) + sidebar.
+- **Task 13** ✅: CI workflow (Linux + macOS matrix; build, test, pack, dry-run push).
+
+Rev 2 (scope expansion — desktop + ONNX + ML.NET):
+- **Task 14**: Mac Catalyst slice (multi-target TFM in `DVAIBridge.iOS.csproj`).
+- **Task 15**: Desktop slice scaffold + RID-keyed native fetch + checksums.
+- **Task 16**: Llama desktop native bridge (`LlamaNative.cs` `[DllImport]` + `LlamaServer.cs` Kestrel host) + `DVAIBridge.Shared.Hosting` shared-source project.
+- **Task 17**: Desktop slice xUnit tests (Windows + Linux + macOS CI matrix; tiny-model smoke).
+- **Task 18**: ONNX backend scaffold (`DVAIBridge.OnnxRuntime` csproj + `BackendKind.Onnx` wiring).
+- **Task 19**: ONNX backend implementation (`OnnxNativeBridge` + `OnnxGenAIRunner` Generator API + Kestrel host).
+- **Task 20**: ONNX xUnit tests (with a small Phi-3-mini-4k-instruct-onnx-int4 fixture for streaming smoke).
+- **Task 21**: ML.NET backend scaffold + implementation (`DVAIBridge.MLNet` csproj + `MLNetNativeBridge` + Kestrel host).
+- **Task 22**: ML.NET xUnit tests.
+- **Task 23**: Fix the broadcaster cancellation bug surfaced during v2.4.0-rc1 build verification.
+- **Task 24**: Update facade `BackendKind` (7 → 9 values) + `PlatformBridgeFactory` routing for all 5 native bridges.
+- **Task 25**: Documentation (guide + per-backend sections + migration v2.3→v2.4 update) + CI workflow updates for desktop matrix.
+- **Task 26**: Version bump 2.3.0 → 2.4.0 + CHANGELOG + tag + 6-NuGet publish (replaces rev 1 Task 14).
 
 **Apply Phase 3C / 3D / 3E / 3F lessons up-front:**
 
@@ -62,7 +101,15 @@
 
 ---
 
-## Task 1: Scaffold `dvai-bridge-dotnet` package + sln
+---
+
+## Rev 1 tasks (1–13) — implemented as v2.4.0-rc1
+
+> **Status**: ✅ Complete. Tasks 1–13 below were executed in the agent run that produced `packages/dvai-bridge-dotnet/` v2.4.0-rc1. Treat the checkbox lists as historical record — the work is done. The final 2.4.0 tag + NuGet publish was deferred (rev 1 Task 14) and is now subsumed by rev 2 Task 26 (which also publishes the new Desktop / ONNX / MLNet packages).
+
+> **Found during rev 1 verification (logged for rev 2 Task 23)**: `ProgressBroadcaster` cancellation has a subtle ordering bug where `WithCancellation(ct)`-driven exits race the `_subscribers.TryRemove(ch, out _)` cleanup with concurrent `Emit(...)` calls; under load, a cancelled consumer's already-completed channel can still receive a `TryWrite` (no-op, but Sonar / FxCop flag the pattern). Fix in Task 23.
+
+## Task 1: Scaffold `dvai-bridge-dotnet` package + sln ✅
 
 **Files:**
 - Create: `packages/dvai-bridge-dotnet/package.json`
@@ -131,7 +178,7 @@
 
 ---
 
-## Task 2: Public C# types — records + enums + exception hierarchy
+## Task 2: Public C# types — records + enums + exception hierarchy ✅
 
 **Files:**
 - Create: `packages/dvai-bridge-dotnet/src/DVAIBridge/DVAIBridge.csproj`
@@ -191,7 +238,7 @@
 
 ---
 
-## Task 3: Internal `INativeBridge` interface + facade `DVAIBridge` class
+## Task 3: Internal `INativeBridge` interface + facade `DVAIBridge` class ✅
 
 **Files:**
 - Create: `packages/dvai-bridge-dotnet/src/DVAIBridge/INativeBridge.cs`
@@ -259,7 +306,7 @@
 
 ---
 
-## Task 4: Native iOS Swift `@objc` wrapper + xcframework build script
+## Task 4: Native iOS Swift `@objc` wrapper + xcframework build script ✅
 
 **Files:**
 - Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.iOS/native/Package.swift`
@@ -318,7 +365,7 @@
 
 ---
 
-## Task 5: iOS bindings csproj + ApiDefinition.cs + IOSNativeBridge.cs
+## Task 5: iOS bindings csproj + ApiDefinition.cs + IOSNativeBridge.cs ✅
 
 **Files:**
 - Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.iOS/DVAIBridge.iOS.csproj`
@@ -365,7 +412,7 @@
 
 ---
 
-## Task 6: Android bindings csproj + Transforms/Metadata.xml + AndroidNativeBridge.cs
+## Task 6: Android bindings csproj + Transforms/Metadata.xml + AndroidNativeBridge.cs ✅
 
 **Files:**
 - Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.Android/DVAIBridge.Android.csproj`
@@ -431,7 +478,7 @@
 
 ---
 
-## Task 7: Phase 3D Android AAR republish at 2.4.0
+## Task 7: Phase 3D Android AAR republish at 2.4.0 ✅
 
 **Files:**
 - Update: `packages/dvai-bridge-android/android/gradle.properties` — `dvaiBridgeVersion=2.4.0` (bump from 2.3.0)
@@ -446,7 +493,7 @@
 
 ---
 
-## Task 8: Phase 3F Flutter podspec / pubspec re-confirmation
+## Task 8: Phase 3F Flutter podspec / pubspec re-confirmation ✅
 
 This is a defensive task: confirm Phase 3F's `dvai_bridge` plugin is unaffected by the .NET work (it should be — they're in different packages, different distribution systems).
 
@@ -459,7 +506,7 @@ This is a defensive task: confirm Phase 3F's `dvai_bridge` plugin is unaffected 
 
 ---
 
-## Task 9: xUnit unit tests on facade with mocked INativeBridge
+## Task 9: xUnit unit tests on facade with mocked INativeBridge ✅
 
 **Files:**
 - Create: `packages/dvai-bridge-dotnet/tests/DVAIBridge.Tests/DVAIBridge.Tests.csproj`
@@ -512,7 +559,7 @@ This is a defensive task: confirm Phase 3F's `dvai_bridge` plugin is unaffected 
 
 ---
 
-## Task 10: Docs — `dotnet-sdk.md` + migration entry + sidebar
+## Task 10: Docs — `dotnet-sdk.md` + migration entry + sidebar ✅
 
 **Files:**
 - Create: `docs/guide/dotnet-sdk.md`
@@ -540,7 +587,7 @@ This is a defensive task: confirm Phase 3F's `dvai_bridge` plugin is unaffected 
 
 ---
 
-## Task 11: CI workflow
+## Task 11: CI workflow ✅
 
 **Files:**
 - Create: `.github/workflows/test-dotnet.yml`
@@ -565,7 +612,7 @@ This is a defensive task: confirm Phase 3F's `dvai_bridge` plugin is unaffected 
 
 ---
 
-## Task 12: Sync-versions / sync-package-meta extension
+## Task 12: Sync-versions / sync-package-meta extension ✅
 
 **Files:**
 - Update: `scripts/sync-versions.js`
@@ -579,7 +626,7 @@ This is a defensive task: confirm Phase 3F's `dvai_bridge` plugin is unaffected 
 
 ---
 
-## Task 13: Defer-list verification (no .NET-related deferrals leaked into other phases)
+## Task 13: Defer-list verification (no .NET-related deferrals leaked into other phases) ✅
 
 This is a one-shot audit task before tag.
 
@@ -591,52 +638,438 @@ This is a one-shot audit task before tag.
 
 ---
 
-## Task 14: Version bump + CHANGELOG + tag + NuGet.org publish prep
+---
+
+## Rev 2 tasks (14–26) — desktop + ONNX + ML.NET expansion
+
+> **Branch**: `feat/phase3g-rev2-desktop-onnx-mlnet` (separate from the rev 1 implementation branch; merge order is rev 1 first, rev 2 on top — see Task 26).
+
+## Task 14: Mac Catalyst slice — multi-target TFM in `DVAIBridge.iOS.csproj`
+
+**Why**: free-reuse expansion — the Phase 3C SwiftPM package already supports `.macCatalyst(.v15_1)`, the `@objc` Swift wrapper compiles against Catalyst with zero source changes, and `xcodebuild -create-xcframework` emits a Catalyst slice alongside the iOS device + simulator slices. One csproj edit + xcframework build script tweak unlocks .NET MAUI Mac Catalyst consumers (a common shape for "I want my MAUI iOS app to also run on macOS as a Catalyst app").
+
+**Files:**
+- Update: `packages/dvai-bridge-dotnet/src/DVAIBridge.iOS/DVAIBridge.iOS.csproj` — change `<TargetFramework>net10.0-ios18.0</TargetFramework>` to `<TargetFrameworks>net10.0-ios18.0;net10.0-maccatalyst18.0</TargetFrameworks>` + per-TFM `<SupportedOSPlatformVersion>15.1</SupportedOSPlatformVersion>`.
+- Update: `packages/dvai-bridge-dotnet/src/DVAIBridge.iOS/native/build-xcframework.sh` — add a third `xcodebuild archive` invocation for `-destination "generic/platform=macOS,variant=Mac Catalyst"`, then include the resulting `*-maccatalyst.framework` in the `xcodebuild -create-xcframework` step.
+- Update: `packages/dvai-bridge-dotnet/src/DVAIBridge/PlatformBridgeFactory.cs` — add `OperatingSystem.IsMacCatalyst()` branch that routes to `IOSNativeBridge` (same instance class).
+- Update: `.github/workflows/test-dotnet.yml` — add `dotnet build src/DVAIBridge.iOS -f net10.0-maccatalyst18.0 -c Release` step on the macos-latest job.
+
+- [ ] Confirm via `xcodebuild -showsdks` on macos-latest CI runner that `macosx16.x` SDK + Catalyst SDK are available in the default Xcode toolchain (Xcode 16+ ships with Catalyst).
+- [ ] Modify `build-xcframework.sh` to produce three archives: `iphoneos`, `iphonesimulator`, and Catalyst (use `xcodebuild archive -scheme DVAIBridgeNetBridge -destination "generic/platform=macOS,variant=Mac Catalyst" -archivePath build/maccatalyst.xcarchive SKIP_INSTALL=NO BUILD_LIBRARY_FOR_DISTRIBUTION=YES`).
+- [ ] `xcodebuild -create-xcframework` with three `-framework <archive>/Products/Library/Frameworks/DVAIBridgeNetBridge.framework` flags.
+- [ ] Verify the resulting xcframework's `Info.plist` lists three `AvailableLibraries` entries with the expected SupportedPlatforms keys (`ios`, `ios+iossimulator`, `macos+maccatalyst`).
+- [ ] Multi-target csproj builds clean on both TFMs: `dotnet build src/DVAIBridge.iOS -f net10.0-ios18.0 -c Release` and `dotnet build src/DVAIBridge.iOS -f net10.0-maccatalyst18.0 -c Release`.
+- [ ] Update facade nuspec dep group: add `<group targetFramework="net10.0-maccatalyst18.0"><dependency id="DVAIBridge.iOS" version="[2.4.0]" /></group>`.
+- [ ] Add a Catalyst-platform branch to `BackendKindValidationTests.cs`: on Catalyst, iOS-only backends (`Foundation`, `CoreML`, `MLX`) are accepted (same as iOS); Android-only backends are rejected.
+
+**Acceptance**: `dotnet pack src/DVAIBridge.iOS -c Release` produces a single `.nupkg` with both `lib/net10.0-ios18.0/` and `lib/net10.0-maccatalyst18.0/` folders. A test consumer csproj targeting `net10.0-maccatalyst18.0` resolves the dependency cleanly. Catalyst's xcframework slice loads at runtime in a smoke MAUI Catalyst app.
+
+**Effort**: 0.5 day.
+
+---
+
+## Task 15: Desktop slice scaffold + RID-keyed `llama.cpp` native fetch
+
+**Files:**
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.Desktop/DVAIBridge.Desktop.csproj`
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.Desktop/scripts/fetch-llama-binaries.sh`
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.Desktop/scripts/verify-llama-checksums.sh`
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.Desktop/scripts/llama-checksums.txt`
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.Desktop/.gitignore` (ignore `runtimes/`)
+- Update: `packages/dvai-bridge-dotnet/DVAIBridge.sln` (add `DVAIBridge.Desktop.csproj`)
+- Update: `packages/dvai-bridge-dotnet/Directory.Packages.props` (add `Microsoft.AspNetCore.App` framework reference for the embedded Kestrel host)
+
+- [ ] Pin **llama.cpp release tag `b8946`** (verified via WebFetch on https://github.com/ggerganov/llama.cpp/releases on 2026-04-27 as the latest stable). Bump cadence: re-pin on each major DVAIBridge release; intra-release we hold the tag stable so consumer-side caches stay valid.
+- [ ] `DVAIBridge.Desktop.csproj`:
+  ```xml
+  <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+      <TargetFramework>net10.0</TargetFramework>
+      <PackageId>DVAIBridge.Desktop</PackageId>
+      <Description>Desktop (Windows / macOS / Linux) Llama backend for DVAIBridge — bundles llama.cpp b8946 prebuilt natives per RID.</Description>
+      <PackageTags>llm;ai;openai;windows;linux;macos;maui;avalonia;winui;llama;local-inference</PackageTags>
+      <RuntimeIdentifiers>win-x64;win-arm64;osx-x64;osx-arm64;linux-x64;linux-arm64</RuntimeIdentifiers>
+    </PropertyGroup>
+    <ItemGroup>
+      <FrameworkReference Include="Microsoft.AspNetCore.App" />
+      <ProjectReference Include="../DVAIBridge/DVAIBridge.csproj" />
+      <Compile Include="../shared/DVAIBridge.Shared.Hosting/*.cs" LinkBase="Shared" />
+    </ItemGroup>
+    <ItemGroup>
+      <Content Include="runtimes/win-x64/native/llama.dll"  Pack="true" PackagePath="runtimes/win-x64/native/" />
+      <Content Include="runtimes/win-arm64/native/llama.dll" Pack="true" PackagePath="runtimes/win-arm64/native/" />
+      <Content Include="runtimes/osx-x64/native/libllama.dylib" Pack="true" PackagePath="runtimes/osx-x64/native/" />
+      <Content Include="runtimes/osx-arm64/native/libllama.dylib" Pack="true" PackagePath="runtimes/osx-arm64/native/" />
+      <Content Include="runtimes/linux-x64/native/libllama.so" Pack="true" PackagePath="runtimes/linux-x64/native/" />
+      <Content Include="runtimes/linux-arm64/native/libllama.so" Pack="true" PackagePath="runtimes/linux-arm64/native/" />
+      <!-- ggml.* sibling natives — repeat for each RID. -->
+    </ItemGroup>
+  </Project>
+  ```
+- [ ] `scripts/fetch-llama-binaries.sh`:
+  ```bash
+  #!/usr/bin/env bash
+  set -euo pipefail
+  TAG="b8946"
+  RUNTIMES_DIR="$(cd "$(dirname "$0")/.." && pwd)/runtimes"
+  declare -A ARTIFACTS=(
+    [win-x64]="llama-${TAG}-bin-win-cpu-x64.zip"
+    [win-arm64]="llama-${TAG}-bin-win-cpu-arm64.zip"
+    [osx-x64]="llama-${TAG}-bin-macos-x64.zip"
+    [osx-arm64]="llama-${TAG}-bin-macos-arm64.zip"
+    [linux-x64]="llama-${TAG}-bin-ubuntu-x64.zip"
+    [linux-arm64]="llama-${TAG}-bin-ubuntu-arm64.zip"
+  )
+  for RID in "${!ARTIFACTS[@]}"; do
+    URL="https://github.com/ggerganov/llama.cpp/releases/download/${TAG}/${ARTIFACTS[$RID]}"
+    mkdir -p "${RUNTIMES_DIR}/${RID}/native"
+    curl -fL "$URL" -o /tmp/llama-${RID}.zip
+    unzip -j /tmp/llama-${RID}.zip "*/llama.dll" "*/libllama.dylib" "*/libllama.so" "*/ggml*.{dll,dylib,so}" -d "${RUNTIMES_DIR}/${RID}/native/" 2>/dev/null || true
+  done
+  bash "$(dirname "$0")/verify-llama-checksums.sh"
+  ```
+- [ ] `scripts/llama-checksums.txt`: a SHA256 line per `runtimes/<rid>/native/<lib>` file. Generated once (during this task) by running `fetch-llama-binaries.sh` + `sha256sum runtimes/**/native/*` on a known-good macos-latest runner. Committed to source.
+- [ ] `scripts/verify-llama-checksums.sh`: reads `llama-checksums.txt`, recomputes SHA256 for each file under `runtimes/`, fails if any drift. Run as a pre-pack step in CI (Task 25) to catch supply-chain / corruption issues.
+- [ ] **Linux ARM64 fallback**: if upstream `llama.cpp` `b8946` doesn't ship a `linux-arm64` artifact (check via WebFetch on https://github.com/ggerganov/llama.cpp/releases/tag/b8946 release-page asset list at task start), fetch script falls back to building from source on a `ubuntu-22.04-arm64` GitHub Actions runner (cmake -DGGML_CUDA=OFF -DGGML_VULKAN=OFF -DGGML_METAL=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF .). Cache the resulting `libllama.so` as a workflow artifact + add to checksums file.
+- [ ] `.gitignore`: `runtimes/` (artifacts not source); the CI workflow re-fetches them every build. Acceptable: a fresh checkout cannot `dotnet pack` without first running `fetch-llama-binaries.sh`. Document in README.
+
+**Acceptance**: Running `bash src/DVAIBridge.Desktop/scripts/fetch-llama-binaries.sh` populates all six RID directories with the expected library files; `verify-llama-checksums.sh` exits 0 against the checked-in checksums; `dotnet pack src/DVAIBridge.Desktop -c Release` produces a `.nupkg` ~25 MB with `runtimes/<rid>/native/` entries listed in the package contents (`unzip -l <nupkg>`).
+
+**Effort**: 2 days (fetch script + checksum infra + RID matrix + Linux ARM64 fallback investigation).
+
+---
+
+## Task 16: Llama desktop native bridge — `LlamaNative.cs` + `LlamaServer.cs` + `DVAIBridge.Shared.Hosting` shared-source
+
+**Files:**
+- Create: `packages/dvai-bridge-dotnet/src/shared/DVAIBridge.Shared.Hosting/IInferenceEngine.cs` (`internal interface IInferenceEngine : IAsyncDisposable { IAsyncEnumerable<string> GenerateAsync(string prompt, GenerationOptions opts, CancellationToken ct); }`)
+- Create: `packages/dvai-bridge-dotnet/src/shared/DVAIBridge.Shared.Hosting/IEmbeddingEngine.cs` (optional capability)
+- Create: `packages/dvai-bridge-dotnet/src/shared/DVAIBridge.Shared.Hosting/OpenAIServer.cs` (Kestrel minimal-API host with `/v1/chat/completions`, `/v1/completions`, `/v1/embeddings`, `/v1/models`)
+- Create: `packages/dvai-bridge-dotnet/src/shared/DVAIBridge.Shared.Hosting/PortPicker.cs` (binds 127.0.0.1, walks `HttpBasePort` .. `HttpBasePort + HttpMaxPortAttempts`)
+- Create: `packages/dvai-bridge-dotnet/src/shared/DVAIBridge.Shared.Hosting/GenerationOptions.cs` (`record GenerationOptions(int MaxNewTokens, double Temperature, double TopP, int TopK, ...)`)
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.Desktop/LlamaNative.cs` — `[DllImport("llama")]` declarations
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.Desktop/LlamaInferenceEngine.cs` — `IInferenceEngine` impl
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.Desktop/DesktopNativeBridge.cs` — `INativeBridge` impl
+
+- [ ] `LlamaNative.cs`: minimum viable subset of llama.cpp's C API:
+  - `llama_load_model_from_file`, `llama_model_free`
+  - `llama_new_context_with_model`, `llama_free`
+  - `llama_n_ctx`, `llama_n_vocab`
+  - `llama_tokenize`, `llama_token_get_text`, `llama_token_eos`, `llama_token_bos`
+  - `llama_decode`, `llama_get_logits_ith`
+  - `llama_sampler_chain_init`, `llama_sampler_chain_add` (top-k, top-p, temp, dist), `llama_sampler_sample`, `llama_sampler_chain_free`
+  - All declared as `[DllImport("llama", CallingConvention = CallingConvention.Cdecl)]` with sensible C# struct mappings for the opaque handle types (`LlamaModelHandle`, `LlamaContextHandle`, `LlamaSamplerChainHandle`).
+- [ ] `NativeLibrary.SetDllImportResolver` in a static ctor on `LlamaNative`: looks up `runtimes/<RID>/native/llama.{dll,dylib,so}` next to the assembly first, then falls back to `NativeLibrary.Load(libraryName, assembly, searchPath)` default. Pattern matches Microsoft's `Microsoft.ML.OnnxRuntime.NativeMethods.cs` (verify exact code via WebFetch on the ORT GitHub if the resolver pattern needs cross-checking).
+- [ ] `LlamaInferenceEngine.GenerateAsync`: tokenize prompt, run prefill via `llama_decode`, then loop: sample → append token → decode → yield `llama_token_get_text(token)` until EOS or `MaxNewTokens` reached. Hook `CancellationToken` between iterations (sampling is the natural break point).
+- [ ] `OpenAIServer.cs`: ASP.NET Core `WebApplication.CreateBuilder(...)`, bind to `http://127.0.0.1:<port>`, register the four endpoints. Chat-completions formatter: assemble system+user+assistant turns into the model's prompt template (resolvable from `genai_config.json` for ONNX, hard-coded ChatML default for Llama with an opt-out via `StartOptions.ChatTemplate`). SSE streaming for `stream: true`.
+- [ ] `DesktopNativeBridge.cs`: `INativeBridge` impl that:
+  - `StartAsync` → constructs a `LlamaInferenceEngine` from `StartOptions.ModelPath`, hands it to a new `OpenAIServer`, returns the resulting `BoundServer`.
+  - `StopAsync` → disposes the server + engine.
+  - `GetStatusAsync` → returns `StatusInfo` from the in-memory state.
+  - `DownloadModelAsync` → reuses `OpenAIServer`'s built-in HF / direct-URL downloader (pull from the cross-platform Phase 3A core if practical; otherwise reimplement minimally — checksum + atomic-rename pattern).
+  - `SubscribeProgress` → wires native progress (download/load/ready phases) into a callback. Llama itself doesn't emit fine-grained load progress; we synthesize coarse `Started → Load → Ready` from `LlamaInferenceEngine.LoadAsync` lifecycle.
+- [ ] Update `PlatformBridgeFactory.Create()`: when `OperatingSystem.IsWindows() || (OperatingSystem.IsLinux() && !IsAndroid()) || (OperatingSystem.IsMacOS() && !IsMacCatalyst())`, return `DesktopNativeBridge` (resolved via `Type.GetType("DVAIBridge.Desktop.DesktopNativeBridge, DVAIBridge.Desktop")`).
+
+**Acceptance**: A standalone smoke (`dotnet run` against a tiny `TinyLlama-1.1B-Chat-v1.0-Q4_0.gguf` fixture) starts the bridge on `127.0.0.1:38883`, accepts a `POST /v1/chat/completions` with `{"model":"tinyllama","messages":[{"role":"user","content":"Hello"}]}`, and returns a non-empty completion within 10 seconds on a M-class macOS runner. Same smoke green on `windows-2022` + `ubuntu-22.04` CI runners.
+
+**Effort**: 2.5 days (P/Invoke surface + Kestrel host + first end-to-end run).
+
+---
+
+## Task 17: Desktop slice xUnit tests
+
+**Files:**
+- Create: `packages/dvai-bridge-dotnet/tests/DVAIBridge.Desktop.Tests/DVAIBridge.Desktop.Tests.csproj`
+- Create: `packages/dvai-bridge-dotnet/tests/DVAIBridge.Desktop.Tests/DesktopNativeBridgeTests.cs`
+- Create: `packages/dvai-bridge-dotnet/tests/DVAIBridge.Desktop.Tests/PortPickerTests.cs`
+- Create: `packages/dvai-bridge-dotnet/tests/DVAIBridge.Desktop.Tests/LlamaNativeSmokeTests.cs`
+- Create: `packages/dvai-bridge-dotnet/tests/DVAIBridge.Desktop.Tests/Fixtures/.gitignore` (large .gguf fixture excluded)
+
+- [ ] Tiny model fixture: TinyLlama-1.1B Q4_0 (~600 MB) — too big for git. CI fetches from a fixture mirror (HuggingFace direct URL with sha256 verification) on first test run + caches in `~/.cache/dvai-bridge-tests/`.
+- [ ] `LlamaNativeSmokeTests` (Trait `"Category"="Smoke"`): exercises the `[DllImport]` surface directly — load model, create context, tokenize a 5-token prompt, decode once, free everything. **Doesn't run a full generation** (too slow + flaky for CI). Validates the P/Invoke marshalling + the `NativeLibrary.SetDllImportResolver` lookup actually resolves the right RID-keyed binary.
+- [ ] `DesktopNativeBridgeTests` (Trait `"Category"="EndToEnd"`): full StartAsync → POST `/v1/chat/completions` → assert non-empty response → StopAsync. Skipped unless `DVAI_E2E=1` env var set (CI sets it on a single Linux job; PRs that need full E2E flag the workflow).
+- [ ] `PortPickerTests`: walks ports under contention; verifies `HttpMaxPortAttempts` exhaustion throws the right `DVAIBridgeException(Kind: ConfigurationInvalid, Reason: "no port available in range ...")`.
+- [ ] CI workflow matrix runs the Desktop tests on `windows-2022`, `ubuntu-22.04`, `macos-14` (osx-arm64 native). `windows-2022-arm64` and `ubuntu-22.04-arm64` runners are GitHub-hosted now — add them too if the runner queue isn't gated.
+
+**Acceptance**: Smoke tests green on all 3+ runners. E2E tests green on the single linux-x64 job with `DVAI_E2E=1`. Coverage of `DesktopNativeBridge` ≥ 70% (lower than the facade target because P/Invoke calls into native code aren't trivially mockable — that's the price we pay for a real backend).
+
+**Effort**: 1.5 days.
+
+---
+
+## Task 18: ONNX backend scaffold — `DVAIBridge.OnnxRuntime` csproj + `BackendKind.Onnx` wiring
+
+**Files:**
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.OnnxRuntime/DVAIBridge.OnnxRuntime.csproj`
+- Update: `packages/dvai-bridge-dotnet/src/DVAIBridge/BackendKind.cs` — add `Onnx = 7`; update `BackendKindExtensions.ToWireString` (`"onnx"`) + `FromWireString`.
+- Update: `packages/dvai-bridge-dotnet/Directory.Packages.props` — add `<PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.25.0" />` + `<PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.13.1" />`.
+- Update: `packages/dvai-bridge-dotnet/DVAIBridge.sln` (add the new csproj).
+- Update: `packages/dvai-bridge-dotnet/src/DVAIBridge/PlatformBridgeFactory.cs` — when `BackendKind.Onnx` is requested, route to `Type.GetType("DVAIBridge.OnnxRuntime.OnnxNativeBridge, DVAIBridge.OnnxRuntime")` regardless of platform (ONNX is cross-platform).
+
+- [ ] Confirm latest stable ORT + GenAI versions via WebFetch on https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime + https://www.nuget.org/packages/Microsoft.ML.OnnxRuntimeGenAI at task start (we pinned 1.25.0 + 0.13.1 on 2026-04-27; re-verify in case a patch has shipped).
+- [ ] `DVAIBridge.OnnxRuntime.csproj`:
+  ```xml
+  <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+      <TargetFramework>net10.0</TargetFramework>
+      <PackageId>DVAIBridge.OnnxRuntime</PackageId>
+      <Description>ONNX Runtime backend for DVAIBridge — cross-platform LLM inference via Microsoft.ML.OnnxRuntime + OnnxRuntimeGenAI. Works on Windows / macOS / Linux desktop AND iOS / Android.</Description>
+      <PackageTags>llm;ai;openai;onnx;onnxruntime;genai;phi-3;phi-4;llama;cross-platform</PackageTags>
+    </PropertyGroup>
+    <ItemGroup>
+      <PackageReference Include="Microsoft.ML.OnnxRuntime" />
+      <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" />
+      <FrameworkReference Include="Microsoft.AspNetCore.App" />
+      <ProjectReference Include="../DVAIBridge/DVAIBridge.csproj" />
+      <Compile Include="../shared/DVAIBridge.Shared.Hosting/*.cs" LinkBase="Shared" />
+    </ItemGroup>
+  </Project>
+  ```
+- [ ] Bump `BackendKind` enum to 9 values; add unit tests for the new `ToWireString("onnx")` round-trip (in existing `BackendKindTests.cs`).
+- [ ] Update `PlatformBridgeFactory`: ONNX is cross-platform; the factory routes to `OnnxNativeBridge` when `BackendKind.Onnx` is requested AND `Type.GetType(...)` returns non-null. If the consumer asked for `BackendKind.Onnx` but didn't install `DVAIBridge.OnnxRuntime`, throw `BackendUnavailable` with the hint "install DVAIBridge.OnnxRuntime".
+
+**Acceptance**: `dotnet build src/DVAIBridge.OnnxRuntime -c Release` exits 0. `BackendKindTests.cs` passes. Existing tests still green (no regressions on the 7 → 9 enum bump).
+
+**Effort**: 0.5 day.
+
+---
+
+## Task 19: ONNX backend implementation — `OnnxNativeBridge` + `OnnxGenAIRunner`
+
+**Files:**
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.OnnxRuntime/OnnxNativeBridge.cs` — `INativeBridge` impl
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.OnnxRuntime/OnnxGenAIRunner.cs` — `IInferenceEngine` impl wrapping `OnnxRuntimeGenAI.Generator`
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.OnnxRuntime/OnnxEmbeddingRunner.cs` — `IEmbeddingEngine` impl using bare `OrtSession`
+
+- [ ] `OnnxGenAIRunner`: wraps `OnnxRuntimeGenAI.Model.Create(modelDir)`, `OnnxRuntimeGenAI.Tokenizer`, and `OnnxRuntimeGenAI.Generator`. `GenerateAsync` constructs a `Generator` with `GeneratorParams` (max_length, temperature, top_p, top_k from `GenerationOptions`), then loops `generator.ComputeLogits()` + `generator.GenerateNextToken()` + `tokenizer.Decode(generator.GetSequence(0))` yielding incremental decoded text. Cancellation between iterations.
+- [ ] `OnnxNativeBridge`: reuses `OpenAIServer` via the `IInferenceEngine` shared interface. `StartAsync` accepts `StartOptions.ModelPath` as the model directory (containing `model.onnx` + `genai_config.json` + `tokenizer.json` per HF-published convention) — validates the directory layout up-front; throws `ConfigurationInvalid` with the missing-file list if any of the three required files is absent.
+- [ ] Embedding mode: when `StartOptions.EmbeddingMode == true`, skip the GenAI Generator path and use `OnnxEmbeddingRunner` (bare `OrtSession` over a sentence-transformers ONNX export). Different `IInferenceEngine` is wrong here — embeddings have a different shape; we add a parallel `IEmbeddingEngine` interface (single method `Task<float[]> EmbedAsync(string text, CancellationToken ct)`) that `OpenAIServer.cs` calls only for the `/v1/embeddings` endpoint.
+- [ ] HuggingFace-style download support for `DownloadModelAsync(opts)`: accept `https://huggingface.co/microsoft/Phi-3.5-mini-instruct-onnx/resolve/main/...` URLs + sha256-verify each file (HF tracks per-file hashes in `model_index.json` / LFS metadata; we walk the directory listing).
+
+**Acceptance**: A standalone smoke (`dotnet run` against a `microsoft/Phi-3-mini-4k-instruct-onnx` model directory — ~2 GB; CI uses a smaller fixture from `onnx-community/Llama-3.2-1B-Instruct-q4f16-onnx` ~700 MB) starts the bridge, accepts `POST /v1/chat/completions` with streaming, returns non-empty tokens. Same smoke green on Windows / Linux / macOS desktop runners. Mobile smoke deferred to Task 20 (mobile CI runners are slower and we test the basic Generator API on desktop first).
+
+**Effort**: 1.5 days.
+
+---
+
+## Task 20: ONNX xUnit tests
+
+**Files:**
+- Create: `packages/dvai-bridge-dotnet/tests/DVAIBridge.OnnxRuntime.Tests/DVAIBridge.OnnxRuntime.Tests.csproj`
+- Create: `packages/dvai-bridge-dotnet/tests/DVAIBridge.OnnxRuntime.Tests/OnnxNativeBridgeTests.cs`
+- Create: `packages/dvai-bridge-dotnet/tests/DVAIBridge.OnnxRuntime.Tests/OnnxGenAIRunnerTests.cs`
+- Create: `packages/dvai-bridge-dotnet/tests/DVAIBridge.OnnxRuntime.Tests/OnnxEmbeddingRunnerTests.cs`
+
+- [ ] Trait `"Category"="Smoke"` tests: load tiny ONNX classifier (~2 MB; we use a hand-built MNIST-style test fixture that can ship in git) — verifies `OrtSession` round-trip works on every CI runner without large-model-fetch flakiness.
+- [ ] Trait `"Category"="EndToEnd"` tests: load `onnx-community/Llama-3.2-1B-Instruct-q4f16-onnx` (~700 MB; fetched + cached like Task 17), full StartAsync + POST `/v1/chat/completions` + StopAsync. Skipped unless `DVAI_E2E=1`.
+- [ ] Cancellation: mid-generation `cts.Cancel()` exits the `Generator` loop within 100ms.
+- [ ] Embedding round-trip: load a sentence-transformers ONNX export (we use `Xenova/all-MiniLM-L6-v2` ~25 MB; small enough to ship as a CI fixture), POST `/v1/embeddings` with two strings, verify the returned vectors are length-384 and dot-product agrees with a CPU-Python reference within 1e-4.
+- [ ] `BackendKind.Onnx` round-trips wire-string in `BackendKindTests.cs` (already covered in Task 18 but re-verify).
+
+**Acceptance**: Smoke green on all 3 desktop runners. E2E green on linux-x64 with `DVAI_E2E=1`. Coverage of `OnnxNativeBridge` + `OnnxGenAIRunner` ≥ 70%.
+
+**Effort**: 1 day.
+
+---
+
+## Task 21: ML.NET backend scaffold + implementation — `DVAIBridge.MLNet` + `MLNetNativeBridge`
+
+**Files:**
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.MLNet/DVAIBridge.MLNet.csproj`
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.MLNet/MLNetNativeBridge.cs` — `INativeBridge` impl
+- Create: `packages/dvai-bridge-dotnet/src/DVAIBridge.MLNet/MLNetInferenceEngine.cs` — `IInferenceEngine` impl wrapping `MLContext` + `OnnxScoringEstimator`
+- Update: `packages/dvai-bridge-dotnet/src/DVAIBridge/BackendKind.cs` — add `MLNet = 8`; update wire-string round-trip (`"mlnet"`).
+- Update: `packages/dvai-bridge-dotnet/Directory.Packages.props` — add `<PackageVersion Include="Microsoft.ML" Version="5.0.0" />` + `<PackageVersion Include="Microsoft.ML.OnnxTransformer" Version="5.0.0" />`.
+- Update: `packages/dvai-bridge-dotnet/DVAIBridge.sln` (add the new csproj).
+- Update: `packages/dvai-bridge-dotnet/src/DVAIBridge/PlatformBridgeFactory.cs` — route `BackendKind.MLNet` to `MLNetNativeBridge` IF (`OperatingSystem.IsWindows()` OR `IsLinux()` OR `(IsMacOS() && !IsMacCatalyst())`); reject with `BackendUnavailable("MLNet desktop only — use BackendKind.Onnx on mobile")` otherwise.
+
+- [ ] Confirm latest stable ML.NET version via WebFetch on https://www.nuget.org/packages/Microsoft.ML at task start (we pinned 5.0.0 on 2026-04-27 — released alongside .NET 10 GA on 2025-11-11; re-verify).
+- [ ] `MLNetInferenceEngine`: builds an `MLContext` + `OnnxScoringEstimator` pipeline with `inputColumnNames = ["input_ids"]`, `outputColumnNames = ["logits"]`. `Fit` runs once on an empty `IDataView` (the estimator becomes a transformer). `GenerateAsync` loops: tokenize → wrap in `IDataView` → `transformer.Transform(...)` → extract logits → manual sampler → next token. Less elegant than OnnxRuntimeGenAI's Generator API, but matches ML.NET's pipeline shape.
+- [ ] Hand-rolled tokenizer + sampler: ML.NET doesn't ship LLM-specific helpers. We pull `Microsoft.ML.Tokenizers` (now stable, ships with .NET 10) for HF-tokenizer-json compatibility, and implement top-k / top-p / temperature sampling manually (~80 LOC, well-trodden code).
+- [ ] `MLNetNativeBridge`: same shape as `DesktopNativeBridge` / `OnnxNativeBridge` — reuses `OpenAIServer`. Document that the recommended use case is "you already have an ML.NET pipeline and want to add an LLM transform"; for greenfield consumers, point at `BackendKind.Onnx`.
+
+**Acceptance**: `dotnet build src/DVAIBridge.MLNet -c Release` exits 0. A standalone smoke against the same `onnx-community/Llama-3.2-1B-Instruct-q4f16-onnx` fixture starts the bridge, accepts `POST /v1/chat/completions`, returns non-empty tokens (slower than the direct ONNX path; document the perf delta in the consumer guide).
+
+**Effort**: 1.5 days.
+
+---
+
+## Task 22: ML.NET xUnit tests
+
+**Files:**
+- Create: `packages/dvai-bridge-dotnet/tests/DVAIBridge.MLNet.Tests/DVAIBridge.MLNet.Tests.csproj`
+- Create: `packages/dvai-bridge-dotnet/tests/DVAIBridge.MLNet.Tests/MLNetNativeBridgeTests.cs`
+
+- [ ] Smoke: load the same hand-built MNIST-style ONNX from Task 20, run a single `transformer.Transform`, verify shape. Validates the ML.NET pipeline integration without large-model fetch.
+- [ ] EndToEnd (Trait, gated by `DVAI_E2E=1`): same Llama-3.2-1B fixture, full chat-completions round-trip; expected slower than the `Onnx` E2E (we assert it returns within 60s rather than 30s on linux-x64).
+- [ ] Mobile rejection: instantiate `MLNetNativeBridge` on a synthetic-iOS-platform test runner (via the `IOperatingSystemAdapter` indirection from rev 1 Task 9), verify `StartAsync` throws `BackendUnavailable` with the "use BackendKind.Onnx on mobile" hint.
+
+**Acceptance**: Smoke green on all 3 desktop runners. E2E green on linux-x64 with `DVAI_E2E=1`. Coverage of `MLNetNativeBridge` + `MLNetInferenceEngine` ≥ 70%.
+
+**Effort**: 0.5 day.
+
+---
+
+## Task 23: Fix `ProgressBroadcaster` cancellation race
+
+**Background**: surfaced during v2.4.0-rc1 build verification. `ProgressBroadcaster.Subscribe(ct)` removes its channel from `_subscribers` in the `finally` block of the `await foreach` — but `Emit(...)` reads the dictionary keys without taking the same lock the `TryRemove` uses internally. Under contention, `Emit` can `TryWrite` to a channel that's just been completed by the cancellation path. Always a no-op (the channel writer is closed), but the static analyzer flags it and consumers report sporadic `ObjectDisposedException`s in logs (the `Channel<T>` source raises one on completed-channel writes in some pre-release builds of .NET 10 service updates).
+
+**Files:**
+- Update: `packages/dvai-bridge-dotnet/src/DVAIBridge/ProgressBroadcaster.cs`
+- Update: `packages/dvai-bridge-dotnet/tests/DVAIBridge.Tests/ProgressBroadcasterTests.cs`
+
+- [ ] Replace the `_subscribers.Keys` iteration in `Emit` with a snapshot copy taken under `_subscribers`'s internal lock (`var snapshot = _subscribers.Keys.ToArray();` is enough — the `ConcurrentDictionary.Keys` accessor materializes the snapshot atomically). Then iterate the snapshot.
+- [ ] In the `finally` of `Subscribe`, wrap `ch.Writer.TryComplete()` in a `try { ... } catch (ChannelClosedException) { /* expected if Dispose ran in parallel */ }` and add a state-check (`if (!_disposed)`).
+- [ ] Add a stress test: 8 producer threads calling `Emit` in a tight loop, 8 consumer tasks each `await foreach`ing with random-cancellation-after-N-events. Run for 5 seconds. Assert no `ObjectDisposedException` / `InvalidOperationException` escapes either side.
+- [ ] Add a regression test for the original reported symptom: `Subscribe → Cancel within 1ms → Subscribe again → Emit` does not throw (verifying the race window).
+
+**Acceptance**: `ProgressBroadcasterTests` green including the new stress + regression tests under repeated runs (`for i in {1..50}; do dotnet test --filter Category=Stress; done` exits 0 every iteration).
+
+**Effort**: 0.5 day.
+
+---
+
+## Task 24: Update `BackendKind` (7 → 9) + `PlatformBridgeFactory` routing for all 5 native bridges
+
+**Files:**
+- Update: `packages/dvai-bridge-dotnet/src/DVAIBridge/BackendKind.cs` — final 9-case enum (covered piecewise by Tasks 18 + 21; this task is the consolidating audit).
+- Update: `packages/dvai-bridge-dotnet/src/DVAIBridge/PlatformBridgeFactory.cs` — full routing logic per the §3.8 matrix.
+- Update: `packages/dvai-bridge-dotnet/tests/DVAIBridge.Tests/BackendKindTests.cs` — full 9-case round-trip test.
+- Update: `packages/dvai-bridge-dotnet/tests/DVAIBridge.Tests/PlatformBridgeFactoryTests.cs` (new file) — exhaustive (BackendKind × Platform) matrix test using the synthetic-OS adapter.
+
+- [ ] Routing logic in `Create()`:
+  ```
+  if (BackendKind in {Onnx} && DVAIBridge.OnnxRuntime loaded)        → OnnxNativeBridge
+  else if (BackendKind in {MLNet} && desktop && DVAIBridge.MLNet loaded) → MLNetNativeBridge
+  else if (iOS || Catalyst) && BackendKind in {Auto, Llama, Foundation, CoreML, MLX}  → IOSNativeBridge
+  else if (Android) && BackendKind in {Auto, Llama, MediaPipe, LiteRT}  → AndroidNativeBridge
+  else if (desktop) && BackendKind in {Auto, Llama}                  → DesktopNativeBridge
+  else throw BackendUnavailable("...")
+  ```
+- [ ] Hint messages on `BackendUnavailable` are explicit: "BackendKind.Onnx requires the DVAIBridge.OnnxRuntime NuGet — install it via `dotnet add package DVAIBridge.OnnxRuntime`."
+- [ ] `PlatformBridgeFactoryTests`: 9 BackendKind values × 5 platforms (iOS / Catalyst / Android / Windows / Linux / macOS-desktop) = 54 cells. Each cell asserts the right outcome (specific bridge type, or specific `BackendUnavailable` hint). Use `[Theory]` + `[MemberData]` to enumerate.
+- [ ] Verify the 5 facade tests that failed in v2.4.0-rc1 (the `UnsupportedPlatformBridge` fall-through ones) now pass on Windows / Linux / macOS-desktop CI runners — the `DesktopNativeBridge` is what they expected.
+
+**Acceptance**: `BackendKind` enum has exactly 9 values; wire-string round-trips work for all of them; the matrix test passes; the 5 previously-failing facade tests pass on desktop CI.
+
+**Effort**: 0.5 day.
+
+---
+
+## Task 25: Documentation — guide + per-backend sections + migration v2.3→v2.4 + CI workflow
+
+**Files:**
+- Update: `docs/guide/dotnet-sdk.md` — major expansion
+- Update: `docs/migration/v2.3-to-v2.4.md` — major expansion
+- Update: `.github/workflows/test-dotnet.yml` — add desktop / ONNX / MLNet matrix dimensions
+- Update: `docs/.vitepress/config.ts` — sidebar entries (no new pages, just reordering — the .NET SDK page was added in rev 1 Task 10)
+
+- [ ] `docs/guide/dotnet-sdk.md` revision:
+  - **Decision matrix at the top** ("I'm building a Windows desktop app → use `DVAIBridge.Desktop` with `BackendKind.Llama` OR `DVAIBridge.OnnxRuntime` with `BackendKind.Onnx`").
+  - **Install snippets for all 6 packages** with copy-paste-ready `dotnet add package` lines.
+  - **Backend selection guide** — when to choose which backend on which platform (uses the §3.8 matrix from the spec).
+  - **Per-backend sections**:
+    - `BackendKind.Llama` — works everywhere; needs `DVAIBridge.Desktop` for desktop, the existing iOS/Android slices for mobile.
+    - `BackendKind.Foundation` / `CoreML` / `MLX` — iOS + Catalyst only; same content as v2.4.0-rc1 docs.
+    - `BackendKind.MediaPipe` / `LiteRT` — Android only; same content as v2.4.0-rc1 docs.
+    - `BackendKind.Onnx` — cross-platform; model catalog (Phi-3.5, Phi-4, Llama-3.2 ONNX); `genai_config.json` directory layout; HF download examples.
+    - `BackendKind.MLNet` — desktop primary; "use this if you're already in ML.NET" framing; honest perf-vs-Onnx note (~1.4× slower in our benchmarks).
+  - **ONNX vs ML.NET trade-off table** (lifted verbatim from spec §3.7.3).
+  - **Why doesn't iOS / Android / RN / Flutter expose Onnx / MLNet?** subsection — explain the .NET-specificity (rev 2 Q11 rationale).
+  - **Mac Catalyst** — "use the same `DVAIBridge.iOS` NuGet; it multi-targets `net10.0-maccatalyst18.0`".
+  - **Updated quickstart** — show a Windows MAUI desktop example with `BackendKind.Llama` + `DVAIBridge.Desktop`, then a `BackendKind.Onnx` example with a Phi-3.5 model.
+- [ ] `docs/migration/v2.3-to-v2.4.md` revision:
+  - Original v2.3-to-v2.4 content (mobile-only, NuGet.org distribution, .NET 10 prereq) stays.
+  - Add: "v2.4.0-rc1 → v2.4.0 — desktop + ONNX + ML.NET" sub-section explaining the new packages for consumers who tracked the rc.
+  - Add: "Why .NET has 9 BackendKind cases when other wrappers have 7" subsection.
+  - Add: install matrix — what to install for each consumer scenario (mobile-only / desktop-only / cross-platform / desktop+ONNX / desktop+MLNet).
+- [ ] `.github/workflows/test-dotnet.yml` revision:
+  - Add desktop matrix: `os: [windows-2022, ubuntu-22.04, macos-14]` (osx-arm64 native), with `windows-2022-arm64` + `ubuntu-22.04-arm64` if available.
+  - Add `bash src/DVAIBridge.Desktop/scripts/fetch-llama-binaries.sh` step before the desktop builds.
+  - Add `bash src/DVAIBridge.Desktop/scripts/verify-llama-checksums.sh` step (fail fast on supply-chain drift).
+  - Run desktop / ONNX / MLNet test projects on each desktop runner.
+  - Tag-push job extends to `dotnet pack` + `dotnet nuget push` for all **6** NuGet packages.
+- [ ] Decision matrix at top of `dotnet-sdk.md` to be a literal quick-reference table:
+  | I'm building...                           | Install                                        | Use BackendKind...           |
+  |-------------------------------------------|------------------------------------------------|------------------------------|
+  | iOS-only MAUI                             | `DVAIBridge` (auto-pulls `.iOS`)               | `Auto` / `Llama` / `CoreML`  |
+  | Android-only MAUI                         | `DVAIBridge` (auto-pulls `.Android`)           | `Auto` / `Llama` / `MediaPipe` |
+  | iOS + macOS Catalyst MAUI                 | `DVAIBridge` (auto-pulls `.iOS` for both)      | `Auto` / `Llama` / `CoreML`  |
+  | Windows desktop / Avalonia / WinUI        | `DVAIBridge` (auto-pulls `.Desktop`)           | `Auto` / `Llama`             |
+  | Cross-platform server / console           | `DVAIBridge` + `DVAIBridge.OnnxRuntime`        | `Onnx`                       |
+  | Existing ML.NET pipeline + LLM transform  | `DVAIBridge` + `DVAIBridge.MLNet`              | `MLNet`                      |
+
+**Acceptance**: `pnpm run docs:build` exits 0; the .NET SDK page renders the decision matrix correctly; the migration guide is comprehensive enough that an existing v2.4.0-rc1 user can upgrade without questions; the CI workflow runs green on every matrix dimension on a test PR.
+
+**Effort**: 1 day.
+
+---
+
+## Task 26: Version bump 2.3.0 → 2.4.0 + CHANGELOG + tag + 6-NuGet publish (replaces rev 1 Task 14)
 
 **Files:**
 - Update: `package.json` (root) — bump 2.3.0 → 2.4.0
 - Update: `packages/dvai-bridge-dotnet/package.json` — bump 2.3.0 → 2.4.0
 - Update: `packages/dvai-bridge-dotnet/Directory.Build.props` — bump 2.3.0 → 2.4.0
-- Update: `packages/dvai-bridge-android/android/gradle.properties` — already 2.4.0 from Task 7
+- Update: `packages/dvai-bridge-android/android/gradle.properties` — already 2.4.0 from rev 1 Task 7
 - Update: `packages/dvai-bridge-dotnet/CHANGELOG.md` — release entry
-- Update: `CHANGELOG.md` (root) — `## [2.4.0] — YYYY-MM-DD` covering the .NET package + Android AAR republish
-- Update: `PUBLISHING.md` (gitignored) — add `dotnet nuget push` step for `DVAIBridge` + `DVAIBridge.iOS` + `DVAIBridge.Android` (the only NuGet.org publish in the family)
+- Update: `CHANGELOG.md` (root) — `## [2.4.0] — YYYY-MM-DD` covering the full .NET family + Desktop + ONNX + MLNet + Android AAR republish
+- Update: `PUBLISHING.md` (gitignored) — `dotnet nuget push` steps for all 6 NuGets
 
-- [ ] Run `node scripts/sync-versions.js` + `node scripts/sync-package-meta.js`. Confirm `Directory.Build.props`'s `<Version>` is now in the version-tracker's known files (Task 12).
+- [ ] Run `node scripts/sync-versions.js` + `node scripts/sync-package-meta.js`. Confirm `Directory.Build.props`'s `<Version>` propagates to all 6 csprojs (CPM-driven; one source of truth).
 - [ ] CHANGELOG entry under `## [2.4.0] — YYYY-MM-DD`:
-  - Added: .NET NuGet package family `DVAIBridge` + `DVAIBridge.iOS` + `DVAIBridge.Android` (NuGet.org) — .NET 10 LTS, single facade with TFM-conditional iOS/Android slices, idiomatic `IAsyncEnumerable<ProgressEvent>` reactive surface.
+  - Added: .NET NuGet package family — **6 packages** (`DVAIBridge`, `DVAIBridge.iOS` w/ Catalyst, `DVAIBridge.Android`, `DVAIBridge.Desktop`, `DVAIBridge.OnnxRuntime`, `DVAIBridge.MLNet`) on NuGet.org.
+  - .NET 10 LTS facade with TFM-conditional + RID-keyed platform slices, idiomatic `IAsyncEnumerable<ProgressEvent>` reactive surface (`ProgressBroadcaster` fan-out), 9-case `BackendKind` (`Auto` / `Llama` / `Foundation` / `CoreML` / `MLX` / `MediaPipe` / `LiteRT` / `Onnx` / `MLNet`).
+  - Desktop slice: `llama.cpp` `b8946` prebuilts per RID (win-x64 / win-arm64 / osx-x64 / osx-arm64 / linux-x64 / linux-arm64) + Kestrel-hosted OpenAI-compatible HTTP API.
+  - ONNX backend: `Microsoft.ML.OnnxRuntime` 1.25.0 + `Microsoft.ML.OnnxRuntimeGenAI` 0.13.1 — cross-platform LLM via Phi-3.5 / Phi-4 / Llama-3.2 ONNX.
+  - ML.NET backend: `Microsoft.ML` 5.0.0 + `Microsoft.ML.OnnxTransformer` 5.0.0 — desktop-primary; integrates with existing ML.NET pipelines.
+  - Mac Catalyst: free reuse via multi-target TFM in `DVAIBridge.iOS.csproj`.
+  - Fixed: `ProgressBroadcaster` cancellation race (Task 23).
   - Changed: Phase 3D Android AAR republished at 2.4.0 for build-graph alignment (no source changes).
-  - Notes: .NET packages published to NuGet.org (vs the Maven/npm GitHub-Packages part of the family); see `docs/migration/v2.3-to-v2.4.md`.
+  - Notes: all 6 .NET packages published to NuGet.org (vs Maven/npm GitHub-Packages part of the family); see `docs/migration/v2.3-to-v2.4.md`. ONNX / MLNet are .NET-specific — iOS / Android / RN / Flutter wrappers do not expose them.
 - [ ] PUBLISHING.md flow:
   1. `git tag v2.4.0` + push
   2. CI publishes the Android AAR to GitHub Packages
-  3. CI builds the iOS xcframework + packs three NuGets on macos-latest
-  4. CI runs `dotnet nuget push ./out/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate` (guarded by tag trigger)
-  5. Verify NuGet.org pages at https://www.nuget.org/packages/DVAIBridge / .iOS / .Android show 2.4.0 within ~10 minutes (NuGet.org indexing latency)
+  3. CI builds the iOS+Catalyst xcframework on macos-latest, fetches llama.cpp `b8946` prebuilts on each desktop runner, packs all 6 NuGets on macos-latest (the iOS slice needs a Mac runner; the others are platform-agnostic but we colocate to keep the publish step single-runner).
+  4. CI runs `dotnet nuget push ./out/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate` for each of the 6 nupkg files (loop in the workflow).
+  5. Verify NuGet.org pages at https://www.nuget.org/packages/DVAIBridge / .iOS / .Android / .Desktop / .OnnxRuntime / .MLNet show 2.4.0 within ~10 minutes (NuGet.org indexing latency).
+  6. Smoke test: in a fresh `dotnet new console -f net10.0` project on Windows, `dotnet add package DVAIBridge --version 2.4.0` and `dotnet run` the §3.2 quickstart snippet — verifies the full restore + Desktop slice + Llama runtime path works on a clean machine.
 - [ ] Commit + tag `v2.4.0` + push.
 
 **Acceptance:**
 - `pnpm install` succeeds at 2.4.0.
-- `bash scripts/verify-cap-sync.sh` exits 0 (existing script must tolerate the new csproj/Directory.Build.props; confirm or extend).
+- `bash scripts/verify-cap-sync.sh` exits 0 (existing script must tolerate the 3 new csprojs; confirm or extend).
 - `git tag --list | grep v2.4.0` shows the new tag.
-- `dotnet pack` from the solution root produces three `.nupkg` + three `.snupkg` files at version 2.4.0.
-- A test `dotnet nuget push --no-symbols` (no `--api-key`, expect auth failure not validation failure) confirms the package format is acceptable.
+- `dotnet pack` from the solution root produces **six** `.nupkg` + six `.snupkg` files at version 2.4.0.
+- All 6 NuGets visible on NuGet.org at v2.4.0.
+- The clean-machine smoke (step 6 above) returns a non-empty completion from a Phi-3-mini or TinyLlama model within 30 seconds.
+
+**Effort**: 0.5 day.
 
 ---
 
-## Test strategy summary
+## Test strategy summary (rev 2)
 
-| Layer                       | Tool                                       | Where                                              |
-|-----------------------------|--------------------------------------------|----------------------------------------------------|
-| C# unit tests (facade)      | `dotnet test` + xUnit + Moq + Coverlet     | `packages/dvai-bridge-dotnet/tests/DVAIBridge.Tests/` |
-| Static analysis             | `dotnet build` with `<TreatWarningsAsErrors>` + nullable | per-csproj; CI workflow             |
-| iOS binding sanity          | `dotnet build src/DVAIBridge.iOS -c Release` | CI macos runner (Task 11)                        |
-| Android binding sanity      | `dotnet build src/DVAIBridge.Android -c Release` | CI ubuntu runner (Task 11)                  |
-| iOS xcframework build       | `bash build-xcframework.sh`                | CI macos runner (Task 11)                          |
-| Pack dry-run                | `dotnet pack -c Release -o ./out`          | CI macos runner (Task 11)                          |
-| End-to-end runtime          | .NET MAUI demo app (consumer-side)         | docs only — scripted per project convention        |
-| NuGet.org publish dry-run   | `dotnet nuget push --no-symbols` (no key)  | CI tag-push (Task 11) — auth-fail is the success signal |
-| Coverage reporting          | Coverlet → XPlat Code Coverage             | CI artifact upload                                 |
+| Layer                                           | Tool                                       | Where                                                                       |
+|-------------------------------------------------|--------------------------------------------|-----------------------------------------------------------------------------|
+| C# unit tests (facade)                          | `dotnet test` + xUnit + Moq + Coverlet     | `packages/dvai-bridge-dotnet/tests/DVAIBridge.Tests/`                       |
+| C# unit tests (desktop)                         | `dotnet test` + xUnit                      | `tests/DVAIBridge.Desktop.Tests/`                                           |
+| C# unit tests (ONNX)                            | `dotnet test` + xUnit                      | `tests/DVAIBridge.OnnxRuntime.Tests/`                                       |
+| C# unit tests (ML.NET)                          | `dotnet test` + xUnit                      | `tests/DVAIBridge.MLNet.Tests/`                                             |
+| Static analysis                                 | `dotnet build` with `<TreatWarningsAsErrors>` + nullable | per-csproj; CI workflow                                       |
+| iOS + Catalyst binding sanity                   | `dotnet build src/DVAIBridge.iOS -f $TFM` per multi-target | CI macos runner                                            |
+| Android binding sanity                          | `dotnet build src/DVAIBridge.Android`      | CI ubuntu runner                                                            |
+| Desktop P/Invoke smoke                          | `LlamaNativeSmokeTests`                    | windows-2022 + ubuntu-22.04 + macos-14 CI runners                           |
+| Desktop end-to-end (TinyLlama 1.1B)             | `DesktopNativeBridgeTests` (gated by `DVAI_E2E=1`) | linux-x64 CI job                                                    |
+| ONNX end-to-end (Phi-3-mini / Llama-3.2-1B)     | `OnnxNativeBridgeTests` (gated by `DVAI_E2E=1`)    | linux-x64 CI job                                                    |
+| ML.NET end-to-end                               | `MLNetNativeBridgeTests` (gated by `DVAI_E2E=1`)   | linux-x64 CI job                                                    |
+| iOS xcframework build (3 slices)                | `bash build-xcframework.sh`                | CI macos runner                                                             |
+| llama.cpp prebuild fetch + checksum verify      | `fetch-llama-binaries.sh` + `verify-llama-checksums.sh` | each desktop CI runner before pack                            |
+| Pack dry-run                                    | `dotnet pack -c Release -o ./out`          | CI macos runner (final pack of all 6 NuGets)                                |
+| End-to-end runtime (.NET MAUI / Avalonia consumer) | scripted snippets in `docs/guide/dotnet-sdk.md` | docs only — scripted per project convention                            |
+| NuGet.org publish dry-run                       | `dotnet nuget push --no-symbols` (no key)  | CI tag-push — auth-fail is the success signal                               |
+| Clean-machine consumer smoke (Task 26)          | `dotnet new console + dotnet add package DVAIBridge` | manual on a Windows VM post-publish                              |
+| Coverage reporting                              | Coverlet → XPlat Code Coverage             | CI artifact upload                                                          |
 
 ## Risk register
 
@@ -651,18 +1084,33 @@ This is a one-shot audit task before tag.
 9. **`OperatingSystem.IsIOS()` testability**: the static method isn't directly mockable. Task 9 introduces a thin `IOperatingSystemAdapter` indirection or a `[ThreadStatic]` test-override field. Pick the cleaner of the two during implementation.
 10. **First-time NuGet authoring**: this is the family's first NuGet publish. PUBLISHING.md must include the NuGet.org account-setup walkthrough. Allow a 1-day buffer in the launch schedule for unexpected NuGet.org friction.
 
-## Out-of-scope
+### Rev 2 risks (added)
 
-- WinUI 3 / Avalonia / desktop native backends (Phase 4+).
-- Mac Catalyst / tvOS / watchOS targets (Phase 4+).
+11. **llama.cpp `b8946` Linux ARM64 prebuilt may be missing**: upstream's CI matrix is x64-heavy historically. Task 15 includes a from-source fallback build on `ubuntu-22.04-arm64` runners. If the runner queue for ARM64 is gated (it was originally beta-only), we may have to build the linux-arm64 binary on a self-hosted runner or skip the RID for v2.4.0 (drops linux-arm64 support; documents in known-issues). Mitigation: confirm runner availability at Task 15 start; have the from-source fallback ready.
+12. **`Microsoft.ML.OnnxRuntimeGenAI` API churn**: GenAI is at v0.13.1 (pre-1.0); the `Generator` API has changed shape between minor versions historically. Pin exact `0.13.1` in CPM; on minor bump (0.14, 0.15), re-run the test suite + adjust the `OnnxGenAIRunner` wrapper. Document in the consumer guide that we track ORT GenAI minor releases and may bump the `DVAIBridge.OnnxRuntime` major version when they break compat.
+13. **ML.NET LLM perf is meaningfully worse than direct ORT**: the ML.NET pipeline overhead per token (~1.4× in our benchmark estimates) is acceptable for "you're already in ML.NET" use cases but a footgun if a consumer reaches for `MLNet` thinking it's the canonical .NET LLM choice. Mitigation: docs steer toward `Onnx` aggressively; the `BackendKind` order (`Onnx = 7` before `MLNet = 8`) follows the recommendation order; Visual Studio IntelliSense renders enum members in declaration order so consumers see `Onnx` first.
+14. **Kestrel inside library hosting**: ASP.NET Core's Kestrel host expects to be the process's main host. Embedding it inside a non-web process (a console app, a MAUI desktop app) works but has documented pitfalls — graceful shutdown signals don't always reach Kestrel cleanly when the parent app exits abruptly. Mitigation: register `Application.Current.Exiting` / `AppDomain.CurrentDomain.ProcessExit` hooks that call `OpenAIServer.StopAsync(timeout: 5s)` defensively; document in the consumer guide.
+15. **Desktop NuGet size**: ~25 MB uncompressed across 6 RIDs of llama.cpp natives. NuGet.org's per-package size limit is 250 MB so we're well under, but the `.nupkg` itself is ~6 MB compressed (acceptable). If we ever add CUDA / Vulkan / Metal builds (Phase 4+), the per-RID native size grows 3–5×; revisit then.
+16. **`NativeLibrary.SetDllImportResolver` and AOT**: the resolver pattern is AOT-friendly *if* registered before any `[DllImport]` is hit (i.e. in a static ctor or `ModuleInitializer`). We use `ModuleInitializer` to be safe. Phase 4 NativeAOT story adds it back as a candidate for re-enablement.
+17. **Catalyst symbol resolution at runtime**: in `IOSNativeBridge.cs`, the bound class refers to `DVAIBridgeNetBridge` — which on Catalyst lives at the Catalyst slice of the xcframework. If `xcodebuild -create-xcframework` mis-orders the slices, the runtime loader can pick the wrong `Info.plist` and fail. Mitigation: Task 14 acceptance includes inspecting the xcframework's `AvailableLibraries` keys to confirm three slices are listed correctly.
+
+## Out-of-scope (rev 2)
+
+- ~~WinUI 3 / Avalonia / desktop native backends (Phase 4+).~~ → Now in-scope (Tasks 15–17).
+- ~~Mac Catalyst / tvOS / watchOS targets (Phase 4+).~~ → Catalyst now in-scope (Task 14); tvOS / watchOS remain out-of-scope.
+- tvOS, watchOS, browser-wasm targets (Phase 4+ if real-world demand materializes; no LLM use case for tvOS/watchOS yet, and wasm is incompatible with both `llama.cpp` and ORT's WebAssembly story).
 - Xamarin.Forms / classic Xamarin.iOS / classic Xamarin.Android targets (EOL since 2024).
 - F# / VB.NET-specific API surface (works via standard CLR interop).
-- NativeAOT-clean binding slices (Phase 4 candidate).
+- NativeAOT-clean binding slices (Phase 4 candidate). The desktop slice's `[DllImport]` + `NativeLibrary.SetDllImportResolver` IS AOT-friendly; the binding slices (iOS / Android) are not.
+- GPU acceleration on desktop (CUDA / Vulkan / ROCm / Metal): Phase 4+. v2.4 ships CPU-only `llama.cpp` builds.
+- Cross-family `Onnx` / `MLNet` `BackendKind` cases on iOS / Android / RN / Flutter (decided rev 2 Q11 — .NET-specific; revisit in Phase 4+ if demand materializes).
+- iOS-side / Android-side `BackendKind.MLNet` (rejected at facade — use `BackendKind.Onnx` on mobile).
 - Source generators / Roslyn analyzers for backend-platform-mismatch (runtime check is sufficient for v2.4).
 - `IObservable<T>` first-class API (Rx interop one-liner is sufficient).
 - GitHub Packages NuGet feed (NuGet.org chosen; see spec §4.1).
 - Sample app source — scripted only (per project convention).
-- iOS / Android source changes beyond the AAR republish at 2.4.0 (Task 7).
+- iOS / Android source changes beyond the AAR republish at 2.4.0 (rev 1 Task 7).
+- Self-hosted llama.cpp build farm — we use upstream's prebuilt release artifacts (rev 2 Task 15).
 - launch (3H).
 
 ## References
@@ -685,3 +1133,22 @@ This is a one-shot audit task before tag.
 - NuGet Central Package Management: https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management
 - NativeAOT for iOS state: https://github.com/dotnet/macios/blob/main/docs/nativeaot.md
 - GitHub Packages NuGet (rejected for 3G; documented for completeness): https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry
+
+### Rev 2 references
+
+- llama.cpp release `b8946`: https://github.com/ggerganov/llama.cpp/releases/tag/b8946
+- llama.cpp public C API: https://github.com/ggerganov/llama.cpp/blob/master/include/llama.h
+- `Microsoft.ML.OnnxRuntime` 1.25.0 NuGet: https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime
+- `Microsoft.ML.OnnxRuntimeGenAI` 0.13.1 NuGet: https://www.nuget.org/packages/Microsoft.ML.OnnxRuntimeGenAI
+- ONNX Runtime GenAI Generator API: https://onnxruntime.ai/docs/genai/api/csharp.html
+- HuggingFace ONNX-GenAI model directory layout: https://huggingface.co/microsoft/Phi-3.5-mini-instruct-onnx
+- `Microsoft.ML` 5.0.0 NuGet: https://www.nuget.org/packages/Microsoft.ML
+- `Microsoft.ML.OnnxTransformer` 5.0.0 NuGet: https://www.nuget.org/packages/Microsoft.ML.OnnxTransformer
+- ML.NET Documentation: https://learn.microsoft.com/en-us/dotnet/machine-learning/
+- `Microsoft.ML.Tokenizers` (HF-compat tokenizer for the MLNet path): https://www.nuget.org/packages/Microsoft.ML.Tokenizers
+- .NET Runtime Identifier (RID) catalog: https://learn.microsoft.com/en-us/dotnet/core/rid-catalog
+- `<RuntimeIdentifiers>` + `runtimes/<rid>/native/` packing convention: https://learn.microsoft.com/en-us/nuget/create-packages/native-files-in-net-packages
+- `NativeLibrary.SetDllImportResolver` (explicit native lookup): https://learn.microsoft.com/en-us/dotnet/standard/native-interop/native-library-loading
+- Mac Catalyst TFM in .NET 10: https://learn.microsoft.com/en-us/dotnet/standard/frameworks#net-tfms-with-os-versions
+- Kestrel inside library hosting (best practices for embedded HTTP servers): https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/kestrel/
+- `ModuleInitializer` for early P/Invoke setup: https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/proposals/csharp-9.0/module-initializers
