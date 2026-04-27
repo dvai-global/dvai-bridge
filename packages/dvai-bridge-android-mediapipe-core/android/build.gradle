@@ -80,7 +80,7 @@ kotlin {
 dependencies {
     // Phase 3D: shared HTTP server + handler dispatch types live here.
     // `api` (not `implementation`) so consumer projects see them transitively.
-    api 'co.deepvoiceai:android-shared-core:2.0.0'
+    api "co.deepvoiceai:android-shared-core:$dvaiBridgeVersion"
 
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "io.ktor:ktor-server-core:$ktorVersion"
