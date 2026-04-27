@@ -100,12 +100,6 @@ Pod::Spec.new do |s|
     'OTHER_SWIFT_FLAGS' => '$(inherited) -package-name DVAIBridgeVendored -enable-experimental-feature Lifetimes',
     # Pin the test-app deployment target to our pod's iOS minimum.
     'IPHONEOS_DEPLOYMENT_TARGET' => '18.1',
-    # iOS 26 SDK auto-emits an implicit link directive for SwiftUICore
-    # (a private framework) whenever Combine.ObservableObject is used.
-    # `-Wl,-no_warn_implicit_dynamic_link` suppresses the warning; the
-    # additional `-Xlinker -allowable_client -Xlinker SwiftUICore` tells
-    # ld to treat the missing client entitlement as non-fatal.
-    'OTHER_LDFLAGS' => '$(inherited) -Wl,-no_warn_implicit_dynamic_link',
   }
 
   # Telegraph stays at ~> 0.30 because Building42 publishes 0.40+ as GitHub
