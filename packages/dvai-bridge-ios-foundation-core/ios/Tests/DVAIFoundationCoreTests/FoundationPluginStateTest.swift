@@ -1,6 +1,6 @@
 // Tests/DVAICapacitorFoundationTests/PluginStateTest.swift
 //
-// Unit tests for the `PluginState` actor — the lifecycle owner wired up
+// Unit tests for the `FoundationPluginState` actor — the lifecycle owner wired up
 // in Task 41. Tests focus on state-machine paths that don't require a
 // real Apple FM `LanguageModelSession`:
 //
@@ -22,9 +22,9 @@
 // reliably from XCTest: on Xcode 26 + iOS 26 Simulator the gate returns
 // true, on macOS host the build itself only sees the macOS availability,
 // and on older Xcodes the whole `FoundationHandlers` symbol compiles out
-// (so PluginState's `#if canImport(FoundationModels)` branch is dead).
+// (so FoundationPluginState's `#if canImport(FoundationModels)` branch is dead).
 // We therefore skip a direct test of the gate's error message and rely
-// on the structural fact that `PluginState.start()` literally does
+// on the structural fact that `FoundationPluginState.start()` literally does
 // `guard #available(iOS 26.0, ...)` before any other work — verified by
 // code review.
 
@@ -34,7 +34,7 @@ import XCTest
 final class PluginStateTest: XCTestCase {
 
     func testStatusInfoReportsNotRunningInitially() async {
-        let state = PluginState()
+        let state = FoundationPluginState()
         let info = await state.statusInfo()
         XCTAssertEqual(info["running"] as? Bool, false)
         XCTAssertNil(info["baseUrl"], "baseUrl should be absent before start()")
@@ -42,7 +42,7 @@ final class PluginStateTest: XCTestCase {
     }
 
     func testStopBeforeStartIsIdempotent() async throws {
-        let state = PluginState()
+        let state = FoundationPluginState()
         // Calling stop() on an idle state must not throw.
         try await state.stop()
         let info = await state.statusInfo()
@@ -50,7 +50,7 @@ final class PluginStateTest: XCTestCase {
     }
 
     func testStopAfterStopRemainsIdempotent() async throws {
-        let state = PluginState()
+        let state = FoundationPluginState()
         try await state.stop()
         try await state.stop()
         let info = await state.statusInfo()
@@ -65,7 +65,7 @@ final class PluginStateTest: XCTestCase {
     /// assert that `start()` either succeeds or throws — never silently
     /// resolves to an inconsistent state.
     func testStartEitherSucceedsOrThrowsCleanly() async {
-        let state = PluginState()
+        let state = FoundationPluginState()
         do {
             // Use a high port range to avoid conflicting with anything on
             // CI. If start succeeds, immediately stop to free the socket.

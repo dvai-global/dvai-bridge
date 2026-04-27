@@ -22,15 +22,15 @@ public actor DVAIBridge {
     /// floor is .v14 but `CoreMLPluginState` requires macOS 15). All access
     /// to the CoreML state happens inside `if #available(macOS 15.0, *)`.
     private enum BackendInstance {
-        case llama(DVAILlamaCore.PluginState)
-        case foundation(DVAIFoundationCore.PluginState)
+        case llama(PluginState)
+        case foundation(FoundationPluginState)
         case coreml(Any)
     }
 
     private var active: BackendInstance?
     private var activeKind: BackendKind?
     private var activeBaseUrl: String?
-    private let downloader = DVAILlamaCore.ModelDownloader()
+    private let downloader = ModelDownloader()
     internal let progressBroadcaster = ProgressBroadcaster()
 
     public init() {}
@@ -55,7 +55,7 @@ public actor DVAIBridge {
             // BackendSelector.resolve never returns .auto; keep the compiler happy
             throw DVAIBridgeError.configurationInvalid(reason: "BackendSelector returned .auto unexpectedly")
         case .llama:
-            let state = DVAILlamaCore.PluginState()
+            let state = PluginState()
             do {
                 result = try await state.start(opts: opts)
             } catch {
@@ -64,7 +64,7 @@ public actor DVAIBridge {
             }
             backend = .llama(state)
         case .foundation:
-            let state = DVAIFoundationCore.PluginState()
+            let state = FoundationPluginState()
             do {
                 result = try await state.start(opts: opts)
             } catch {
@@ -77,7 +77,7 @@ public actor DVAIBridge {
             // iOS 18.0 requirement, but macOS 14 (the package floor) does not
             // satisfy its macOS 15.0 requirement — gate explicitly.
             if #available(macOS 15.0, *) {
-                let state = DVAICoreMLCore.CoreMLPluginState()
+                let state = CoreMLPluginState()
                 do {
                     result = try await state.start(opts: opts)
                 } catch {
@@ -120,7 +120,7 @@ public actor DVAIBridge {
                 // pre-15 macOS, but the availability check is required by the
                 // type system.
                 if #available(macOS 15.0, *) {
-                    if let state = any as? DVAICoreMLCore.CoreMLPluginState {
+                    if let state = any as? CoreMLPluginState {
                         try await state.stop()
                     }
                 }
@@ -230,7 +230,7 @@ public actor DVAIBridge {
         }
     }
 
-    public func listCachedModels() async throws -> [DVAILlamaCore.CachedModelInfoSwift] {
+    public func listCachedModels() async throws -> [CachedModelInfoSwift] {
         try await downloader.listCachedModels()
     }
 
