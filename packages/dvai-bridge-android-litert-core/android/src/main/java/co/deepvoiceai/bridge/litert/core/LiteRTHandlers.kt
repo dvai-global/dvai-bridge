@@ -46,7 +46,7 @@ import kotlinx.serialization.json.putJsonObject
  * an internal KV-cache state across calls; concurrent requests would
  * interleave tokens from different conversations.
  */
-class LiteRTHandlers(
+class LiteRTHandlers internal constructor(
     private val generator: LiteRTGenerator,
     private val modelId: String,
     /** Extra opt to override the default Llama-3 chat-template renderer. */
