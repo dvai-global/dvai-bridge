@@ -1,9 +1,43 @@
 // LiteRT core module — wraps Google's LiteRT (TFLite successor) runtime for
 // generic .tflite / .litertlm Llama-style stateful checkpoints. Distinct
 // from android-mediapipe-core, which uses the bundled `litertlm-android`
-// MediaPipe-shaped artifact: this module pulls litert + litert-llm
-// directly so consumers running their own LiteRT graphs (without
-// MediaPipe's bundled-task wrappers) have a clean dependency surface.
+// MediaPipe-shaped artifact: this module pulls bare `litert` directly so
+// consumers running their own LiteRT graphs (without MediaPipe's
+// bundled-task wrappers) have a clean dependency surface.
+//
+// Phase 3D Task 6 artifact verification (Apr 27 2026):
+//
+//   1. `com.google.ai.edge.litert:litert:2.1.4` — latest stable on Google's
+//      Maven (https://dl.google.com/android/maven2). The 2.x line is the
+//      Kotlin `CompiledModel` API; the 1.x sibling artifacts (`litert-api`,
+//      `litert-gpu`, `litert-support`) are NOT pulled here because the 2.x
+//      AAR carries the JNI runtime itself. Source:
+//      https://mvnrepository.com/artifact/com.google.ai.edge.litert/litert
+//
+//   2. `litert-llm` does NOT exist as a standalone Maven artifact. The plan's
+//      original guess (`com.google.ai.edge.litert:litert-llm:<version>`)
+//      404s on Google's Maven. Google's LLM-specific layer is shipped as
+//      `com.google.ai.edge.litertlm:litertlm-android` — but that's the
+//      bundled-tasks wrapper this module deliberately avoids (mediapipe-core
+//      already uses 0.10.2). We instead drive token-by-token decoding on
+//      bare `CompiledModel`, which a Llama-style stateful .tflite checkpoint
+//      exposes via named tensors (`input_ids`, `causal_mask`, `logits`).
+//
+//   3. HuggingFace tokenizers — there is NO clean Android-native artifact:
+//        - `com.github.huggingface:tokenizers-android` (the plan's guess)
+//          returns 401 from JitPack — the artifact does not exist.
+//        - `ai.djl.huggingface:tokenizers:0.36.0` (Maven Central) is a JVM
+//          jar that JNI-loads `libtokenizers.so`. DJL only publishes that
+//          .so for x86_64 + aarch64 GNU Linux + macOS + Windows; there are
+//          no Android (`*-linux-android`) binaries — pulling DJL would
+//          UnsatisfiedLinkError at first encode().
+//        - HF's official Rust crate has no Android JNI wrapper on Maven.
+//      Decision: ship a pure-Kotlin tokenizer.json BPE parser (see
+//      `Internal/HFTokenizerJson.kt`). Uses kotlinx-serialization-json
+//      (already on the classpath) to parse the standard tokenizer.json
+//      shape: `model.vocab` + `model.merges` + `added_tokens`. Tradeoff:
+//      no Jinja chat-template engine — callers stringify messages via a
+//      simple Llama-3-style formatter at the handler layer.
 
 buildscript {
     ext {
@@ -25,17 +59,12 @@ ext {
     coroutinesVersion = '1.10.2'
     // Pinned within Ktor 2.x to match the rest of the Android cores.
     ktorVersion = '2.3.13'
-    // LiteRT runtime — Google's TFLite-successor.
-    // litert: core Interpreter + delegate APIs.
-    // litert-llm: LLM-specific helpers (KV-cache, sampler, tokenizer adapters).
-    // Verify latest stable on Maven Central before bumping; coordinated
-    // with HuggingFace tokenizers-android which speaks the same .json format.
-    litertVersion = '1.4.0'
-    // HuggingFace tokenizers (JNI) for tokenizer.json parsing. JitPack
-    // distribution; consumers add `maven { url 'https://jitpack.io' }` to
-    // their settings.gradle.kts repos block (documented in the consumer
-    // guide produced by Phase 3D Task 18).
-    huggingfaceTokenizersVersion = '0.21.4'
+    // LiteRT runtime — Google's TFLite-successor. 2.1.4 is latest stable on
+    // Google's Maven (verified Apr 27 2026 against
+    // https://dl.google.com/android/maven2/com/google/ai/edge/litert/litert/maven-metadata.xml).
+    // The 2.x AAR uses the new Kotlin CompiledModel API; no separate
+    // `litert-api` / `litert-llm` artifacts are needed.
+    litertVersion = '2.1.4'
 }
 
 allprojects {
@@ -45,11 +74,18 @@ allprojects {
         // Phase 3D: shared-core lives in mavenLocal during dev, GitHub
         // Packages in production.
         mavenLocal()
-        // JitPack — required for `com.github.huggingface:tokenizers-android`.
-        maven { url = uri('https://jitpack.io') }
+        // NOTE: JitPack is intentionally NOT in the repo list — the plan's
+        // original `com.github.huggingface:tokenizers-android` JitPack guess
+        // does not exist. We ship a pure-Kotlin tokenizer.json BPE parser
+        // instead (see top-of-file comment, item 3).
     }
 }
 
+// AGP 9+ ships built-in Kotlin support; the standalone 'kotlin-android'
+// plugin is no longer needed (matches mediapipe-core / llama-core). The
+// kotlinx-serialization-json runtime jar pulled below is used purely for
+// JsonObject/buildJsonObject DSL — no @Serializable classes — so the
+// kotlinx-serialization Gradle plugin is also unnecessary.
 apply plugin: 'com.android.library'
 apply plugin: 'maven-publish'
 
@@ -99,16 +135,11 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
     implementation 'com.squareup.okhttp3:okhttp:5.3.2'
 
-    // LiteRT runtime + HuggingFace tokenizer get added by Phase 3D Task 6
-    // (LiteRTEngine implementation). The artifact coordinates declared in
-    // the `ext { }` block above (litertVersion, huggingfaceTokenizersVersion)
-    // are the working defaults; the Task 6 implementer verifies the
-    // current Maven Central / JitPack coordinates against upstream docs at
-    // implementation time and uncomments the lines below.
-    //
-    // implementation "com.google.ai.edge.litert:litert:$litertVersion"
-    // implementation "com.google.ai.edge.litert:litert-llm:$litertVersion"
-    // implementation "com.github.huggingface:tokenizers-android:$huggingfaceTokenizersVersion"
+    // LiteRT 2.x runtime. The AAR bundles the native libtensorflowlite_jni.so
+    // for arm64-v8a + armeabi-v7a + x86 + x86_64.
+    implementation "com.google.ai.edge.litert:litert:$litertVersion"
+    // No `litert-llm` artifact — see top-of-file comment, item 2.
+    // No HF tokenizers JNI artifact — see top-of-file comment, item 3.
 
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion"
