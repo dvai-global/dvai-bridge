@@ -18,12 +18,13 @@ language's OpenAI client — at a real, fully local HTTP endpoint, across:
 - **Node / Bun**
 - **Electron** (main process, with full-native GPU acceleration)
 - **Capacitor hybrid mobile** (iOS + Android)
-- **Android native** (Kotlin / Java, via AAR)
-- **iOS native** (Swift, via Swift Package Manager)
+- **Android native** (Kotlin / Java, via AAR — `@dvai-bridge/android`)
+- **iOS native** (Swift, via Swift Package Manager — `@dvai-bridge/ios`)
+- **React Native** (TurboModule on RN ≥ 0.77 — `@dvai-bridge/react-native`)
 - **.NET desktop** (C#, via NuGet — Windows, macOS, Linux)
 
-Same OpenAI HTTP surface, six language ecosystems, every major platform.
-No other project covers this combination.
+Same OpenAI HTTP surface, multiple language ecosystems, every major
+platform. No other project covers this combination.
 
 ## The problem
 
@@ -132,9 +133,11 @@ Cutting-edge multimodal models rarely need option 3. Pick 1 or 2.
 When configured with `backend: "auto"`, DVAI-Bridge picks the best backend
 for the runtime:
 
-1. **Mobile (Capacitor / native iOS / native Android):** native
-   llama.cpp with platform-specific acceleration (Metal on iOS; Vulkan
-   or NNAPI / QNN on Android).
+1. **Mobile (Capacitor / native iOS / native Android / React Native):**
+   native llama.cpp with platform-specific acceleration (Metal on iOS;
+   Vulkan or NNAPI / QNN on Android). The native SDKs additionally let
+   you opt into MLX / CoreML / Foundation Models on iOS, and
+   MediaPipe / LiteRT on Android.
 2. **Electron main / .NET desktop:** native llama.cpp with CUDA / Metal
    / Vulkan / DirectML, whichever is available.
 3. **Browser:** WebLLM if WebGPU is present; Transformers.js otherwise.

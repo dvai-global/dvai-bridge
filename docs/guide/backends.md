@@ -258,12 +258,49 @@ const result = await ai.runPipeline(
 
 ---
 
+## Native backends (mobile + desktop)
+
+The web backends above run inside the browser process. For Capacitor,
+native iOS, native Android, and React Native consumers, dvai-bridge
+ships a parallel family of **native** backends that boot a real
+`127.0.0.1` HTTP server inside the app and serve the same OpenAI surface.
+The agent code never has to change between platforms.
+
+| Native backend | Engine | Platforms | Model format | Guide |
+|---|---|---|---|---|
+| **llama.cpp** | `llama.cpp` (Metal / Vulkan / NEON) | iOS, Android, Capacitor, RN | GGUF | [Native LLM (Capacitor)](./native-backend.md), [iOS](./ios-native-sdk.md), [Android](./android-native-sdk.md), [RN](./react-native-sdk.md) |
+| **Apple Foundation Models** | `LanguageModelSession` | iOS 26+ (SwiftPM only) | (no file) | [iOS Native SDK](./ios-native-sdk.md#cocoapods-asymmetries) |
+| **CoreML** | `MLModel` + `MLState` | iOS 18+ / macOS 15+ | `.mlmodelc` / `.mlpackage` | [iOS Native SDK](./ios-native-sdk.md) |
+| **MLX** | `mlx-swift-lm` (Metal + ANE) | Apple Silicon, iOS 17+ (SwiftPM only) | HuggingFace Hub id | [MLX Backend guide](./mlx-backend.md) |
+| **MediaPipe** | LiteRT-LM (post-Phase 3B runtime swap) | Android | `.task` / `.litertlm` | [Android Native SDK § MediaPipe](./android-native-sdk.md#mediapipe-backendkindmediapipe) |
+| **LiteRT** | Bare LiteRT 2.x (TFLite successor) | Android | `.tflite` / `.litertlm` | [Android Native SDK § LiteRT](./android-native-sdk.md#litert-backendkindlitert) |
+
+Two notes worth calling out:
+
+- The Android **MediaPipe** backend migrated from the deprecated
+  `com.google.mediapipe:tasks-genai` SDK to
+  `com.google.ai.edge.litertlm:litertlm-android` in v2.0 (Phase 3B).
+  Same handler behaviour, same Capacitor JS contract — the swap is
+  transparent to JS callers and to the `MediaPipe` enum case on the
+  Android Native SDK.
+- The Android **LiteRT** backend (new in v2.1) is distinct from the
+  bundled-task MediaPipe wrapper. It runs Llama-style stateful
+  `.tflite` / `.litertlm` checkpoints directly on `CompiledModel` with
+  a pure-Kotlin `tokenizer.json` BPE parser. SentencePiece / Unigram
+  tokenizers are not supported — Gemma users should pick the
+  `MediaPipe` backend instead.
+
+For the per-backend modality matrix (text / image / audio / embeddings),
+see [Multimodal](./multimodal.md).
+
+---
+
 ## Performance References
 
 DVAI-Bridge adds an OpenAI-compatible surface + MSW interception on top of each backend — the raw inference speed is whatever the underlying engine delivers. Numbers are heavily hardware- and model-dependent; rather than republish them, here are the upstream sources:
 
 - **WebLLM** — [WebLLM benchmarks](https://webllm.mlc.ai/#chat-demo) publish tokens/sec for common MLC-compiled models on WebGPU (e.g., Llama 3.1 8B Q4 ≈ 41 tok/s and Phi 3.5 mini ≈ 71 tok/s on an M3 Max, ~71–80% of native speed).
 - **Transformers.js** — HuggingFace maintains an official [transformers.js-benchmarking toolkit](https://github.com/huggingface/transformers.js-benchmarking) for WASM / WebGPU / WebNN / Node. Representative numbers are in the [v3 launch post](https://huggingface.co/blog/transformersjs-v3) (e.g., up to ~64× WebGPU-vs-WASM speedup on embeddings; `all-MiniLM-L6-v2` at 8–12 ms/inference on an M2 Air).
-- **llama.cpp (native backend via `llama-cpp-capacitor`)** — [`llama-bench`](https://github.com/ggerganov/llama.cpp/tree/master/examples/llama-bench) is the standard tool for per-device prompt-processing and text-generation throughput; results vary widely across CPUs and mobile GPUs (Metal / Vulkan).
+- **llama.cpp (native backend across `@dvai-bridge/capacitor-llama` / `@dvai-bridge/ios` / `@dvai-bridge/android` / `@dvai-bridge/react-native`)** — [`llama-bench`](https://github.com/ggerganov/llama.cpp/tree/master/examples/llama-bench) is the standard tool for per-device prompt-processing and text-generation throughput; results vary widely across CPUs and mobile GPUs (Metal / Vulkan).
 
 To measure the bridge's own overhead (MSW roundtrip, worker postMessage, streaming adapter), compare `dvai.chatCompletion(...)` to a `fetch(mockUrl, ...)` call of the same prompt — they should differ by a few ms at most on modern browsers.

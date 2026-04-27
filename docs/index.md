@@ -18,7 +18,7 @@ hero:
 
 features:
   - title: 🚀 Multi-Backend
-    details: Seamlessly switch between WebLLM (WebGPU), Transformers.js, and Native LLMs via `llama-cpp-capacitor`.
+    details: Seamlessly switch between WebLLM (WebGPU), Transformers.js, and native llama.cpp / CoreML / MLX / MediaPipe / LiteRT backends via first-party Capacitor + iOS + Android + React Native SDKs.
   - title: 🛡️ Auto-Recovery
     details: Built-in robustness for WebLLM with automatic recovery from blank outputs and timeouts.
   - title: 📱 Native Support

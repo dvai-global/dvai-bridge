@@ -4,6 +4,19 @@ DVAI-Bridge ships first-party Capacitor plugins that run a local
 OpenAI-compatible HTTP server inside your iOS / Android app, fronted
 by a native inference backend.
 
+> [!TIP]
+> **Don't need Capacitor?** Native iOS, native Android, and React Native
+> consumers have direct paths that don't require the Capacitor wrapper.
+> Pick the right guide for your stack:
+>
+> - SwiftUI / UIKit: [iOS Native SDK](./ios-native-sdk.md) — `@dvai-bridge/ios`
+> - Compose / Views / KMP: [Android Native SDK](./android-native-sdk.md) — `@dvai-bridge/android`
+> - React Native ≥ 0.77 (Bridgeless ON): [React Native SDK](./react-native-sdk.md) — `@dvai-bridge/react-native`
+>
+> All three expose the same 8-method `DVAIBridge` API and serve the
+> same OpenAI HTTP surface. The Capacitor packages on this page remain
+> the right choice for hybrid apps and for RN ≤ 0.73 consumers.
+
 > [!NOTE]
 > The previous `llama-cpp-capacitor` integration is **deprecated**.
 > The replacement is the three-package family documented here. See
