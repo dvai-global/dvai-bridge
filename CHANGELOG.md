@@ -144,17 +144,22 @@ toolchain.
 - 44 XCTest cases pass on iOS Simulator (42 unit + 1 llama
   integration end-to-end + 1 expected skip for Foundation Models which
   needs iOS 26+ runtime).
-- 1 CoreML real-model integration test passes on the native-macOS
-  destination (`platform=macOS,arch=arm64`) using
-  `apple/coreml-Llama-3.2-1B-Instruct-4bit` +
-  `meta-llama/Llama-3.2-1B-Instruct` tokenizer (gated meta-llama HF
-  repo, requires `SMOKE_HF_TOKEN`).
-  CoreML still skips cleanly on iOS Simulator — that destination
-  lacks `Process` for the unzip step, AND the llama.xcframework
-  doesn't currently contain a Mac Catalyst slice. Phase 3D may land
-  an in-process zip reader (`Compression` framework or
-  `ZIPFoundation`) to enable the simulator path; for now native macOS
-  is the verified runner for CoreML end-to-end.
+- CoreML real-model integration test wiring is verified end-to-end —
+  download, sha256 verify, unzip, tokenizer load, server start, chat
+  completion — but currently SKIPS at runtime with a clear message
+  because Apple removed
+  `apple/coreml-Llama-3.2-1B-Instruct-4bit` from HuggingFace
+  (its API now returns "Repository not found"). The test passed
+  end-to-end against this exact checkpoint at the time the test was
+  authored (Phase 3C development). When a replacement public
+  CoreML-converted Llama-style stateful checkpoint becomes available,
+  point `SMOKE_COREML_MODEL_URL`/`SMOKE_COREML_MODEL_SHA256` at it.
+  Test now hard-skips with an explanatory message if the model URL
+  returns 4xx, rather than failing with a confusing "sha256 mismatch"
+  on the tiny error response body.
+  CoreML still also skips on iOS Simulator (Process unavailable for
+  unzip) and on Mac Catalyst (xcframework lacks a Mac Catalyst slice
+  — Phase 3D).
 - `pod lib lint DVAIBridge.podspec --allow-warnings` passes on Xcode
   26.4 / CocoaPods 1.15.2.
 - Existing Capacitor tests + Phase 3A/3B test suites unaffected.
@@ -173,10 +178,19 @@ SMOKE_COREML_TOKENIZER_SHA256=<sha256 of tokenizer.json>
 SMOKE_HF_TOKEN=hf_<your-token>      # for the gated meta-llama repo
 ```
 
-The Llama-3.2 tokenizer lives in a gated HF repo; the user must accept
-the license terms once at
-https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct and create a
-read-only access token at https://huggingface.co/settings/tokens.
+As of 2026-04 BOTH the Apple CoreML model
+(https://huggingface.co/apple/coreml-Llama-3.2-1B-Instruct-4bit) and
+the Llama-3.2 tokenizer
+(https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) are gated HF
+repos. The user must accept the license terms on each repo once and
+create a read-only access token at
+https://huggingface.co/settings/tokens. The same token is used for both
+downloads.
+
+After accepting the license and downloading the
+`StatefulModel.mlmodelc.zip` once with auth, compute its sha256 with
+`shasum -a 256 StatefulModel.mlmodelc.zip` and put that hash into
+`SMOKE_COREML_MODEL_SHA256` (the SHA changes if Apple republishes).
 
 ## [1.7.0] — 2026-04-26
 

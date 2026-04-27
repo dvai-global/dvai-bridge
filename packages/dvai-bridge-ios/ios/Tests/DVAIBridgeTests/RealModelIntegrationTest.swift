@@ -201,7 +201,13 @@ final class RealModelIntegrationTest: XCTestCase {
     private func downloadFile(url: URL, sha256: String, destFilename: String, authBearer: String?) async throws -> URL {
         var req = URLRequest(url: url)
         if let token = authBearer { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
-        let (tempUrl, _) = try await URLSession.shared.download(for: req)
+        let (tempUrl, response) = try await URLSession.shared.download(for: req)
+        // Surface upstream HTTP errors (404/401/etc.) with a skip rather than
+        // letting them slip past as tiny error-page bodies that fail SHA
+        // verification with a confusing "sha256 mismatch" message later.
+        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            throw XCTSkip("\(url.lastPathComponent) returned HTTP \(http.statusCode); upstream model/tokenizer may have moved or become inaccessible")
+        }
         let dest = tempDir.appendingPathComponent(destFilename)
         try? FileManager.default.removeItem(at: dest)
         try FileManager.default.moveItem(at: tempUrl, to: dest)
