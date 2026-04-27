@@ -53,6 +53,8 @@ export default defineConfig({
 					{ text: "Transports", link: "/guide/transports" },
 					{ text: "Native LLM (Capacitor)", link: "/guide/native-backend" },
 					{ text: "Capacitor Quickstart", link: "/guide/quickstart-capacitor" },
+					{ text: "iOS Native SDK", link: "/guide/ios-native-sdk" },
+					{ text: "MLX Backend", link: "/guide/mlx-backend" },
 					{ text: "Model Distribution", link: "/guide/model-distribution" },
 					{ text: "Multimodal", link: "/guide/multimodal" },
 					{ text: "Tested Models", link: "/guide/tested-models" },
