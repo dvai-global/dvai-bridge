@@ -1,10 +1,10 @@
-// Internal/PluginState.swift
+// Internal/FoundationPluginState.swift
 //
 // Owns the running state of the capacitor-foundation plugin: the embedded
 // HTTP server and the FoundationHandlers instance. All access is serialised
 // through actor isolation.
 //
-// Differences from capacitor-llama's PluginState:
+// Differences from capacitor-llama's FoundationPluginState:
 //   - No model bridge: Apple FM owns the model inside `LanguageModelSession`,
 //     so there is no `LlamaCppBridge` analogue.
 //   - No `modelPath` opt: the system model is implicit.
@@ -17,8 +17,8 @@
 
 import Foundation
 
-public actor PluginState {
-    private var server: HttpServer?
+public actor FoundationPluginState {
+    private var server: FoundationHttpServer?
     /// Type-erased reference to the live `FoundationHandlers` instance.
     /// Stored as `AnyObject?` rather than `FoundationHandlers?` so we
     /// don't have to mark the entire actor `@available(iOS 26.0, *)` —
@@ -67,7 +67,7 @@ public actor PluginState {
         let modelId = modelIdOverride ?? "apple-foundation-3b"
 
         // Bind server with port-fallback (mirrors capacitor-llama).
-        let server = HttpServer()
+        let server = FoundationHttpServer()
         let port = try await server.tryBind(
             basePort: httpBasePort,
             maxAttempts: httpMaxPortAttempts,

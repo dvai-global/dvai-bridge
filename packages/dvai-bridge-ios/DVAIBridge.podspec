@@ -75,6 +75,13 @@ Pod::Spec.new do |s|
     cp -R ../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCore Sources/_external/
     cp -R ../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC Sources/_external/
     cp -R ../dvai-bridge-ios-foundation-core/ios/Sources/DVAIFoundationCore Sources/_external/
+    # Both cores ship a HandlerContext.swift and HandlerDispatch.swift with
+    # identical content (verified pre-vendor) — dedupe by dropping the
+    # FoundationCore copies; llama core's stay. (FoundationCore's
+    # FoundationHttpServer.swift / FoundationPluginState.swift are already
+    # uniquely named in source.)
+    rm -f Sources/_external/DVAIFoundationCore/HandlerContext.swift
+    rm -f Sources/_external/DVAIFoundationCore/HandlerDispatch.swift
   SH
 
   s.vendored_frameworks = [

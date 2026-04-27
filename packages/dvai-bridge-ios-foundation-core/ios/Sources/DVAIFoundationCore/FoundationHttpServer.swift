@@ -1,4 +1,4 @@
-// Internal/HttpServer.swift
+// Internal/FoundationHttpServer.swift
 import Foundation
 import Telegraph
 
@@ -7,7 +7,7 @@ import Telegraph
 /// Telegraph 0.40 exposes a synchronous, throwing `start(port:interface:)`
 /// and a synchronous `stop(immediately:)`. We wrap those in an `actor` so
 /// concurrent callers see consistent state.
-actor HttpServer {
+actor FoundationHttpServer {
     private var server: Server?
     private(set) var boundPort: Int?
 
