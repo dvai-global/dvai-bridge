@@ -1,5 +1,5 @@
 //
-//  Decoder.swift
+//  TokenizerStepDecoder.swift
 //
 //
 //  Created by Pedro Cuenca on 17/7/23.
@@ -15,7 +15,7 @@ import Hub
 /// Decoders handle the reverse transformation of tokens into human-readable text,
 /// performing operations like removing special prefixes, converting byte representations
 /// back to characters, and joining token pieces into words.
-public protocol Decoder {
+public protocol TokenizerStepDecoder {
     /// Decodes tokens back into text components.
     ///
     /// - Parameter tokens: The token strings to decode
@@ -34,7 +34,7 @@ public protocol Decoder {
     init(config: Config)
 }
 
-extension Decoder {
+extension TokenizerStepDecoder {
     func callAsFunction(tokens: [String]) -> [String] {
         decode(tokens: tokens)
     }
@@ -53,7 +53,7 @@ enum DecoderType: String {
 }
 
 struct DecoderFactory {
-    static func fromConfig(config: Config?, addedTokens: Set<String>? = nil) -> Decoder? {
+    static func fromConfig(config: Config?, addedTokens: Set<String>? = nil) -> TokenizerStepDecoder? {
         // TODO: not sure if we need to include `addedTokens` in all the decoder initializers (and the protocol)
         guard let config else { return nil }
         guard let typeName = config.type.string() else { return nil }
@@ -67,12 +67,12 @@ struct DecoderFactory {
         case .Strip: return StripDecoder(config: config)
         case .Metaspace: return MetaspaceDecoder(config: config)
         case .WordPiece: return WordPieceDecoder(config: config)
-        default: fatalError("Unsupported Decoder type: \(typeName)")
+        default: fatalError("Unsupported TokenizerStepDecoder type: \(typeName)")
         }
     }
 }
 
-class WordPieceDecoder: Decoder {
+class WordPieceDecoder: TokenizerStepDecoder {
     let prefix: String
     let cleanup: Bool
 
@@ -102,8 +102,8 @@ class WordPieceDecoder: Decoder {
     }
 }
 
-class DecoderSequence: Decoder {
-    let decoders: [Decoder]
+class DecoderSequence: TokenizerStepDecoder {
+    let decoders: [TokenizerStepDecoder]
 
     required init(config: Config) {
         guard let configs = config.decoders.array() else { fatalError("No decoders in Sequence") }
@@ -117,7 +117,7 @@ class DecoderSequence: Decoder {
     }
 }
 
-class ByteLevelDecoder: Decoder {
+class ByteLevelDecoder: TokenizerStepDecoder {
     let addedTokens: Set<String>
 
     required init(config: Config) {
@@ -159,7 +159,7 @@ class ByteLevelDecoder: Decoder {
     }
 }
 
-class ReplaceDecoder: Decoder {
+class ReplaceDecoder: TokenizerStepDecoder {
     let pattern: StringReplacePattern?
 
     required init(config: Config) {
@@ -172,7 +172,7 @@ class ReplaceDecoder: Decoder {
     }
 }
 
-class ByteFallbackDecoder: Decoder {
+class ByteFallbackDecoder: TokenizerStepDecoder {
     required init(config: Config) {}
 
     func decode(tokens: [String]) -> [String] {
@@ -205,7 +205,7 @@ class ByteFallbackDecoder: Decoder {
     }
 }
 
-class FuseDecoder: Decoder {
+class FuseDecoder: TokenizerStepDecoder {
     required init(config: Config) {}
 
     func decode(tokens: [String]) -> [String] {
@@ -213,7 +213,7 @@ class FuseDecoder: Decoder {
     }
 }
 
-class StripDecoder: Decoder {
+class StripDecoder: TokenizerStepDecoder {
     let content: String
     let start: Int
     let stop: Int
@@ -234,7 +234,7 @@ class StripDecoder: Decoder {
     }
 }
 
-class MetaspaceDecoder: Decoder {
+class MetaspaceDecoder: TokenizerStepDecoder {
     let addPrefixSpace: Bool
     let replacement: String
 

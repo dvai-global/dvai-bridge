@@ -27,11 +27,13 @@ Pod::Spec.new do |s|
     'ios/Sources/DVAIBridge/**/*.swift',
     # CoreML backend (uses vendored Tokenizers + Hub + Jinja)
     'ios/Sources/DVAICoreMLCore/**/*.swift',
-    # llama.cpp backend Swift + ObjC++ bridge
-    '../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCore/**/*.swift',
-    '../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC/**/*.{h,mm}',
-    # Foundation Models (iOS 26+) backend
-    '../dvai-bridge-ios-foundation-core/ios/Sources/DVAIFoundationCore/**/*.swift',
+    # llama.cpp backend + Foundation Models backend — copied from sibling
+    # `*-core` packages into Sources/_external/ by prepare_command, because
+    # CocoaPods' file globs do not follow `..` paths reliably across pod
+    # boundaries.
+    'Sources/_external/DVAILlamaCore/**/*.swift',
+    'Sources/_external/DVAILlamaCoreObjC/**/*.{h,mm}',
+    'Sources/_external/DVAIFoundationCore/**/*.swift',
     # Vendored swift-transformers stack — see Vendor/swift-transformers/ for
     # upstream attributions and the rationale for stripping HubApi.swift.
     'Vendor/swift-transformers/Tokenizers/**/*.swift',
@@ -66,6 +68,13 @@ Pod::Spec.new do |s|
       rm -rf Frameworks/mtmd.xcframework
       cp -R "$XCF_SRC/mtmd.xcframework" Frameworks/mtmd.xcframework
     fi
+    # Mirror sibling-package source dirs into Sources/_external/ so they're
+    # visible to CocoaPods' file glob (it doesn't follow `..` paths).
+    rm -rf Sources/_external
+    mkdir -p Sources/_external
+    cp -R ../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCore Sources/_external/
+    cp -R ../dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC Sources/_external/
+    cp -R ../dvai-bridge-ios-foundation-core/ios/Sources/DVAIFoundationCore Sources/_external/
   SH
 
   s.vendored_frameworks = [

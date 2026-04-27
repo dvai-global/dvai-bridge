@@ -475,7 +475,7 @@ public class PreTrainedTokenizer: @unchecked Sendable, Tokenizer {
     private let preTokenizer: PreTokenizer?
     private let normalizer: Normalizer?
     private let postProcessor: PostProcessor?
-    private let decoder: Decoder?
+    private let decoder: TokenizerStepDecoder?
     private let tokenizerConfig: Config
 
     private let cleanUpTokenizationSpaces: Bool
@@ -794,7 +794,7 @@ public class PreTrainedTokenizer: @unchecked Sendable, Tokenizer {
         }
 
         let template = try compiledTemplate(for: selectedChatTemplate)
-        var context: [String: Jinja.Value] = try [
+        var context: [String: Value] = try [
             "messages": .array(messages.map { try Value(any: $0) }),
             "add_generation_prompt": .boolean(addGenerationPrompt),
         ]
