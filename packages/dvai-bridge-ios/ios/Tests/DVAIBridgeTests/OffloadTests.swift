@@ -178,7 +178,8 @@ final class OffloadTests: XCTestCase {
         XCTAssertEqual(listed.count, 1)
 
         try await store2.remove("PEER1")
-        XCTAssertNil(await store2.get("PEER1"))
+        let afterRemove = await store2.get("PEER1")
+        XCTAssertNil(afterRemove)
     }
 
     // MARK: - 5. PairingPolicy approveOrFetch — denial fallback
