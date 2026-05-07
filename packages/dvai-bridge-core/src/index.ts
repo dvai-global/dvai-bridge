@@ -161,6 +161,18 @@ export interface DVAIConfig {
 	httpBindHost?: string;
 
 	/**
+	 * Phase 4 — first-chance interceptor for /v1/chat/completions. The
+	 * v3.1 Hub uses this to apply substitution-policy + engine-bridge
+	 * routing before falling through to the default local-backend
+	 * handler. Return a Response → that's what the client gets;
+	 * return null → fall through to the local backend.
+	 */
+	chatCompletionInterceptor?: (
+		body: any,
+		ctx: import("./handlers/context.js").HandlerContext,
+	) => Promise<Response | null>;
+
+	/**
 	 * HTTP-only. Controls the Access-Control-Allow-Origin response header.
 	 * - "*"               → echo "*" (default; dev-friendly)
 	 * - "https://x.com"   → echo that exact origin
@@ -227,6 +239,12 @@ export class DVAI {
 	public httpMaxPortAttempts: number;
 	public corsOrigin: string | string[];
 	public httpBindHost: string | undefined;
+	public chatCompletionInterceptor:
+		| ((
+				body: any,
+				ctx: import("./handlers/context.js").HandlerContext,
+			) => Promise<Response | null>)
+		| undefined;
 
 	/** Resolved transport kind after selectTransport() runs. */
 	private resolvedTransport: "msw" | "http" | "none" | "capacitor" = "none";
@@ -306,6 +324,7 @@ export class DVAI {
 		this.httpMaxPortAttempts = config.httpMaxPortAttempts ?? 16;
 		this.corsOrigin = config.corsOrigin ?? "*";
 		this.httpBindHost = config.httpBindHost;
+		this.chatCompletionInterceptor = config.chatCompletionInterceptor;
 
 		// Resolve explicit backends immediately so getActiveBackend() is correct
 		// before initialize(). "auto" defers to initialize() for runtime env detection.
@@ -649,6 +668,11 @@ export class DVAI {
 			get dvaiRoutes() {
 				return self.dvaiRoutes;
 			},
+			// Phase 4 — Hub injects this to enforce substitution policy
+			// + engine-bridge routing.
+			...(this.chatCompletionInterceptor !== undefined
+				? { chatCompletionInterceptor: this.chatCompletionInterceptor }
+				: {}),
 		};
 	}
 
