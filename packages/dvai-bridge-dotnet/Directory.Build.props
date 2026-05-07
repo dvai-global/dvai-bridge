@@ -5,7 +5,7 @@
     Version is bumped in lockstep by scripts/sync-versions.js (Task 14).
   -->
   <PropertyGroup>
-    <Version>2.4.2</Version>
+    <Version>3.0.0</Version>
     <Authors>Deep Voice AI</Authors>
     <Company>Deep Voice AI</Company>
     <Copyright>Copyright (c) 2026 Deep Voice AI</Copyright>

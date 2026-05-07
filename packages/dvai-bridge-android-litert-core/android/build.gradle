@@ -162,7 +162,7 @@ afterEvaluate {
             release(MavenPublication) {
                 groupId = 'co.deepvoiceai'
                 artifactId = 'android-litert-core'
-                version = (project.findProperty('dvaiBridgeVersion') ?: '2.4.2').toString()
+                version = (project.findProperty('dvaiBridgeVersion') ?: '3.0.0').toString()
                 from components.release
             }
         }
