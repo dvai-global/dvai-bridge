@@ -24,6 +24,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_notification::NotificationExt;
 use thiserror::Error;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
@@ -170,8 +171,42 @@ impl SidecarManager {
                     // Notification — forward to the frontend over Tauri events.
                     (None, Some(method)) => {
                         let payload = env.params.unwrap_or(Value::Null);
-                        if let Err(e) = app_handle.emit(&method, payload) {
+                        if let Err(e) = app_handle.emit(&method, payload.clone()) {
                             log::warn!("failed to emit notification {method}: {e}");
+                        }
+                        // Also fire a system notification on pairing-request
+                        // so the user sees it when the dashboard window is hidden.
+                        if method == "pairing-request" {
+                            let device_name = payload
+                                .get("request")
+                                .and_then(|r| r.get("peerDeviceName"))
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("a device")
+                                .to_string();
+                            let app_name = payload
+                                .get("request")
+                                .and_then(|r| r.get("appName"))
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string())
+                                .or_else(|| {
+                                    payload
+                                        .get("request")
+                                        .and_then(|r| r.get("appId"))
+                                        .and_then(|v| v.as_str())
+                                        .map(|s| s.to_string())
+                                })
+                                .unwrap_or_else(|| "an app".to_string());
+                            let body =
+                                format!("{device_name} wants to pair on behalf of {app_name}.");
+                            if let Err(e) = app_handle
+                                .notification()
+                                .builder()
+                                .title("DVAI Hub — pairing request")
+                                .body(body)
+                                .show()
+                            {
+                                log::warn!("system notification failed: {e}");
+                            }
                         }
                     }
                     _ => {

@@ -139,3 +139,102 @@ body {
   border-color: var(--accent);
   color: white;
 }
+
+/* Buttons (shared for the in-pane actions) */
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 16px 0;
+}
+.actions button {
+  background: transparent;
+  border: 1px solid #2a2d36;
+  color: var(--fg);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.actions button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+.actions select {
+  background: var(--bg-elevated);
+  color: var(--fg);
+  border: 1px solid #2a2d36;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+/* Key-value grid for status surfaces */
+.kvgrid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 24px;
+  margin: 16px 0;
+  font-size: 13px;
+}
+.kvgrid .k { color: var(--fg-muted); }
+.kvgrid .v { color: var(--fg); }
+
+/* Callouts */
+.callout {
+  background: rgba(74,144,226,0.07);
+  border-left: 3px solid var(--accent);
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin: 16px 0;
+  font-size: 13px;
+}
+
+/* Grouped tables (paired apps) */
+.group {
+  background: var(--bg-elevated);
+  border: 1px solid #2a2d36;
+  border-radius: 6px;
+  margin: 16px 0;
+  padding: 16px;
+}
+.group header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.group header h3 { margin: 0; font-size: 15px; }
+.group header code { font-size: 11px; color: var(--fg-muted); }
+.group header .meta { margin-left: auto; color: var(--fg-muted); font-size: 12px; }
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--fg-muted);
+  border-bottom: 1px solid #2a2d36;
+  padding: 8px 8px 8px 0;
+}
+table td {
+  padding: 8px 8px 8px 0;
+  border-bottom: 1px solid #1f222a;
+  vertical-align: top;
+}
+table button {
+  background: transparent;
+  border: 1px solid #2a2d36;
+  color: var(--fg);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+table button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+code.dim { color: var(--fg-muted); font-size: 11px; }
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.err { color: var(--err); }
