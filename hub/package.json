@@ -1,0 +1,27 @@
+{
+  "name": "dvai-hub",
+  "version": "3.1.0",
+  "private": true,
+  "description": "DVAI Hub — household-utility flavor of distributed inference. Run on a strong device; pair from any number of dvai-bridge mobile apps.",
+  "license": "Custom (See ../LICENSE)",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build:peer-mode": "tsc -p peer-mode/tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint peer-mode tests",
+    "dev:tauri": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "@dvai-bridge/core": "workspace:*",
+    "@noble/curves": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
