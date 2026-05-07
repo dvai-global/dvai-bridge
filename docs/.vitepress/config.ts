@@ -105,6 +105,7 @@ export default defineConfig({
 					{ text: "Testing", link: "/development/testing" },
 					{ text: "Handler Parity", link: "/development/handler-parity" },
 					{ text: "Mac Remote Builds", link: "/development/mac-remote-builds" },
+					{ text: "Distributed Inference Testing (v3.0)", link: "/development/distributed-inference-testing" },
 				],
 			},
 		],
