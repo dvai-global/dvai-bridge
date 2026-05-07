@@ -189,8 +189,10 @@ final class OffloadTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         let store = PairingStore(directory: dir)
-        let policy = PairingPolicy(store: store, expireAfterDays: 30)
-        // No consumer attached → first call should deny.
+        // Use a short timeout so the test fails fast if the request
+        // hangs.
+        let policy = PairingPolicy(store: store, expireAfterDays: 30, responseTimeoutSeconds: 0.5)
+        // No consumer attached → request times out and policy denies.
         do {
             _ = try await policy.approveOrFetch(
                 peerDeviceId: "PEER-X",
@@ -212,7 +214,7 @@ final class OffloadTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
 
         let store = PairingStore(directory: dir)
-        let policy = PairingPolicy(store: store, expireAfterDays: 30)
+        let policy = PairingPolicy(store: store, expireAfterDays: 30, responseTimeoutSeconds: 5)
         let stream = policy.requestStream
 
         // Drain the stream concurrently and approve every request.

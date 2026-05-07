@@ -40,49 +40,77 @@ public struct Pairing: Sendable, Equatable, Codable, Hashable {
     }
 }
 
-/// Surfaced to the host app as an item in `DVAIBridge.shared.pairingRequests`.
-/// The host app decides approve/deny, then calls `respond(approved:)`.
-public final class PairingRequest: Sendable {
+/// Surfaced to the host app as an item in the
+/// `DVAIBridge.shared.pairingRequests()` AsyncStream. The host app
+/// decides approve/deny, then calls `respond(approved:)`.
+///
+/// If the host doesn't call `respond(approved:)` within the policy's
+/// timeout, the request defaults to deny — see `PairingPolicy`.
+public final class PairingRequest: @unchecked Sendable {
     public let peerDeviceId: String
     public let peerDeviceName: String
     public let via: Pairing.Via
-    private let continuation: CheckedContinuation<Bool, Never>
-    private let respondedFlag: ResponseFlag
+
+    private let lock = NSLock()
+    private var responded = false
+    private var pendingValue: Bool?
+    /// Continuation used by the policy to await the host's respond.
+    /// Lazily set when `awaitResponse()` is called the first time.
+    private var awaitContinuation: CheckedContinuation<Bool, Never>?
 
     public init(
         peerDeviceId: String,
         peerDeviceName: String,
-        via: Pairing.Via,
-        continuation: CheckedContinuation<Bool, Never>
+        via: Pairing.Via
     ) {
         self.peerDeviceId = peerDeviceId
         self.peerDeviceName = peerDeviceName
         self.via = via
-        self.continuation = continuation
-        self.respondedFlag = ResponseFlag()
     }
 
+    /// Host-app entry point. Approve or deny the pairing.
     public func respond(approved: Bool) {
-        guard respondedFlag.markResponded() else { return }
-        continuation.resume(returning: approved)
-    }
-
-    deinit {
-        // If the host app never responded, default to deny so the
-        // continuation always resumes (safer than leaking).
-        if respondedFlag.markResponded() {
-            continuation.resume(returning: false)
+        lock.lock()
+        if responded {
+            lock.unlock()
+            return
+        }
+        responded = true
+        if let cont = awaitContinuation {
+            awaitContinuation = nil
+            lock.unlock()
+            cont.resume(returning: approved)
+        } else {
+            // No one's awaiting yet — store the value for whoever
+            // calls awaitResponse() next.
+            pendingValue = approved
+            lock.unlock()
         }
     }
 
-    private final class ResponseFlag: @unchecked Sendable {
-        private var responded = false
-        private let lock = NSLock()
-        func markResponded() -> Bool {
-            lock.lock(); defer { lock.unlock() }
-            if responded { return false }
-            responded = true
-            return true
+    /// Internal — used by `PairingPolicy` to await the host response.
+    /// Resumes when `respond(approved:)` is called or returns `false`
+    /// when `cancelWithDeny()` is called.
+    internal func awaitResponse() async -> Bool {
+        return await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+            lock.lock()
+            if let stored = pendingValue {
+                pendingValue = nil
+                lock.unlock()
+                cont.resume(returning: stored)
+            } else if responded {
+                lock.unlock()
+                cont.resume(returning: false)
+            } else {
+                awaitContinuation = cont
+                lock.unlock()
+            }
         }
+    }
+
+    /// Internal — fast-path deny used by the policy on timeout / stream
+    /// teardown / drop.
+    internal func cancelWithDeny() {
+        respond(approved: false)
     }
 }
