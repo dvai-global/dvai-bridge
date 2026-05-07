@@ -47,7 +47,7 @@ export async function signHmac(
   const keyBytes = decodeBase64UrlBytes(pairingKey);
   const cryptoKey = await cryptoApi.subtle.importKey(
     "raw",
-    keyBytes as ArrayBuffer,
+    keyBytes as unknown as ArrayBuffer,
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
@@ -55,7 +55,7 @@ export async function signHmac(
   const sig = await cryptoApi.subtle.sign(
     "HMAC",
     cryptoKey,
-    new TextEncoder().encode(message) as ArrayBuffer,
+    new TextEncoder().encode(message) as unknown as ArrayBuffer,
   );
   return encodeBase64Url(new Uint8Array(sig));
 }
@@ -117,7 +117,7 @@ async function sha256Hex(input: string): Promise<string> {
   }
   const buf = await cryptoApi.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(input) as ArrayBuffer,
+    new TextEncoder().encode(input) as unknown as ArrayBuffer,
   );
   return Array.from(new Uint8Array(buf))
     .map((b) => b.toString(16).padStart(2, "0"))
