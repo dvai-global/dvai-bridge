@@ -529,20 +529,25 @@ export class DVAI {
 					'[DVAI] backend: "native" requires `nativeModelPath` (path to a GGUF file).',
 				);
 			}
+			// Use modelId only if the consumer customized it; otherwise let
+			// the backend derive it from the GGUF basename. The default
+			// WebLLM model id is meaningless for the native backend.
+			const customModelId =
+				this.modelId !== "gemma-2-2b-it-q4f16_1-MLC" ? this.modelId : undefined;
 			const backend = new NodeLlamaCppBackend({
 				modelPath: this.nativeModelPath,
 				gpuLayers: this.nativeGpuLayers,
 				threads: this.nativeThreads,
 				contextSize: this.nativeContextSize,
 				generationTimeout: this.generationTimeout,
-				modelId: this.modelId,
+				modelId: customModelId,
 			});
 			await backend.initialize(onProgress);
 			this.backendInstance = backend;
 			// Echo the resolved model identifier (basename if not provided)
 			this.modelId = backend.getModelId();
 			console.log(
-				`[DVAI] node-llama-cpp backend ready (gpuLayers=${this.nativeGpuLayers}, contextSize=${this.nativeContextSize})`,
+				`[DVAI] node-llama-cpp backend ready (modelId="${this.modelId}", gpuLayers=${this.nativeGpuLayers}, contextSize=${this.nativeContextSize})`,
 			);
 			return;
 		}
