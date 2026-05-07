@@ -101,6 +101,73 @@ When you're done:
 try await DVAIBridge.shared.stop()
 ```
 
+## Distributed inference (`OffloadConfig`) — v3.0
+
+`OffloadConfig` is opt-in (`enabled: false` by default). When enabled,
+the bridge advertises this device on Bonjour
+(`_dvai-bridge._tcp`), discovers LAN peers, and can route inference to a
+peer that's already loaded the requested model. Pairing requests are
+surfaced to the host UI as an `AsyncStream<PairingRequest>`; the user
+approves or denies, and the trust relationship persists in
+`Application Support/dvai-bridge/pairings.json`.
+
+```swift
+import DVAIBridge
+
+func startWithOffload() async throws {
+    let server = try await DVAIBridge.shared.start(StartOptions(
+        backend: .llama,
+        modelPath: "/path/to/Llama-3.2-1B-Instruct.Q4_K_M.gguf",
+        offload: OffloadConfig(
+            enabled: true,
+            discoverLAN: true,
+            minLocalCapability: 10,        // fall through to peer below 10 tok/s
+            rendezvousUrl: nil,            // set to a wss:// URL for internet path
+            knownPeers: [],                // optional pre-known peers
+            expireAfterDays: 30            // pairing TTL
+        )
+    ))
+    print(server.baseUrl)
+}
+```
+
+Surface incoming pairing requests to the user:
+
+```swift
+Task.detached {
+    for await req in await DVAIBridge.shared.pairingRequests() {
+        // Show your UI: "Allow <req.peerDeviceName> to send inference?"
+        let approved = await showPairingPrompt(req.peerDeviceName)
+        req.respond(approved: approved)
+    }
+}
+```
+
+If the host doesn't respond inside the policy timeout (default 30s),
+the request defaults to **deny** — the same safe fallback the JS layer
+uses when no `onPairingRequest` callback is supplied.
+
+You can also subscribe to LAN-discovery events:
+
+```swift
+if #available(iOS 14.0, *) {
+    Task.detached {
+        for await event in await DVAIBridge.shared.discoveryEvents() {
+            switch event {
+            case .peerUp(let peer):    print("up:", peer.deviceName)
+            case .peerDown(let id):    print("down:", id)
+            case .error(let msg):      print("err:", msg)
+            }
+        }
+    }
+}
+```
+
+The same on-disk JSON formats are shared with the Node and browser
+layers (see `docs/migration/v2.4-to-v3.0.md`), so a Mac app running
+both an Electron and an iOS-Catalyst build round-trips one capability
+cache and pairing store.
+
 ## Backends
 
 | `BackendKind` | Inference engine | Model format | iOS minimum | Notes |
