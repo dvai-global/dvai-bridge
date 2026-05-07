@@ -87,8 +87,17 @@ pub fn run() {
     builder.run(|_app_handle, event| {
         // Hold the app alive in the background when the window closes — the
         // tray icon stays visible and peer-mode keeps serving requests.
-        if let tauri::RunEvent::ExitRequested { api, .. } = &event {
-            api.prevent_exit();
+        //
+        // Distinguish two ExitRequested sources:
+        //   * code = None  → OS close signal (window X click, last-window
+        //                    closed). Prevent exit so the Hub stays in tray.
+        //   * code = Some  → explicit `app.exit(code)` call (tray Quit
+        //                    menu, IPC shutdown). Honor the request — the
+        //                    user genuinely wants the app down.
+        if let tauri::RunEvent::ExitRequested { code, api, .. } = &event {
+            if code.is_none() {
+                api.prevent_exit();
+            }
         }
     });
 }
