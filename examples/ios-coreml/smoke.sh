@@ -18,8 +18,9 @@ cd "$(dirname "$0")"
 
 DEST="${IOS_DEST:-platform=iOS Simulator,name=iPhone 16,OS=18.5}"
 
+mkdir -p ./build
 xcodebuild test \
-  -scheme IOSCoreMLApp \
+  -scheme ios-coreml \
   -destination "$DEST" \
   -configuration Debug \
   -resultBundlePath ./build/SmokeResults.xcresult \

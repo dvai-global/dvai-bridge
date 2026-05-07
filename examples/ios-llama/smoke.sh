@@ -21,8 +21,11 @@ cd "$(dirname "$0")"
 
 DEST="${IOS_DEST:-platform=iOS Simulator,name=iPhone 16,OS=18.5}"
 
+mkdir -p ./build
+# SwiftPM-generated scheme name matches Package.swift's `name:`,
+# i.e. `ios-llama`, not the product name `IOSLlamaApp`.
 xcodebuild test \
-  -scheme IOSLlamaApp \
+  -scheme ios-llama \
   -destination "$DEST" \
   -configuration Debug \
   -resultBundlePath ./build/SmokeResults.xcresult \

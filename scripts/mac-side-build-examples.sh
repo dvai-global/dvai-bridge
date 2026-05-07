@@ -24,11 +24,14 @@ esac
 
 DEST="${IOS_DEST:-platform=iOS Simulator,name=iPhone 16,OS=18.5}"
 
+# For SwiftPM packages without an Xcode project, the auto-generated
+# scheme name matches the Package.swift `name:` (i.e. the directory
+# name), not the product name. So `ios-llama` not `IOSLlamaApp`.
 EXAMPLES=(
-  "ios-llama:IOSLlamaApp"
-  "ios-foundation:IOSFoundationApp"
-  "ios-coreml:IOSCoreMLApp"
-  "ios-mlx:IOSMLXApp"
+  "ios-llama:ios-llama"
+  "ios-foundation:ios-foundation"
+  "ios-coreml:ios-coreml"
+  "ios-mlx:ios-mlx"
 )
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
