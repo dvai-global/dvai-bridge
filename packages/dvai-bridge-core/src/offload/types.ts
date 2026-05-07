@@ -30,8 +30,25 @@ export interface OffloadConfig {
   rendezvousUrl?: string;
   /** Optional pre-known peers (skip discovery). */
   knownPeers?: Peer[];
-  /** Hook to surface pairing-request UI to the host app. Default: deny. */
-  onPairingRequest?: (peer: Peer) => Promise<boolean>;
+  /**
+   * Hook to surface pairing-request UI to the host app. Default: deny.
+   *
+   * Return:
+   *   - `true` / `false` — boolean approve/deny. PairingPolicy generates
+   *     a fresh pairingKey on approval.
+   *   - `{ approved: true, pairingKey }` — host has its own pairing
+   *     state (the v3.1 Hub's MultiTenantPairing) and wants the
+   *     library to use the host-supplied key. Avoids the library
+   *     generating a key that diverges from the host's store.
+   *   - `{ approved: false }` — denied.
+   */
+  onPairingRequest?: (
+    peer: Peer,
+  ) => Promise<
+    | boolean
+    | { approved: true; pairingKey: string }
+    | { approved: false }
+  >;
   /** Diagnostic callback when a request is offloaded. */
   onOffload?: (peer: Peer) => void;
   /** Hook to plug a custom discovery source. */

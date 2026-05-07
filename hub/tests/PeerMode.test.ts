@@ -81,9 +81,10 @@ describe("PeerMode — lifecycle", () => {
     expect(peer.getStatus().baseUrl).toBeNull();
   });
 
-  it("dvaiFactory's onPairingRequest forwards through MultiTenantPairing (Peer.deviceId → appId)", async () => {
+  it("dvaiFactory's onPairingRequest forwards through MultiTenantPairing (Peer.deviceId → appId, returns pairingKey)", async () => {
     let approvalCalled = 0;
-    let dvaiCallback: ((peer: { deviceId: string; deviceName: string; dvaiVersion: string; baseUrl: string }) => Promise<boolean>) | undefined;
+    type PairingResult = boolean | { approved: true; pairingKey: string } | { approved: false };
+    let dvaiCallback: ((peer: { deviceId: string; deviceName: string; dvaiVersion: string; baseUrl: string }) => Promise<PairingResult>) | undefined;
     const peer = new PeerMode({
       storeDir: tmpDir,
       externalEnginesEnabled: false,
@@ -104,24 +105,31 @@ describe("PeerMode — lifecycle", () => {
     await peer.start();
     expect(dvaiCallback).toBeDefined();
     // Simulate a v3.0 Peer arriving at the handshake.
-    const ok = await dvaiCallback!({
+    const result = await dvaiCallback!({
       deviceId: "android-pixel-9",
       deviceName: "Pixel 9",
       dvaiVersion: "3.1.0",
       baseUrl: "http://192.168.1.42:38883",
     });
-    expect(ok).toBe(true);
+    expect(typeof result).toBe("object");
+    expect((result as { approved: boolean }).approved).toBe(true);
+    expect(typeof (result as { pairingKey: string }).pairingKey).toBe("string");
+    expect((result as { pairingKey: string }).pairingKey.length).toBeGreaterThan(20);
     expect(approvalCalled).toBe(1);
     // Pairing should be recorded under appId == deviceId (v3.1 fallback).
     const pairings = await peer.listAllPairings();
     expect(pairings.length).toBe(1);
     expect(pairings[0]?.appId).toBe("android-pixel-9");
     expect(pairings[0]?.peerDeviceId).toBe("android-pixel-9");
+    // The returned pairingKey should match what's stored on disk so
+    // the core PairingPolicy and Hub's MultiTenantPairing agree.
+    expect((result as { pairingKey: string }).pairingKey).toBe(pairings[0]?.pairingKey);
     await peer.stop();
   });
 
-  it("dvaiFactory's onPairingRequest returns false when user denies", async () => {
-    let dvaiCallback: ((peer: { deviceId: string; deviceName: string; dvaiVersion: string; baseUrl: string }) => Promise<boolean>) | undefined;
+  it("dvaiFactory's onPairingRequest returns { approved: false } when user denies", async () => {
+    type PairingResult = boolean | { approved: true; pairingKey: string } | { approved: false };
+    let dvaiCallback: ((peer: { deviceId: string; deviceName: string; dvaiVersion: string; baseUrl: string }) => Promise<PairingResult>) | undefined;
     const peer = new PeerMode({
       storeDir: tmpDir,
       externalEnginesEnabled: false,
@@ -137,18 +145,19 @@ describe("PeerMode — lifecycle", () => {
       },
     });
     await peer.start();
-    const ok = await dvaiCallback!({
+    const result = await dvaiCallback!({
       deviceId: "denied-phone",
       deviceName: "Phone",
       dvaiVersion: "3.1.0",
       baseUrl: "http://x",
     });
-    expect(ok).toBe(false);
+    expect((result as { approved: boolean }).approved).toBe(false);
     await peer.stop();
   });
 
-  it("dvaiFactory's onPairingRequest returns false when appId is not in allowedAppIds (Flavor 2)", async () => {
-    let dvaiCallback: ((peer: { deviceId: string; deviceName: string; dvaiVersion: string; baseUrl: string }) => Promise<boolean>) | undefined;
+  it("dvaiFactory's onPairingRequest returns { approved: false } when appId is not in allowedAppIds (Flavor 2)", async () => {
+    type PairingResult = boolean | { approved: true; pairingKey: string } | { approved: false };
+    let dvaiCallback: ((peer: { deviceId: string; deviceName: string; dvaiVersion: string; baseUrl: string }) => Promise<PairingResult>) | undefined;
     const peer = new PeerMode({
       storeDir: tmpDir,
       externalEnginesEnabled: false,
@@ -165,13 +174,13 @@ describe("PeerMode — lifecycle", () => {
       },
     });
     await peer.start();
-    const ok = await dvaiCallback!({
+    const result = await dvaiCallback!({
       deviceId: "different-device",  // not in allowedAppIds
       deviceName: "Phone",
       dvaiVersion: "3.1.0",
       baseUrl: "http://x",
     });
-    expect(ok).toBe(false);
+    expect((result as { approved: boolean }).approved).toBe(false);
     await peer.stop();
   });
 
