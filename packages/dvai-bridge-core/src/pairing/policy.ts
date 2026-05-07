@@ -12,8 +12,16 @@ import type { Pairing, PairingStore } from "./types.js";
 
 export interface PairingPolicyOptions {
   store: PairingStore;
-  /** Host-app callback that returns user's approve/deny. */
-  onPairingRequest?: (peerDeviceId: string, peerDeviceName: string) => Promise<boolean>;
+  /**
+   * Host-app callback that returns user's approve/deny. Receives
+   * `peerDeviceId`, `peerDeviceName`, and (v3.1+) the optional `appId`
+   * — host apps can use that for multi-tenant routing decisions.
+   */
+  onPairingRequest?: (
+    peerDeviceId: string,
+    peerDeviceName: string,
+    appId?: string,
+  ) => Promise<boolean>;
   /** Pairing TTL in days. Default 30. */
   expireAfterDays?: number;
 }
@@ -22,6 +30,15 @@ export interface IncomingHandshake {
   peerDeviceId: string;
   peerDeviceName: string;
   via: "lan-handshake" | "rendezvous-qr";
+  /**
+   * v3.1 wire-protocol extension. Identifies which application on the
+   * peer device is requesting pairing, so multi-tenant targets (the
+   * v3.1 Hub) can isolate per-app pairings, capability caches, and
+   * audit logs. Optional for backwards compat — v3.0 SDKs that don't
+   * send this field still pair, just under the deviceId-as-appId
+   * fallback the Hub uses today.
+   */
+  appId?: string;
 }
 
 export class PairingPolicy {
@@ -58,7 +75,9 @@ export class PairingPolicy {
     }
 
     const callback = this.opts.onPairingRequest;
-    const approved = callback ? await callback(req.peerDeviceId, req.peerDeviceName) : false;
+    const approved = callback
+      ? await callback(req.peerDeviceId, req.peerDeviceName, req.appId)
+      : false;
     if (!approved) {
       throw new Error(
         `[DVAI/pairing] denied: peer ${req.peerDeviceId} (${req.peerDeviceName})${callback ? "" : " (no onPairingRequest callback supplied)"}`,

@@ -251,6 +251,18 @@ export class MultiTenantPairing {
     return this.isExpired(p) ? undefined : p;
   }
 
+  /**
+   * Touch the lastUsedAt timestamp on an active pairing. Called after a
+   * successful HMAC-verified request so the 30-day inactivity TTL
+   * resets to "now".
+   */
+  async touchPairing(appId: string, peerDeviceId: string): Promise<void> {
+    const p = await this.findPairing(appId, peerDeviceId);
+    if (!p) return;
+    p.lastUsedAt = Date.now();
+    await this.savePairing(p);
+  }
+
   /* -------------------------------------------------------------- */
   /* Internals                                                      */
   /* -------------------------------------------------------------- */

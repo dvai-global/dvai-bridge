@@ -100,7 +100,12 @@ async function route(
   try {
     if (req.method === "POST" && path === "/v1/chat/completions") {
       const body = await readJsonBody(req);
-      const r = await handleChatCompletion(body, ctx);
+      const reqHeaders: Record<string, string> = {};
+      for (const [k, v] of Object.entries(req.headers)) {
+        if (typeof v === "string") reqHeaders[k.toLowerCase()] = v;
+        else if (Array.isArray(v) && v.length > 0) reqHeaders[k.toLowerCase()] = v.join(", ");
+      }
+      const r = await handleChatCompletion(body, ctx, reqHeaders);
       return writeWhatwgResponse(res, r, cors);
     }
     if (req.method === "POST" && path === "/v1/completions") {

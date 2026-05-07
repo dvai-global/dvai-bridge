@@ -127,16 +127,22 @@ export function handleHandshake(ctx: DvaiHandlerContext): DvaiHandler {
         peerDeviceId: body.peerDeviceId,
         peerDeviceName: body.peerDeviceName,
         via: body.via ?? "lan-handshake",
+        ...(body.appId !== undefined ? { appId: body.appId } : {}),
       });
-      // Don't echo the pairing key in the JSON response — the
-      // requester already knows it from the original handshake reply
-      // path. This endpoint just confirms the peer is paired with us.
+      // v3.1 wire protocol: echo the pairing key in the response so
+      // the requester can HMAC-sign subsequent calls. LAN trust model
+      // — the response only crosses the same Wi-Fi the handshake did,
+      // and the protocol is opt-in (offload.enabled defaults to false).
+      // The rendezvous-QR flow uses ECDH key agreement instead and
+      // doesn't reach this handler.
       return {
         status: 200,
         body: {
           paired: true,
           pairedAt: pairing.pairedAt,
           via: pairing.via,
+          pairingKey: pairing.pairingKey,
+          peerDeviceId: pairing.peerDeviceId,
         },
       };
     } catch (err) {
