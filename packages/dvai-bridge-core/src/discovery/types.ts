@@ -17,6 +17,13 @@ export interface Peer {
   /** OpenAI-compatible base URL the peer's local server exposes. */
   baseUrl: string;
   /**
+   * v3.1 wire-protocol extension. Identifies which application on the
+   * peer device is making the request — used by multi-tenant targets
+   * (the Hub) to isolate per-app state. Optional for backwards compat
+   * with v3.0 SDKs that don't send this field.
+   */
+  appId?: string;
+  /**
    * Models the peer claims to have loaded right now. Used to filter
    * peer eligibility — we only offload model X to a peer that already
    * has model X loaded (loading from scratch on the peer is fine but

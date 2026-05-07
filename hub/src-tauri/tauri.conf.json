@@ -1,0 +1,70 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DVAI Hub",
+  "version": "3.1.0",
+  "identifier": "co.deepvoiceai.dvai-hub",
+  "build": {
+    "beforeDevCommand": "pnpm dev:vite",
+    "beforeBuildCommand": "pnpm build:peer-mode && pnpm build:vite",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist-frontend"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "DVAI Hub",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 880,
+        "minHeight": 560,
+        "center": true,
+        "decorations": true,
+        "visible": false,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:* http://localhost:* ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "category": "DeveloperTool",
+    "copyright": "Copyright © 2024-present Deep Voice AI Limited",
+    "shortDescription": "Local-network LLM inference hub",
+    "longDescription": "DVAI Hub serves as the strong-peer for any number of dvai-bridge mobile apps on the same network — pair from your phone, route inference here, keep the work on a device that can run it well.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [],
+    "targets": "all",
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    },
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "12.0",
+      "exceptionDomain": "",
+      "signingIdentity": null,
+      "providerShortName": null,
+      "entitlements": null
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "wix": {
+        "language": "en-US"
+      }
+    }
+  },
+  "plugins": {}
+}

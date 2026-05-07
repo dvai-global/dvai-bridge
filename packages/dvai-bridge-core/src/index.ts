@@ -15,6 +15,17 @@ export {
 	legacyCompletionStreamAdapter,
 } from "./handlers/completions.js";
 
+// v3.1 — re-export HMAC primitives so consumers (the Hub, native SDKs,
+// rendezvous clients) can compose + verify signed messages without
+// reaching into deep package paths.
+export {
+	composeSignedMessage,
+	verifyHmac,
+	signHmac,
+	generateNonce,
+	generatePairingKey,
+} from "./pairing/handshake.js";
+
 export type BackendType = "webllm" | "transformers" | "native" | "auto";
 export type DeviceType = "webgpu" | "cpu" | "auto";
 export type {
@@ -150,6 +161,34 @@ export interface DVAIConfig {
 	httpMaxPortAttempts?: number;
 
 	/**
+	 * HTTP-only. Network interface to bind. Default `127.0.0.1`
+	 * (loopback only). Set to `0.0.0.0` for LAN-target deployments
+	 * (the v3.1 Hub, native SDKs running in target mode) so peers on
+	 * the same Wi-Fi can reach the embedded server. Phone-as-source /
+	 * single-device deployments should leave this default — a
+	 * 0.0.0.0 bind on a developer laptop without pairing protection
+	 * exposes the OpenAI surface.
+	 */
+	httpBindHost?: string;
+
+	/**
+	 * Phase 4 — first-chance interceptor for /v1/chat/completions. The
+	 * v3.1 Hub uses this to apply substitution-policy + engine-bridge
+	 * routing before falling through to the default local-backend
+	 * handler. Return a Response → that's what the client gets;
+	 * return null → fall through to the local backend.
+	 *
+	 * Receives request headers (lower-cased keys) so the interceptor
+	 * can read the v3.1 identity fields (X-DVAI-Peer-Device-Id,
+	 * X-DVAI-App-Id, X-DVAI-Nonce, X-DVAI-Signature) for HMAC verify.
+	 */
+	chatCompletionInterceptor?: (
+		body: any,
+		ctx: import("./handlers/context.js").HandlerContext,
+		headers?: Record<string, string>,
+	) => Promise<Response | null>;
+
+	/**
 	 * HTTP-only. Controls the Access-Control-Allow-Origin response header.
 	 * - "*"               → echo "*" (default; dev-friendly)
 	 * - "https://x.com"   → echo that exact origin
@@ -215,6 +254,14 @@ export class DVAI {
 	public httpBasePort: number;
 	public httpMaxPortAttempts: number;
 	public corsOrigin: string | string[];
+	public httpBindHost: string | undefined;
+	public chatCompletionInterceptor:
+		| ((
+				body: any,
+				ctx: import("./handlers/context.js").HandlerContext,
+				headers?: Record<string, string>,
+			) => Promise<Response | null>)
+		| undefined;
 
 	/** Resolved transport kind after selectTransport() runs. */
 	private resolvedTransport: "msw" | "http" | "none" | "capacitor" = "none";
@@ -242,6 +289,10 @@ export class DVAI {
 	public offload?: import("./offload/index.js").OffloadConfig;
 	/** Capability cache (persistent storage of probe scores). */
 	private capabilityCache?: import("./capability/index.js").CapabilityCache;
+	/** Phase 3 — built when offload.enabled; mounted on the HTTP transport via the handler context. */
+	private dvaiRoutes?: Record<string, import("./handlers/dvai/index.js").DvaiHandler>;
+	/** Used by the dvai/health endpoint to report uptime. */
+	private startedAt: number = Date.now();
 	/** Discovery layer — composite of LAN mDNS + static + custom. */
 	private discovery?: import("./discovery/index.js").IDiscovery;
 	/** Pairing policy (LAN-handshake auth + persistent store). */
@@ -289,6 +340,8 @@ export class DVAI {
 		this.httpBasePort = config.httpBasePort ?? 38883;
 		this.httpMaxPortAttempts = config.httpMaxPortAttempts ?? 16;
 		this.corsOrigin = config.corsOrigin ?? "*";
+		this.httpBindHost = config.httpBindHost;
+		this.chatCompletionInterceptor = config.chatCompletionInterceptor;
 
 		// Resolve explicit backends immediately so getActiveBackend() is correct
 		// before initialize(). "auto" defers to initialize() for runtime env detection.
@@ -439,6 +492,7 @@ export class DVAI {
 					httpBasePort: this.httpBasePort,
 					httpMaxPortAttempts: this.httpMaxPortAttempts,
 					corsOrigin: this.corsOrigin,
+					...(this.httpBindHost !== undefined ? { bindHost: this.httpBindHost } : {}),
 				});
 			} else if (this.resolvedTransport === "capacitor") {
 				this.activeTransport = new CapacitorTransport({
@@ -533,7 +587,7 @@ export class DVAI {
 		this.pairingPolicy = new PairingPolicy({
 			store: createPairingStore(),
 			onPairingRequest: this.offload?.onPairingRequest
-				? async (peerDeviceId, peerDeviceName) => {
+				? async (peerDeviceId, peerDeviceName, appId) => {
 						const cb = this.offload?.onPairingRequest;
 						if (!cb) return false;
 						return cb({
@@ -546,10 +600,35 @@ export class DVAI {
 							via: "static",
 							secure: false,
 							lastSeenAt: Date.now(),
+							...(appId !== undefined ? { appId } : {}),
 						});
 					}
 				: undefined,
 		});
+
+		// Build the /v1/dvai/* route map. The HTTP transport reads this
+		// late via the handler-context getter (initializeOffload runs
+		// AFTER the transport has started in the current lifecycle).
+		const { buildDvaiRoutes } = await import("./handlers/dvai/index.js");
+		const self = this;
+		this.dvaiRoutes = buildDvaiRoutes({
+			libraryVersion: "3.0.0",
+			get currentModelId() {
+				return self.resolvedBackend === "transformers"
+					? self.transformersModelId
+					: self.modelId;
+			},
+			capabilityCache: this.capabilityCache,
+			get backend() {
+				const b = self.backendInstance;
+				if (!b) return undefined;
+				// ProbableBackend just needs `chatCompletion` — duck-typed.
+				return b as unknown as import("./capability/index.js").ProbableBackend;
+			},
+			discovery: this.discovery,
+			pairingPolicy: this.pairingPolicy,
+			startedAt: this.startedAt,
+		} as Parameters<typeof buildDvaiRoutes>[0]);
 	}
 
 	/** Phase 3 — release offload state (LAN advertiser, discovery sockets, etc). */
@@ -564,6 +643,7 @@ export class DVAI {
 		}
 		this.capabilityCache = undefined;
 		this.pairingPolicy = undefined;
+		this.dvaiRoutes = undefined;
 		this.deviceId = undefined;
 	}
 
@@ -600,6 +680,17 @@ export class DVAI {
 							}
 						}
 					: undefined,
+			// Phase 3 — late-bound getter so the HTTP transport sees
+			// the routes once initializeOffload() finishes (which runs
+			// AFTER the transport starts in the current lifecycle).
+			get dvaiRoutes() {
+				return self.dvaiRoutes;
+			},
+			// Phase 4 — Hub injects this to enforce substitution policy
+			// + engine-bridge routing.
+			...(this.chatCompletionInterceptor !== undefined
+				? { chatCompletionInterceptor: this.chatCompletionInterceptor }
+				: {}),
 		};
 	}
 

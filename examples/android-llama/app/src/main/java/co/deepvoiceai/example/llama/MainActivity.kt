@@ -1,7 +1,6 @@
 package co.deepvoiceai.example.llama
 
 import android.os.Bundle
-import android.os.Environment
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +21,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,71 +28,63 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import co.deepvoiceai.bridge.BackendKind
-import co.deepvoiceai.bridge.DVAIBridge
-import co.deepvoiceai.bridge.StartOptions
-import com.aallam.openai.api.chat.ChatCompletionChunk
-import com.aallam.openai.api.chat.ChatCompletionRequest
-import com.aallam.openai.api.chat.ChatMessage
-import com.aallam.openai.api.chat.ChatRole
-import com.aallam.openai.api.model.ModelId
-import com.aallam.openai.client.OpenAI
-import com.aallam.openai.client.OpenAIHost
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 
 /**
- * Phase 2 Task 3 — minimal Compose app for the **Llama** backend.
+ * Phase 4 v3.1 E2E test — Android → DVAI Hub over LAN.
  *
- * Flow:
- *  1. Tap **Load + Ask**.
- *  2. We call [DVAIBridge.start] with [BackendKind.Llama] and the GGUF
- *     model copied into the app's external Downloads dir
- *     ([MODEL_FILENAME], ~800 MB Llama-3.2-1B Q4_K_M).
- *  3. As `start()` completes we point `aallam/openai-kotlin` at
- *     `state.baseUrl` and stream a chat completion for the prompt
- *     "Tell me a joke."
- *  4. Each streamed delta appends to the `response` state slot, which
- *     shows live in the UI.
+ * Uses raw OkHttp (no openai-kotlin client) to POST JSON directly to
+ * the Hub's `/v1/chat/completions` endpoint. Three buttons:
  *
- * The example deliberately does NOT download the model — the README
- * documents that step (`adb push <file> /sdcard/Download/`).
+ *   • Test Local       → request "Llama-3.2-1B-Instruct" → Hub serves
+ *                        via its built-in backend.
+ *   • Test Ollama      → request "qwen2.5-coder:1.5b"    → Hub routes
+ *                        through engine-bridge to Ollama.
+ *   • Test Refuse      → request fictional model         → Hub returns
+ *                        503 with structured error.
+ *
+ * Each request goes out as plain HTTP (no v3.1 identity headers), so
+ * Hub logs the audit row under appId="anonymous" (backwards-compat
+ * path). Authenticated identity for Android requires the SDK to
+ * complete its handshake/HMAC implementation — a v3.1 finalization
+ * task that's separate from this E2E.
  */
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // One-time bootstrap; idempotent.
-        DVAIBridge.init(this)
-
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    LlamaScreen()
+                    HubE2EScreen()
                 }
             }
         }
     }
 }
 
-private const val MODEL_FILENAME = "Llama-3.2-1B-Instruct-Q4_K_M.gguf"
+private const val HUB_BASE_URL = "http://192.168.0.195:38883"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LlamaScreen() {
+private fun HubE2EScreen() {
     val scope = rememberCoroutineScope()
     var response by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("Idle. Tap Load + Ask to begin.") }
+    var status by remember { mutableStateOf("Idle. Tap a test button.") }
     var busy by remember { mutableStateOf(false) }
-
-    val isReady by DVAIBridge.reactive.isReady.collectAsState()
-    val baseUrl by DVAIBridge.reactive.baseUrl.collectAsState()
-    val modelId by DVAIBridge.reactive.modelId.collectAsState()
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("DVAI · Llama backend") })
+            TopAppBar(title = { Text("DVAI Hub · Android E2E") })
         },
     ) { padding ->
         Column(
@@ -105,64 +95,55 @@ private fun LlamaScreen() {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = if (isReady) "Server: $baseUrl  ($modelId)" else "Server: not started",
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Text(text = "Hub: $HUB_BASE_URL", style = MaterialTheme.typography.bodyMedium)
 
             Button(
                 enabled = !busy,
                 onClick = {
                     scope.launch {
-                        busy = true
-                        try {
-                            status = "Starting Llama backend…"
-                            val modelPath = expectedModelPath()
-                            if (!modelPath.exists()) {
-                                status = "Model file missing at ${modelPath.path}\n" +
-                                    "Push it via: adb push <yourcopy>.gguf /sdcard/Download/$MODEL_FILENAME"
-                                return@launch
-                            }
-                            val state = DVAIBridge.start(
-                                StartOptions(
-                                    backend = BackendKind.Llama,
-                                    modelPath = modelPath.absolutePath,
-                                    contextSize = 2048,
-                                    threads = 4,
-                                    maxNewTokens = 128,
-                                ),
-                            )
-                            status = "Server up at ${state.baseUrl}. Streaming prompt…"
-
-                            response = ""
-                            val openai = OpenAI(
-                                host = OpenAIHost(baseUrl = state.baseUrl + "/"),
-                                token = "ignored",
-                            )
-                            openai.chatCompletions(
-                                ChatCompletionRequest(
-                                    model = ModelId(state.modelId),
-                                    messages = listOf(
-                                        ChatMessage(role = ChatRole.User, content = "Tell me a joke."),
-                                    ),
-                                ),
-                            ).collect { chunk: ChatCompletionChunk ->
-                                val delta = chunk.choices.firstOrNull()?.delta?.content.orEmpty()
-                                if (delta.isNotEmpty()) {
-                                    response += delta
-                                }
-                            }
-                            status = "Stream complete."
-                        } catch (t: Throwable) {
-                            status = "Error: ${t.message ?: t::class.simpleName}"
-                        } finally {
-                            busy = false
-                        }
+                        runRequest(
+                            modelId = "Llama-3.2-1B-Instruct",
+                            prompt = "Reply with: HELLO",
+                            label = "Test Local (Hub Llama-3.2-1B)",
+                            onStatus = { status = it },
+                            onResponse = { response = it },
+                            onBusy = { busy = it },
+                        )
                     }
                 },
-            ) {
-                Text(if (busy) "Working…" else "Load + Ask")
-            }
+            ) { Text(if (busy) "Working…" else "Test Local (Hub Llama-3.2-1B)") }
+
+            Button(
+                enabled = !busy,
+                onClick = {
+                    scope.launch {
+                        runRequest(
+                            modelId = "qwen2.5-coder:1.5b",
+                            prompt = "Output only: 7+1=",
+                            label = "Test Ollama (Hub → engine-bridge)",
+                            onStatus = { status = it },
+                            onResponse = { response = it },
+                            onBusy = { busy = it },
+                        )
+                    }
+                },
+            ) { Text(if (busy) "Working…" else "Test Ollama (Hub → engine-bridge)") }
+
+            Button(
+                enabled = !busy,
+                onClick = {
+                    scope.launch {
+                        runRequest(
+                            modelId = "completely-fictional-model",
+                            prompt = "hi",
+                            label = "Test refuse (no matching backend)",
+                            onStatus = { status = it },
+                            onResponse = { response = it },
+                            onBusy = { busy = it },
+                        )
+                    }
+                },
+            ) { Text(if (busy) "Working…" else "Test Refuse (no matching backend)") }
 
             if (busy) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth(1f))
@@ -173,17 +154,69 @@ private fun LlamaScreen() {
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = "Response:", style = MaterialTheme.typography.titleMedium)
-            Text(text = response.ifEmpty { "(no tokens yet)" })
+            Text(text = response.ifEmpty { "(no response yet)" })
         }
     }
 }
 
-/**
- * Path the example expects the GGUF model to live at. Public Downloads
- * dir keeps `adb push <file> /sdcard/Download/` simple on every host.
- */
-private fun expectedModelPath(): File =
-    File(
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-        MODEL_FILENAME,
-    )
+private val httpClient: OkHttpClient = OkHttpClient.Builder()
+    .connectTimeout(15, TimeUnit.SECONDS)
+    .readTimeout(120, TimeUnit.SECONDS)
+    .writeTimeout(15, TimeUnit.SECONDS)
+    .build()
+
+private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
+
+private suspend fun runRequest(
+    modelId: String,
+    prompt: String,
+    label: String,
+    onStatus: (String) -> Unit,
+    onResponse: (String) -> Unit,
+    onBusy: (Boolean) -> Unit,
+) {
+    onBusy(true)
+    onResponse("")
+    onStatus("$label\nPOSTing $HUB_BASE_URL/v1/chat/completions ($modelId)…")
+    try {
+        val payload = JSONObject().apply {
+            put("model", modelId)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", prompt)
+                })
+            })
+            put("max_tokens", 30)
+            put("stream", false)
+        }.toString()
+        val request = Request.Builder()
+            .url("$HUB_BASE_URL/v1/chat/completions")
+            .post(payload.toRequestBody(jsonMediaType))
+            .build()
+        val (status, body) = withContext(Dispatchers.IO) {
+            httpClient.newCall(request).execute().use { res ->
+                Pair(res.code, res.body?.string().orEmpty())
+            }
+        }
+        if (status == 200) {
+            // Pull the assistant content out of the OpenAI response shape
+            val parsed = JSONObject(body)
+            val content = parsed.optJSONArray("choices")
+                ?.optJSONObject(0)
+                ?.optJSONObject("message")
+                ?.optString("content")
+                .orEmpty()
+            onResponse(content.ifEmpty { body.take(400) })
+            onStatus("$label\n✓ HTTP $status")
+        } else {
+            // Show the structured error
+            onResponse(body.take(600))
+            onStatus("$label\n✗ HTTP $status")
+        }
+    } catch (t: Throwable) {
+        onStatus("$label\n✗ Error: ${t.message ?: t::class.simpleName}")
+    } finally {
+        onBusy(false)
+    }
+}

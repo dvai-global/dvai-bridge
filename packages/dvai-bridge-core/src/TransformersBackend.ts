@@ -108,7 +108,7 @@ export type CreatePipelineFn = (
 	transformers: any,
 	ctx: {
 		modelId: string;
-		device: "webgpu" | "wasm";
+		device: "webgpu" | "wasm" | "cpu";
 		dtype?: string;
 		onProgress?: (info: any) => void;
 	},
@@ -181,7 +181,7 @@ export class TransformersBackend {
 	private worker: Worker | null = null;
 	private modelId: string;
 	private device: DeviceType;
-	private resolvedDevice: "webgpu" | "wasm" = "wasm";
+	private resolvedDevice: "webgpu" | "wasm" | "cpu" = "wasm";
 	private generationTimeout: number;
 	private workerUrl?: string;
 	private pipelineTask: PipelineTask;
@@ -221,17 +221,31 @@ export class TransformersBackend {
 	}
 
 	async initialize(onProgress?: (info: any) => void): Promise<void> {
-		// Resolve device
+		// Resolve device.
+		//
+		// Runtime split:
+		//   - Browser → onnxruntime-web → accepts "wasm" + "webgpu". CPU is "wasm".
+		//   - Node    → onnxruntime-node → accepts "cpu" + "dml" + "webgpu" (experimental).
+		//                                  Throws on "wasm".
+		//
+		// Detect once and route accordingly. Without this branch, Node hosts
+		// (the v3.1 Hub, the node-langchain example, etc.) fail to initialize
+		// with "Unsupported device: \"wasm\"".
+		const isNode =
+			typeof window === "undefined" &&
+			typeof process !== "undefined" &&
+			(process as any).versions?.node !== undefined;
+
 		if (this.device === "auto") {
 			const hasWebGPU = await detectWebGPU();
-			this.resolvedDevice = hasWebGPU ? "webgpu" : "wasm";
+			this.resolvedDevice = hasWebGPU ? "webgpu" : isNode ? "cpu" : "wasm";
 			console.log(
 				`[DVAI/Transformers] Auto-detected device: ${this.resolvedDevice}`,
 			);
+		} else if (this.device === "cpu") {
+			this.resolvedDevice = isNode ? "cpu" : "wasm";
 		} else {
-			// Map "cpu" to "wasm" for Transformers.js v3/v4 compatibility
-			this.resolvedDevice =
-				this.device === "cpu" ? "wasm" : (this.device as any);
+			this.resolvedDevice = this.device as "webgpu" | "wasm" | "cpu";
 		}
 
 		// Worker-based initialization is the DEFAULT path. Running inference
@@ -482,10 +496,12 @@ export class TransformersBackend {
 		}
 		this.usingWorker = false;
 
-		if (this.resolvedDevice === "wasm") {
+		if (this.resolvedDevice === "wasm" || this.resolvedDevice === "cpu") {
 			console.warn(
-				"[DVAI/Transformers] Running on main thread with WASM (CPU) — inference may block the UI. " +
-					"Set `workerUrl` to a deployed transformers worker for better performance.",
+				`[DVAI/Transformers] Running on main thread with ${this.resolvedDevice.toUpperCase()} (CPU). ` +
+					(this.resolvedDevice === "wasm"
+						? "Inference may block the UI. Set `workerUrl` to a deployed transformers worker for better performance."
+						: "(Node host — no UI thread to block.)"),
 			);
 		} else {
 			console.log(
@@ -498,7 +514,7 @@ export class TransformersBackend {
 		return this.pipelineTask;
 	}
 
-	getResolvedDevice(): "webgpu" | "wasm" {
+	getResolvedDevice(): "webgpu" | "wasm" | "cpu" {
 		return this.resolvedDevice;
 	}
 

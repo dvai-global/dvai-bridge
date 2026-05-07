@@ -770,7 +770,63 @@ Taken together, these forces support a thesis we will commit to here: **local-fi
 
 ---
 
-## 12. Limitations
+## 12. DVAI Hub: Generic Strong-Peer Pattern (v3.1+)
+
+v3.0 wires distributed inference into every SDK in the family — each library can be both an offload *source* (a phone that asks a peer to take a request) and an offload *target* (a laptop that takes the request). What v3.0 doesn't ship is an obvious *how* for end users: most people don't know to leave a dvai-bridge-powered example app running on their laptop just because their phone might ask for help. v3.1 closes that gap with **DVAI Hub** — a desktop utility whose only job is to be a strong-peer for any number of dvai-bridge-powered mobile apps on the same network.
+
+### 12.1 Why a separate utility, not a library feature
+
+The v3.0 distributed-inference plane is symmetric: any device running dvai-bridge can be a peer to any other. That symmetry is correct at the substrate but wrong at the household scale. A user installs ten apps on their phone; they don't want to install (and grant permissions to) ten desktop companion apps. The Hub absorbs that multiplicity into one utility:
+
+1. **One install, many apps.** A single Hub serves every mobile app from every family member. The Hub's `MultiTenantPairing` layer keeps each app's pairings, capability cache, and audit log in its own per-`appId` directory; revoking one app's pairing does not affect the others.
+2. **One UI, many concerns.** Pairing approval, revoke flow, model management, external-engine toggles, audit log — all surfaced in a small dashboard that opens from the system tray. The mobile apps stay focused on their own UI; the Hub is the operations console.
+3. **One brand-neutral installer.** Distribution through GitHub Releases / Homebrew / winget under a generic name lets the Hub be the household-level companion for the entire ecosystem, not just one vendor.
+
+### 12.2 The two-flavor model
+
+The first-party DVAI Hub is brand-neutral. But many app developers want a *branded* desktop companion — "Acme Hub" with their app's name and icons, locked to their bundle id, distributed in their own pipeline. v3.1 ships **DVAI Hub** in two flavors:
+
+- **Flavor 1 — first-party Hub.** The brand-neutral utility distributed under `DeepVoiceAI/DVAIHub`. Suitable for end users who run any mix of dvai-bridge apps.
+- **Flavor 2 — developer-fork.** A documented walkthrough (`hub/DEVELOPER-FORK.md`) for an app developer who wants a branded companion. The developer forks the `hub/` directory, replaces three brand surfaces and the icon set, sets `multiTenant.allowedAppIds` to lock pairing to their bundle id, and ships through their own pipeline. They inherit every Phase 4 capability — substitution policy, external-engine bridge, audit log, tray icon — without reimplementing it.
+
+The substrate stays one substrate; only the brand surface diverges. A user who installs both first-party DVAI Hub and a Flavor-2 "Acme Hub" runs two independent processes that are wire-compatible with the same v3.0 distributed-inference plane. Mobile apps don't care which one they pair with.
+
+### 12.3 The substitution policy as a trust contract
+
+The most subtle design decision in v3.1 is the **strict-by-default substitution policy.** When a paired phone asks the Hub to serve `gemma-4-E2B-q4-instruct` and the Hub has `gemma-4-E2B-q8-instruct` cached, the question "is q8 close enough to q4?" has no universal answer. Different consumer apps have different tolerances:
+
+- A chat app may be fine with any quant of the same model shape — q8 is *better*, q4 was *requested for memory reasons not quality reasons*.
+- A consistency-graded eval pipeline must refuse — quality-comparable substitutes change the metric.
+- A health-related app may refuse all substitutions to preserve the audit trail for regulatory review.
+
+v3.1's policy refuses by default on family / version / size / type mismatch (those are sacred — they describe what the model *is*, not how it's quantized). Quant-only mismatches are also refused by default but can be opted-in with `preferBetterQuant`, either per-pairing in the Hub UI or per-request via an `X-DVAI-Substitute` header. Substitutions emit a `warning=true` flag on lower-quality fallback so the audit log captures them.
+
+The `ModelParser` is the substrate that makes this possible. Without a structured view of every cached model — `family`, `version`, `size`, `quant`, `type` — the substitution policy can only do string-match. A 30-entry corpus covers GGUF (`Llama-3.2-3B-Instruct-Q4_K_M`), MLX (`mlx-community/Llama-3.2-3B-Instruct-4bit`), ONNX (`microsoft/Phi-3-mini-4k-instruct-onnx`), MLC (`gemma-2-2b-it-q4f16_1-MLC`), Ollama tag-style (`gemma:2b`), and raw HuggingFace conventions; unknown tokens fall back to `"unknown"` so the policy refuses rather than silently mis-routes.
+
+### 12.4 The external-engine bridge as composability
+
+Many users already have Ollama or LM Studio running. v3.1's external-engine bridge is opt-in (the user toggles each engine on in the Engines tab) and turns those engines' cached catalogs into additional backend pools. A paired phone that asks for `Llama-3.2-3B-Instruct-Q4_K_M` triggers the substitution policy across the union of:
+
+1. The Hub's first-party local backends (the same set `@dvai-bridge/core` exposes — Transformers.js / WebLLM / node-llama-cpp / ...).
+2. Each enabled external engine's cached catalog (Ollama via `/api/tags`, LM Studio via `/v1/models`, etc.).
+
+The mobile-app developer doesn't have to know which engine the request ultimately routed through; the audit log captures it for forensics, but the wire response is identical. This is the same "your agent code never learns where the inference ran" promise from §7, extended one layer further: it never learns *which engine*, either.
+
+The bridge framework is intentionally tiny — adapters implement just `detect()`, `enumerateCachedModels()`, `serveRequest()`, `close()`. Adding a new adapter is a 100-line file plus a test corpus. Adapters that fail (engine down, subprocess crash) are isolated — one engine's failure cannot break the Hub's other engines.
+
+### 12.5 What the Hub deliberately is not
+
+- **Not a model server.** The Hub serves *pairing requests* from mobile peers, but it does not expose a public OpenAI HTTP API for general use. (Mobile peers see the same OpenAI surface, but only after a HMAC-authenticated handshake.)
+- **Not a multi-user system.** Per-user install pattern only. Two family members on the same Mac get separate Hub instances under their own user accounts; their pairing data does not cross.
+- **Not a mobile target.** Mobile app developers who want their phone to *be* a target for a paired tablet should use `@dvai-bridge/react-native` or the native iOS/Android SDKs directly. Hub is desktop-only.
+- **Not auto-updating by default.** The Hub respects whatever distribution channel installed it (Homebrew, winget, direct DMG/MSI). Auto-update is opt-in in Settings.
+- **Not a wrapper for cloud APIs.** The external-engine bridge surfaces *local* engines only. Wrapping `localhost:8000`-style vLLM or llama-server is in scope; wrapping `https://api.openai.com` is explicitly not.
+
+The thesis from §7 was that distributed inference works best when consumers don't have to know about it. v3.1's Hub is the distribution form-factor that makes that promise turn-key for the household. The substrate stays the same. The user-visible thing is now a tray icon.
+
+---
+
+## 13. Limitations
 
 We list the library's real limitations candidly, so that readers and adopters can plan around them.
 
@@ -790,7 +846,7 @@ We list the library's real limitations candidly, so that readers and adopters ca
 
 ---
 
-## 13. Conclusion
+## 14. Conclusion
 
 The interesting thing about DVAI-BRIDGE is not that it runs language models locally — several projects do that. It is that it (a) makes local models speak OpenAI natively across every major client platform and language, (b) does so through one wire contract that is identical at the edge of every SDK in the family, and (c) treats the user's devices as a small cluster the inference can move through transparently.
 

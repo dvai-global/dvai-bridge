@@ -9,7 +9,24 @@ const SSE_HEADERS = {
 export async function handleChatCompletion(
   body: any,
   ctx: HandlerContext,
+  headers?: Record<string, string>,
 ): Promise<Response> {
+  // Phase 4 — first-chance interceptor (used by the Hub to enforce
+  // substitution policy + route through external engines). If it
+  // returns a Response, we're done; null falls through to the local
+  // backend path below.
+  if (ctx.chatCompletionInterceptor) {
+    try {
+      const intercepted = await ctx.chatCompletionInterceptor(body, ctx, headers);
+      if (intercepted !== null) return intercepted;
+    } catch (err: any) {
+      return Response.json(
+        { error: err?.message ?? "interceptor failed" },
+        { status: 500 },
+      );
+    }
+  }
+
   if (!ctx.backend) {
     return Response.json(
       { error: "AI engine not initialized" },

@@ -39,4 +39,34 @@ export interface HandlerContext {
    * throws when exhausted; handler only awaits. Undefined → no recovery.
    */
   onRecovery?: () => Promise<void>;
+
+  /**
+   * Phase 3 — `/v1/dvai/*` route map populated when `offload.enabled`.
+   * Late-bound (getter) so transports can read it per request even
+   * though the routes are built after the transport starts. Undefined
+   * when offload isn't enabled — transports return 404 in that case.
+   */
+  dvaiRoutes?: Record<string, import("./dvai/index.js").DvaiHandler>;
+
+  /**
+   * Phase 4 — first-chance hook for /v1/chat/completions. The Hub
+   * uses this to inject substitution-policy + engine-bridge routing
+   * before the default handler dispatches to the local backend.
+   *
+   * Return a Response → that's what the client gets.
+   * Return null → fall through to the default backend path.
+   *
+   * Receives request headers (lower-cased keys) so the interceptor can
+   * read v3.1 identity fields (X-DVAI-Peer-Device-Id, X-DVAI-App-Id,
+   * X-DVAI-Nonce, X-DVAI-Signature) for HMAC verification + tenant
+   * routing.
+   *
+   * Errors raised in the interceptor propagate to the standard error
+   * response path in handleChatCompletion.
+   */
+  chatCompletionInterceptor?: (
+    body: any,
+    ctx: HandlerContext,
+    headers?: Record<string, string>,
+  ) => Promise<Response | null>;
 }
