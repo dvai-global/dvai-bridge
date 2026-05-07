@@ -68,6 +68,22 @@ describe("SubstitutionPolicy — exact matches", () => {
       expect(decision.reason).toBe("no_backends");
     }
   });
+
+  it("REGRESSION: refuses when request.family === 'unknown' (parser couldn't classify)", () => {
+    // Without this guard, an unparseable request name (e.g. "fictional-model-9000")
+    // would happily match any cached backend that ALSO parsed to family=unknown
+    // (e.g. user's custom local model in Ollama). Found live during E2E.
+    const policy = new SubstitutionPolicy({ preferBetterQuant: false });
+    const request = parseModelName("fictional-model-9000");
+    expect(request.family).toBe("unknown");
+    const available = [backend("links:v7B", "ollama")];
+    expect(available[0]?.descriptor.family).toBe("unknown");
+    const decision = policy.pick(request, available);
+    expect(decision.kind).toBe("refuse");
+    if (decision.kind === "refuse") {
+      expect(decision.reason).toBe("family_mismatch");
+    }
+  });
 });
 
 describe("SubstitutionPolicy — better quant substitution (preferBetterQuant=true)", () => {
