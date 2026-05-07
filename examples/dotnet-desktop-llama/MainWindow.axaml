@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DvaiBridgeDesktopLlama.MainWindow"
+        Title="DVAIBridge — Desktop Llama (llama.cpp)"
+        Width="720" Height="560">
+
+    <ScrollViewer>
+        <StackPanel Margin="20" Spacing="10">
+
+            <TextBlock Text="DVAIBridge — Desktop Llama"
+                       FontSize="22" FontWeight="Bold" />
+
+            <TextBlock TextWrapping="Wrap"
+                       Text="Loads a GGUF via DVAIBridge.Desktop's P/Invoke into upstream llama.cpp natives. Streams a chat completion through Microsoft.SemanticKernel pointed at the embedded Kestrel server." />
+
+            <TextBlock Text="Model path (.gguf):" FontWeight="Bold" Margin="0,8,0,0" />
+            <TextBox x:Name="ModelPathBox"
+                     Watermark="C:\models\Llama-3.2-1B-Instruct-Q4_K_M.gguf" />
+
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button x:Name="StartBtn" Content="Start bridge" Click="OnStart" />
+                <Button x:Name="StopBtn" Content="Stop" IsEnabled="False" Click="OnStop" />
+            </StackPanel>
+
+            <TextBlock x:Name="StatusBlock" Text="Idle." FontSize="12" Foreground="Gray" />
+
+            <TextBlock Text="Prompt:" FontWeight="Bold" Margin="0,8,0,0" />
+            <TextBox x:Name="PromptBox"
+                     Text="Why is the sky blue?  Answer in one short sentence."
+                     AcceptsReturn="True"
+                     Height="60" />
+
+            <Button x:Name="SendBtn" Content="Send chat completion" IsEnabled="False" Click="OnSend" />
+
+            <Border BorderBrush="LightGray" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,8,0,0">
+                <TextBlock x:Name="ResponseBlock" Text="(response will stream here)"
+                           TextWrapping="Wrap" />
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</Window>

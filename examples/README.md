@@ -5,11 +5,12 @@ examples as workspace packages — they install with `pnpm install` at the
 repo root and have no extra setup step.
 
 Native-platform examples are landing through Phase 2 of the post-v2.4
-roadmap. iOS native is shipped (see below); Android, React Native,
-Flutter, and .NET are tracked in [`MATRIX.md`](./MATRIX.md) and ship
-incrementally — until then, the per-SDK quickstarts in
-[`docs/guide/`](../docs/guide/) remain the entry point for those
-platforms.
+roadmap. iOS native, the hybrid trio (Capacitor / React Native /
+Flutter), and .NET (MAUI + 3 desktop variants) are shipped (see below);
+Android native is tracked in [`MATRIX.md`](./MATRIX.md) and ships
+incrementally — until then, the per-SDK quickstart in
+[`docs/guide/`](../docs/guide/) remains the entry point for that
+platform.
 
 ## JavaScript / TypeScript (shipped)
 
@@ -65,13 +66,45 @@ iPhone 16 simulator. Build all four in one Mac SSH session:
 ssh mac 'cd ~/Developer/dvai-bridge && bash scripts/mac-side-build-examples.sh build'
 ```
 
+## Hybrid (shipped — Phase 2)
+
+Three cross-platform example apps that path-dep the in-monorepo native
+packages:
+
+| Example | Wraps | What it shows | Smoke |
+|---|---|---|---|
+| [`capacitor-mobile/`](./capacitor-mobile/) | `@dvai-bridge/capacitor` + `capacitor-llama` | Single HTML page (textarea + button) hitting `${baseUrl}/chat/completions` via streaming `fetch()` | `bash smoke.sh` (web bundle + cap doctor) |
+| [`react-native-app/`](./react-native-app/) | `@dvai-bridge/react-native` | One screen, backend selector (Llama / Foundation / CoreML / MLX / MediaPipe / LiteRT — gated by platform); streaming via the official `openai` SDK | `bash smoke.sh` (typecheck + Metro bundle; opt-in `RUN_ANDROID_BUILD=1` for Gradle) |
+| [`flutter-app/`](./flutter-app/) | `dvai_bridge` | One screen, backend dropdown (same six); streaming via `dart:io` `HttpClient` | `bash smoke.sh` (`pub get` + Pigeon regen + analyze + test) |
+
+iOS-side `pod install` and `cap sync ios` run on the Mac mirror via
+`ssh mac` — see each example's README for the per-platform commands.
+
+## .NET (shipped — Phase 2)
+
+Four .NET 10 example apps that path-dep the in-monorepo
+`packages/dvai-bridge-dotnet/` projects (no `<PackageReference>` —
+library changes reflect immediately):
+
+| Example | Type | Backend | Build host |
+|---|---|---|---|
+| [`dotnet-maui/`](./dotnet-maui/) | MAUI single-project app (iOS / Android / Catalyst) | Auto / Llama / Foundation / CoreML / MLX / MediaPipe / LiteRT (selector — gated by platform) | Android any host; iOS / Catalyst Mac-only |
+| [`dotnet-desktop-llama/`](./dotnet-desktop-llama/) | Console + Avalonia 11 UI | llama.cpp via `DVAIBridge.Desktop` | any (Windows / macOS / Linux) |
+| [`dotnet-desktop-onnx/`](./dotnet-desktop-onnx/) | Console + Avalonia 11 UI | ONNX Runtime GenAI via `DVAIBridge.OnnxRuntime` | any desktop |
+| [`dotnet-desktop-mlnet/`](./dotnet-desktop-mlnet/) | Console-only | `DVAIBridge.MLNet` (ONNX classifier on top of OpenAI HTTP API) | any desktop |
+
+Each example has a `smoke.sh` that builds + runs a wiring-only smoke
+(no model file required to verify the slice graph resolves):
+
+```bash
+cd examples/dotnet-desktop-llama && bash smoke.sh
+```
+
 ## Other platforms
 
 For now, see:
 
 - [Android native quickstart](../docs/guide/android-native-sdk.md)
-- [React Native quickstart](../docs/guide/react-native-sdk.md)
-- [Flutter quickstart](../docs/guide/flutter-sdk.md)
 - [.NET quickstart](../docs/guide/dotnet-sdk.md)
 
 Each guide contains a copy-pasteable minimum viable app that hits the

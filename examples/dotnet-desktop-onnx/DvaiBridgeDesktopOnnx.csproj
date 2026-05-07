@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DvaiBridgeDesktopOnnx — Phase 2 Task 5 example app.
+
+    Console + Avalonia desktop app demonstrating BackendKind.Onnx via the
+    DVAIBridge.OnnxRuntime slice. Loads a Microsoft Phi-3 / Phi-3.5 ONNX
+    GenAI bundle (directory containing genai_config.json + model.onnx +
+    tokenizer.json) and streams a chat completion through Microsoft.SemanticKernel.
+
+    TFM bare net10.0 — desktop-only here, even though OnnxRuntime is documented
+    as cross-platform. (See the README's note on the FrameworkReference issue
+    that scopes this to desktop in the current library state.)
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>DvaiBridgeDesktopOnnx</RootNamespace>
+    <AssemblyName>DvaiBridgeDesktopOnnx</AssemblyName>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon />
+    <RuntimeIdentifiers>win-x64;win-arm64;osx-x64;osx-arm64;linux-x64;linux-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.14" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.14" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.14" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.14" />
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.75.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\packages\dvai-bridge-dotnet\src\DVAIBridge\DVAIBridge.csproj" />
+    <ProjectReference Include="..\..\packages\dvai-bridge-dotnet\src\DVAIBridge.OnnxRuntime\DVAIBridge.OnnxRuntime.csproj" />
+  </ItemGroup>
+
+</Project>

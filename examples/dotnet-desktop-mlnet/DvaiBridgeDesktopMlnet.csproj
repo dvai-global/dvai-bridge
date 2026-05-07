@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DvaiBridgeDesktopMlnet — Phase 2 Task 5 example app.
+
+    Console-only desktop app demonstrating BackendKind.MLNet via the
+    DVAIBridge.MLNet slice on top of the SAME DVAIBridge HTTP API the
+    family uses for generative LLMs. The "completion" returned by the
+    server here is a CLASSIFICATION LABEL produced by an ONNX classifier
+    model — the example shows that the OpenAI-compatible HTTP shape can
+    sit over a non-generative model with no consumer-side changes.
+
+    TFM bare net10.0 — desktop only (the MLNet slice is Windows / Linux /
+    macOS / Catalyst per spec).
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>DvaiBridgeDesktopMlnet</RootNamespace>
+    <AssemblyName>DvaiBridgeDesktopMlnet</AssemblyName>
+    <RuntimeIdentifiers>win-x64;win-arm64;osx-x64;osx-arm64;linux-x64;linux-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.75.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\packages\dvai-bridge-dotnet\src\DVAIBridge\DVAIBridge.csproj" />
+    <ProjectReference Include="..\..\packages\dvai-bridge-dotnet\src\DVAIBridge.MLNet\DVAIBridge.MLNet.csproj" />
+  </ItemGroup>
+
+</Project>

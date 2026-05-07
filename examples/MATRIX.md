@@ -40,22 +40,22 @@ The matrix is being built out incrementally as part of post-v2.4 Phase
 | 10 | Android native | MediaPipe LLM | planned |
 | 11 | Android native | LiteRT | planned |
 
-## Hybrid — planned
+## Hybrid
 
-| # | SDK | Backend | Status |
-|---|---|---|---|
-| 12 | Capacitor (iOS+Android) | llama.cpp | planned |
-| 13 | React Native | (delegates) | planned |
-| 14 | Flutter | (delegates) | planned |
+| # | SDK | Backend | Path | Smoke | Demo flow | Host requirements |
+|---|---|---|---|---|---|---|
+| 12 | Capacitor (iOS+Android) | llama.cpp | [`capacitor-mobile/`](./capacitor-mobile/) | [`capacitor-mobile/smoke.sh`](./capacitor-mobile/smoke.sh) | [`scripts/demos/capacitor.yaml`](../scripts/demos/capacitor.yaml) | Node 22+ for the web bundle; Mac for `cap sync ios`; any host for `cap sync android` |
+| 13 | React Native | (delegates — Llama / Foundation / CoreML / MLX / MediaPipe / LiteRT via selector) | [`react-native-app/`](./react-native-app/) | [`react-native-app/smoke.sh`](./react-native-app/smoke.sh) | [`scripts/demos/react-native.yaml`](../scripts/demos/react-native.yaml) | Node 22+ for typecheck + Metro bundle; JDK 21 + Android SDK for `./gradlew assembleDebug` (opt-in via `RUN_ANDROID_BUILD=1`); Mac for `pod install` |
+| 14 | Flutter | (delegates — same six via dropdown) | [`flutter-app/`](./flutter-app/) | [`flutter-app/smoke.sh`](./flutter-app/smoke.sh) | [`scripts/demos/flutter.yaml`](../scripts/demos/flutter.yaml) | Flutter 3.39+; Mac for iOS, any host for Android |
 
-## .NET — planned
+## .NET
 
-| # | SDK | Backend | Status |
-|---|---|---|---|
-| 15 | .NET MAUI | (delegates) | planned |
-| 16 | .NET Desktop | llama.cpp | planned |
-| 17 | .NET Desktop | ONNX Runtime GenAI | planned |
-| 18 | .NET Desktop | ML.NET | planned |
+| # | SDK | Backend | Path | Smoke | Demo flow | Host requirements |
+|---|---|---|---|---|---|---|
+| 15 | .NET MAUI | Auto / Llama / Foundation / CoreML / MLX / MediaPipe / LiteRT (selector) | [`dotnet-maui/`](./dotnet-maui/) | [`dotnet-maui/smoke.sh`](./dotnet-maui/smoke.sh) | [`scripts/demos/dotnet-maui.yaml`](../scripts/demos/dotnet-maui.yaml) | .NET 10.0.203 + MAUI workload. Android any host; iOS / Catalyst Mac-only via `ssh mac`. |
+| 16 | .NET Desktop | llama.cpp (`DVAIBridge.Desktop`) | [`dotnet-desktop-llama/`](./dotnet-desktop-llama/) | [`dotnet-desktop-llama/smoke.sh`](./dotnet-desktop-llama/smoke.sh) | [`scripts/demos/dotnet-desktop-llama.yaml`](../scripts/demos/dotnet-desktop-llama.yaml) | .NET 10.0.203, any desktop OS. GGUF model recommended (~770 MB) for non-smoke runs. |
+| 17 | .NET Desktop | ONNX Runtime GenAI (`DVAIBridge.OnnxRuntime`) | [`dotnet-desktop-onnx/`](./dotnet-desktop-onnx/) | [`dotnet-desktop-onnx/smoke.sh`](./dotnet-desktop-onnx/smoke.sh) | [`scripts/demos/dotnet-desktop-onnx.yaml`](../scripts/demos/dotnet-desktop-onnx.yaml) | .NET 10.0.203, any desktop OS. Phi-3-mini ONNX bundle (~2.4 GB) for non-smoke runs. |
+| 18 | .NET Desktop | ML.NET / OnnxScoringEstimator (`DVAIBridge.MLNet`) — **classifier on top of OpenAI HTTP API** | [`dotnet-desktop-mlnet/`](./dotnet-desktop-mlnet/) | [`dotnet-desktop-mlnet/smoke.sh`](./dotnet-desktop-mlnet/smoke.sh) | [`scripts/demos/dotnet-desktop-mlnet.yaml`](../scripts/demos/dotnet-desktop-mlnet.yaml) | .NET 10.0.203, any desktop OS. Small ONNX classifier for non-smoke runs. |
 
 ---
 

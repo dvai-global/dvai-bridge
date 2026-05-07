@@ -1,0 +1,15 @@
+name: dotnet-desktop-llama-quickstart
+description: Hello-world flow on the .NET Desktop Llama example (DVAIBridge.Desktop, llama.cpp via P/Invoke).
+output: docs/marketing/assets/dotnet-desktop-llama-quickstart.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Launch the Avalonia desktop app on Windows; the in-monorepo DVAIBridge + DVAIBridge.Desktop projects are referenced via <ProjectReference> path."
+  - duration: 7
+    caption: "Paste a Llama-3.2-1B Q4_K_M GGUF path into the model field and click Start bridge — DVAIBridge.Shared.StartAsync(BackendKind.Llama)."
+  - duration: 6
+    caption: "DVAIBridge.Desktop's P/Invoke loads upstream llama.cpp's prebuilt native; ProgressBroadcaster events surface load progress."
+  - duration: 12
+    caption: "Type a prompt; SemanticKernel client streams tokens from the embedded Kestrel server in real time."
+  - duration: 5
+    caption: "Closing card: 'DVAIBridge.Desktop — llama.cpp on Windows / macOS / Linux from a single .NET 10 csproj'."
