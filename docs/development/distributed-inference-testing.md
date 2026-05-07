@@ -285,3 +285,121 @@ When filing a v3.0 bug, please include:
 
 File at <https://github.com/Westenets/dvai-bridge/issues> with
 `[v3.0]` in the title.
+
+---
+
+## Hub-specific tests (v3.1)
+
+The v3.1 Hub adds substitution-policy enforcement, an external-engine
+bridge, and an HMAC-verified identity flow on top of the v3.0
+substrate. Each is covered by a smoke test in `hub/scripts/`. Run
+the appropriate one after `pnpm build:peer-mode`.
+
+### Adapter detection — Ollama / LM Studio
+
+```bash
+cd hub
+pnpm smoke:ollama
+pnpm smoke:lmstudio
+```
+
+Both probe the engine's local HTTP port (`11434` / `1234`), enumerate
+its cached models via the engine's native API (`/api/tags` /
+`/v1/models`), and parse each model id through the canonical-naming
+parser. A clean output looks like:
+
+```
+detect(): ✅ true
+enumerateCachedModels(): 15 row(s)
+  qwen2.5-coder:1.5b    qwen   2.5  1b   —     code
+  llama3.2:1b           llama  3.2  1b   —     unknown
+  …
+```
+
+A `family=unknown` row indicates the parser couldn't classify a
+model id you have cached. Paste the id into a GitHub issue tagged
+`[parser]` so we can extend the corpus — the substitution policy
+treats `unknown` family on the request side as refuse-only, so
+unparseable names won't accidentally route.
+
+### v3.1 wire-protocol identity flow
+
+```bash
+cd hub
+pnpm smoke:identity
+```
+
+Walks five paths in sequence:
+
+1. **Handshake with `appId`.** Expects 200 + a `pairingKey` echoed
+   in the response.
+2. **Verified-identity chat completion.** Composes
+   `composeSignedMessage(nonce, "POST", "/v1/chat/completions",
+   bodyJson)`, signs with the pairing key, sends with all four
+   `X-DVAI-*` headers. Expects 200 + audit row keyed under the real
+   `appId` (not `"anonymous"`).
+3. **Bad HMAC → 401.** Sends garbage signature with the right header
+   shape. Expects 401 with `"hmac signature did not verify"`.
+4. **Anonymous backwards-compat.** Sends without identity headers.
+   Expects 200, audit row keyed `"anonymous"`. Confirms v3.0 SDKs
+   that don't sign continue to work.
+5. **`preferBetterQuant` substitution.** Requires Hub started with
+   `DVAI_HUB_PREFER_BETTER_QUANT=1` (in `hub/src-tauri/.env` or env
+   var). Asks for `Llama-3.2-1B-Instruct-Q4_K_M`; expects 200 with
+   `outcome: "substituted", reason: "better_quant"`.
+
+The first run prompts the user to approve a pairing modal in the
+Hub dashboard; subsequent runs reuse the stored pairing.
+
+After running the smoke, inspect the audit logs:
+
+```bash
+ls ~/.dvai-hub/apps/                # com.acme.smoke-…, anonymous, …
+cat ~/.dvai-hub/apps/<appId>/audit.log
+```
+
+### Android (or any phone) end-to-end
+
+A real device E2E pass demonstrates that the Hub is reachable on the
+LAN and that the substitution + engine-bridge paths work from a
+non-curl client. The reference is `examples/android-llama`, which
+since v3.1 ships a thin OkHttp client that POSTs directly to the
+Hub's LAN URL.
+
+1. Edit `examples/android-llama/app/src/main/java/co/deepvoiceai/example/llama/MainActivity.kt`
+   and update `HUB_BASE_URL` to your Hub's LAN address (e.g.
+   `http://192.168.0.195:38883`).
+2. Edit `examples/android-llama/app/src/main/res/xml/network_security_config.xml`
+   to add the same IP under `cleartextTrafficPermitted="true"`
+   (modern Android blocks plain HTTP by default for non-loopback
+   addresses).
+3. `./gradlew assembleDebug`
+4. `adb install -r app/build/outputs/apk/debug/app-debug.apk`
+5. `adb shell am start -n co.deepvoiceai.example.llama/.MainActivity`
+6. Tap the three test buttons (Local / Ollama / Refuse). Each fires
+   one HTTP request; the Hub's Logs tab shows the audit rows
+   landing in real time.
+
+The example deliberately uses raw OkHttp + JSON instead of the
+`com.aallam.openai-kotlin` client because the latter has
+Ktor-version-mismatch foot-guns when paired with ktor-client-okhttp
+2.3.x. Use OkHttp directly until the SDK's offload-routing layer
+lands and provides a higher-level surface.
+
+### Coverage matrix (v3.1 release gate)
+
+The substrate is considered shippable when these all pass:
+
+| Test | Expected | Status as of v3.1 release |
+| --- | --- | --- |
+| Refuse on `family_mismatch` | 503 + structured error | ✅ |
+| Refuse on `quant_mismatch_strict` | 503 with available quants list | ✅ |
+| Engine bridge → Ollama (non-stream) | 200 + `system_fingerprint: fp_ollama` | ✅ |
+| Engine bridge → Ollama (SSE) | proper `data: …` chunks + `[DONE]` | ✅ |
+| Engine bridge → LM Studio | 200 with `x-powered-by: Express` | ✅ |
+| Local backend fall-through | 200 from Hub's own ONNX Llama | ✅ |
+| Verified identity (HMAC) | audit row with real `(appId, peerDeviceId)` | ✅ |
+| Bad HMAC | 401 `"hmac signature did not verify"` | ✅ |
+| Anonymous backwards compat | 200 + audit row keyed `"anonymous"` | ✅ |
+| `preferBetterQuant` substitution | 200 + `outcome: substituted, reason: better_quant` | ✅ |
+| Phone over LAN | 3-of-3 paths from real device | ✅ |
