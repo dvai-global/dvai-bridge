@@ -115,7 +115,13 @@ export interface PeerModeOptions {
    * test bundle.
    */
   dvaiFactory?: (
-    onPairingRequest: (peer: DvaiPeerLike) => Promise<boolean>,
+    onPairingRequest: (
+      peer: DvaiPeerLike,
+    ) => Promise<
+      | boolean
+      | { approved: true; pairingKey: string }
+      | { approved: false }
+    >,
   ) => Promise<DvaiServerLike> | DvaiServerLike;
 }
 
@@ -251,11 +257,15 @@ export class PeerMode {
    * v3.1 wire protocol carries `appId` in the handshake. When the
    * peer supplies it → real per-app isolation. When the peer is a
    * v3.0 SDK that doesn't send appId → fall back to deviceId so the
-   * Hub still works (each device becomes its own tenant). The audit
-   * log groups by appId either way; the difference is just whether
-   * "two apps on the same phone" appear as one row or two.
+   * Hub still works.
+   *
+   * Returns the host-style pairing object so DVAI's PairingPolicy
+   * uses the SAME key Hub stored in MultiTenantPairing. Avoids the
+   * "two parallel stores generating divergent keys" bug.
    */
-  private async handleDvaiPairingRequest(peer: DvaiPeerLike): Promise<boolean> {
+  private async handleDvaiPairingRequest(
+    peer: DvaiPeerLike,
+  ): Promise<{ approved: true; pairingKey: string } | { approved: false }> {
     const request: PairingRequest = {
       peerDeviceId: peer.deviceId,
       peerDeviceName: peer.deviceName,
@@ -263,12 +273,12 @@ export class PeerMode {
       dvaiVersion: peer.dvaiVersion,
     };
     try {
-      await this.tenants.approveOrFetch(request);
-      return true;
+      const pairing = await this.tenants.approveOrFetch(request);
+      return { approved: true, pairingKey: pairing.pairingKey };
     } catch (err) {
       if (err instanceof MultiTenantPairingError) {
         // denied / app_not_allowed → cleanly say no to the peer.
-        return false;
+        return { approved: false };
       }
       throw err;
     }
