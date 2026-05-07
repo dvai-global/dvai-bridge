@@ -50,12 +50,28 @@ public actor DVAIBridge {
     private var active: BackendInstance?
     private var activeKind: BackendKind?
     private var activeBaseUrl: String?
+    private var offloadRuntime: Any?  // type-erased; gated by availability
     private let downloader = ModelDownloader()
     internal let progressBroadcaster = ProgressBroadcaster()
 
     public init() {}
 
     // MARK: - Lifecycle
+
+    /// v3.0 surface: start with `StartOptions` (carries optional
+    /// `OffloadConfig`). For v2.x backwards compat, the
+    /// `start(_ config:)` overload below is preserved.
+    public func start(_ options: StartOptions) async throws -> BoundServer {
+        let server = try await start(options.config)
+        if let offload = options.offload, offload.enabled {
+            if #available(iOS 14.0, macOS 11.0, *) {
+                let runtime = try OffloadRuntime(config: offload)
+                try await runtime.start(boundServer: server, libraryVersion: DVAIBridgeVersion.current)
+                self.offloadRuntime = runtime
+            }
+        }
+        return server
+    }
 
     public func start(_ config: DVAIBridgeConfig) async throws -> BoundServer {
         if let activeBaseUrl, let activeKind {
@@ -148,6 +164,15 @@ public actor DVAIBridge {
     }
 
     public func stop() async throws {
+        // Tear down the offload runtime first — it depends on the
+        // bound server being up while we stop discovery cleanly.
+        if #available(iOS 14.0, macOS 11.0, *) {
+            if let runtime = offloadRuntime as? OffloadRuntime {
+                await runtime.stop()
+            }
+        }
+        offloadRuntime = nil
+
         guard let backend = active else {
             return  // idempotent
         }
@@ -290,4 +315,52 @@ public actor DVAIBridge {
     public func cacheDir() async throws -> String {
         try await downloader.cacheDirPath()
     }
+
+    // MARK: - Offload (v3.0)
+
+    /// AsyncStream of incoming pairing requests. The host app awaits
+    /// `for await req in await DVAIBridge.shared.pairingRequests()` and
+    /// calls `req.respond(approved:)` to approve or deny each one.
+    ///
+    /// Returns an empty (immediately-finished) stream when offload isn't
+    /// enabled or hasn't been started yet.
+    public func pairingRequests() -> AsyncStream<PairingRequest> {
+        if #available(iOS 14.0, macOS 11.0, *) {
+            if let runtime = self.offloadRuntime as? OffloadRuntime {
+                return runtime.pairingRequestStream()
+            }
+        }
+        return Self.emptyStream()
+    }
+
+    /// AsyncStream of LAN-discovery events (peer-up / peer-down).
+    /// Empty if offload isn't enabled.
+    @available(iOS 14.0, macOS 11.0, *)
+    public func discoveryEvents() -> AsyncStream<NWBrowserDiscovery.Event> {
+        if let runtime = self.offloadRuntime as? OffloadRuntime {
+            return runtime.discoveryEventStream()
+        }
+        return AsyncStream { continuation in
+            continuation.finish()
+        }
+    }
+
+    private static func emptyStream<T: Sendable>() -> AsyncStream<T> {
+        AsyncStream<T> { continuation in
+            continuation.finish()
+        }
+    }
+
+    /// Test-only accessor for the current offload runtime, if any.
+    /// Returns nil when offload isn't enabled or `start()` hasn't run.
+    @available(iOS 14.0, macOS 11.0, *)
+    internal func _testOffloadRuntime() -> OffloadRuntime? {
+        offloadRuntime as? OffloadRuntime
+    }
+}
+
+/// Library SemVer constant — keep in sync with the package's published
+/// version. Used by the mDNS advertiser TXT record.
+public enum DVAIBridgeVersion {
+    public static let current = "3.0.0-rc1"
 }
