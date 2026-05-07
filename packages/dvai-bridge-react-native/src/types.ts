@@ -110,6 +110,95 @@ export interface StartOptions {
   logLevel?: "silent" | "info" | "debug";
   /** iOS only: auto-unload the active model on iOS memory-pressure events. Default: false. */
   autoUnloadOnLowMemory?: boolean;
+  /**
+   * v3.0+ — distributed inference / device offload.
+   *
+   * When `offload.enabled` is true, the native side runs mDNS discovery
+   * (and optionally a rendezvous WebSocket) to find peer dvai-bridge
+   * instances and offloads inference requests when the local device
+   * can't serve the model fast enough. See
+   * [the distributed-inference guide](https://dvai-bridge.deepvoiceai.co/guide/distributed-inference)
+   * for the full contract.
+   *
+   * Pairing-request UI is surfaced via the `"pairingRequest"` event
+   * (see {@link DVAIBridge.addListener}); the native callback in
+   * {@link OffloadConfig.onPairingRequest} cannot cross the TurboModule
+   * boundary, so RN consumers use the event surface instead.
+   */
+  offload?: OffloadConfig;
+}
+
+/**
+ * v3.0+ — distributed inference / device offload config. Wire-friendly
+ * subset of the JS-side `@dvai-bridge/core` `OffloadConfig` — function
+ * callbacks (`onPairingRequest`, `onOffload`, `customDiscovery`) are not
+ * representable across the TurboModule boundary, so they're surfaced via
+ * the {@link DVAIBridge.addListener} event channel instead.
+ *
+ * See [the distributed-inference guide](https://dvai-bridge.deepvoiceai.co/guide/distributed-inference)
+ * for the full feature description.
+ */
+export interface OffloadConfig {
+  /** Master switch. Default false; offload is opt-in at v3.0. */
+  enabled: boolean;
+  /** Run mDNS to discover LAN peers. Default: true when `enabled`. */
+  discoverLAN?: boolean;
+  /** Below this tok/s, look for a peer. Default: 10. */
+  minLocalCapability?: number;
+  /** Optional rendezvous-server URL — enables internet path if set. */
+  rendezvousUrl?: string;
+  /** Optional pre-known peers (skip discovery). */
+  knownPeers?: Peer[];
+}
+
+/**
+ * Peer dvai-bridge instance discovered on the LAN or via rendezvous.
+ * Mirrors `@dvai-bridge/core` `Peer` 1:1, except all numeric fields are
+ * `number` (TurboModule wire-format constraint). Surfaced via
+ * {@link PairingRequest.peer} and consumed via {@link StartOptions.offload}'s
+ * `knownPeers`.
+ */
+export interface Peer {
+  /** Stable per-install device ID of the peer. */
+  deviceId: string;
+  /** Human-readable hint (iOS device name, hostname, etc.). */
+  deviceName: string;
+  /** Library SemVer the peer is running. */
+  dvaiVersion: string;
+  /** OpenAI-compatible base URL the peer's local server exposes. */
+  baseUrl: string;
+  /** Models the peer claims to have loaded right now. */
+  loadedModels: string[];
+  /** Peer-reported capability map: `{ modelId → tok/s }`. Advisory. */
+  capability: Record<string, number>;
+  /** Discovery source. */
+  via: "mdns" | "static" | "rendezvous" | "custom";
+  /** Whether the peer's URL uses TLS. */
+  secure: boolean;
+  /** Last-seen unix ms. */
+  lastSeenAt: number;
+}
+
+/**
+ * A request for the consumer app to approve (or deny) pairing with a
+ * remote peer. Emitted on the `"pairingRequest"` channel
+ * (see {@link DVAIBridge.addListener}). The consumer calls
+ * {@link DVAIBridge.respondToPairing} with the {@link PairingRequest.id}
+ * and the user's decision.
+ */
+export interface PairingRequest {
+  /** Stable id used to correlate the response via {@link DVAIBridge.respondToPairing}. */
+  id: string;
+  /** The peer requesting to pair. */
+  peer: Peer;
+  /**
+   * Convenience accessor for `peer.deviceName`. The migration guide and
+   * iOS `PairingRequest.peerDeviceName` use this name; surfacing it
+   * directly keeps consumer-facing code shorter.
+   */
+  peerDeviceName: string;
+  /** Unix-ms deadline after which the pending request is auto-denied. */
+  expiresAt: number;
 }
 
 /**
@@ -242,6 +331,12 @@ export interface DVAIBridgeState {
 
 /** Subscription handle returned by {@link DVAIBridge.addProgressListener}. */
 export interface ProgressSubscription {
+  /** Detach the listener. Idempotent. */
+  remove(): void;
+}
+
+/** Subscription handle returned by {@link DVAIBridge.addListener} for `"pairingRequest"`. */
+export interface PairingSubscription {
   /** Detach the listener. Idempotent. */
   remove(): void;
 }

@@ -7,6 +7,7 @@
 import 'package:meta/meta.dart';
 
 import 'messages.g.dart' as wire;
+import 'offload.dart';
 
 /// Inference backend selected via [StartOptions.backend]. The Dart API
 /// exposes the **union** of every backend supported by either platform.
@@ -155,6 +156,7 @@ class StartOptions {
     this.corsOrigin,
     this.logLevel,
     this.autoUnloadOnLowMemory,
+    this.offload,
   });
 
   /// Which backend to start. Pass [BackendKind.auto] to resolve at runtime.
@@ -230,6 +232,20 @@ class StartOptions {
   /// Default: false.
   final bool? autoUnloadOnLowMemory;
 
+  /// v3.0+ — distributed inference / device offload.
+  ///
+  /// When `offload.enabled` is true, the native side runs mDNS
+  /// discovery (and optionally a rendezvous WebSocket) to find peer
+  /// dvai-bridge instances and offloads inference requests when the
+  /// local device can't serve the model fast enough.
+  ///
+  /// Pairing-request UI is surfaced via
+  /// [DVAIBridge.pairingRequests] — the function-typed
+  /// `onPairingRequest` callback of the JS-side `OffloadConfig` isn't
+  /// representable across the Pigeon channel, so Dart consumers
+  /// listen to a [Stream] of [PairingRequest] values instead.
+  final OffloadConfig? offload;
+
   /// Returns a copy of this object with the given fields replaced.
   StartOptions copyWith({
     BackendKind? backend,
@@ -252,6 +268,7 @@ class StartOptions {
     CorsOrigin? corsOrigin,
     LogLevel? logLevel,
     bool? autoUnloadOnLowMemory,
+    OffloadConfig? offload,
   }) {
     return StartOptions(
       backend: backend ?? this.backend,
@@ -275,6 +292,7 @@ class StartOptions {
       logLevel: logLevel ?? this.logLevel,
       autoUnloadOnLowMemory:
           autoUnloadOnLowMemory ?? this.autoUnloadOnLowMemory,
+      offload: offload ?? this.offload,
     );
   }
 
@@ -301,6 +319,7 @@ class StartOptions {
       corsOrigin: corsOrigin?.toWire(),
       logLevel: logLevel?.wireValue,
       autoUnloadOnLowMemory: autoUnloadOnLowMemory,
+      offload: offload?.toMessage(),
     );
   }
 }

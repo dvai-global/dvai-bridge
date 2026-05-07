@@ -7,6 +7,8 @@ import type {
   BoundServer,
   DownloadOptions,
   DownloadResult,
+  PairingRequest,
+  PairingSubscription,
   ProgressEvent,
   ProgressSubscription,
   StartOptions,
@@ -27,6 +29,7 @@ const ANDROID_ONLY_BACKENDS: ReadonlySet<BackendKind> = new Set<BackendKind>([
 ]);
 
 const PROGRESS_EVENT_NAME = "DVAIBridgeProgress";
+const PAIRING_REQUEST_EVENT_NAME = "DVAIBridgePairingRequest";
 
 /**
  * Lazy `NativeEventEmitter` instance scoped to the `DVAIBridge` module.
@@ -238,8 +241,75 @@ export const DVAIBridge = {
     subscription.remove();
   },
 
+  /**
+   * v3.0+ — distributed inference. Subscribe to one of the bridge's
+   * named event channels:
+   *
+   *  - `"pairingRequest"`: emitted when an inbound peer requests pairing.
+   *    The handler receives a {@link PairingRequest}; respond via
+   *    {@link respondToPairing}. Default behaviour without a listener is
+   *    to deny inbound pairing requests.
+   *
+   * The function is overloaded so additional event names can be added in
+   * future releases without breaking the type signature for existing
+   * consumers.
+   */
+  addListener(
+    eventName: "pairingRequest",
+    listener: (req: PairingRequest) => void,
+  ): PairingSubscription {
+    if (eventName !== "pairingRequest") {
+      // Defensive: keep the wire-channel surface explicit so a future
+      // typo in `eventName` fails fast in dev rather than silently no-op.
+      throw new DVAIBridgeError(
+        "configurationInvalid",
+        `DVAIBridge.addListener: unknown event name "${eventName}". ` +
+          `Valid event names: "pairingRequest".`,
+      );
+    }
+    const emitter = getProgressEmitter();
+    const sub = emitter.addListener(
+      PAIRING_REQUEST_EVENT_NAME,
+      listener as (event: unknown) => void,
+    );
+    return {
+      remove() {
+        sub.remove();
+      },
+    };
+  },
+
+  /**
+   * v3.0+ — distributed inference. Resolve a pending {@link PairingRequest}
+   * received via the `"pairingRequest"` event. Pass the request `id` and
+   * the user's decision; the native side records the decision and either
+   * lets the pairing proceed or rejects it.
+   *
+   * Idempotent — responding twice to the same `requestId` resolves
+   * cleanly on subsequent calls.
+   */
+  async respondToPairing(requestId: string, approved: boolean): Promise<void> {
+    try {
+      await NativeDVAIBridge.respondToPairing(requestId, approved);
+    } catch (err) {
+      throw DVAIBridgeError.fromNative(err);
+    }
+  },
+
   /** Internal helper exposed for unit tests; not part of the public API. */
   _internalProgressEventName: PROGRESS_EVENT_NAME,
+  /** Internal helper exposed for unit tests; not part of the public API. */
+  _internalPairingRequestEventName: PAIRING_REQUEST_EVENT_NAME,
 } as const;
 
-export type { BoundServer, DownloadOptions, DownloadResult, ProgressEvent, ProgressSubscription, StartOptions, StatusInfo };
+export type {
+  BoundServer,
+  DownloadOptions,
+  DownloadResult,
+  PairingRequest,
+  PairingSubscription,
+  ProgressEvent,
+  ProgressSubscription,
+  StartOptions,
+  StatusInfo,
+};

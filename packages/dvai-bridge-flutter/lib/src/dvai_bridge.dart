@@ -10,6 +10,7 @@ import 'package:meta/meta.dart';
 
 import 'errors.dart';
 import 'messages.g.dart' as wire;
+import 'offload.dart';
 import 'progress.dart';
 import 'types.dart';
 
@@ -61,6 +62,32 @@ class _PigeonProgressEventChannel implements ProgressEventChannel {
   Stream<wire.ProgressEventMessage> events() => wire.progressEvents();
 }
 
+/// Abstraction over the Pigeon-generated `pairingRequestEvents()`
+/// top-level helper. v3.0+ — distributed inference. Tests inject a
+/// fake stream so the facade's [DVAIBridge.pairingRequests] surface
+/// can be exercised without binding a real platform `EventChannel`.
+@visibleForTesting
+abstract class PairingRequestEventChannel {
+  /// Returns the broadcast stream of pairing-request events from the
+  /// native side.
+  Stream<wire.PairingRequestMessage> events();
+}
+
+class _PigeonPairingRequestEventChannel implements PairingRequestEventChannel {
+  const _PigeonPairingRequestEventChannel();
+  @override
+  Stream<wire.PairingRequestMessage> events() => wire.pairingRequestEvents();
+}
+
+/// Empty stream placeholder used by [DVAIBridge.test] when the test
+/// doesn't care about pairing-request events.
+class _NeverPairingRequestEventChannel implements PairingRequestEventChannel {
+  const _NeverPairingRequestEventChannel();
+  @override
+  Stream<wire.PairingRequestMessage> events() =>
+      const Stream<wire.PairingRequestMessage>.empty();
+}
+
 /// Public facade for the DVAIBridge Flutter plugin. Use the
 /// [DVAIBridge.instance] singleton:
 ///
@@ -83,36 +110,45 @@ class DVAIBridge {
   static final DVAIBridge instance = DVAIBridge._(
     api: wire.DVAIBridgeHostApi(),
     eventChannel: const _PigeonProgressEventChannel(),
+    pairingEventChannel: const _PigeonPairingRequestEventChannel(),
     platform: const _DartIoPlatformAdapter(),
   );
 
   DVAIBridge._({
     required wire.DVAIBridgeHostApi api,
     required ProgressEventChannel eventChannel,
+    required PairingRequestEventChannel pairingEventChannel,
     required PlatformAdapter platform,
   })  : _api = api,
         _eventChannel = eventChannel,
+        _pairingEventChannel = pairingEventChannel,
         _platform = platform;
 
   /// Construct a [DVAIBridge] for unit testing. Pass a mocked
-  /// [wire.DVAIBridgeHostApi] and a fake [ProgressEventChannel] so the
-  /// facade's behaviour can be exercised without a real platform binding.
+  /// [wire.DVAIBridgeHostApi] and a fake [ProgressEventChannel] /
+  /// [PairingRequestEventChannel] so the facade's behaviour can be
+  /// exercised without a real platform binding.
   @visibleForTesting
   factory DVAIBridge.test({
     required wire.DVAIBridgeHostApi api,
     required ProgressEventChannel eventChannel,
     required PlatformAdapter platform,
+    PairingRequestEventChannel? pairingEventChannel,
   }) {
     return DVAIBridge._(
       api: api,
       eventChannel: eventChannel,
+      pairingEventChannel:
+          pairingEventChannel ?? const _NeverPairingRequestEventChannel(),
       platform: platform,
     );
   }
 
   final wire.DVAIBridgeHostApi _api;
   final ProgressEventChannel _eventChannel;
+  final PairingRequestEventChannel _pairingEventChannel;
   final PlatformAdapter _platform;
+  Stream<PairingRequest>? _pairingRequestsStream;
 
   // Lazy progress / state plumbing.
   Stream<ProgressEvent>? _progressStream;
@@ -173,6 +209,50 @@ class DVAIBridge {
       final wire.DownloadResultMessage msg =
           await _api.downloadModel(opts.toMessage());
       return DownloadResult.fromMessage(msg);
+    } on PlatformException catch (err) {
+      throw DVAIBridgeError.fromPlatform(
+        code: err.code,
+        message: err.message,
+        details: err.details,
+      );
+    }
+  }
+
+  /// v3.0+ — distributed inference. Stream of [PairingRequest]s emitted
+  /// when a remote peer requests pairing with this device. Idiomatic
+  /// Riverpod / Bloc consumers wrap this in a `StreamProvider` /
+  /// `BlocListener`; respond by calling [PairingRequest.respond] with
+  /// the user's decision.
+  ///
+  /// ```dart
+  /// DVAIBridge.instance.pairingRequests.listen((req) async {
+  ///   final approved = await myUiConfirm(req.peerDeviceName);
+  ///   await req.respond(approved: approved);
+  /// });
+  /// ```
+  Stream<PairingRequest> get pairingRequests {
+    return _pairingRequestsStream ??= _pairingEventChannel
+        .events()
+        .map(_decodePairingRequest)
+        .asBroadcastStream();
+  }
+
+  PairingRequest _decodePairingRequest(wire.PairingRequestMessage msg) {
+    return PairingRequest.fromMessage(
+      msg,
+      respond: respondToPairingRequest,
+    );
+  }
+
+  /// v3.0+ — distributed inference. Resolve a pending [PairingRequest]
+  /// by `id` with the user's decision. Idempotent — responding twice
+  /// to the same `requestId` resolves cleanly the second time.
+  ///
+  /// Most consumers should prefer [PairingRequest.respond] (which
+  /// closes over the `id` for them) over calling this directly.
+  Future<void> respondToPairingRequest(String requestId, bool approved) async {
+    try {
+      await _api.respondToPairingRequest(requestId, approved);
     } on PlatformException catch (err) {
       throw DVAIBridgeError.fromPlatform(
         code: err.code,
@@ -352,6 +432,7 @@ class DVAIBridge {
     await _stateController?.close();
     _stateController = null;
     _progressStream = null;
+    _pairingRequestsStream = null;
     _latestState = DVAIBridgeState.idle;
   }
 

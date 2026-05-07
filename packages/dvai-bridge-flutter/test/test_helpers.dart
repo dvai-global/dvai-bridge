@@ -19,6 +19,7 @@ class FakeHostApi extends wire.DVAIBridgeHostApi {
   Future<wire.StatusInfoMessage> Function()? onStatus;
   Future<wire.DownloadResultMessage> Function(wire.DownloadOptionsMessage opts)?
       onDownload;
+  Future<void> Function(String requestId, bool approved)? onRespondToPairing;
 
   /// Calls captured for assertion convenience.
   final List<wire.StartOptionsMessage> startCalls =
@@ -27,6 +28,8 @@ class FakeHostApi extends wire.DVAIBridgeHostApi {
   int statusCalls = 0;
   final List<wire.DownloadOptionsMessage> downloadCalls =
       <wire.DownloadOptionsMessage>[];
+  final List<({String requestId, bool approved})> respondToPairingCalls =
+      <({String requestId, bool approved})>[];
 
   @override
   Future<wire.BoundServerMessage> startBridge(
@@ -81,6 +84,16 @@ class FakeHostApi extends wire.DVAIBridgeHostApi {
       cached: false,
     );
   }
+
+  @override
+  Future<void> respondToPairingRequest(String requestId, bool approved) async {
+    respondToPairingCalls
+        .add((requestId: requestId, approved: approved));
+    final Future<void> Function(String, bool)? handler = onRespondToPairing;
+    if (handler != null) {
+      await handler(requestId, approved);
+    }
+  }
 }
 
 /// In-memory implementation of [ProgressEventChannel] for tests.
@@ -95,6 +108,26 @@ class FakeProgressEventChannel implements ProgressEventChannel {
 
   /// Push an event onto the simulated platform stream.
   void emit(wire.ProgressEventMessage event) {
+    _controller.add(event);
+  }
+
+  /// Close the underlying controller; subsequent listeners receive a
+  /// closed stream.
+  Future<void> close() => _controller.close();
+}
+
+/// In-memory implementation of [PairingRequestEventChannel] for tests.
+class FakePairingRequestEventChannel implements PairingRequestEventChannel {
+  FakePairingRequestEventChannel();
+
+  final StreamController<wire.PairingRequestMessage> _controller =
+      StreamController<wire.PairingRequestMessage>.broadcast();
+
+  @override
+  Stream<wire.PairingRequestMessage> events() => _controller.stream;
+
+  /// Push a pairing request onto the simulated platform stream.
+  void emit(wire.PairingRequestMessage event) {
     _controller.add(event);
   }
 

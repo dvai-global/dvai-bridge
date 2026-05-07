@@ -49,8 +49,22 @@ export interface Spec extends TurboModule {
   /** Download a model file with sha-256 verification. Returns `{ path, sha256, sizeBytes, cached? }`. */
   downloadModel(opts: Object): Promise<Object>;
 
+  /**
+   * v3.0+ — Phase 3 distributed inference.
+   *
+   * Respond to a pending pairing request emitted via the
+   * `"DVAIBridgePairingRequest"` event channel. `requestId` matches the
+   * `id` field of the {@link PairingRequest} payload. `approved=true`
+   * tells the native side to accept the inbound peer; `false` rejects.
+   *
+   * Resolves once the native side records the decision; idempotent for
+   * already-resolved requests (those resolve cleanly without effect).
+   */
+  respondToPairing(requestId: string, approved: boolean): Promise<void>;
+
   // NativeEventEmitter housekeeping — required for `DVAIBridgeProgress`
-  // events. RN's NativeEventEmitter calls these to track subscriber count.
+  // and `DVAIBridgePairingRequest` events. RN's NativeEventEmitter calls
+  // these to track subscriber count.
   addListener(eventName: string): void;
   removeListeners(count: number): void;
 }

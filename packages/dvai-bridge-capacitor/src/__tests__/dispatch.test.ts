@@ -92,6 +92,179 @@ describe("plugin-not-installed errors", () => {
   });
 });
 
+describe("DVAIBridge offload + pairing surface (v3.0)", () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it("forwards opts.offload through to the native plugin's start()", async () => {
+    const startSpy = vi.fn(async () => ({
+      baseUrl: "http://127.0.0.1:38883/v1",
+      port: 38883,
+      backend: "llama" as const,
+      modelId: "test",
+    }));
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: vi.fn(() => ({
+        start: startSpy,
+        stop: vi.fn(async () => undefined),
+        status: vi.fn(async () => ({ running: true })),
+        addListener: vi.fn(async () => ({ remove: async () => undefined })),
+        respondToPairing: vi.fn(async () => undefined),
+      })),
+      Capacitor: { getPlatform: () => "ios" },
+    }));
+    const { DVAIBridge } = await import("../index");
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+
+    await DVAIBridge.start({
+      backend: "llama",
+      modelPath: "/m.gguf",
+      offload: {
+        enabled: true,
+        discoverLAN: true,
+        minLocalCapability: 12,
+        rendezvousUrl: "wss://rendezvous.myapp.com",
+        knownPeers: [
+          {
+            deviceId: "peer-1",
+            deviceName: "Studio Mac",
+            dvaiVersion: "3.0.0",
+            baseUrl: "http://192.168.1.42:38883/v1",
+            loadedModels: ["Llama-3.2-1B-Instruct.Q4_K_M"],
+            capability: { "Llama-3.2-1B-Instruct.Q4_K_M": 32 },
+            via: "static",
+            secure: false,
+            lastSeenAt: 1700000000000,
+          },
+        ],
+      },
+    });
+
+    expect(startSpy).toHaveBeenCalledTimes(1);
+    const callArgs = startSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(callArgs.offload).toMatchObject({
+      enabled: true,
+      discoverLAN: true,
+      minLocalCapability: 12,
+      rendezvousUrl: "wss://rendezvous.myapp.com",
+    });
+  });
+
+  it("addListener('pairingRequest') routes through to the active plugin", async () => {
+    const addListenerSpy = vi.fn(async () => ({
+      remove: async () => undefined,
+    }));
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: vi.fn(() => ({
+        start: vi.fn(async () => ({
+          baseUrl: "http://127.0.0.1:38883/v1",
+          port: 38883,
+          backend: "llama",
+          modelId: "test",
+        })),
+        stop: vi.fn(async () => undefined),
+        status: vi.fn(async () => ({ running: true })),
+        addListener: addListenerSpy,
+        respondToPairing: vi.fn(async () => undefined),
+      })),
+      Capacitor: { getPlatform: () => "ios" },
+    }));
+    const { DVAIBridge } = await import("../index");
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+
+    await DVAIBridge.start({ backend: "llama", modelPath: "/m.gguf" });
+    const cb = vi.fn();
+    await DVAIBridge.addListener("pairingRequest", cb);
+
+    expect(addListenerSpy).toHaveBeenCalledWith("pairingRequest", cb);
+  });
+
+  it("addListener throws if called before start()", async () => {
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: vi.fn(() => ({})),
+      Capacitor: { getPlatform: () => "ios" },
+    }));
+    const { DVAIBridge } = await import("../index");
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+
+    await expect(
+      DVAIBridge.addListener("pairingRequest", () => undefined),
+    ).rejects.toThrow(/before start/);
+  });
+
+  it("addListener rejects unknown event names", async () => {
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: vi.fn(() => ({
+        start: vi.fn(async () => ({
+          baseUrl: "x",
+          port: 1,
+          backend: "llama",
+          modelId: "x",
+        })),
+        addListener: vi.fn(),
+      })),
+      Capacitor: { getPlatform: () => "ios" },
+    }));
+    const { DVAIBridge } = await import("../index");
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+    await DVAIBridge.start({ backend: "llama", modelPath: "/m.gguf" });
+    await expect(
+      // @ts-expect-error — runtime guard test; the type system already blocks this.
+      DVAIBridge.addListener("not-a-real-event", () => undefined),
+    ).rejects.toThrow(/unknown event name/);
+  });
+
+  it("respondToPairing forwards (requestId, approved) to the native plugin", async () => {
+    const respondSpy = vi.fn(async () => undefined);
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: vi.fn(() => ({
+        start: vi.fn(async () => ({
+          baseUrl: "http://127.0.0.1:38883/v1",
+          port: 38883,
+          backend: "llama",
+          modelId: "test",
+        })),
+        stop: vi.fn(async () => undefined),
+        status: vi.fn(async () => ({ running: true })),
+        addListener: vi.fn(async () => ({ remove: async () => undefined })),
+        respondToPairing: respondSpy,
+      })),
+      Capacitor: { getPlatform: () => "ios" },
+    }));
+    const { DVAIBridge } = await import("../index");
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+
+    await DVAIBridge.start({ backend: "llama", modelPath: "/m.gguf" });
+    await DVAIBridge.respondToPairing("req-abc", true);
+
+    expect(respondSpy).toHaveBeenCalledWith({
+      requestId: "req-abc",
+      approved: true,
+    });
+  });
+
+  it("respondToPairing throws if called before start()", async () => {
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: vi.fn(() => ({})),
+      Capacitor: { getPlatform: () => "ios" },
+    }));
+    const { DVAIBridge } = await import("../index");
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+
+    await expect(
+      DVAIBridge.respondToPairing("req-abc", true),
+    ).rejects.toThrow(/before start/);
+  });
+});
+
 describe("Android + foundation backend", () => {
   it("rejects with a clear iOS-only message before touching the native plugin", async () => {
     vi.resetModules();

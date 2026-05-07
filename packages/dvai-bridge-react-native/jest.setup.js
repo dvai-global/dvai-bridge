@@ -19,6 +19,7 @@ jest.mock("react-native", () => {
     stopBridge: jest.fn(),
     status: jest.fn(),
     downloadModel: jest.fn(),
+    respondToPairing: jest.fn(),
     addListener: jest.fn(),
     removeListeners: jest.fn(),
   };
