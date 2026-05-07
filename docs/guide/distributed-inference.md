@@ -170,13 +170,53 @@ When two devices are on the same Wi-Fi:
    `/v1/dvai/handshake` to B with its identity + a nonce.
 3. B's `onPairingRequest` callback fires with A's info; the user
    approves.
-4. B generates a 256-bit pairing key and returns it. Stored on both
-   sides (per-device).
-5. From this point on, A's offload requests carry an
-   `X-DVAI-Pairing: HMAC-SHA256(pairingKey, nonce + method + path + bodyHash)`
-   header. B verifies before serving.
+4. B generates a 256-bit pairing key and **echoes it back** in the
+   handshake response (LAN trust model — same network the request
+   crossed). Stored on both sides; the multi-tenant Hub stores it
+   per-`(appId, peerDeviceId)`.
+5. From this point on, A's offload requests carry four identity
+   headers:
+   - `X-DVAI-Peer-Device-Id`
+   - `X-DVAI-App-Id`
+   - `X-DVAI-Nonce`
+   - `X-DVAI-Signature` — hex of
+     `HMAC-SHA256(pairingKey, composeSignedMessage(nonce, method, path, bodyJson))`
+
+   B verifies before serving. Verified requests log to the audit
+   under the real `(appId, peerDeviceId)`; unsigned requests use the
+   anonymous backwards-compat path (audit row keyed `"anonymous"`).
+   Partial header sets are rejected with 401.
 6. Pairings expire after `expireAfterDays` (default 30) of inactivity.
    Re-pair via fresh handshake.
+
+### Wire-protocol additions in v3.1
+
+| Field | Where | What |
+| --- | --- | --- |
+| `appId` | request body of `/v1/dvai/handshake` | Optional. Identifies which application on the peer device is pairing — the Hub uses it for multi-tenant isolation. v3.0 SDKs that don't send it pair under `peerDeviceId` as a fallback. |
+| `pairingKey`, `peerDeviceId` | response body of `/v1/dvai/handshake` | New v3.1 echoes so the requester can store the shared key + confirm its identity. |
+| `X-DVAI-*` headers | `/v1/chat/completions` | New per-request identity. Sign with `composeSignedMessage` + `signHmac` (re-exported from `@dvai-bridge/core` package root). |
+
+### Chat-completion interceptor (v3.1)
+
+`DVAIConfig.chatCompletionInterceptor` is a first-chance hook that
+runs **before** the default `/v1/chat/completions` handler. The
+v3.1 Hub uses it to apply substitution-policy + engine-bridge
+routing without monkey-patching the transport. Return shape:
+
+```ts
+chatCompletionInterceptor?: (
+  body: any,
+  ctx: HandlerContext,
+  headers?: Record<string, string>,
+) => Promise<Response | null>;
+```
+
+- Return a `Response` → that's what the client gets.
+- Return `null` → fall through to the default local-backend handler.
+
+Headers are passed lower-cased so the interceptor can read v3.1
+identity fields and verify HMAC against a stored pairing key.
 
 ## Per-platform support matrix
 
@@ -214,6 +254,17 @@ When two devices are on the same Wi-Fi:
 - **Rendezvous-WS-tunneled requests** are stubbed in v3.0.0-rc1 (LAN
   path is fully wired; internet path's WS-relay support lights up in
   v3.0.0 final). Track progress via the v3.0 milestone on GitHub.
+- **Outgoing-offload routing in the native SDKs** — the v3.0 SDK
+  packages ship `OffloadConfig` types, mDNS discovery, capability
+  caches, and pairing primitives, but the per-SDK code that actually
+  forwards outgoing `/v1/chat/completions` to a discovered peer
+  isn't wired yet (commit `db5b750` for Android landed
+  configuration + discovery + pairing types only). Until that
+  finishes, host apps that want to test offload against a v3.1 Hub
+  should call the Hub's URL directly with an OpenAI-compatible
+  client (see [`examples/android-llama`](https://github.com/Westenets/dvai-bridge/tree/main/examples/android-llama)
+  for a worked example). v3.1 finalization for each native SDK is
+  tracked separately on GitHub.
 - **Persistent pairing across reconnects** (no re-QR-scan after
   device reboot) is on the v3.1 roadmap.
 - **CLI diagnostics tool** (`dvai-bridge cli peers`, `... probe`,
