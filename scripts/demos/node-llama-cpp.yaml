@@ -1,0 +1,17 @@
+name: node-llama-cpp-quickstart
+description: Node + node-llama-cpp + LangChain via dvai-bridge's native backend.
+output: docs/marketing/assets/node-llama-cpp.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Open examples/node-llama-cpp/index.js — backend: 'native' + nativeModelPath."
+  - duration: 8
+    caption: "Run `pnpm --filter node-llama-cpp start` in the terminal."
+  - duration: 14
+    caption: "Watch GGUF download (Llama-3.2-1B Q4_K_M, ~800 MB) on first run."
+  - duration: 6
+    caption: "[dvai] Local server ready at http://127.0.0.1:38883/v1 prints."
+  - duration: 10
+    caption: "ChatOpenAI streams tokens via the OpenAI-compatible endpoint."
+  - duration: 5
+    caption: "Closing card: 'native llama.cpp behind one OpenAI URL — same client.'"

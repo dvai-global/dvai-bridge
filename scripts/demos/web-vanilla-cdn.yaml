@@ -1,0 +1,17 @@
+name: web-vanilla-cdn-quickstart
+description: Vanilla JS dvai-bridge example — single index.html + script tag, no build.
+output: docs/marketing/assets/web-vanilla-cdn.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Run `python -m http.server 8000` from examples/web-vanilla-cdn/."
+  - duration: 6
+    caption: "Open http://localhost:8000 — view-source confirms one <script> tag, no bundler."
+  - duration: 12
+    caption: "Click Initialize; watch the model download progress in the dot indicator."
+  - duration: 8
+    caption: "Status flips to 'ready (transformers)'; the chat completion runs."
+  - duration: 6
+    caption: "Output text appears in the <pre> block — fetch hit api.openai.local/v1."
+  - duration: 5
+    caption: "Closing card: '@dvai-bridge/vanilla — zero build, OpenAI-shape, local'."
