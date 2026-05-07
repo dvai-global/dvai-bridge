@@ -97,6 +97,10 @@ docs/marketing/
 # tokens, manual gotchas, and registry-specific quirks the user maintains).
 PUBLISHING.md
 
+# Rendezvous-server referral-link setup — private, contains the project
+# owner's affiliate codes for the one-click deploy buttons. Do NOT commit.
+RENDEZVOUS-REFERRALS.md
+
 # CocoaPods — pod install / pod lib lint output (per-developer, regenerated)
 **/Pods/
 
