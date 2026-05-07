@@ -15,7 +15,7 @@ export {
 	legacyCompletionStreamAdapter,
 } from "./handlers/completions.js";
 
-export type BackendType = "webllm" | "transformers" | "auto";
+export type BackendType = "webllm" | "transformers" | "native" | "auto";
 export type DeviceType = "webgpu" | "cpu" | "auto";
 export type {
 	PipelineTask,
@@ -26,7 +26,13 @@ export type {
 export interface DVAIConfig {
 	/** The model ID for web-llm backend. Default: "gemma-2-2b-it-q4f16_1-MLC" */
 	modelId?: string;
-	/** The backend engine to use. Default: "webllm". Set to "auto" to auto-detect. */
+	/**
+	 * The backend engine to use. Default: "webllm". Set to "auto" to auto-detect.
+	 * - "webllm"       → @mlc-ai/web-llm (browser, WebGPU)
+	 * - "transformers" → @huggingface/transformers (browser or Node)
+	 * - "native"       → node-llama-cpp (Node only; loads a GGUF file)
+	 * - "auto"         → resolved at runtime
+	 */
 	backend?: BackendType;
 	/** HuggingFace model ID for Transformers.js backend. Default: "onnx-community/gemma-3n-E2B-it-ONNX" */
 	transformersModelId?: string;
@@ -211,7 +217,7 @@ export class DVAI {
 	private recoveryAttempts: number = 0;
 
 	/** The resolved backend type (after "auto" resolution). */
-	private resolvedBackend: "webllm" | "transformers" = "webllm";
+	private resolvedBackend: "webllm" | "transformers" | "native" = "webllm";
 
 	constructor(config: DVAIConfig = {}) {
 		this.modelId = config.modelId || "gemma-2-2b-it-q4f16_1-MLC";
@@ -257,14 +263,14 @@ export class DVAI {
 		// Resolve explicit backends immediately so getActiveBackend() is correct
 		// before initialize(). "auto" defers to initialize() for runtime env detection.
 		if (this.backend !== "auto") {
-			this.resolvedBackend = this.backend as "webllm" | "transformers";
+			this.resolvedBackend = this.backend as "webllm" | "transformers" | "native";
 		}
 	}
 
 	/**
 	 * Returns the active backend type (resolved from "auto" if applicable).
 	 */
-	getActiveBackend(): "webllm" | "transformers" {
+	getActiveBackend(): "webllm" | "transformers" | "native" {
 		return this.resolvedBackend;
 	}
 
@@ -290,14 +296,14 @@ export class DVAI {
 	 * (which delegates to a native HTTP server in the Capacitor plugin), not
 	 * via the backend. The backend stays in the webview as a thin client.
 	 */
-	private resolveBackend(): "webllm" | "transformers" {
+	private resolveBackend(): "webllm" | "transformers" | "native" {
 		if (this.backend === "auto") {
 			console.log(
 				"[DVAI] Auto-detected web environment → using webllm backend",
 			);
 			return "webllm";
 		}
-		return this.backend as "webllm" | "transformers";
+		return this.backend as "webllm" | "transformers" | "native";
 	}
 
 	/**
@@ -508,6 +514,38 @@ export class DVAI {
 	private async initializeBackend(
 		onProgress: (info: any) => void,
 	): Promise<void> {
+		if (this.resolvedBackend === "native") {
+			let NodeLlamaCppBackend: any;
+			try {
+				const mod = await import("./NodeLlamaCppBackend.js");
+				NodeLlamaCppBackend = mod.NodeLlamaCppBackend;
+			} catch {
+				throw new Error(
+					'[DVAI] native backend selected but the NodeLlamaCppBackend module failed to load.',
+				);
+			}
+			if (!this.nativeModelPath) {
+				throw new Error(
+					'[DVAI] backend: "native" requires `nativeModelPath` (path to a GGUF file).',
+				);
+			}
+			const backend = new NodeLlamaCppBackend({
+				modelPath: this.nativeModelPath,
+				gpuLayers: this.nativeGpuLayers,
+				threads: this.nativeThreads,
+				contextSize: this.nativeContextSize,
+				generationTimeout: this.generationTimeout,
+				modelId: this.modelId,
+			});
+			await backend.initialize(onProgress);
+			this.backendInstance = backend;
+			// Echo the resolved model identifier (basename if not provided)
+			this.modelId = backend.getModelId();
+			console.log(
+				`[DVAI] node-llama-cpp backend ready (gpuLayers=${this.nativeGpuLayers}, contextSize=${this.nativeContextSize})`,
+			);
+			return;
+		}
 		if (this.resolvedBackend === "transformers") {
 			let TransformersBackend: any;
 			try {
@@ -571,6 +609,11 @@ export class DVAI {
 		if (this.resolvedBackend === "webllm") {
 			return this.backendInstance.getEngine?.() ?? null;
 		}
+		if (this.resolvedBackend === "native") {
+			// node-llama-cpp doesn't expose a single "engine" — return the
+			// chat session, which is the closest analogue.
+			return this.backendInstance ?? null;
+		}
 		return this.backendInstance.getPipeline?.() ?? null;
 	}
 
@@ -605,6 +648,12 @@ export class DVAI {
 		if (this.resolvedBackend === "webllm") {
 			throw new Error(
 				"[DVAI] Embeddings are not supported on the WebLLM backend. " +
+					"Use backend: 'transformers' with pipelineTask: 'feature-extraction'.",
+			);
+		}
+		if (this.resolvedBackend === "native") {
+			throw new Error(
+				"[DVAI] Embeddings are not yet supported on the node-llama-cpp backend. " +
 					"Use backend: 'transformers' with pipelineTask: 'feature-extraction'.",
 			);
 		}
