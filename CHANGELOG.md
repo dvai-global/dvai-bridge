@@ -3,7 +3,7 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [3.0.0] — Unreleased
+## [3.0.0] — 2026-05-07
 
 Phase 3 — distributed inference. The first major-version bump since
 v2.0.0. **Backwards compatible**: v2.x consumer code that doesn't set
@@ -11,10 +11,167 @@ v2.0.0. **Backwards compatible**: v2.x consumer code that doesn't set
 v3.0 introduces a substantial new capability (cooperative inference
 across the user's devices), not because anything broke.
 
-This entry will consolidate from `[3.0.0-rc1]` (below) plus the
-per-SDK integration work (Tasks 8a–8f of the Phase 3 plan) once the
-final v3.0.0 tag lands. See `docs/migration/v2.4-to-v3.0.md` for the
-upgrade path and `docs/guide/distributed-inference.md` for the design.
+See `docs/migration/v2.4-to-v3.0.md` for the upgrade path,
+`docs/guide/distributed-inference.md` for the user-facing design,
+`docs/guide/self-hosting-rendezvous.md` for the optional internet-path
+infrastructure, and `docs/development/distributed-inference-testing.md`
+for the 2-device E2E verification procedure.
+
+### Added — JS-side core (committed 8663573 + 82cba0f)
+
+- **`@dvai-bridge/core` Phase 3 modules** under `src/`:
+  - **`capability/`** — probe-based + heuristic-fallback capability
+    assessment + per-runtime persistent score cache (IndexedDB browser
+    / Node FS / in-memory). Stable per-install device ID.
+  - **`discovery/`** — peer discovery types + Node mDNS via
+    `multicast-dns` (optional dep) + browser no-op stub +
+    static-list source + composite layer.
+  - **`rendezvous/`** — WebSocket client for the rendezvous server.
+    X25519 ephemeral key exchange via `@noble/curves` (small, audited,
+    no native deps). QR-payload encode/decode.
+  - **`offload/`** — pure `decide()` function. LAN peers preferred over
+    rendezvous at comparable scores. Per-request `X-DVAI-Offload`
+    header (`never | prefer | require`, default `prefer`). Structured
+    `no_capable_device` response in OpenAI-error shape (HTTP 503 +
+    `Retry-After: 30`).
+  - **`pairing/`** — HMAC-SHA256-signed handshake auth via WebCrypto.
+    256-bit pairing keys. Persistent storage adapters. `PairingPolicy`
+    coordinates host-app `onPairingRequest` callback (default: deny)
+    with TTL-expiring persistent state.
+  - **`handlers/dvai/`** — 7 new HTTP routes: `health`, `capability`,
+    `peers`, `probe`, `handshake`, `pair-qr`, `pair-scan`.
+  - **`qr/`** — QR-payload encoder + `dvai-bridge://pair?p=…` deep-link
+    helpers.
+- **`DVAIConfig.offload?: OffloadConfig`** — opts the library into
+  Phase 3 behaviour. Default unset = v2.x exactly. When `enabled: true`,
+  `initialize()` brings up the capability cache + composite discovery
+  + pairing policy; `unload()` tears them down.
+- **`DVAI` instance methods**: `probeCapability()`, `getCapability(modelId?)`,
+  `getPeers()`. All no-op when offload is off.
+- **`@dvai-bridge/core` new dep**: `@noble/curves ^1.6.0`.
+
+### Added — rendezvous server (committed 9717e3f, 7938659)
+
+- **`rendezvous/`** at monorepo root — self-hostable WebSocket relay
+  server. ~700 LOC of Node + Fastify + `@fastify/websocket` + `ws`.
+  Stateless beyond per-session memory; no DB; no auth tokens; no
+  plaintext inference data passes through (peers do their own AEAD).
+- Ships with `Dockerfile` (multi-stage, ~120 MB) + `railway.json` +
+  `app.yaml` deploy templates + 14/14 unit tests + smoke script.
+- Publicly self-hostable via one-click Railway / DigitalOcean buttons.
+  Other platforms (Fly, Render, Cloud Run, App Runner, Kubernetes,
+  bare-VM Docker) documented in `rendezvous/DEPLOYMENT.md` and the
+  public guide.
+
+### Added — per-SDK integration (Phase 3 Task 8)
+
+- **iOS native** (`@dvai-bridge/ios`, committed d830416 + 95702c0 +
+  8994edf + b3cf18d): `OffloadConfig` Swift struct on `StartOptions`;
+  mDNS via Apple's Network framework (`NWBrowser` + `NWListener`);
+  capability cache under `Application Support/dvai-bridge/`; pairing
+  via CryptoKit HMAC-SHA256; `pairingRequests: AsyncStream<PairingRequest>`
+  for SwiftUI. 15/15 OffloadTests pass on iPhone 16 simulator (iOS 18.5).
+- **Android native** (`co.deepvoiceai:dvai-bridge`, committed db5b750):
+  `OffloadConfig` data class on `StartOptions`; mDNS via `NsdManager`;
+  capability cache under `applicationContext.cacheDir/dvai-bridge/`;
+  pairing via `javax.crypto.Mac` HMAC-SHA256;
+  `pairingRequests: SharedFlow<PairingRequest>` for Compose. 46/46
+  tests pass (39 new for Phase 3 Task 8b).
+- **React Native** (`@dvai-bridge/react-native`), **Flutter**
+  (`dvai_bridge`), **Capacitor** (`@dvai-bridge/capacitor` + 4
+  variants) (committed 3bb17c1): thin facades over the iOS / Android
+  native pairing surfaces. 15 (RN) + 34 (Flutter) + 16 (Capacitor)
+  tests pass.
+- **.NET** (`co.deepvoiceai.dvai-bridge*`, committed be7fa0d):
+  `OffloadConfig` C# class on `StartOptions`; desktop mDNS via
+  `Makaretu.Dns.Multicast`; capability cache under
+  `Environment.SpecialFolder.LocalApplicationData/dvai-bridge/`;
+  pairing via `System.Security.Cryptography.HMACSHA256`;
+  `PairingRequests: IAsyncEnumerable<PairingRequest>` for desktop;
+  `OnPairingRequest: Func<PairingRequest, Task<bool>>` callback for
+  mobile. 62/62 OffloadTests + 7/7 Desktop.Tests pass on Windows; iOS +
+  Mac Catalyst slices (`net10.0-ios26.4` + `net10.0-maccatalyst26.4`)
+  build clean on Mac via SSH.
+
+### Added — public docs
+
+- **`docs/guide/distributed-inference.md`** (new) — quick start +
+  `OffloadConfig` reference + per-request header + capability assessment
+  + structured error shape + per-platform support matrix +
+  when-not-to-use.
+- **`docs/guide/self-hosting-rendezvous.md`** (new) — server self-hosting
+  walkthrough; one-click deploy buttons (Railway / DigitalOcean only —
+  the two platforms with referral programs that pay us); detailed
+  per-platform instructions for everything else (Fly, Render, Vercel/
+  Netlify caveats, AWS App Runner / ECS, GCR, K8s, bare-VM Docker).
+- **`docs/migration/v2.4-to-v3.0.md`** (new) — backwards-compatible
+  upgrade path; per-stack migration snippets for JS / iOS / Android /
+  RN / Flutter / Capacitor / .NET; operational notes.
+- **`docs/development/distributed-inference-testing.md`** (new) —
+  2-device E2E test procedure for the v3.0 verification matrix (LAN
+  + internet via deployed rendezvous + structured-error path +
+  pairing flow + network-partition handling).
+- **`docs/reference/api.md`** — `DVAIConfig` table gains `offload`
+  row + new `OffloadConfig` section with per-field reference, X-DVAI-
+  Offload header semantics, Peer type, no_capable_device error shape,
+  new DVAI instance methods.
+- **VitePress sidebar** gains "Distributed Inference (v3.0)" + "Self-
+  Hosting Rendezvous (v3.0)" + "v2.4 → v3.0" + "Distributed Inference
+  Testing (v3.0)" entries.
+
+### Added — research paper (committed effbb1b)
+
+- **`RESEARCH.md` restructured** — v3 capabilities are now first-class
+  throughout, not a §11 addendum. New §3 "The Three Gaps" gives
+  explicit gap-then-solution framing. §7 "Distributed Inference"
+  promoted from the back to a first-class architecture section.
+- **4 SVG figures refreshed**: fig1 (5-layer v3 architecture with v3
+  plane as a dashed overlay), fig2 (6-column per-platform decision
+  tree covering all 9 backends), fig3 (sequence with v3 offload-
+  decision branch + 3 terminal paths). NEW fig7-rendezvous-flow.svg
+  (4-phase QR-pair sequence diagram with privacy property called out).
+
+### Changed — version bump
+
+- All 36 packages bump 2.4.2 → 3.0.0 in lockstep via
+  `scripts/sync-versions.js`. Backwards compatible — no consumer
+  code changes required for the v2.4 → v3.0 transition.
+
+### Removed
+
+Nothing. v3.0 is purely additive.
+
+### Deprecated
+
+Nothing. Every v2.x API surface remains supported.
+
+### Known limitations (v3.0)
+
+- **Browser-as-target** unsupported. Browsers can't reliably accept
+  inbound HTTP across origins; browser is offload-source-only via
+  rendezvous.
+- **Mid-stream model migration** not supported. If a peer drops
+  mid-inference, that request fails. The library can optionally retry
+  on a different peer per the `X-DVAI-Offload: prefer` policy.
+- **Persistent rendezvous-pairing across reconnects** not yet
+  supported (one-shot per session by default). Roadmap: v3.1.
+- **CLI diagnostics tool** (`dvai-bridge cli peers`, `... probe`)
+  not yet shipped. Roadmap: v3.1.
+- **Multi-instance horizontal scaling of the rendezvous server**
+  (Redis-backed session store) not yet supported. Roadmap: v3.2.
+- **iOS / Android native discovery in the .NET MAUI slice**: stubbed
+  with a `Debug.WriteLine` warning today; lights up automatically
+  when the .NET binding gains access to the iOS Swift `NWBrowser`
+  + Android Kotlin `NsdManager` surfaces.
+
+### Distribution
+
+- No registry publishes happen as part of v3.0.0. The tag is
+  internal-development-only at this point. The user runs the publish
+  flow per `PUBLISHING.md` when ready to launch (npm + Maven + NuGet
+  + pub.dev).
+
+---
 
 ---
 
