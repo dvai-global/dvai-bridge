@@ -1,139 +1,113 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 760" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
   <defs>
-    <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#374151" />
     </marker>
-    <marker id="arr3r" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-      <path d="M 10 0 L 0 5 L 10 10 z" fill="#3B82F6" />
+    <marker id="arrV3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7C3AED" />
     </marker>
     <style>
-      .title {
-        font-size: 18px;
-        font-weight: 700;
-        fill: #111827;
-      }
-
-      .actor {
-        font-size: 13px;
-        font-weight: 700;
-        fill: #111827;
-      }
-
-      .actor-sub {
-        font-size: 10px;
-        fill: #6B7280;
-      }
-
-      .msg {
-        font-size: 11px;
-        fill: #111827;
-      }
-
-      .msg-code {
-        font-size: 11px;
-        font-family: 'Fira Code', Consolas, monospace;
-        fill: #1E3A8A;
-      }
-
-      .msg-return {
-        font-size: 11px;
-        fill: #1E40AF;
-        font-weight: 600;
-      }
-
-      .step {
-        font-size: 10px;
-        font-weight: 700;
-        fill: #6B7280;
-      }
-
-      .note {
-        font-size: 10px;
-        fill: #6B7280;
-        font-style: italic;
-      }
+      .title { font-size: 18px; font-weight: 700; fill: #111827; }
+      .subtitle { font-size: 11px; fill: #6B7280; font-style: italic; }
+      .lane-title { font-size: 12px; font-weight: 700; fill: #ffffff; letter-spacing: 0.4px; }
+      .step-box { fill: #ffffff; stroke: #6B7280; stroke-width: 1; }
+      .step-text { font-size: 11px; fill: #111827; }
+      .step-strong { font-size: 11px; font-weight: 700; fill: #111827; }
+      .branch-label { font-size: 10px; fill: #6B7280; font-style: italic; }
+      .v3 { fill: #7C3AED; }
     </style>
   </defs>
 
-  <text x="480" y="30" class="title" text-anchor="middle">Figure 3 — Request-Interception Sequence (streaming case)</text>
+  <text x="550" y="28" class="title" text-anchor="middle">Figure 3 — Request-Flow Sequence (browser MSW + native HTTP + v3 offload branch)</text>
+  <text x="550" y="46" class="subtitle" text-anchor="middle">Same handler logic, two transports; offload decision branches off when v3 distributed inference is enabled</text>
 
-  <!-- Actor columns -->
-  <!-- Positions: 100, 300, 500, 700, 880 -->
-  <rect x="40" y="55" width="140" height="40" rx="6" fill="#D1FAE5" stroke="#10B981" stroke-width="1.2" />
-  <text x="110" y="74" class="actor" text-anchor="middle">Application</text>
-  <text x="110" y="89" class="actor-sub" text-anchor="middle">LangChain · fetch()</text>
+  <!-- Three swim lanes -->
+  <rect x="40"  y="68" width="160" height="38" rx="4" fill="#1E3A8A" />
+  <text x="120" y="92" class="lane-title" text-anchor="middle">Consumer code</text>
 
-  <rect x="220" y="55" width="160" height="40" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.2" />
-  <text x="300" y="74" class="actor" text-anchor="middle">Service Worker</text>
-  <text x="300" y="89" class="actor-sub" text-anchor="middle">mockServiceWorker.js</text>
+  <rect x="220" y="68" width="180" height="38" rx="4" fill="#3B82F6" />
+  <text x="310" y="92" class="lane-title" text-anchor="middle">OpenAI client SDK</text>
 
-  <rect x="420" y="55" width="160" height="40" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.2" />
-  <text x="500" y="74" class="actor" text-anchor="middle">MSW Handler</text>
-  <text x="500" y="89" class="actor-sub" text-anchor="middle">registered by DVAI</text>
+  <rect x="420" y="68" width="200" height="38" rx="4" fill="#06B6D4" />
+  <text x="520" y="92" class="lane-title" text-anchor="middle">Transport (MSW or HTTP)</text>
 
-  <rect x="620" y="55" width="160" height="40" rx="6" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.2" />
-  <text x="700" y="74" class="actor" text-anchor="middle">Backend Driver</text>
-  <text x="700" y="89" class="actor-sub" text-anchor="middle">WebLLM / Transformers / Native</text>
+  <rect x="640" y="68" width="200" height="38" rx="4" fill="#22C55E" />
+  <text x="740" y="92" class="lane-title" text-anchor="middle">DVAI handler + decide()</text>
 
-  <rect x="820" y="55" width="130" height="40" rx="6" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.2" />
-  <text x="885" y="74" class="actor" text-anchor="middle">Engine</text>
-  <text x="885" y="89" class="actor-sub" text-anchor="middle">MLC · ONNX · llama.cpp</text>
+  <rect x="860" y="68" width="200" height="38" rx="4" fill="#F59E0B" />
+  <text x="960" y="92" class="lane-title" text-anchor="middle">Backend / peer</text>
 
-  <!-- Lifelines -->
-  <line x1="110" y1="100" x2="110" y2="610" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 4" />
-  <line x1="300" y1="100" x2="300" y2="610" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 4" />
-  <line x1="500" y1="100" x2="500" y2="610" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 4" />
-  <line x1="700" y1="100" x2="700" y2="610" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 4" />
-  <line x1="885" y1="100" x2="885" y2="610" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 4" />
+  <!-- Vertical lifelines -->
+  <line x1="120" y1="106" x2="120" y2="660" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 3" />
+  <line x1="310" y1="106" x2="310" y2="660" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 3" />
+  <line x1="520" y1="106" x2="520" y2="660" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 3" />
+  <line x1="740" y1="106" x2="740" y2="660" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 3" />
+  <line x1="960" y1="106" x2="960" y2="660" stroke="#9CA3AF" stroke-width="1" stroke-dasharray="4 3" />
 
-  <!-- Step 1: fetch -->
-  <text x="50" y="135" class="step">① request</text>
-  <line x1="110" y1="150" x2="300" y2="150" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)" />
-  <text x="205" y="145" class="msg-code" text-anchor="middle">POST api.openai.local/v1/chat/completions</text>
-  <text x="205" y="162" class="msg" text-anchor="middle">{ messages, stream: true, max_tokens }</text>
+  <!-- Step 1: consumer → SDK -->
+  <text x="120" y="135" class="step-strong" text-anchor="middle">openai.chat.</text>
+  <text x="120" y="148" class="step-strong" text-anchor="middle">completions.create()</text>
+  <line x1="120" y1="160" x2="305" y2="160" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)" />
 
-  <!-- Step 2: Service Worker intercepts -->
-  <text x="240" y="190" class="step">② intercept</text>
-  <line x1="300" y1="205" x2="500" y2="205" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)" />
-  <text x="400" y="200" class="msg" text-anchor="middle">forward to MSW handler</text>
-  <text x="400" y="215" class="note" text-anchor="middle">matches http.post(mockUrl, ...)</text>
+  <!-- Step 2: SDK → transport -->
+  <text x="215" y="180" class="step-text" text-anchor="middle">fetch(baseURL + /v1/chat/completions)</text>
+  <line x1="310" y1="195" x2="515" y2="195" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)" />
 
-  <!-- Step 3: handler parses body, routes to createStreamingResponse -->
-  <text x="445" y="245" class="step">③ route</text>
-  <line x1="500" y1="260" x2="700" y2="260" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)" />
-  <text x="600" y="255" class="msg-code" text-anchor="middle">createStreamingResponse(body)</text>
-  <text x="600" y="270" class="note" text-anchor="middle">(non-streaming path calls chatCompletion)</text>
+  <!-- Transport branch label -->
+  <rect x="425" y="208" width="200" height="38" rx="4" class="step-box" />
+  <text x="525" y="225" class="step-strong" text-anchor="middle">Browser? → MSW intercept</text>
+  <text x="525" y="240" class="branch-label" text-anchor="middle">Native? → HTTP server (127.0.0.1)</text>
 
-  <!-- Step 4: driver → engine -->
-  <text x="645" y="300" class="step">④ generate</text>
-  <line x1="700" y1="315" x2="885" y2="315" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)" />
-  <text x="792" y="310" class="msg" text-anchor="middle">engine.chat.completions.create({ stream: true })</text>
+  <!-- Step 3: transport → handler -->
+  <line x1="520" y1="250" x2="735" y2="250" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)" />
+  <text x="625" y="245" class="step-text" text-anchor="middle">request body</text>
 
-  <!-- Step 5: engine → driver tokens -->
-  <text x="645" y="345" class="step">⑤ tokens</text>
-  <line x1="700" y1="360" x2="885" y2="360" stroke="#3B82F6" stroke-width="1.5" stroke-dasharray="5 3" marker-start="url(#arr3r)" />
-  <text x="792" y="355" class="msg-return" text-anchor="middle">async-iterator of deltas (token-by-token)</text>
-  <text x="792" y="372" class="note" text-anchor="middle">blank-chunk detector watches for N empty deltas</text>
+  <!-- Handler box -->
+  <rect x="650" y="262" width="180" height="38" rx="4" class="step-box" />
+  <text x="740" y="279" class="step-strong" text-anchor="middle">Parse body · pick handler</text>
+  <text x="740" y="294" class="branch-label" text-anchor="middle">stream vs non-stream</text>
 
-  <!-- Step 6: ReadableStream to handler -->
-  <text x="445" y="400" class="step">⑥ stream</text>
-  <line x1="500" y1="415" x2="700" y2="415" stroke="#3B82F6" stroke-width="1.5" stroke-dasharray="5 3" marker-start="url(#arr3r)" />
-  <text x="600" y="410" class="msg-return" text-anchor="middle">ReadableStream&lt;Uint8Array&gt;</text>
-  <text x="600" y="425" class="note" text-anchor="middle">each chunk = SSE-encoded OpenAI delta</text>
+  <!-- v3 BRANCH: decide() -->
+  <rect x="650" y="316" width="180" height="58" rx="6" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.5" stroke-dasharray="5 3" />
+  <text x="740" y="334" class="step-strong v3" text-anchor="middle">if offload.enabled:</text>
+  <text x="740" y="350" class="step-strong v3" text-anchor="middle">decide() → local | offload | error</text>
+  <text x="740" y="367" class="branch-label v3" text-anchor="middle">v3.0+ — see Figure 7 for pairing</text>
 
-  <!-- Step 7: handler → SW (HttpResponse with SSE headers) -->
-  <text x="240" y="455" class="step">⑦ respond</text>
-  <line x1="300" y1="470" x2="500" y2="470" stroke="#3B82F6" stroke-width="1.5" stroke-dasharray="5 3" marker-start="url(#arr3r)" />
-  <text x="400" y="465" class="msg-return" text-anchor="middle">HttpResponse (text/event-stream)</text>
+  <!-- Branch 1: local backend -->
+  <line x1="740" y1="376" x2="740" y2="404" stroke="#374151" stroke-width="1.5" />
+  <line x1="740" y1="404" x2="955" y2="404" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)" />
+  <text x="850" y="398" class="step-text" text-anchor="middle">[local] backend.chatCompletion()</text>
 
-  <!-- Step 8: SW → App SSE stream -->
-  <text x="50" y="510" class="step">⑧ SSE</text>
-  <line x1="110" y1="525" x2="300" y2="525" stroke="#3B82F6" stroke-width="1.5" stroke-dasharray="5 3" marker-start="url(#arr3r)" />
-  <text x="205" y="520" class="msg-return" text-anchor="middle">data: {choices:[{delta:{content:"..."}}]}</text>
-  <text x="205" y="537" class="note" text-anchor="middle">App parses SSE stream exactly as if from OpenAI</text>
+  <rect x="870" y="416" width="180" height="34" rx="4" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1" />
+  <text x="960" y="438" class="step-strong" text-anchor="middle">Local backend runs</text>
 
-  <!-- Recovery side note -->
-  <rect x="40" y="565" width="910" height="45" rx="6" fill="#FEF2F2" stroke="#EF4444" stroke-width="1" />
-  <text x="495" y="585" class="msg" text-anchor="middle" font-weight="700" fill="#991B1B">On fatal fault (blank output / timeout)</text>
-  <text x="495" y="601" class="note" text-anchor="middle" fill="#7F1D1D">handler invokes attemptRecovery() → unload → reinitialize → retry (bounded by maxRetries, default 2)</text>
+  <!-- Branch 2: offload to peer -->
+  <line x1="740" y1="376" x2="740" y2="466" stroke="#7C3AED" stroke-width="1.5" stroke-dasharray="5 3" />
+  <line x1="740" y1="466" x2="955" y2="466" stroke="#7C3AED" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrV3)" />
+  <text x="850" y="460" class="step-text v3" text-anchor="middle">[offload] proxy via fetch / WS</text>
+
+  <rect x="870" y="478" width="180" height="34" rx="4" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1" />
+  <text x="960" y="500" class="step-strong v3" text-anchor="middle">Peer device runs</text>
+
+  <!-- Branch 3: no_capable_device error -->
+  <rect x="650" y="478" width="180" height="34" rx="4" fill="#FEE2E2" stroke="#EF4444" stroke-width="1" />
+  <text x="740" y="500" class="step-strong" text-anchor="middle" fill="#991B1B">[error] 503 no_capable_device</text>
+
+  <!-- Streaming response back -->
+  <line x1="955" y1="540" x2="525" y2="540" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)" />
+  <text x="740" y="535" class="step-text" text-anchor="middle">SSE chunks: data: {choices:[{delta:{content:...}}]}</text>
+
+  <line x1="520" y1="572" x2="315" y2="572" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)" />
+  <text x="420" y="567" class="step-text" text-anchor="middle">streamed response</text>
+
+  <line x1="310" y1="600" x2="125" y2="600" stroke="#374151" stroke-width="1.5" marker-end="url(#arr3)" />
+  <text x="215" y="595" class="step-text" text-anchor="middle">async iterator yields tokens</text>
+
+  <text x="120" y="630" class="step-strong" text-anchor="middle">Consumer renders</text>
+  <text x="120" y="645" class="step-strong" text-anchor="middle">streamed text</text>
+
+  <!-- Footer note -->
+  <rect x="40" y="690" width="1020" height="48" rx="6" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1" />
+  <text x="60" y="710" class="step-strong" fill="#581C87">v3.0 distributed-inference branch (purple, dashed):</text>
+  <text x="60" y="726" class="step-text">Per-request decide() inserts an offload step between handler and backend. The consumer's streaming response shape is unchanged whether the inference ran locally or on a peer device.</text>
 </svg>
