@@ -1,0 +1,17 @@
+name: android-llama-quickstart
+description: Hello-world flow on the Android Native SDK Compose example with the llama.cpp (Llama) backend. Targets the `examples/android-llama/` app.
+output: docs/marketing/assets/android-llama-quickstart.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Open Android Studio on the `examples/android-llama/` project; Gradle has just synced against the locally-published AAR."
+  - duration: 6
+    caption: "Show MainActivity.kt — DVAIBridge.init(this) in onCreate plus the Compose button wiring."
+  - duration: 7
+    caption: "Run on an emulator/device. UI shows 'Server: not started' until the user taps Load + Ask."
+  - duration: 8
+    caption: "Tap Load + Ask — DVAIBridge.start(StartOptions(backend = BackendKind.Llama, modelPath = '/sdcard/Download/Llama-3.2-1B-Instruct-Q4_K_M.gguf'))."
+  - duration: 12
+    caption: "aallam/openai-kotlin streams chunks; Compose state updates token-by-token in the response panel."
+  - duration: 5
+    caption: "Closing card: 'co.deepvoiceai:dvai-bridge — Llama backend, OpenAI on loopback, ~800 MB GGUF'."

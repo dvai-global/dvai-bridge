@@ -89,6 +89,18 @@ packages/*/ios/Package.resolved
 packages/*/android/.gradle/
 packages/*/android/build/
 packages/*/android/local.properties
+# `.cxx/` is the AGP-9 NDK build dir; Phase 2 Task 3 surfaced it because
+# llama-core triggers a clean compile when the example apps publish to
+# mavenLocal on a fresh host.
+packages/*/android/.cxx/
+
+# Example-app Gradle output (Phase 2 examples matrix).
+examples/*/.gradle/
+examples/*/build/
+examples/*/app/build/
+examples/*/app/.cxx/
+examples/*/local.properties
+examples/*/.idea/
 
 # Marketing scripts + blog drafts — private, not for the public repo
 docs/marketing/

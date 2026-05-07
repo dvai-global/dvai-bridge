@@ -1,0 +1,24 @@
+{
+  "name": "capacitor-mobile",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Capacitor 7+ hybrid example showing @dvai-bridge/capacitor + capacitor-llama on iOS / Android with a single OpenAI streaming request from the WebView.",
+  "scripts": {
+    "build": "node scripts/build-www.mjs",
+    "cap:sync": "cap sync",
+    "cap:sync:ios": "cap sync ios",
+    "cap:sync:android": "cap sync android",
+    "smoke": "bash smoke.sh"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
+    "@capacitor/ios": "^8.3.1",
+    "@dvai-bridge/capacitor": "workspace:*",
+    "@dvai-bridge/capacitor-llama": "workspace:*"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.3.1",
+    "esbuild": "^0.27.0"
+  }
+}

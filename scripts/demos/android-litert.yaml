@@ -1,0 +1,17 @@
+name: android-litert-quickstart
+description: Hello-world flow on the Android Native SDK Compose example with the LiteRT (TFLite-successor) backend. Targets the `examples/android-litert/` app.
+output: docs/marketing/assets/android-litert-quickstart.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Open Android Studio on the `examples/android-litert/` project; Gradle has just synced against the locally-published AAR."
+  - duration: 6
+    caption: "Show MainActivity.kt — same shell as the Llama / MediaPipe examples; LiteRT also threads tokenizerPath through StartOptions."
+  - duration: 7
+    caption: "Run on an arm64 device. UI shows 'Server: not started' until the user taps Load + Ask."
+  - duration: 8
+    caption: "Tap Load + Ask — DVAIBridge.start(StartOptions(backend = BackendKind.LiteRT, modelPath = '/sdcard/Download/Llama-3.2-1B-Instruct.tflite', tokenizerPath = '...litert-tokenizer/'))."
+  - duration: 12
+    caption: "LiteRT 2.x's CompiledModel boots; the SDK's pure-Kotlin BPE tokenizer drives the prompt; aallam/openai-kotlin streams the response token-by-token."
+  - duration: 5
+    caption: "Closing card: 'co.deepvoiceai:dvai-bridge — LiteRT backend, .tflite + tokenizer.json, OpenAI on loopback'."

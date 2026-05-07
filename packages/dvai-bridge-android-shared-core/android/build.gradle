@@ -39,11 +39,19 @@ apply plugin: 'maven-publish'
 
 android {
     namespace 'co.deepvoiceai.bridge.shared.core'
-    compileSdk 36
+    // Phase 2 Task 3 (examples) library fix: compileSdk is overridable via
+    // the `compileSdkOverride` Gradle property so the example apps in
+    // `examples/android-*` can pin a specific platform without editing the
+    // SDK source. Default is 36 to match the rest of the cores; AGP 9.2.0
+    // has a `parseLocalResources` parser bug on Windows when reading
+    // `android-36/data/res/values/public-final.xml` (manifests as
+    // `For input string: "01010<spaces>... lt 0x01010544"`); falling back
+    // via `-PcompileSdkOverride=35` is a clean Windows workaround.
+    compileSdk(project.findProperty('compileSdkOverride')?.toInteger() ?: 36)
 
     defaultConfig {
         minSdk 24
-        targetSdk 36
+        targetSdk(project.findProperty('compileSdkOverride')?.toInteger() ?: 36)
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -94,7 +102,7 @@ afterEvaluate {
             release(MavenPublication) {
                 groupId = 'co.deepvoiceai'
                 artifactId = 'android-shared-core'
-                version = (project.findProperty('dvaiBridgeVersion') ?: '2.4.1').toString()
+                version = (project.findProperty('dvaiBridgeVersion') ?: '2.4.2').toString()
                 from components.release
             }
         }

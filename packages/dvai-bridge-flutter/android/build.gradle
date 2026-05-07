@@ -79,7 +79,7 @@ repositories {
     }
 }
 
-def dvaiBridgeVersion = project.findProperty('dvaiBridgeVersion') ?: '2.4.1'
+def dvaiBridgeVersion = project.findProperty('dvaiBridgeVersion') ?: '2.4.2'
 
 dependencies {
     // Phase 3D umbrella AAR — provides DVAIBridge, BackendKind, StartOptions,

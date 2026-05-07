@@ -102,7 +102,13 @@ for PKG in "${PACKAGES[@]}"; do
     (
         cd "$PKG_DIR"
         chmod +x ./gradlew
-        ./gradlew publishToMavenLocal --console=plain --quiet
+        # `compileSdkOverride` is forwarded so Windows hosts can fall to
+        # compileSdk 35 (AGP 9.2.0 has a parseLocalResources bug against
+        # android-36's public-final.xml on Windows). Mac/Linux ignore it
+        # unless explicitly passed by the caller. See
+        # packages/dvai-bridge-android-shared-core/android/build.gradle for
+        # the rationale.
+        ./gradlew publishToMavenLocal ${COMPILE_SDK_OVERRIDE:+-PcompileSdkOverride=$COMPILE_SDK_OVERRIDE} --console=plain --quiet
     )
 done
 

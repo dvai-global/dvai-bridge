@@ -1,0 +1,17 @@
+name: android-mediapipe-quickstart
+description: Hello-world flow on the Android Native SDK Compose example with the MediaPipe LLM (LiteRT-LM) backend. Targets the `examples/android-mediapipe/` app.
+output: docs/marketing/assets/android-mediapipe-quickstart.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Open Android Studio on the `examples/android-mediapipe/` project; Gradle has just synced against the locally-published AAR."
+  - duration: 6
+    caption: "Show MainActivity.kt — same shell as the Llama example; only StartOptions.backend differs."
+  - duration: 7
+    caption: "Run on a Snapdragon 8 Gen 2+ device for the QNN delegate; Compose UI shows 'Server: not started'."
+  - duration: 8
+    caption: "Tap Load + Ask — DVAIBridge.start(StartOptions(backend = BackendKind.MediaPipe, modelPath = '/sdcard/Download/gemma2-2b-it-cpu-int8.task'))."
+  - duration: 12
+    caption: "LiteRT-LM EngineConfig boots; aallam/openai-kotlin streams the response into the Compose panel."
+  - duration: 5
+    caption: "Closing card: 'co.deepvoiceai:dvai-bridge — MediaPipe backend, .task bundles, OpenAI on loopback'."

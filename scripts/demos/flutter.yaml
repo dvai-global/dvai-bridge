@@ -1,15 +1,17 @@
 name: flutter-quickstart
-description: Hello-world flow on the Flutter plugin example (dvai_bridge from pub.dev, Pigeon-typed).
+description: Hello-world flow on the Flutter plugin example (examples/flutter-app/, dvai_bridge path-dep, Pigeon-typed) with backend dropdown.
 output: docs/marketing/assets/flutter-quickstart.mp4
 fps: 30
 scenes:
   - duration: 5
-    caption: "Launch the Flutter app in iOS Simulator; pub.dev dependency already resolved."
+    caption: "Launch the Flutter app in iOS Simulator; pub.dev / path-dep already resolved."
+  - duration: 6
+    caption: "Open the backend dropdown — items disabled per platform (mediapipe / litert greyed on iOS)."
   - duration: 7
-    caption: "Tap 'Start' — DVAIBridge.instance.start(StartOptions(backend: BackendKind.auto))."
+    caption: "Tap 'Start' — DVAIBridge.instance.start(StartOptions(backend, modelPath))."
   - duration: 8
     caption: "StreamBuilder<DVAIBridgeState> renders the progress event stream."
   - duration: 12
-    caption: "Type a prompt; tokens stream into a ListView through Pigeon-typed channels."
+    caption: "Type a prompt; tokens stream into the response box through dart:io HttpClient SSE."
   - duration: 5
     caption: "Closing card: 'dvai_bridge — pub.dev, Pigeon bindings, OpenAI on loopback'."

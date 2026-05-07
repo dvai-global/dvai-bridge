@@ -5,12 +5,10 @@ examples as workspace packages — they install with `pnpm install` at the
 repo root and have no extra setup step.
 
 Native-platform examples are landing through Phase 2 of the post-v2.4
-roadmap. iOS native, the hybrid trio (Capacitor / React Native /
-Flutter), and .NET (MAUI + 3 desktop variants) are shipped (see below);
-Android native is tracked in [`MATRIX.md`](./MATRIX.md) and ships
-incrementally — until then, the per-SDK quickstart in
-[`docs/guide/`](../docs/guide/) remains the entry point for that
-platform.
+roadmap. iOS native, Android native, the hybrid trio (Capacitor /
+React Native / Flutter), and .NET (MAUI + 3 desktop variants) are all
+shipped (see below). The full ship/planned status lives in
+[`MATRIX.md`](./MATRIX.md).
 
 ## JavaScript / TypeScript (shipped)
 
@@ -66,6 +64,32 @@ iPhone 16 simulator. Build all four in one Mac SSH session:
 ssh mac 'cd ~/Developer/dvai-bridge && bash scripts/mac-side-build-examples.sh build'
 ```
 
+## Android native (shipped — Phase 2)
+
+Three Compose example apps, one per backend, that resolve the
+in-monorepo `co.deepvoiceai:dvai-bridge` umbrella from `mavenLocal()`
+(after `pwsh scripts/android-publish-local.ps1` on Windows or
+`bash scripts/android-publish-local.sh` on Mac/Linux):
+
+| Example | Backend | Model | Host requirements |
+|---|---|---|---|
+| [`android-llama/`](./android-llama/) | llama.cpp | bartowski/Llama-3.2-1B-Instruct-GGUF Q4_K_M (~770 MB) | JDK 21+, Android SDK 35/36, AGP 9.x; arm64-v8a device for end-to-end |
+| [`android-mediapipe/`](./android-mediapipe/) | MediaPipe LLM (LiteRT-LM) | Gemma-2-2B-IT `.task` (~1.3 GB) | Same; Snapdragon 8 Gen 2+ for the QNN delegate |
+| [`android-litert/`](./android-litert/) | LiteRT | `litert-community/Llama-3.2-1B-Instruct.tflite` + `tokenizer.json` (~1.0 GB) | Same; LiteRT-compatible Llama-style stateful checkpoint required |
+
+Each app:
+- Single-screen Compose UI with a Load + Ask button.
+- Calls `DVAIBridge.start(StartOptions(backend = ..., modelPath = ...))`.
+- Hands the returned `state.baseUrl` to `aallam/openai-kotlin` and
+  streams the response into the UI.
+
+Build + run unit smoke for one example:
+
+```bash
+pwsh scripts/android-publish-local.ps1     # one-time per SDK source change
+cd examples/android-llama && bash smoke.sh # JVM tests; connectedAndroidTest auto-skipped when no device
+```
+
 ## Hybrid (shipped — Phase 2)
 
 Three cross-platform example apps that path-dep the in-monorepo native
@@ -100,16 +124,12 @@ Each example has a `smoke.sh` that builds + runs a wiring-only smoke
 cd examples/dotnet-desktop-llama && bash smoke.sh
 ```
 
-## Other platforms
+## Per-SDK quickstart guides
 
-For now, see:
-
-- [Android native quickstart](../docs/guide/android-native-sdk.md)
-- [.NET quickstart](../docs/guide/dotnet-sdk.md)
-
-Each guide contains a copy-pasteable minimum viable app that hits the
-same OpenAI-compatible local endpoint. The full per-(SDK × backend)
-example matrix is in [`MATRIX.md`](./MATRIX.md).
+For copy-pasteable single-file usage that doesn't require cloning the
+monorepo, each platform has a quickstart guide under
+[`docs/guide/`](../docs/guide/) — pick the page that matches your
+target stack.
 
 ---
 
