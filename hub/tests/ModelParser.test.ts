@@ -115,6 +115,63 @@ const CORPUS: CorpusEntry[] = [
     expected: { family: "llama", version: "3.2", size: "3b", quant: "q4_k_m", type: "vision" },
     notes: "llava prefix is unrecognized; falls through to llama family. Vision wins as type.",
   },
+  // Ollama-discovered families surfaced during real-engine smoke tests.
+  {
+    input: "lfm2.5-thinking:latest",
+    expected: { family: "lfm", version: "2.5", size: "unknown", quant: null, type: "thinking" },
+    notes: "LFM is a glommed family-version; `thinking` is a reasoning-style type.",
+  },
+  {
+    input: "granite3.3:2b",
+    expected: { family: "granite", version: "3.3", size: "2b", quant: null, type: "unknown" },
+    notes: "IBM Granite — versioned variant splits via FAMILY_VERSION_RE.",
+  },
+  {
+    input: "granite4:micro-h",
+    expected: { family: "granite", version: "4", size: "micro", quant: null, type: "unknown" },
+    notes: "Granite4 with textual size `micro`; trailing `h` is variant-suffix noise, ignored.",
+  },
+  {
+    input: "dwightfoster03/functionary-small-v3.1:latest",
+    expected: { family: "functionary", version: "3.1", size: "small", quant: null, type: "unknown" },
+    notes: "Namespace stripped; `v3.1` parses as version after a textual size.",
+  },
+  {
+    input: "gemma3n:e2b",
+    expected: { family: "gemma", version: null, size: "e2b", quant: null, type: "unknown" },
+    notes: "Ollama tag for Gemma-3n. `gemma3n` is a recognized variant family alias (no version split — 3n is the architecture).",
+  },
+  {
+    input: "nomic-embed-text:latest",
+    expected: { family: "nomic", version: null, size: "unknown", quant: null, type: "embed" },
+    notes: "Nomic embedding model. `text` token is unrecognized noise.",
+  },
+  {
+    input: "mxbai-embed-large:latest",
+    expected: { family: "mxbai", version: null, size: "large", quant: null, type: "embed" },
+    notes: "MixedBread AI embedding model. Textual size `large` parsed.",
+  },
+  {
+    input: "translategemma:latest",
+    expected: { family: "gemma", version: null, size: "unknown", quant: null, type: "unknown" },
+    notes: "Community fine-tune mapped to base family via explicit alias.",
+  },
+  {
+    input: "functiongemma:latest",
+    expected: { family: "gemma", version: null, size: "unknown", quant: null, type: "unknown" },
+    notes: "Community fine-tune mapped to base family.",
+  },
+  {
+    input: "llama3.2:latest",
+    expected: { family: "llama", version: "3.2", size: "unknown", quant: null, type: "unknown" },
+    notes: "Ollama default tag without size suffix. `latest` is unrecognized noise.",
+  },
+  // Reasoning models
+  {
+    input: "qwen2.5-7b-thinking",
+    expected: { family: "qwen", version: "2.5", size: "7b", quant: null, type: "thinking" },
+    notes: "Distinct type so substitution policy refuses thinking↔instruct mismatches.",
+  },
   // Unknown / garbage
   {
     input: "complete-garbage-string",

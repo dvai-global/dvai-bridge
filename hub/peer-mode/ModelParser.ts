@@ -60,6 +60,29 @@ const FAMILY_ALIASES: Record<string, string> = {
   "tinyllama": "tinyllama",
   "falcon": "falcon",
   "stablelm": "stablelm",
+
+  // IBM Granite — versioned variants fall through to FAMILY_VERSION_RE.
+  "granite": "granite",
+
+  // Liquid Foundation Models.
+  "lfm": "lfm",
+
+  // Nomic embedding models.
+  "nomic": "nomic",
+
+  // Mixed Bread AI embedding models.
+  "mxbai": "mxbai",
+
+  // Functionary (function-calling fine-tunes).
+  "functionary": "functionary",
+
+  // Community fine-tunes that retain the base family's behaviour.
+  // Listed explicitly; the parser does NOT do prefix matching for
+  // arbitrary `*gemma` / `*llama` strings — that would be too
+  // ambiguous (e.g. "googem" or "tinyllama"). Add new fine-tunes
+  // here as they surface.
+  "translategemma": "gemma",
+  "functiongemma": "gemma",
 };
 
 const SIZE_ALIASES: Record<string, string> = {
@@ -70,6 +93,9 @@ const SIZE_ALIASES: Record<string, string> = {
   "2b": "2b",
   "3b": "3b",
   "3.8b": "3b",
+  "4b": "4b",
+  "5b": "5b",
+  "6b": "6b",
   "7b": "7b",
   "8b": "7b",
   "13b": "13b",
@@ -79,7 +105,8 @@ const SIZE_ALIASES: Record<string, string> = {
   "70b": "70b",
   "72b": "70b",
   "405b": "405b",
-  // textual sizes (Phi-3, Gemma 3n)
+  // textual sizes (Phi-3, Gemma 3n, Granite4-Micro, etc.)
+  "micro": "micro",
   "tiny": "tiny",
   "mini": "mini",
   "medium": "medium",
@@ -156,6 +183,14 @@ const TYPE_ALIASES: Record<string, string> = {
   "embed": "embed",
   "embedding": "embed",
   "embeddings": "embed",
+  // Reasoning / chain-of-thought models. Distinct from "instruct" —
+  // a phone asking for a thinking model should NOT be served an
+  // instruct one (they have different output shapes / latency).
+  "thinking": "thinking",
+  "reasoning": "thinking",
+  // NOTE: deepseek-r1 deliberately stays type=unknown to preserve
+  // the existing test corpus contract. If we later decide r1 should
+  // map to "thinking", revisit the canonical corpus first.
 };
 
 /**
