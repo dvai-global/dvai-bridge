@@ -298,8 +298,60 @@ tests on a connected device or emulator). Set
 `SMOKE_LITERT_MODEL_URL` env vars to enable them; they self-skip when
 missing.
 
+## Distributed inference (Phase 3)
+
+`StartOptions` accepts an optional [`OffloadConfig`](https://westenets.github.io/dvai-bridge/guide/distributed-inference.html)
+that turns on LAN peer discovery + capability-aware request offload.
+
+```kotlin
+import co.deepvoiceai.bridge.shared.core.offload.OffloadConfig
+
+DVAIBridge.init(applicationContext)
+
+val server = DVAIBridge.start(
+    StartOptions(
+        backend = BackendKind.Auto,
+        modelPath = "/path/to/model.gguf",
+        offload = OffloadConfig(
+            enabled = true,           // master switch — default false (v2.x parity)
+            discoverLAN = true,       // NsdManager (mDNS) discovery for `_dvai-bridge._tcp`
+            minLocalCapability = 10.0,// below this tok/s, look for a peer
+            rendezvousUrl = null,     // optional WSS rendezvous URL for internet pairings
+        ),
+    ),
+)
+
+// Pairing requests from peers — surface to the user via Compose / Material 3:
+lifecycleScope.launch {
+    DVAIBridge.pairingRequests.collect { req ->
+        val approved = showPairingDialog(req.peerDeviceName)
+        req.respond(approved)
+    }
+}
+```
+
+When `offload.enabled = true`, the SDK also:
+
+- Persists a stable per-install device id under
+  `applicationContext.cacheDir/dvai-bridge/device.json`.
+- Caches per-(model, library version) capability scores under
+  `applicationContext.cacheDir/dvai-bridge/capability.json`.
+- Persists approved pairings under
+  `applicationContext.cacheDir/dvai-bridge/pairings.json` (HMAC-SHA256
+  shared key, base64-url, 30-day inactivity TTL).
+- Advertises this device via `NsdManager.registerService` as a
+  `_dvai-bridge._tcp` service so peers on the same Wi-Fi can find it.
+
+`stop()` tears all of this back down before releasing the HTTP port.
+
+The `kotlinx.coroutines.flow.SharedFlow` returned by
+`DVAIBridge.pairingRequests` is hot — collect it from a
+`LifecycleOwner.lifecycleScope` and the requests are dropped (default-deny)
+when no UI is bound.
+
 ## Reference
 
 - [Public Kotlin API](../reference/api.md)
 - [Backends comparison](./backends.md)
+- [Distributed inference guide](./distributed-inference.md)
 - iOS counterpart: [iOS Native SDK](./ios-native-sdk.md)

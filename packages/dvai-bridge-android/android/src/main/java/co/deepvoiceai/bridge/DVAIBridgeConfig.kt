@@ -1,6 +1,7 @@
 package co.deepvoiceai.bridge
 
 import co.deepvoiceai.bridge.shared.core.CorsConfig
+import co.deepvoiceai.bridge.shared.core.offload.OffloadConfig
 
 /**
  * Options accepted by [DVAIBridge.start]. Mirrors the iOS DVAIBridge
@@ -64,6 +65,14 @@ data class StartOptions(
     val httpMaxPortAttempts: Int = 16,
     val corsOrigin: CorsConfig = CorsConfig.Wildcard,
     val modelId: String? = null,
+    /**
+     * Phase 3 — opt-in distributed inference / device offload. When
+     * `enabled = true`, [DVAIBridge] spins up an [NsdDiscovery] +
+     * [NsdAdvertiser], a [CapabilityCache], and a [PairingPolicy]
+     * whose `requests` Flow is exposed via `DVAIBridge.pairingRequests`
+     * for the host UI. Default null = behave exactly like v2.x.
+     */
+    val offload: OffloadConfig? = null,
 )
 
 /** Options for [DVAIBridge.downloadModel]. */
