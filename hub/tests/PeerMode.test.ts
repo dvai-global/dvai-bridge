@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -56,6 +56,123 @@ describe("PeerMode — lifecycle", () => {
     expect(status.startedAt).toBeGreaterThan(0);
     await peer.stop();
     expect(peer.getStatus().running).toBe(false);
+  });
+
+  it("dvaiFactory wires HTTP server: surfaces baseUrl + port from the factory", async () => {
+    const fakeDvai = {
+      baseUrl: "http://127.0.0.1:38883",
+      port: 38883,
+      initialize: vi.fn(async () => undefined),
+      unload: vi.fn(async () => undefined),
+    };
+    const peer = new PeerMode({
+      storeDir: tmpDir,
+      externalEnginesEnabled: false,
+      onPairingRequest: async () => true,
+      dvaiFactory: () => fakeDvai,
+    });
+    const status = await peer.start();
+    expect(fakeDvai.initialize).toHaveBeenCalledTimes(1);
+    expect(status.running).toBe(true);
+    expect(status.baseUrl).toBe("http://127.0.0.1:38883");
+    expect(status.port).toBe(38883);
+    await peer.stop();
+    expect(fakeDvai.unload).toHaveBeenCalledTimes(1);
+    expect(peer.getStatus().baseUrl).toBeNull();
+  });
+
+  it("dvaiFactory's onPairingRequest forwards through MultiTenantPairing (Peer.deviceId → appId)", async () => {
+    let approvalCalled = 0;
+    let dvaiCallback: ((peer: { deviceId: string; deviceName: string; dvaiVersion: string; baseUrl: string }) => Promise<boolean>) | undefined;
+    const peer = new PeerMode({
+      storeDir: tmpDir,
+      externalEnginesEnabled: false,
+      onPairingRequest: async () => {
+        approvalCalled++;
+        return true;
+      },
+      dvaiFactory: (cb) => {
+        dvaiCallback = cb;
+        return {
+          baseUrl: "http://x",
+          port: 1234,
+          initialize: async () => undefined,
+          unload: async () => undefined,
+        };
+      },
+    });
+    await peer.start();
+    expect(dvaiCallback).toBeDefined();
+    // Simulate a v3.0 Peer arriving at the handshake.
+    const ok = await dvaiCallback!({
+      deviceId: "android-pixel-9",
+      deviceName: "Pixel 9",
+      dvaiVersion: "3.1.0",
+      baseUrl: "http://192.168.1.42:38883",
+    });
+    expect(ok).toBe(true);
+    expect(approvalCalled).toBe(1);
+    // Pairing should be recorded under appId == deviceId (v3.1 fallback).
+    const pairings = await peer.listAllPairings();
+    expect(pairings.length).toBe(1);
+    expect(pairings[0]?.appId).toBe("android-pixel-9");
+    expect(pairings[0]?.peerDeviceId).toBe("android-pixel-9");
+    await peer.stop();
+  });
+
+  it("dvaiFactory's onPairingRequest returns false when user denies", async () => {
+    let dvaiCallback: ((peer: { deviceId: string; deviceName: string; dvaiVersion: string; baseUrl: string }) => Promise<boolean>) | undefined;
+    const peer = new PeerMode({
+      storeDir: tmpDir,
+      externalEnginesEnabled: false,
+      onPairingRequest: async () => false,  // user denies
+      dvaiFactory: (cb) => {
+        dvaiCallback = cb;
+        return {
+          baseUrl: "http://x",
+          port: 1234,
+          initialize: async () => undefined,
+          unload: async () => undefined,
+        };
+      },
+    });
+    await peer.start();
+    const ok = await dvaiCallback!({
+      deviceId: "denied-phone",
+      deviceName: "Phone",
+      dvaiVersion: "3.1.0",
+      baseUrl: "http://x",
+    });
+    expect(ok).toBe(false);
+    await peer.stop();
+  });
+
+  it("dvaiFactory's onPairingRequest returns false when appId is not in allowedAppIds (Flavor 2)", async () => {
+    let dvaiCallback: ((peer: { deviceId: string; deviceName: string; dvaiVersion: string; baseUrl: string }) => Promise<boolean>) | undefined;
+    const peer = new PeerMode({
+      storeDir: tmpDir,
+      externalEnginesEnabled: false,
+      multiTenant: { allowedAppIds: ["only-this-device"] },
+      onPairingRequest: async () => true,
+      dvaiFactory: (cb) => {
+        dvaiCallback = cb;
+        return {
+          baseUrl: "http://x",
+          port: 1234,
+          initialize: async () => undefined,
+          unload: async () => undefined,
+        };
+      },
+    });
+    await peer.start();
+    const ok = await dvaiCallback!({
+      deviceId: "different-device",  // not in allowedAppIds
+      deviceName: "Phone",
+      dvaiVersion: "3.1.0",
+      baseUrl: "http://x",
+    });
+    expect(ok).toBe(false);
+    await peer.stop();
   });
 
   it("setServerInfo merges the embedded HTTP server's bind info", async () => {

@@ -30,6 +30,7 @@
 import { EngineBridge, type EngineSummary } from "./EngineBridge.js";
 import {
   MultiTenantPairing,
+  MultiTenantPairingError,
   type OffloadAudit,
   type Pairing,
   type PairingRequest,
@@ -40,6 +41,32 @@ import {
   type BackendDescriptor,
   type RoutingDecision,
 } from "./SubstitutionPolicy.js";
+
+/**
+ * Structural type matching `@dvai-bridge/core`'s public `DVAI` class.
+ * Defined locally to avoid coupling PeerMode to the core's deep import
+ * paths. The shell injects either the real `DVAI` or a mock at start()
+ * via `dvaiFactory` — keeping this façade unit-testable without a real
+ * embedded HTTP server.
+ */
+export interface DvaiServerLike {
+  baseUrl?: string;
+  port?: number;
+  initialize: (...args: unknown[]) => Promise<unknown>;
+  unload: () => Promise<void>;
+}
+
+/**
+ * Structural type matching `@dvai-bridge/core`'s `Peer` (a remote
+ * device that wants to offload to this Hub). Only the fields the Hub
+ * uses to compose a `PairingRequest` are listed here.
+ */
+export interface DvaiPeerLike {
+  deviceId: string;
+  deviceName: string;
+  dvaiVersion: string;
+  baseUrl: string;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Options                                                                    */
@@ -66,6 +93,24 @@ export interface PeerModeOptions {
   onOffloadServed?: (audit: OffloadAudit) => void;
   /** If true, allow lower-quality quants to be served (default false — strict). */
   preferBetterQuant?: boolean;
+  /**
+   * Factory that constructs the underlying `DVAI` server. When provided,
+   * `start()` instantiates the server, calls `initialize()`, forces
+   * `offload.enabled=true`, and surfaces its `baseUrl` through the
+   * status object. The factory receives a `dvaiOnPairingRequest`
+   * callback that the PeerMode wires to its `MultiTenantPairing`.
+   *
+   * When undefined, no embedded HTTP server is started — useful for
+   * unit tests and for advanced deployments where DVAI is managed
+   * externally and stitched in via `setServerInfo()`.
+   *
+   * The factory pattern (rather than a direct DVAI dependency) keeps
+   * peer-mode unit-testable without pulling the entire core into the
+   * test bundle.
+   */
+  dvaiFactory?: (
+    onPairingRequest: (peer: DvaiPeerLike) => Promise<boolean>,
+  ) => Promise<DvaiServerLike> | DvaiServerLike;
 }
 
 /** EngineBridge adapter, re-exported for convenience. */
@@ -107,6 +152,14 @@ export class PeerMode {
    */
   private localBackends: BackendDescriptor[] = [];
 
+  /**
+   * Reference to the embedded DVAI server when `dvaiFactory` is set.
+   * `start()` constructs it; `stop()` calls `unload()`. When the
+   * factory is unset, this stays `null` and the wrapper runs without
+   * an HTTP plane (test mode).
+   */
+  private dvai: DvaiServerLike | null = null;
+
   constructor(opts: PeerModeOptions) {
     this.opts = opts;
     this.tenants = new MultiTenantPairing({
@@ -128,28 +181,92 @@ export class PeerMode {
   /**
    * Start every layer. Idempotent — calling start() while running is a no-op.
    *
-   * NOTE: in the v3.1 cut, the embedded HTTP server is started by the Tauri
-   * Rust shell (which owns process lifecycle), and the resulting baseUrl is
-   * fed into PeerMode via `setServerInfo()`. This keeps PeerMode pure-Node
-   * and Tauri-IPC-friendly — callers that don't want Tauri (e.g. tests, or
-   * a CLI variant) can call `setServerInfo()` themselves.
+   * Order:
+   *   1. Engine bridge brings up + enumerates external engines (Ollama / LM Studio / etc.).
+   *   2. If a `dvaiFactory` was provided, construct the DVAI server,
+   *      wire its `onPairingRequest` to the multi-tenant store, and
+   *      call `initialize()`. Surface `baseUrl` + `port`.
+   *   3. Mark running.
+   *
+   * If `dvaiFactory` is unset, no HTTP plane is started — the wrapper
+   * runs only the engine-bridge + tenants + substitution-policy
+   * surfaces. Useful for tests and for advanced deployments where the
+   * caller manages the DVAI lifecycle externally and uses
+   * `setServerInfo()` to feed in the baseUrl.
    */
   async start(): Promise<PeerModeStatus> {
     if (this.status.running) return this.status;
     await this.engines.start();
-    this.status = {
-      running: true,
-      port: this.opts.port ?? null,
-      baseUrl: null,
-      startedAt: Date.now(),
-    };
+
+    if (this.opts.dvaiFactory) {
+      this.dvai = await this.opts.dvaiFactory((peer) =>
+        this.handleDvaiPairingRequest(peer),
+      );
+      await this.dvai.initialize();
+      this.status = {
+        running: true,
+        port: this.dvai.port ?? this.opts.port ?? null,
+        baseUrl: this.dvai.baseUrl ?? null,
+        startedAt: Date.now(),
+      };
+    } else {
+      this.status = {
+        running: true,
+        port: this.opts.port ?? null,
+        baseUrl: null,
+        startedAt: Date.now(),
+      };
+    }
     return this.status;
   }
 
   async stop(): Promise<void> {
     if (!this.status.running) return;
+    if (this.dvai) {
+      try {
+        await this.dvai.unload();
+      } catch (err) {
+        // Server unload errors must not prevent the rest of stop() from running —
+        // the wrapper still wants to release engine bridge + clear pairing memory.
+        const msg = err instanceof Error ? err.message : String(err);
+        // eslint-disable-next-line no-console
+        console.warn(`[PeerMode] dvai.unload() failed: ${msg}`);
+      }
+      this.dvai = null;
+    }
     await this.engines.stop();
     this.status = { running: false, port: null, baseUrl: null, startedAt: null };
+  }
+
+  /**
+   * Bridge between v3.0 DVAI's `Peer`-keyed pairing handshake and the
+   * Hub's `appId`-keyed multi-tenant store.
+   *
+   * v3.0 wire protocol does NOT carry `appId` — every peer that pairs
+   * looks the same to the Hub. As a v3.1 finalization item, the
+   * handshake will be extended with an `appId` field; until then we
+   * use `peer.deviceId` as the appId so each device is its own tenant.
+   * The audit log still groups correctly; it just doesn't differentiate
+   * "two apps from the same phone."
+   */
+  private async handleDvaiPairingRequest(peer: DvaiPeerLike): Promise<boolean> {
+    const request: PairingRequest = {
+      peerDeviceId: peer.deviceId,
+      peerDeviceName: peer.deviceName,
+      // FIXME(v3.1-final): replace with peer.appId once HandshakeRequest carries it.
+      appId: peer.deviceId,
+      dvaiVersion: peer.dvaiVersion,
+    };
+    try {
+      await this.tenants.approveOrFetch(request);
+      return true;
+    } catch (err) {
+      if (err instanceof MultiTenantPairingError) {
+        // denied / app_not_allowed → cleanly say no to the peer.
+        return false;
+      }
+      throw err;
+    }
   }
 
   /**

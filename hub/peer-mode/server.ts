@@ -22,9 +22,16 @@ import { createInterface } from "node:readline";
 import { homedir } from "node:os";
 import * as path from "node:path";
 
+import { DVAI } from "@dvai-bridge/core";
 import { PeerMode } from "./PeerMode.js";
 import { OllamaAdapter } from "./adapters/OllamaAdapter.js";
+import { LMStudioAdapter } from "./adapters/LMStudioAdapter.js";
+import { LlamaServerAdapter } from "./adapters/LlamaServerAdapter.js";
+import { VLLMAdapter } from "./adapters/VLLMAdapter.js";
+import { LlamafileAdapter } from "./adapters/LlamafileAdapter.js";
 import type {
+  DvaiPeerLike,
+  DvaiServerLike,
   EngineBridgeAdapter,
   PeerModeOptions,
 } from "./PeerMode.js";
@@ -57,6 +64,29 @@ interface RpcNotification {
 
 const STORE_DIR = process.env.DVAI_HUB_STORE_DIR
   ?? path.join(homedir(), ".dvai-hub");
+
+/**
+ * Backend selection for the Hub's local DVAI server. Defaults to a
+ * small ONNX Llama via Transformers.js — universal and CPU-runnable.
+ * Override via DVAI_HUB_BACKEND + DVAI_HUB_MODEL env vars; advanced
+ * deployments (native node-llama-cpp with a GGUF on disk) set
+ * DVAI_HUB_BACKEND=native and DVAI_HUB_NATIVE_MODEL_PATH.
+ */
+const HUB_BACKEND = (process.env.DVAI_HUB_BACKEND ?? "transformers") as
+  | "transformers"
+  | "native"
+  | "auto"
+  | "webllm";
+const HUB_TRANSFORMERS_MODEL =
+  process.env.DVAI_HUB_TRANSFORMERS_MODEL
+  ?? "onnx-community/Llama-3.2-1B-Instruct-ONNX";
+const HUB_NATIVE_MODEL_PATH = process.env.DVAI_HUB_NATIVE_MODEL_PATH;
+const HUB_PORT = process.env.DVAI_HUB_PORT
+  ? Number(process.env.DVAI_HUB_PORT)
+  : undefined;
+const HUB_RENDEZVOUS = process.env.DVAI_HUB_RENDEZVOUS_URL;
+const HUB_PREFER_BETTER_QUANT = process.env.DVAI_HUB_PREFER_BETTER_QUANT === "1";
+const EXTERNAL_ENGINES_ENABLED = process.env.DVAI_HUB_EXTERNAL_ENGINES !== "0";
 
 /**
  * Per-pairing-request approval state. The Rust shell forwards the
@@ -92,18 +122,64 @@ function respondError(id: string, code: number, message: string): void {
 /* Bring up PeerMode                                                          */
 /* -------------------------------------------------------------------------- */
 
-const adapters: EngineBridgeAdapter[] = [new OllamaAdapter()];
+const adapters: EngineBridgeAdapter[] = [
+  new OllamaAdapter(),
+  new LMStudioAdapter(),
+  new LlamaServerAdapter(),
+  new VLLMAdapter(),
+  new LlamafileAdapter(),
+];
+
+/**
+ * DVAI factory — constructs the embedded HTTP server with offload
+ * enabled and forces the v3.0 onPairingRequest callback to flow
+ * through PeerMode's MultiTenantPairing layer.
+ */
+const dvaiFactory: NonNullable<PeerModeOptions["dvaiFactory"]> = (
+  onPairingRequest: (peer: DvaiPeerLike) => Promise<boolean>,
+): DvaiServerLike => {
+  // Build a DVAIConfig that's typed as the union of all backends but
+  // populated only with the fields the chosen backend needs. The cast
+  // to DvaiServerLike keeps PeerMode's structural decoupling intact.
+  const cfg = {
+    backend: HUB_BACKEND,
+    transformersModelId: HUB_TRANSFORMERS_MODEL,
+    ...(HUB_NATIVE_MODEL_PATH !== undefined
+      ? { nativeModelPath: HUB_NATIVE_MODEL_PATH }
+      : {}),
+    ...(HUB_PORT !== undefined ? { httpBasePort: HUB_PORT } : {}),
+    transport: "http" as const,
+    offload: {
+      enabled: true,
+      discoverLAN: true,
+      // The Hub itself never offloads further upstream — it IS the
+      // strong peer. Set minLocalCapability to 0 so any local
+      // capability is "good enough" and outgoing-offload never fires.
+      minLocalCapability: 0,
+      ...(HUB_RENDEZVOUS !== undefined ? { rendezvousUrl: HUB_RENDEZVOUS } : {}),
+      onPairingRequest,
+    },
+  };
+  // The DVAI constructor accepts DVAIConfig — cast through unknown to
+  // satisfy TypeScript (we don't own the upstream type) and downcast
+  // to DvaiServerLike on the way out.
+  const dvai = new DVAI(cfg as unknown as ConstructorParameters<typeof DVAI>[0]);
+  return dvai as unknown as DvaiServerLike;
+};
 
 const peerOptions: PeerModeOptions = {
   storeDir: STORE_DIR,
-  externalEnginesEnabled: true,
+  externalEnginesEnabled: EXTERNAL_ENGINES_ENABLED,
   engineAdapters: adapters,
   onPairingRequest: (request) => awaitPairingApproval(request),
   onOffloadServed: (audit) => {
     pendingAudit.push(audit);
     notify("offload-served", audit);
   },
-  preferBetterQuant: false,
+  preferBetterQuant: HUB_PREFER_BETTER_QUANT,
+  dvaiFactory,
+  ...(HUB_RENDEZVOUS !== undefined ? { rendezvousUrl: HUB_RENDEZVOUS } : {}),
+  ...(HUB_PORT !== undefined ? { port: HUB_PORT } : {}),
 };
 
 const peer = new PeerMode(peerOptions);

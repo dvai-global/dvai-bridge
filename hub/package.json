@@ -10,6 +10,9 @@
   },
   "scripts": {
     "build:peer-mode": "tsc -p peer-mode/tsconfig.json",
+    "smoke:ollama": "node dist/scripts/smoke-ollama.js",
+    "smoke:lmstudio": "node dist/scripts/smoke-lmstudio.js",
+    "sidecar:dev": "node dist/peer-mode/server.js",
     "build:vite": "vite build",
     "dev:vite": "vite",
     "test": "vitest run",
