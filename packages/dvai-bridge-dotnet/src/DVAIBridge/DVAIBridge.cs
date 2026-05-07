@@ -79,7 +79,48 @@ public sealed class DVAIBridge : IAsyncDisposable
     private readonly ProgressBroadcaster _progress = new();
     private readonly IDisposable _progressSubscription;
     private DVAIBridgeException? _lastError;
+    private OffloadSession? _offload;
     private int _disposed; // 0 = live, 1 = disposed (CompareExchange-guarded)
+
+    /// <summary>
+    /// Stream of incoming pairing requests when offload is enabled
+    /// (<see cref="StartOptions.Offload"/> with
+    /// <see cref="OffloadConfig.Enabled"/> = <c>true</c>). Each request
+    /// must be resolved by calling
+    /// <see cref="PairingRequest.RespondAsync(bool, CancellationToken)"/>.
+    /// Empty stream when offload is disabled.
+    ///
+    /// <example>
+    /// <code>
+    /// await foreach (var req in DVAIBridge.Shared.PairingRequests)
+    /// {
+    ///     var approved = await MyUiConfirm(req.PeerDeviceName);
+    ///     await req.RespondAsync(approved);
+    /// }
+    /// </code>
+    /// </example>
+    /// </summary>
+    public IAsyncEnumerable<PairingRequest> PairingRequests =>
+        _offload?.PairingPolicy.Requests ?? EmptyAsync<PairingRequest>();
+
+    /// <summary>
+    /// Snapshot of currently known + discovered peers when offload is
+    /// enabled. Empty list when offload is disabled.
+    /// </summary>
+    public IReadOnlyList<PeerInfo> Peers =>
+        _offload?.Peers ?? Array.Empty<PeerInfo>();
+
+    /// <summary>
+    /// Stable per-install device ID surfaced when offload is enabled.
+    /// <c>null</c> when offload is disabled.
+    /// </summary>
+    public string? DeviceId => _offload?.DeviceId;
+
+    private static async IAsyncEnumerable<T> EmptyAsync<T>()
+    {
+        await Task.CompletedTask;
+        yield break;
+    }
 
     /// <summary>
     /// Internal test-seam constructor. Production code uses
@@ -115,6 +156,11 @@ public sealed class DVAIBridge : IAsyncDisposable
         {
             var server = await _bridge.StartAsync(opts, ct).ConfigureAwait(false);
             _lastError = null;
+            if (opts.Offload is { Enabled: true } offloadConfig)
+            {
+                var factory = PlatformBridgeFactory.ResolveDiscoveryFactory();
+                _offload = await OffloadSession.StartAsync(offloadConfig, factory, ct).ConfigureAwait(false);
+            }
             return server;
         }
         catch (DVAIBridgeException ex)
@@ -141,6 +187,11 @@ public sealed class DVAIBridge : IAsyncDisposable
     {
         try
         {
+            if (_offload is { } off)
+            {
+                _offload = null;
+                await off.DisposeAsync().ConfigureAwait(false);
+            }
             await _bridge.StopAsync(ct).ConfigureAwait(false);
         }
         catch (DVAIBridgeException ex)
@@ -246,16 +297,20 @@ public sealed class DVAIBridge : IAsyncDisposable
     /// is left bound; call <see cref="StopAsync(CancellationToken)"/>
     /// first if you also want to release the native server.
     /// </summary>
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0)
         {
-            return ValueTask.CompletedTask;
+            return;
         }
 
+        if (_offload is { } off)
+        {
+            _offload = null;
+            await off.DisposeAsync().ConfigureAwait(false);
+        }
         _progressSubscription.Dispose();
         _progress.Dispose();
-        return ValueTask.CompletedTask;
     }
 
     /// <summary>

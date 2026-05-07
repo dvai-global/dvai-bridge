@@ -34,5 +34,8 @@
     <PackageVersion Include="Microsoft.ML.OnnxTransformer" Version="5.0.0" />
     <!-- Used by the MLNet path's hand-rolled tokenizer + sampler (Task 21) -->
     <PackageVersion Include="Microsoft.ML.Tokenizers" Version="1.0.2" />
+
+    <!-- mDNS / DNS-SD for desktop LAN peer discovery (Task 8e — Phase 3 distributed inference) -->
+    <PackageVersion Include="Makaretu.Dns.Multicast" Version="0.27.0" />
   </ItemGroup>
 </Project>
