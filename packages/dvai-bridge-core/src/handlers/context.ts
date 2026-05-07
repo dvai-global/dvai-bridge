@@ -47,4 +47,20 @@ export interface HandlerContext {
    * when offload isn't enabled — transports return 404 in that case.
    */
   dvaiRoutes?: Record<string, import("./dvai/index.js").DvaiHandler>;
+
+  /**
+   * Phase 4 — first-chance hook for /v1/chat/completions. The Hub
+   * uses this to inject substitution-policy + engine-bridge routing
+   * before the default handler dispatches to the local backend.
+   *
+   * Return a Response → that's what the client gets.
+   * Return null → fall through to the default backend path.
+   *
+   * Errors raised in the interceptor propagate to the standard error
+   * response path in handleChatCompletion.
+   */
+  chatCompletionInterceptor?: (
+    body: any,
+    ctx: HandlerContext,
+  ) => Promise<Response | null>;
 }

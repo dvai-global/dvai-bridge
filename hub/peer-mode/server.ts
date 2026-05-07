@@ -53,6 +53,7 @@ console.table = ((value: unknown): void => _stderr("table", value)) as typeof co
 
 import { DVAI } from "@dvai-bridge/core";
 import { PeerMode } from "./PeerMode.js";
+import { parseModelName } from "./ModelParser.js";
 import { OllamaAdapter } from "./adapters/OllamaAdapter.js";
 import { LMStudioAdapter } from "./adapters/LMStudioAdapter.js";
 import { LlamaServerAdapter } from "./adapters/LlamaServerAdapter.js";
@@ -64,6 +65,10 @@ import type {
   EngineBridgeAdapter,
   PeerModeOptions,
 } from "./PeerMode.js";
+import type {
+  ChatRequest,
+  StreamResponse,
+} from "./EngineBridge.js";
 import type { OffloadAudit, PairingRequest } from "./MultiTenantPairing.js";
 
 /* -------------------------------------------------------------------------- */
@@ -170,6 +175,173 @@ const adapters: EngineBridgeAdapter[] = [
   new LlamafileAdapter(),
 ];
 
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+const ANON_TENANT_ID = "anonymous";
+
+/** AsyncIterable<Uint8Array> → ReadableStream<Uint8Array> for SSE pipe-through. */
+function asyncIterableToReadableStream(
+  iter: AsyncIterable<Uint8Array>,
+): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        for await (const chunk of iter) {
+          controller.enqueue(chunk);
+        }
+        controller.close();
+      } catch (err) {
+        controller.error(err);
+      }
+    },
+  });
+}
+
+/**
+ * /v1/chat/completions interceptor for the Hub. Runs BEFORE DVAI's
+ * default local-backend handler. Applies the substitution policy +
+ * engine bridge:
+ *
+ *   1. Parse `body.model`. Fall through (return null) if absent.
+ *   2. peer.routeRequest() → RoutingDecision.
+ *   3. Refuse → 503 + structured error + audit-record.
+ *   4. Same-engine === "builtin" → audit-record + return null (DVAI's
+ *      default handler runs the local backend).
+ *   5. External engine → call adapter.serveRequest with the engine's
+ *      own model id, pipe streaming response if applicable, audit.
+ *
+ * Audit identity: plain HTTP requests aren't HMAC-signed (curl tests
+ * don't carry the pairing key). When we add the v3.1 wire-protocol
+ * extension that surfaces the requester's appId/peerDeviceId, this
+ * function reads those from request headers; until then it logs as
+ * "anonymous".
+ */
+async function chatCompletionInterceptor(
+  body: ChatRequest & { model?: unknown },
+): Promise<Response | null> {
+  const requestedModel = typeof body.model === "string" ? body.model : "";
+  if (!requestedModel) return null;
+
+  const startTs = Date.now();
+  const requested = parseModelName(requestedModel);
+  const decision = await peer.routeRequest(requested);
+
+  // Refuse path
+  if (decision.kind === "refuse") {
+    await peer.recordOffloadAudit({
+      ts: new Date().toISOString(),
+      appId: ANON_TENANT_ID,
+      peerDeviceId: ANON_TENANT_ID,
+      engine: "none",
+      requestedModel,
+      servedModel: "",
+      outcome: "refuse",
+      reason: decision.reason,
+      durationMs: Date.now() - startTs,
+    });
+    return Response.json(
+      {
+        error: {
+          type: "no_capable_device",
+          code: 503,
+          message: `No backend can serve "${requestedModel}". Reason: ${decision.reason}.`,
+          ...(decision.detail ? { detail: decision.detail } : {}),
+        },
+      },
+      { status: 503 },
+    );
+  }
+
+  const backend = decision.backend;
+
+  // Local-backend path — fall through to DVAI's default handler.
+  if (backend.engine === "builtin") {
+    await peer.recordOffloadAudit({
+      ts: new Date().toISOString(),
+      appId: ANON_TENANT_ID,
+      peerDeviceId: ANON_TENANT_ID,
+      engine: "builtin",
+      requestedModel,
+      servedModel: backend.engineModelId,
+      outcome: decision.kind,
+      ...(decision.kind === "substituted" ? { reason: decision.reason } : {}),
+      durationMs: Date.now() - startTs,
+    });
+    return null;
+  }
+
+  // External-engine path
+  const adapter = peer.findEngineAdapter(backend.engine);
+  if (!adapter) {
+    await peer.recordOffloadAudit({
+      ts: new Date().toISOString(),
+      appId: ANON_TENANT_ID,
+      peerDeviceId: ANON_TENANT_ID,
+      engine: backend.engine,
+      requestedModel,
+      servedModel: "",
+      outcome: "refuse",
+      reason: "engine_adapter_not_found",
+      durationMs: Date.now() - startTs,
+    });
+    return Response.json(
+      {
+        error: {
+          type: "engine_adapter_not_found",
+          code: 503,
+          message: `Adapter for engine "${backend.engine}" is not available.`,
+        },
+      },
+      { status: 503 },
+    );
+  }
+
+  // Forward the request, but rewrite `model` to the engine's own id
+  // (Ollama tag, LM Studio path, etc.).
+  const adapterRequest: ChatRequest = {
+    ...(body as ChatRequest),
+    model: backend.engineModelId,
+  };
+  const adapterResponse = await adapter.serveRequest(
+    backend.descriptor,
+    adapterRequest,
+  );
+
+  // Streaming response (engine returned an AsyncIterable).
+  const isStream = (body.stream === true) && "body" in adapterResponse
+    && typeof (adapterResponse.body as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === "function";
+
+  await peer.recordOffloadAudit({
+    ts: new Date().toISOString(),
+    appId: ANON_TENANT_ID,
+    peerDeviceId: ANON_TENANT_ID,
+    engine: backend.engine,
+    requestedModel,
+    servedModel: backend.engineModelId,
+    outcome: decision.kind,
+    ...(decision.kind === "substituted" ? { reason: decision.reason } : {}),
+    durationMs: Date.now() - startTs,
+  });
+
+  const headers = { ...adapterResponse.headers };
+  if (isStream) {
+    const stream = asyncIterableToReadableStream(
+      (adapterResponse as StreamResponse).body,
+    );
+    headers["Content-Type"] = headers["Content-Type"] ?? "text/event-stream";
+    return new Response(stream, {
+      status: adapterResponse.status,
+      headers,
+    });
+  }
+  return Response.json(adapterResponse.body, {
+    status: adapterResponse.status,
+    headers,
+  });
+}
+
 /**
  * DVAI factory — constructs the embedded HTTP server with offload
  * enabled and forces the v3.0 onPairingRequest callback to flow
@@ -195,6 +367,11 @@ const dvaiFactory: NonNullable<PeerModeOptions["dvaiFactory"]> = (
     // Defaults can be overridden via DVAI_HUB_BIND_HOST=127.0.0.1 if
     // the operator wants to keep loopback-only for some reason.
     httpBindHost: process.env.DVAI_HUB_BIND_HOST ?? "0.0.0.0",
+    // Phase 4 — first-chance interceptor that applies the Hub's
+    // substitution policy + engine-bridge routing before falling
+    // through to DVAI's default local-backend handler.
+    chatCompletionInterceptor: (body: unknown) =>
+      chatCompletionInterceptor(body as ChatRequest & { model?: unknown }),
     offload: {
       enabled: true,
       discoverLAN: true,
@@ -253,6 +430,17 @@ function awaitPairingApproval(request: PairingRequest): Promise<boolean> {
 const handlers: Record<string, (params: Record<string, unknown>) => Promise<unknown>> = {
   start: async () => {
     const status = await peer.start();
+    // Populate the Hub's local-backend descriptor so the substitution
+    // policy can reason about it. The Hub's local DVAI server only
+    // serves the one model configured at boot; that model name parses
+    // through the same vocabulary the engine bridge uses.
+    peer.setLocalBackends([
+      {
+        descriptor: parseModelName(HUB_TRANSFORMERS_MODEL),
+        engine: "builtin",
+        engineModelId: HUB_TRANSFORMERS_MODEL,
+      },
+    ]);
     return status;
   },
   stop: async () => {
