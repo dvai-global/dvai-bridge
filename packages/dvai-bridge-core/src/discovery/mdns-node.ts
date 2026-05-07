@@ -70,6 +70,7 @@ export class NodeMdnsDiscovery implements IDiscovery {
 
     let mod: { default?: (opts?: unknown) => MdnsInstance } | ((opts?: unknown) => MdnsInstance);
     try {
+      // @ts-expect-error — optional dep; consumers install only if they want LAN discovery.
       mod = await import("multicast-dns");
     } catch {
       this.emit({

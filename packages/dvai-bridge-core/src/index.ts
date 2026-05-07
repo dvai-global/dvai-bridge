@@ -115,6 +115,23 @@ export interface DVAIConfig {
 	autoInit?: boolean;
 
 	/**
+	 * Phase 3 (v3.0+) — distributed inference / device offload.
+	 *
+	 * If unset OR `enabled: false`, the library behaves exactly like
+	 * v2.x: every request runs locally. When enabled, the library
+	 * discovers peer devices on the LAN (via mDNS) and / or via a
+	 * self-hosted rendezvous server (if `rendezvousUrl` is set), and
+	 * routes inference requests to the most-capable peer when local
+	 * tok/s falls below `minLocalCapability`.
+	 *
+	 * See `docs/guide/distributed-inference.md` for the full design,
+	 * `docs/guide/self-hosting-rendezvous.md` for the rendezvous
+	 * server self-hosting flow, and `src/offload/types.ts` for the
+	 * full `OffloadConfig` shape.
+	 */
+	offload?: import("./offload/index.js").OffloadConfig;
+
+	/**
 	 * Which transport to use for the OpenAI-compatible surface.
 	 * - "auto"      (default) → capacitor on Capacitor, msw in browser,
 	 *                            http in Node, none in workers
@@ -219,6 +236,19 @@ export class DVAI {
 	/** The resolved backend type (after "auto" resolution). */
 	private resolvedBackend: "webllm" | "transformers" | "native" = "webllm";
 
+	/* ----- Phase 3 (v3.0+) — distributed-inference state ----- */
+
+	/** OffloadConfig as supplied by the consumer (or undefined). */
+	public offload?: import("./offload/index.js").OffloadConfig;
+	/** Capability cache (persistent storage of probe scores). */
+	private capabilityCache?: import("./capability/index.js").CapabilityCache;
+	/** Discovery layer — composite of LAN mDNS + static + custom. */
+	private discovery?: import("./discovery/index.js").IDiscovery;
+	/** Pairing policy (LAN-handshake auth + persistent store). */
+	private pairingPolicy?: import("./pairing/index.js").PairingPolicy;
+	/** Stable per-install device ID (cached after first call). */
+	private deviceId?: string;
+
 	constructor(config: DVAIConfig = {}) {
 		this.modelId = config.modelId || "gemma-2-2b-it-q4f16_1-MLC";
 		this.backend = config.backend || "webllm";
@@ -265,6 +295,10 @@ export class DVAI {
 		if (this.backend !== "auto") {
 			this.resolvedBackend = this.backend as "webllm" | "transformers" | "native";
 		}
+
+		// Phase 3 — capture offload config (lifecycle wiring lights up
+		// in initialize() so we don't pay the cost on cold-construct).
+		this.offload = config.offload;
 	}
 
 	/**
@@ -435,11 +469,102 @@ export class DVAI {
 
 			this.isReady = true;
 			this.recoveryAttempts = 0;
+
+			// Phase 3 — bring up offload-related state if the consumer
+			// opted in. Errors here are logged but do not fail
+			// initialize() — local inference still works without offload.
+			if (this.offload?.enabled) {
+				try {
+					await this.initializeOffload();
+				} catch (err) {
+					console.warn(
+						"[DVAI/offload] failed to initialize offload state; " +
+							"local inference still works. Cause:",
+						err,
+					);
+				}
+			}
+
 			return true;
 		} catch (error) {
 			console.error("[DVAI] Failed to initialize:", error);
 			throw error;
 		}
+	}
+
+	/**
+	 * Phase 3 — bring up the capability cache, discovery layer, and
+	 * pairing policy on top of an already-running DVAI instance.
+	 * Called from initialize() when `offload.enabled` is true.
+	 */
+	private async initializeOffload(): Promise<void> {
+		const { createCapabilityCache, ensureDeviceId } = await import(
+			"./capability/index.js"
+		);
+		const { CompositeDiscovery, StaticDiscovery, createMdnsDiscovery } = await import(
+			"./discovery/index.js"
+		);
+		const { PairingPolicy, createPairingStore } = await import(
+			"./pairing/index.js"
+		);
+
+		this.capabilityCache = createCapabilityCache();
+		this.deviceId = await ensureDeviceId(this.capabilityCache);
+
+		const sources: Array<import("./discovery/index.js").IDiscovery> = [];
+		if (this.offload?.discoverLAN !== false) {
+			sources.push(
+				await createMdnsDiscovery({
+					selfDeviceId: this.deviceId,
+					// We don't auto-advertise from the JS-side core today —
+					// native SDKs (Phase 3 Task 8) own the advertise side
+					// because they know the right port + capability map.
+				}),
+			);
+		}
+		if (this.offload?.knownPeers && this.offload.knownPeers.length > 0) {
+			sources.push(new StaticDiscovery(this.offload.knownPeers));
+		}
+		if (sources.length > 0) {
+			this.discovery = new CompositeDiscovery(sources);
+			await this.discovery.start();
+		}
+
+		this.pairingPolicy = new PairingPolicy({
+			store: createPairingStore(),
+			onPairingRequest: this.offload?.onPairingRequest
+				? async (peerDeviceId, peerDeviceName) => {
+						const cb = this.offload?.onPairingRequest;
+						if (!cb) return false;
+						return cb({
+							deviceId: peerDeviceId,
+							deviceName: peerDeviceName,
+							dvaiVersion: "unknown",
+							baseUrl: "",
+							loadedModels: [],
+							capability: {},
+							via: "static",
+							secure: false,
+							lastSeenAt: Date.now(),
+						});
+					}
+				: undefined,
+		});
+	}
+
+	/** Phase 3 — release offload state (LAN advertiser, discovery sockets, etc). */
+	private async shutdownOffload(): Promise<void> {
+		if (this.discovery) {
+			try {
+				await this.discovery.stop();
+			} catch {
+				/* swallow — best-effort cleanup */
+			}
+			this.discovery = undefined;
+		}
+		this.capabilityCache = undefined;
+		this.pairingPolicy = undefined;
+		this.deviceId = undefined;
 	}
 
 	/**
@@ -696,6 +821,10 @@ export class DVAI {
 	 * Unloads the AI engine and stops the active transport to free up resources.
 	 */
 	async unload(): Promise<void> {
+		// Phase 3 — tear down offload state first so we stop advertising
+		// before the underlying server disappears.
+		await this.shutdownOffload();
+
 		if (this.backendInstance) {
 			await this.backendInstance.unload();
 			this.backendInstance = null;
@@ -709,6 +838,56 @@ export class DVAI {
 		this.isReady = false;
 		this.recoveryAttempts = 0;
 		console.log("[DVAI] Unloaded model and transport.");
+	}
+
+	/* ----- Phase 3 — public surface for offload diagnostics ----- */
+
+	/**
+	 * Run a cold-run capability probe against the active backend +
+	 * model. Persists the result for future getCapability() calls.
+	 * Requires offload.enabled.
+	 */
+	async probeCapability(): Promise<
+		import("./capability/index.js").CapabilityScore | undefined
+	> {
+		if (!this.capabilityCache || !this.backendInstance) return undefined;
+		const { probeAndCache } = await import("./capability/index.js");
+		const modelId =
+			this.resolvedBackend === "transformers"
+				? this.transformersModelId
+				: this.modelId;
+		return probeAndCache({
+			cache: this.capabilityCache,
+			backend: this.backendInstance,
+			modelId,
+			libraryVersion: "3.0.0",
+		});
+	}
+
+	/**
+	 * Get the cached capability score for a model on this device, or
+	 * compute a heuristic estimate if no probe has run yet.
+	 */
+	async getCapability(
+		modelId?: string,
+	): Promise<import("./capability/index.js").CapabilityScore | undefined> {
+		if (!this.capabilityCache) return undefined;
+		const { getCapability } = await import("./capability/index.js");
+		const id =
+			modelId ??
+			(this.resolvedBackend === "transformers"
+				? this.transformersModelId
+				: this.modelId);
+		return getCapability({
+			cache: this.capabilityCache,
+			modelId: id,
+			libraryVersion: "3.0.0",
+		});
+	}
+
+	/** Snapshot of currently-known peers via the discovery layer. */
+	getPeers(): import("./discovery/index.js").Peer[] {
+		return this.discovery?.peers() ?? [];
 	}
 }
 
