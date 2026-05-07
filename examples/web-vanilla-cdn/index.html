@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>dvai-bridge — vanilla CDN example</title>
+		<style>
+			:root {
+				color-scheme: light dark;
+				font-family:
+					system-ui,
+					-apple-system,
+					Segoe UI,
+					Roboto,
+					sans-serif;
+			}
+			body {
+				max-width: 720px;
+				margin: 2rem auto;
+				padding: 0 1rem;
+			}
+			button {
+				font-size: 1rem;
+				padding: 0.5rem 1rem;
+				cursor: pointer;
+			}
+			button:disabled {
+				cursor: wait;
+				opacity: 0.5;
+			}
+			pre {
+				background: #1112;
+				padding: 0.75rem;
+				border-radius: 6px;
+				white-space: pre-wrap;
+				word-break: break-word;
+			}
+			.row {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+				margin: 0.75rem 0;
+			}
+			.dot {
+				width: 0.6rem;
+				height: 0.6rem;
+				border-radius: 50%;
+				background: #888;
+				display: inline-block;
+			}
+			.dot.ready {
+				background: #2da44e;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>dvai-bridge / vanilla / CDN</h1>
+		<p>
+			Loads <code>@dvai-bridge/vanilla</code> via a single
+			<code>&lt;script&gt;</code> tag — no bundler, no build step.
+			Inference runs locally via
+			<code>@huggingface/transformers</code> against the smallest tested
+			Gemma model. The OpenAI-compatible mock URL is intercepted by MSW.
+		</p>
+
+		<div class="row">
+			<span class="dot" id="status-dot"></span>
+			<span id="status">idle</span>
+		</div>
+
+		<button id="run" disabled>Initialize and run a chat completion</button>
+
+		<h3>Output</h3>
+		<pre id="output">(nothing yet)</pre>
+
+		<!--
+		  In production, prefer the jsDelivr URL:
+		    <script src="https://cdn.jsdelivr.net/npm/@dvai-bridge/vanilla@latest/dist/index.global.js"></script>
+		  For local development from inside this monorepo we use the workspace
+		  build directly so the example runs without a public npm publish.
+		-->
+		<script src="../../packages/dvai-bridge-vanilla/dist/index.global.js"></script>
+		<script type="module" src="./app.js"></script>
+	</body>
+</html>

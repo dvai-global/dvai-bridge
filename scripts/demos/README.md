@@ -128,12 +128,14 @@ elsewhere (a launch announcement, a docs site, etc.).
 
 ## Files in this directory
 
-| File                  | Demo                                              |
-| --------------------- | ------------------------------------------------- |
-| `web-react.yaml`      | `examples/web-react/` quickstart                  |
-| `capacitor.yaml`      | Capacitor hybrid mobile quickstart                |
-| `ios-native.yaml`     | `@dvai-bridge/ios` SwiftUI quickstart             |
-| `android-native.yaml` | `co.deepvoiceai:dvai-bridge` Compose quickstart   |
-| `react-native.yaml`   | `@dvai-bridge/react-native` TurboModule quickstart |
-| `flutter.yaml`        | `dvai_bridge` Flutter quickstart                  |
-| `dotnet-maui.yaml`    | `DVAIBridge` NuGet MAUI / desktop quickstart      |
+| File                    | Demo                                                |
+| ----------------------- | --------------------------------------------------- |
+| `web-react.yaml`        | `examples/web-react/` quickstart                    |
+| `web-vanilla-cdn.yaml`  | `examples/web-vanilla-cdn/` zero-build quickstart   |
+| `node-llama-cpp.yaml`   | `examples/node-llama-cpp/` native backend quickstart |
+| `capacitor.yaml`        | Capacitor hybrid mobile quickstart                  |
+| `ios-native.yaml`       | `@dvai-bridge/ios` SwiftUI quickstart               |
+| `android-native.yaml`   | `co.deepvoiceai:dvai-bridge` Compose quickstart     |
+| `react-native.yaml`     | `@dvai-bridge/react-native` TurboModule quickstart  |
+| `flutter.yaml`          | `dvai_bridge` Flutter quickstart                    |
+| `dotnet-maui.yaml`      | `DVAIBridge` NuGet MAUI / desktop quickstart        |
