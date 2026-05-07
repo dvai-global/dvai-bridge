@@ -22,6 +22,35 @@ import { createInterface } from "node:readline";
 import { homedir } from "node:os";
 import * as path from "node:path";
 
+// IMPORTANT: redirect console.* to stderr BEFORE importing DVAI / any
+// other dependency. The JSON-RPC protocol owns stdout exclusively;
+// any stray `console.log()` from a dep would otherwise appear as a
+// non-JSON line and the Rust shell would reject it. Progress
+// callbacks from Transformers.js, DVAI's internal status logs, and
+// node-llama-cpp's chatter all flow through console — so we hijack
+// the global console early.
+const _stderr = (level: string, ...args: unknown[]): void => {
+  const formatted = args
+    .map((a) => {
+      if (typeof a === "string") return a;
+      try {
+        return JSON.stringify(a);
+      } catch {
+        return String(a);
+      }
+    })
+    .join(" ");
+  process.stderr.write(`[${level}] ${formatted}\n`);
+};
+console.log = (...args) => _stderr("log", ...args);
+console.info = (...args) => _stderr("info", ...args);
+console.warn = (...args) => _stderr("warn", ...args);
+console.error = (...args) => _stderr("error", ...args);
+console.debug = (...args) => _stderr("debug", ...args);
+// Some libraries also call .dir / .table; route those too.
+console.dir = ((value: unknown): void => _stderr("dir", value)) as typeof console.dir;
+console.table = ((value: unknown): void => _stderr("table", value)) as typeof console.table;
+
 import { DVAI } from "@dvai-bridge/core";
 import { PeerMode } from "./PeerMode.js";
 import { OllamaAdapter } from "./adapters/OllamaAdapter.js";
@@ -87,6 +116,17 @@ const HUB_PORT = process.env.DVAI_HUB_PORT
 const HUB_RENDEZVOUS = process.env.DVAI_HUB_RENDEZVOUS_URL;
 const HUB_PREFER_BETTER_QUANT = process.env.DVAI_HUB_PREFER_BETTER_QUANT === "1";
 const EXTERNAL_ENGINES_ENABLED = process.env.DVAI_HUB_EXTERNAL_ENGINES !== "0";
+// Transformers.js device: defaults to "cpu" in Node (Hub host) because
+// WebGPU isn't available outside the browser and the auto-fallback
+// inside @huggingface/transformers throws on the missing execution
+// provider. Override with DVAI_HUB_DEVICE if needed (e.g. "webgpu" via
+// an experimental Node runtime, or "auto" once upstream stabilises).
+const HUB_DEVICE = (process.env.DVAI_HUB_DEVICE ?? "cpu") as
+  | "auto"
+  | "cpu"
+  | "webgpu";
+// Quantization for Transformers.js. Default "q4" — small + fast on CPU.
+const HUB_DTYPE = process.env.DVAI_HUB_DTYPE ?? "q4";
 
 /**
  * Per-pairing-request approval state. The Rust shell forwards the
@@ -144,6 +184,8 @@ const dvaiFactory: NonNullable<PeerModeOptions["dvaiFactory"]> = (
   const cfg = {
     backend: HUB_BACKEND,
     transformersModelId: HUB_TRANSFORMERS_MODEL,
+    device: HUB_DEVICE,
+    dtype: HUB_DTYPE,
     ...(HUB_NATIVE_MODEL_PATH !== undefined
       ? { nativeModelPath: HUB_NATIVE_MODEL_PATH }
       : {}),
