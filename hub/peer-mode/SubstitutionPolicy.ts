@@ -87,6 +87,26 @@ export class SubstitutionPolicy {
       return { kind: "refuse", reason: "no_backends" };
     }
 
+    // Sentinel guard: `family === "unknown"` on the REQUEST side means
+    // the parser couldn't classify the model at all. Substituting on
+    // that would happily route an unparseable name to any backend that
+    // also failed parsing (e.g. a user's custom local model that the
+    // ModelParser doesn't recognize). Refuse — we have no semantic
+    // basis for substitution.
+    //
+    // Note this only short-circuits the request side. A backend with
+    // family=unknown can still serve an EXACT engine-id match below
+    // (the exact-match check uses string equality on every field, so
+    // a request that explicitly names an unknown-family backend's
+    // engineModelId still works).
+    if (request.family === "unknown") {
+      return {
+        kind: "refuse",
+        reason: "family_mismatch",
+        detail: `Request model could not be classified (family=unknown). Use a recognized model id.`,
+      };
+    }
+
     // 1. Exact match — every field, including quant, equal.
     for (const b of available) {
       const d = b.descriptor;
