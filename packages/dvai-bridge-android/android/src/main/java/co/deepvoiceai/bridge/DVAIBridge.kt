@@ -1,10 +1,22 @@
 package co.deepvoiceai.bridge
 
 import android.content.Context
+import android.os.Build
 import co.deepvoiceai.bridge.llama.core.ModelDownloader
 import co.deepvoiceai.bridge.shared.core.CorsConfig
+import co.deepvoiceai.bridge.shared.core.capability.CapabilityCache
+import co.deepvoiceai.bridge.shared.core.capability.DeviceID
+import co.deepvoiceai.bridge.shared.core.discovery.NsdAdvertiser
+import co.deepvoiceai.bridge.shared.core.discovery.NsdDiscovery
+import co.deepvoiceai.bridge.shared.core.discovery.PeerTxtKeys
+import co.deepvoiceai.bridge.shared.core.offload.OffloadConfig
+import co.deepvoiceai.bridge.shared.core.pairing.PairingPolicy
+import co.deepvoiceai.bridge.shared.core.pairing.PairingRequest
+import co.deepvoiceai.bridge.shared.core.pairing.PairingStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -51,6 +63,28 @@ object DVAIBridge {
     @Volatile private var activePlugin: Any? = null
     @Volatile private var activeBackend: BackendKind? = null
     @Volatile private var activeServer: BoundServer? = null
+
+    // -------------------------------------------------------------------------
+    // Phase 3 Task 8b — distributed inference / device offload
+    // -------------------------------------------------------------------------
+    @Volatile private var nsdDiscovery: NsdDiscovery? = null
+    @Volatile private var nsdAdvertiser: NsdAdvertiser? = null
+    @Volatile private var capabilityCache: CapabilityCache? = null
+    @Volatile private var pairingStore: PairingStore? = null
+    @Volatile private var pairingPolicy: PairingPolicy? = null
+
+    /**
+     * Hot stream of [PairingRequest]s — surfaced to host UI when a peer
+     * device requests to pair with this device over the LAN. Compose
+     * collects `lifecycleScope.launch { DVAIBridge.pairingRequests.collect ... }`.
+     *
+     * Empty / never-emits when offload is disabled.
+     */
+    val pairingRequests: SharedFlow<PairingRequest>
+        get() = pairingPolicy?.requests ?: emptyPairingRequests
+
+    private val emptyPairingRequests: SharedFlow<PairingRequest> =
+        MutableSharedFlow<PairingRequest>(replay = 0, extraBufferCapacity = 1).asSharedFlow()
 
     /**
      * One-time bootstrap. Stores [applicationContext] for backends that need
@@ -99,10 +133,87 @@ object DVAIBridge {
 
         activeServer = server
         activeBackend = resolved
+        // Phase 3 Task 8b: spin up offload services if enabled. Must happen
+        // *after* the server is bound so the advertiser can publish the right
+        // port. Non-fatal: failures here are logged but don't break start().
+        opts.offload?.takeIf { it.enabled }?.let { off ->
+            try {
+                initOffload(off, server)
+            } catch (e: Throwable) {
+                broadcaster.emit(
+                    ProgressEvent.Progress(
+                        phase = "start",
+                        percent = -1f,
+                        message = "[DVAI/offload] init skipped: ${e.message}",
+                    ),
+                )
+            }
+        }
         reactive.onStarted(server)
         broadcaster.emit(ProgressEvent.Completed(phase = "start"))
         return server
     }
+
+    /**
+     * Initialise the discovery, capability cache, and pairing layer for
+     * the current run. Called from [start] when [OffloadConfig.enabled]
+     * is true. Idempotent within a single start/stop cycle.
+     */
+    private fun initOffload(off: OffloadConfig, server: BoundServer) {
+        val ctx = applicationContext
+            ?: throw DVAIBridgeError.ConfigurationInvalid(
+                "DVAIBridge.init(context) must be called before start() with offload enabled.",
+            )
+        val deviceId = DeviceID.get(ctx)
+        capabilityCache = CapabilityCache(ctx)
+        val store = PairingStore(ctx).also { pairingStore = it }
+        pairingPolicy = PairingPolicy(store)
+
+        if (off.discoverLAN) {
+            val discovery = NsdDiscovery(ctx, selfDeviceId = deviceId)
+            try {
+                discovery.start()
+                nsdDiscovery = discovery
+            } catch (e: Throwable) {
+                broadcaster.emit(
+                    ProgressEvent.Progress(
+                        phase = "start",
+                        percent = -1f,
+                        message = "[DVAI/discovery] start failed: ${e.message}",
+                    ),
+                )
+            }
+
+            val advertiser = NsdAdvertiser(ctx)
+            val txt = mutableMapOf(
+                PeerTxtKeys.DEVICE_ID to deviceId,
+                PeerTxtKeys.DEVICE_NAME to deviceNameFromBuild(),
+                PeerTxtKeys.DVAI_VERSION to LIBRARY_VERSION,
+            )
+            if (server.modelId.isNotEmpty()) txt[PeerTxtKeys.MODELS] = server.modelId
+            try {
+                advertiser.start(
+                    serviceName = "dvai-bridge-${deviceId.take(8)}",
+                    port = server.port,
+                    txt = txt,
+                )
+                nsdAdvertiser = advertiser
+            } catch (e: Throwable) {
+                broadcaster.emit(
+                    ProgressEvent.Progress(
+                        phase = "start",
+                        percent = -1f,
+                        message = "[DVAI/advertiser] start failed: ${e.message}",
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun deviceNameFromBuild(): String =
+        listOf(Build.MANUFACTURER, Build.MODEL).joinToString(" ").trim().ifEmpty { "android" }
+
+    private val LIBRARY_VERSION: String = "3.0.0"
 
     private suspend fun startLlama(opts: StartOptions): BoundServer {
         val plugin = LlamaPluginState()
@@ -134,7 +245,23 @@ object DVAIBridge {
 
     /** Stop the active backend. Idempotent — safe to call when nothing is running. */
     suspend fun stop() = mutex.withLock {
-        val plugin = activePlugin ?: return@withLock
+        // Tear down offload services first so peers see us drop off
+        // before the HTTP port closes.
+        try { nsdAdvertiser?.stop() } catch (_: Throwable) { }
+        try { nsdDiscovery?.stop() } catch (_: Throwable) { }
+        nsdAdvertiser = null
+        nsdDiscovery = null
+        capabilityCache = null
+        pairingPolicy = null
+        pairingStore = null
+
+        val plugin = activePlugin ?: run {
+            activePlugin = null
+            activeBackend = null
+            activeServer = null
+            reactive.onStopped()
+            return@withLock
+        }
         when (plugin) {
             is LlamaPluginState -> plugin.stop()
             is MediaPipePluginState -> plugin.stop()

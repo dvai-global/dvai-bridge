@@ -15,6 +15,9 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:9.2.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+        // Phase 3 Task 8b: enables `@Serializable` codegen for the new
+        // discovery/capability/pairing data classes.
+        classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlinVersion"
     }
 }
 
@@ -36,6 +39,9 @@ allprojects {
 
 apply plugin: 'com.android.library'
 apply plugin: 'maven-publish'
+// Phase 3 Task 8b: enables `@Serializable` codegen on the Kotlin compile
+// classpath. Pairs with the runtime `kotlinx-serialization-json` dep.
+apply plugin: 'org.jetbrains.kotlin.plugin.serialization'
 
 android {
     namespace 'co.deepvoiceai.bridge.shared.core'
@@ -92,8 +98,19 @@ dependencies {
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion"
     testImplementation 'org.robolectric:robolectric:4.16.1'
+    // Phase 3 Task 8b: ApplicationProvider for tests that need a Context
+    // (CapabilityCache + PairingStore JSON-on-disk adapters under cacheDir).
+    testImplementation 'androidx.test:core:1.7.0'
+    testImplementation 'androidx.test.ext:junit:1.3.0'
     testImplementation "io.ktor:ktor-server-test-host:$ktorVersion"
     testImplementation 'com.squareup.okhttp3:mockwebserver:5.3.2'
+
+    // Phase 3 Task 8b: instrumented mDNS / NsdManager round-trip test
+    // (gated behind `connectedAndroidTest`, see
+    // discovery/NsdDiscoveryInstrumentedTest.kt for the rationale).
+    androidTestImplementation 'androidx.test:runner:1.7.0'
+    androidTestImplementation 'androidx.test:core:1.7.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
 }
 
 afterEvaluate {
