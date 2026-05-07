@@ -51,7 +51,11 @@ console.debug = (...args) => _stderr("debug", ...args);
 console.dir = ((value: unknown): void => _stderr("dir", value)) as typeof console.dir;
 console.table = ((value: unknown): void => _stderr("table", value)) as typeof console.table;
 
-import { DVAI } from "@dvai-bridge/core";
+import {
+  DVAI,
+  composeSignedMessage,
+  verifyHmac,
+} from "@dvai-bridge/core";
 import { PeerMode } from "./PeerMode.js";
 import { parseModelName } from "./ModelParser.js";
 import { OllamaAdapter } from "./adapters/OllamaAdapter.js";
@@ -181,6 +185,86 @@ const adapters: EngineBridgeAdapter[] = [
 
 const ANON_TENANT_ID = "anonymous";
 
+/* ----- v3.1 identity (HMAC-signed request headers) -------------------- */
+
+const HEADER_PEER_DEVICE_ID = "x-dvai-peer-device-id";
+const HEADER_APP_ID = "x-dvai-app-id";
+const HEADER_NONCE = "x-dvai-nonce";
+const HEADER_SIGNATURE = "x-dvai-signature";
+
+interface ResolvedIdentity {
+  /** Real (verified) identity — appId comes from the X-DVAI-App-Id header. */
+  kind: "verified";
+  appId: string;
+  peerDeviceId: string;
+}
+interface AnonymousIdentity {
+  /** No identity headers present — backwards-compat path for plain HTTP / curl. */
+  kind: "anonymous";
+}
+interface RejectedIdentity {
+  /** Identity claimed but HMAC verification failed → 401. */
+  kind: "rejected";
+  reason: string;
+}
+type IdentityResult = ResolvedIdentity | AnonymousIdentity | RejectedIdentity;
+
+/**
+ * Resolve a request's claimed identity. Looks for the v3.1 header set;
+ * if all four are present, looks up the pairing by (appId, peerDeviceId)
+ * and HMAC-verifies the request body. Identity headers are CASE-INSENSITIVE
+ * (the HTTP transport lower-cases them before passing to the interceptor).
+ */
+async function resolveIdentity(
+  body: unknown,
+  headers: Record<string, string> | undefined,
+): Promise<IdentityResult> {
+  if (!headers) return { kind: "anonymous" };
+  const peerDeviceId = headers[HEADER_PEER_DEVICE_ID];
+  const appId = headers[HEADER_APP_ID];
+  const nonce = headers[HEADER_NONCE];
+  const signature = headers[HEADER_SIGNATURE];
+
+  // No identity headers at all → anonymous (curl tests, unsigned requests).
+  if (!peerDeviceId && !appId && !nonce && !signature) {
+    return { kind: "anonymous" };
+  }
+
+  // Partial identity headers → reject. Either sign properly or omit.
+  if (!peerDeviceId || !appId || !nonce || !signature) {
+    return {
+      kind: "rejected",
+      reason:
+        "incomplete identity headers — provide all of X-DVAI-Peer-Device-Id, X-DVAI-App-Id, X-DVAI-Nonce, X-DVAI-Signature, or none.",
+    };
+  }
+
+  const pairing = await peer.findActivePairing(appId, peerDeviceId);
+  if (!pairing) {
+    return {
+      kind: "rejected",
+      reason: `no active pairing for appId=${appId}, peerDeviceId=${peerDeviceId} (re-handshake required)`,
+    };
+  }
+
+  const bodyJson = JSON.stringify(body ?? {});
+  const message = await composeSignedMessage(
+    nonce,
+    "POST",
+    "/v1/chat/completions",
+    bodyJson,
+  );
+  const ok = await verifyHmac(pairing.pairingKey, message, signature);
+  if (!ok) {
+    return { kind: "rejected", reason: "hmac signature did not verify" };
+  }
+
+  // Touch the pairing's lastUsedAt so the TTL resets.
+  await peer.touchPairing(appId, peerDeviceId);
+
+  return { kind: "verified", appId, peerDeviceId };
+}
+
 /** AsyncIterable<Uint8Array> → ReadableStream<Uint8Array> for SSE pipe-through. */
 function asyncIterableToReadableStream(
   iter: AsyncIterable<Uint8Array>,
@@ -204,23 +288,42 @@ function asyncIterableToReadableStream(
  * default local-backend handler. Applies the substitution policy +
  * engine bridge:
  *
- *   1. Parse `body.model`. Fall through (return null) if absent.
- *   2. peer.routeRequest() → RoutingDecision.
- *   3. Refuse → 503 + structured error + audit-record.
- *   4. Same-engine === "builtin" → audit-record + return null (DVAI's
+ *   1. Resolve requester identity from v3.1 X-DVAI-* headers (HMAC
+ *      verified against the stored pairing key). On reject → 401.
+ *      No identity headers → "anonymous" (plain HTTP, audit logs as
+ *      such; backwards compat for curl tests + v3.0 SDKs).
+ *   2. Parse `body.model`. Fall through (return null) if absent.
+ *   3. peer.routeRequest() → RoutingDecision.
+ *   4. Refuse → 503 + structured error + audit (with real identity).
+ *   5. Same-engine === "builtin" → audit + return null (DVAI's
  *      default handler runs the local backend).
- *   5. External engine → call adapter.serveRequest with the engine's
- *      own model id, pipe streaming response if applicable, audit.
- *
- * Audit identity: plain HTTP requests aren't HMAC-signed (curl tests
- * don't carry the pairing key). When we add the v3.1 wire-protocol
- * extension that surfaces the requester's appId/peerDeviceId, this
- * function reads those from request headers; until then it logs as
- * "anonymous".
+ *   6. External engine → call adapter.serveRequest, pipe streaming
+ *      response if applicable, audit.
  */
 async function chatCompletionInterceptor(
   body: ChatRequest & { model?: unknown },
+  _ctx: unknown,
+  headers?: Record<string, string>,
 ): Promise<Response | null> {
+  // v3.1 identity check.
+  const identity = await resolveIdentity(body, headers);
+  if (identity.kind === "rejected") {
+    return Response.json(
+      {
+        error: {
+          type: "unauthorized",
+          code: 401,
+          message: identity.reason,
+        },
+      },
+      { status: 401 },
+    );
+  }
+  const auditAppId =
+    identity.kind === "verified" ? identity.appId : ANON_TENANT_ID;
+  const auditPeerDeviceId =
+    identity.kind === "verified" ? identity.peerDeviceId : ANON_TENANT_ID;
+
   const requestedModel = typeof body.model === "string" ? body.model : "";
   if (!requestedModel) return null;
 
@@ -232,8 +335,8 @@ async function chatCompletionInterceptor(
   if (decision.kind === "refuse") {
     await peer.recordOffloadAudit({
       ts: new Date().toISOString(),
-      appId: ANON_TENANT_ID,
-      peerDeviceId: ANON_TENANT_ID,
+      appId: auditAppId,
+      peerDeviceId: auditPeerDeviceId,
       engine: "none",
       requestedModel,
       servedModel: "",
@@ -260,8 +363,8 @@ async function chatCompletionInterceptor(
   if (backend.engine === "builtin") {
     await peer.recordOffloadAudit({
       ts: new Date().toISOString(),
-      appId: ANON_TENANT_ID,
-      peerDeviceId: ANON_TENANT_ID,
+      appId: auditAppId,
+      peerDeviceId: auditPeerDeviceId,
       engine: "builtin",
       requestedModel,
       servedModel: backend.engineModelId,
@@ -277,8 +380,8 @@ async function chatCompletionInterceptor(
   if (!adapter) {
     await peer.recordOffloadAudit({
       ts: new Date().toISOString(),
-      appId: ANON_TENANT_ID,
-      peerDeviceId: ANON_TENANT_ID,
+      appId: auditAppId,
+      peerDeviceId: auditPeerDeviceId,
       engine: backend.engine,
       requestedModel,
       servedModel: "",
@@ -315,8 +418,8 @@ async function chatCompletionInterceptor(
 
   await peer.recordOffloadAudit({
     ts: new Date().toISOString(),
-    appId: ANON_TENANT_ID,
-    peerDeviceId: ANON_TENANT_ID,
+    appId: auditAppId,
+    peerDeviceId: auditPeerDeviceId,
     engine: backend.engine,
     requestedModel,
     servedModel: backend.engineModelId,
@@ -325,20 +428,20 @@ async function chatCompletionInterceptor(
     durationMs: Date.now() - startTs,
   });
 
-  const headers = { ...adapterResponse.headers };
+  const respHeaders = { ...adapterResponse.headers };
   if (isStream) {
     const stream = asyncIterableToReadableStream(
       (adapterResponse as StreamResponse).body,
     );
-    headers["Content-Type"] = headers["Content-Type"] ?? "text/event-stream";
+    respHeaders["Content-Type"] = respHeaders["Content-Type"] ?? "text/event-stream";
     return new Response(stream, {
       status: adapterResponse.status,
-      headers,
+      headers: respHeaders,
     });
   }
   return Response.json(adapterResponse.body, {
     status: adapterResponse.status,
-    headers,
+    headers: respHeaders,
   });
 }
 
@@ -370,8 +473,19 @@ const dvaiFactory: NonNullable<PeerModeOptions["dvaiFactory"]> = (
     // Phase 4 — first-chance interceptor that applies the Hub's
     // substitution policy + engine-bridge routing before falling
     // through to DVAI's default local-backend handler.
-    chatCompletionInterceptor: (body: unknown) =>
-      chatCompletionInterceptor(body as ChatRequest & { model?: unknown }),
+    // v3.1 — also receives the request headers so it can resolve
+    // identity (X-DVAI-Peer-Device-Id / X-DVAI-App-Id / X-DVAI-Nonce
+    // / X-DVAI-Signature → HMAC-verified appId for audit logs).
+    chatCompletionInterceptor: (
+      body: unknown,
+      _ctx: unknown,
+      headers?: Record<string, string>,
+    ) =>
+      chatCompletionInterceptor(
+        body as ChatRequest & { model?: unknown },
+        _ctx,
+        headers,
+      ),
     offload: {
       enabled: true,
       discoverLAN: true,

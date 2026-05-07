@@ -15,6 +15,17 @@ export {
 	legacyCompletionStreamAdapter,
 } from "./handlers/completions.js";
 
+// v3.1 — re-export HMAC primitives so consumers (the Hub, native SDKs,
+// rendezvous clients) can compose + verify signed messages without
+// reaching into deep package paths.
+export {
+	composeSignedMessage,
+	verifyHmac,
+	signHmac,
+	generateNonce,
+	generatePairingKey,
+} from "./pairing/handshake.js";
+
 export type BackendType = "webllm" | "transformers" | "native" | "auto";
 export type DeviceType = "webgpu" | "cpu" | "auto";
 export type {
@@ -166,10 +177,15 @@ export interface DVAIConfig {
 	 * routing before falling through to the default local-backend
 	 * handler. Return a Response → that's what the client gets;
 	 * return null → fall through to the local backend.
+	 *
+	 * Receives request headers (lower-cased keys) so the interceptor
+	 * can read the v3.1 identity fields (X-DVAI-Peer-Device-Id,
+	 * X-DVAI-App-Id, X-DVAI-Nonce, X-DVAI-Signature) for HMAC verify.
 	 */
 	chatCompletionInterceptor?: (
 		body: any,
 		ctx: import("./handlers/context.js").HandlerContext,
+		headers?: Record<string, string>,
 	) => Promise<Response | null>;
 
 	/**
@@ -243,6 +259,7 @@ export class DVAI {
 		| ((
 				body: any,
 				ctx: import("./handlers/context.js").HandlerContext,
+				headers?: Record<string, string>,
 			) => Promise<Response | null>)
 		| undefined;
 
@@ -570,7 +587,7 @@ export class DVAI {
 		this.pairingPolicy = new PairingPolicy({
 			store: createPairingStore(),
 			onPairingRequest: this.offload?.onPairingRequest
-				? async (peerDeviceId, peerDeviceName) => {
+				? async (peerDeviceId, peerDeviceName, appId) => {
 						const cb = this.offload?.onPairingRequest;
 						if (!cb) return false;
 						return cb({
@@ -583,6 +600,7 @@ export class DVAI {
 							via: "static",
 							secure: false,
 							lastSeenAt: Date.now(),
+							...(appId !== undefined ? { appId } : {}),
 						});
 					}
 				: undefined,

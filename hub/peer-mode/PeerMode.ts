@@ -66,6 +66,12 @@ export interface DvaiPeerLike {
   deviceName: string;
   dvaiVersion: string;
   baseUrl: string;
+  /**
+   * v3.1 wire-protocol extension. When present, the Hub uses this as
+   * the multi-tenant appId (real per-app isolation). When absent,
+   * falls back to deviceId so the Hub still works with v3.0 SDKs.
+   */
+  appId?: string;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -239,22 +245,21 @@ export class PeerMode {
   }
 
   /**
-   * Bridge between v3.0 DVAI's `Peer`-keyed pairing handshake and the
+   * Bridge between DVAI's `Peer`-keyed pairing handshake and the
    * Hub's `appId`-keyed multi-tenant store.
    *
-   * v3.0 wire protocol does NOT carry `appId` — every peer that pairs
-   * looks the same to the Hub. As a v3.1 finalization item, the
-   * handshake will be extended with an `appId` field; until then we
-   * use `peer.deviceId` as the appId so each device is its own tenant.
-   * The audit log still groups correctly; it just doesn't differentiate
-   * "two apps from the same phone."
+   * v3.1 wire protocol carries `appId` in the handshake. When the
+   * peer supplies it → real per-app isolation. When the peer is a
+   * v3.0 SDK that doesn't send appId → fall back to deviceId so the
+   * Hub still works (each device becomes its own tenant). The audit
+   * log groups by appId either way; the difference is just whether
+   * "two apps on the same phone" appear as one row or two.
    */
   private async handleDvaiPairingRequest(peer: DvaiPeerLike): Promise<boolean> {
     const request: PairingRequest = {
       peerDeviceId: peer.deviceId,
       peerDeviceName: peer.deviceName,
-      // FIXME(v3.1-final): replace with peer.appId once HandshakeRequest carries it.
-      appId: peer.deviceId,
+      appId: peer.appId ?? peer.deviceId,
       dvaiVersion: peer.dvaiVersion,
     };
     try {
@@ -319,6 +324,10 @@ export class PeerMode {
 
   findActivePairing(appId: string, peerDeviceId: string): Promise<Pairing | undefined> {
     return this.tenants.findActivePairing(appId, peerDeviceId);
+  }
+
+  touchPairing(appId: string, peerDeviceId: string): Promise<void> {
+    return this.tenants.touchPairing(appId, peerDeviceId);
   }
 
   revokePairing(appId: string, peerDeviceId: string): Promise<void> {
