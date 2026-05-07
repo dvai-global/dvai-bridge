@@ -8,16 +8,29 @@ import Foundation
 /// stream when a request comes in, the policy denies — same safe
 /// fallback as the JS side's default-deny.
 public actor PairingPolicy {
+    /// Default time the policy waits for the host app to respond to a
+    /// `PairingRequest` before defaulting to deny. 30 seconds is the
+    /// same magnitude as a typical OS permission prompt — long enough
+    /// for the user to read + decide, short enough that an unattended
+    /// device doesn't leak approval to a malicious peer.
+    public static let defaultResponseTimeoutSeconds: Double = 30
+
     private let store: PairingStore
     private let expireAfterDays: Int
+    private let responseTimeoutSeconds: Double
     private let continuation: AsyncStream<PairingRequest>.Continuation
     /// AsyncStream of pairing requests. Lifecycle-bound to this policy
     /// instance; finishes when `shutdown()` is called.
     public nonisolated let requestStream: AsyncStream<PairingRequest>
 
-    public init(store: PairingStore, expireAfterDays: Int = 30) {
+    public init(
+        store: PairingStore,
+        expireAfterDays: Int = 30,
+        responseTimeoutSeconds: Double = PairingPolicy.defaultResponseTimeoutSeconds
+    ) {
         self.store = store
         self.expireAfterDays = expireAfterDays
+        self.responseTimeoutSeconds = responseTimeoutSeconds
         var savedContinuation: AsyncStream<PairingRequest>.Continuation!
         self.requestStream = AsyncStream<PairingRequest> { c in
             savedContinuation = c
@@ -93,30 +106,50 @@ public actor PairingPolicy {
     }
 
     /// Surface a request to the host app and await their respond(:)
-    /// call. If no consumer is attached to the stream, the
-    /// `PairingRequest`'s deinit fallback resumes the continuation
-    /// with `false`.
+    /// call. If the host doesn't respond within
+    /// `responseTimeoutSeconds`, the request defaults to deny — same
+    /// safe fallback as the JS side when no `onPairingRequest` callback
+    /// is supplied.
     private func requestApproval(
         peerDeviceId: String,
         peerDeviceName: String,
         via: Pairing.Via
     ) async -> Bool {
-        return await withCheckedContinuation { (responseCont: CheckedContinuation<Bool, Never>) in
+        // Race the host-app response against a timeout.
+        return await withTaskGroup(of: Bool.self, returning: Bool.self) { group in
             let req = PairingRequest(
                 peerDeviceId: peerDeviceId,
                 peerDeviceName: peerDeviceName,
-                via: via,
-                continuation: responseCont
+                via: via
             )
-            let result = continuation.yield(req)
-            switch result {
-            case .terminated, .dropped:
-                req.respond(approved: false)
+            let yieldResult = continuation.yield(req)
+            switch yieldResult {
             case .enqueued:
                 break
+            case .terminated, .dropped:
+                // Stream is gone or buffer dropped the value — deny.
+                req.cancelWithDeny()
+                return false
             @unknown default:
-                req.respond(approved: false)
+                req.cancelWithDeny()
+                return false
             }
+            // Consumer task: await the host's respond() call.
+            group.addTask {
+                await req.awaitResponse()
+            }
+            // Timeout task: if host hasn't responded in time, deny.
+            let timeoutSeconds = self.responseTimeoutSeconds
+            group.addTask {
+                let nanos = UInt64(timeoutSeconds * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: nanos)
+                req.cancelWithDeny()
+                return false
+            }
+            // First completion wins.
+            let first = await group.next() ?? false
+            group.cancelAll()
+            return first
         }
     }
 }
