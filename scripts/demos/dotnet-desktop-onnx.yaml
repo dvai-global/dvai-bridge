@@ -1,0 +1,15 @@
+name: dotnet-desktop-onnx-quickstart
+description: Hello-world flow on the .NET Desktop ONNX example (DVAIBridge.OnnxRuntime + Microsoft Phi-3-mini ONNX GenAI bundle).
+output: docs/marketing/assets/dotnet-desktop-onnx-quickstart.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Launch the Avalonia desktop app — DVAIBridge.OnnxRuntime referenced via <ProjectReference> alongside DVAIBridge facade."
+  - duration: 7
+    caption: "Paste a Phi-3-mini-4k-instruct-onnx directory path (containing genai_config.json + model.onnx + tokenizer.json) and click Start bridge."
+  - duration: 6
+    caption: "DVAIBridge.OnnxRuntime spins up an ORT session via the GenAI extension; BoundServer.BaseUrl points at the embedded Kestrel server."
+  - duration: 12
+    caption: "Type a prompt; SemanticKernel streams tokens from the local OpenAI-compatible endpoint."
+  - duration: 5
+    caption: "Closing card: 'DVAIBridge.OnnxRuntime — same Phi-3 ONNX bundle works on iOS, Android, and desktop'."

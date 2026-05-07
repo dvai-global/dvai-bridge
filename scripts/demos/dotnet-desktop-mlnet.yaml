@@ -1,0 +1,15 @@
+name: dotnet-desktop-mlnet-quickstart
+description: Hello-world flow on the .NET Desktop ML.NET classifier example — same OpenAI HTTP API on top of a non-generative model.
+output: docs/marketing/assets/dotnet-desktop-mlnet-quickstart.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Launch the console app — DVAIBridge.MLNet referenced alongside DVAIBridge facade. ML.NET pipeline + OnnxScoringEstimator under the hood."
+  - duration: 6
+    caption: "DVAI_MODEL_PATH points at an ONNX classifier (e.g. SST-2 DistilBERT); DVAIBridge.Shared.StartAsync(BackendKind.MLNet)."
+  - duration: 7
+    caption: "Same Microsoft.SemanticKernel call you'd make against any OpenAI-compatible server — pointed at BoundServer.BaseUrl."
+  - duration: 8
+    caption: "The 'completion' returned isn't a token stream — it's the classification label. One HTTP API for both gen and discriminative models."
+  - duration: 5
+    caption: "Closing card: 'DVAIBridge.MLNet — drop into existing ML.NET pipelines without changing your client code'."

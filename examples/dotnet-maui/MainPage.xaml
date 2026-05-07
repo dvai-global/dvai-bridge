@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="DvaiBridgeMauiSample.MainPage"
+             Title="DVAIBridge MAUI Sample">
+
+    <ScrollView>
+        <VerticalStackLayout
+            Padding="20"
+            Spacing="14">
+
+            <Label Text="DVAIBridge"
+                   Style="{StaticResource Headline}"
+                   SemanticProperties.HeadingLevel="Level1"
+                   FontSize="24" />
+
+            <Label Text="Local LLM via .NET MAUI. Pick a backend, start the bridge, and stream a chat completion."
+                   FontSize="13" />
+
+            <Label Text="Backend"
+                   FontSize="12"
+                   FontAttributes="Bold" />
+
+            <Picker x:Name="BackendPicker"
+                    Title="Select backend"
+                    SelectedIndex="0" />
+
+            <Label Text="Model path (optional — leave blank for backend default)"
+                   FontSize="12"
+                   FontAttributes="Bold" />
+
+            <Entry x:Name="ModelPathEntry"
+                   Placeholder="/storage/emulated/0/Download/llama-3.2-1b-q4.gguf" />
+
+            <HorizontalStackLayout Spacing="10">
+                <Button x:Name="StartBtn"
+                        Text="Start bridge"
+                        Clicked="OnStartClicked"
+                        HorizontalOptions="Fill" />
+                <Button x:Name="StopBtn"
+                        Text="Stop"
+                        Clicked="OnStopClicked"
+                        IsEnabled="False"
+                        HorizontalOptions="Fill" />
+            </HorizontalStackLayout>
+
+            <Label x:Name="StatusLabel"
+                   Text="Idle."
+                   FontSize="12"
+                   TextColor="{StaticResource Secondary}" />
+
+            <Label Text="Prompt"
+                   FontSize="12"
+                   FontAttributes="Bold" />
+
+            <Editor x:Name="PromptEditor"
+                    Text="What's the capital of Iceland?"
+                    HeightRequest="80"
+                    AutoSize="TextChanges" />
+
+            <Button x:Name="SendBtn"
+                    Text="Send chat completion"
+                    Clicked="OnSendClicked"
+                    IsEnabled="False" />
+
+            <Border Stroke="LightGray"
+                    StrokeShape="RoundRectangle 6"
+                    Padding="12">
+                <Label x:Name="ResponseLabel"
+                       Text="(response will appear here)"
+                       FontSize="14"
+                       LineBreakMode="WordWrap" />
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
