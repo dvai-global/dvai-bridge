@@ -311,6 +311,47 @@ try {
 }
 ```
 
+## Distributed inference (`offload`) — v3.0+
+
+`@dvai-bridge/react-native` v3.0+ surfaces the v3.0 distributed-inference
+configuration. Pass an `offload` block to `start()` to enable LAN /
+internet peer discovery and request offload when local capability is
+insufficient. See the [Distributed Inference guide](./distributed-inference.md)
+for the full feature description.
+
+```ts
+import { DVAIBridge, BackendKind } from "@dvai-bridge/react-native";
+
+const server = await DVAIBridge.start({
+  backend: BackendKind.Auto,
+  modelPath: "/path/to/model.gguf",
+  offload: {
+    enabled: true,
+    discoverLAN: true,
+    minLocalCapability: 10,
+    rendezvousUrl: "wss://rendezvous.myapp.com", // optional, internet path
+  },
+});
+```
+
+The `onPairingRequest` callback from the JS-side `OffloadConfig` cannot
+cross the TurboModule boundary, so React Native consumers receive
+inbound pairing requests via an event listener and respond via
+`respondToPairing(requestId, approved)`:
+
+```ts
+const sub = DVAIBridge.addListener("pairingRequest", async (req) => {
+  const approved = await myUiConfirm(req.peerDeviceName);
+  await DVAIBridge.respondToPairing(req.id, approved);
+});
+
+// Tear down on unmount:
+sub.remove();
+```
+
+Without a registered listener, inbound pairing requests are denied
+after the request's `expiresAt` deadline.
+
 ## Build / publish (for contributors)
 
 The package builds with `react-native-builder-bob` (CommonJS + ESM +

@@ -204,6 +204,48 @@ See [Multimodal](./multimodal.md) for the full per-backend modality matrix
 and content-part shapes, and [Tested models](./tested-models.md) for
 concrete model recommendations per tier.
 
+## 7. Distributed inference (`offload`) — v3.0+
+
+Capacitor v3.0+ surfaces the v3.0 distributed-inference configuration.
+Pass an `offload` block to `start()` to enable LAN / internet peer
+discovery and request offload when local capability is insufficient. See
+the [Distributed Inference guide](./distributed-inference.md) for the
+full feature description.
+
+```ts
+import { DVAIBridge } from "@dvai-bridge/capacitor";
+
+const server = await DVAIBridge.start({
+  backend: "llama",
+  modelPath: "/path/to/model.gguf",
+  offload: {
+    enabled: true,
+    discoverLAN: true,
+    minLocalCapability: 10,
+    rendezvousUrl: "wss://rendezvous.myapp.com", // optional, internet path
+  },
+});
+```
+
+The JS-side `OffloadConfig.onPairingRequest` callback cannot cross the
+Capacitor plugin boundary, so consumers receive inbound pairing requests
+via an event listener and respond via `respondToPairing(requestId, approved)`:
+
+```ts
+const handle = await DVAIBridge.addListener("pairingRequest", async (req) => {
+  const approved = await myUiConfirm(req.peerDeviceName);
+  await DVAIBridge.respondToPairing(req.id, approved);
+});
+
+// Tear down when finished:
+await handle.remove();
+```
+
+`addListener("pairingRequest")` requires a successful `start()` first —
+the listener is dispatched on the active backend plugin. Without a
+registered listener, inbound pairing requests are denied after the
+request's `expiresAt` deadline.
+
 ## Next steps
 
 - [Model distribution](./model-distribution.md) — hosting, sha256, multi-file
@@ -214,3 +256,5 @@ concrete model recommendations per tier.
   and pre-release smoke tests.
 - [Native backend overview](./native-backend.md) — architecture, migration
   notes from the deprecated `llama-cpp-capacitor` package.
+- [Distributed Inference guide](./distributed-inference.md) — peer discovery,
+  capability scoring, pairing handshake, and the `/v1/dvai/*` endpoints.

@@ -19,6 +19,8 @@ export 'src/errors.dart'
         DownloadFailedError,
         ModelLoadFailedError,
         NotStartedError;
+export 'src/offload.dart'
+    show OffloadConfig, PairingRequest, Peer, PeerVia;
 export 'src/progress.dart'
     show DVAIBridgeState, ProgressEvent, ProgressKind, ProgressPhase;
 export 'src/types.dart'

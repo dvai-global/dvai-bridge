@@ -91,6 +91,78 @@ class StartOptionsMessage {
   String? corsOrigin;
   String? logLevel;
   bool? autoUnloadOnLowMemory;
+  // v3.0+ — distributed inference / device offload. Optional; when
+  // present and `enabled` is true, the native side runs mDNS discovery
+  // and (optionally) connects to a rendezvous server to pair with peer
+  // dvai-bridge instances and offload inference requests when the
+  // local device's capability score is below the configured floor.
+  OffloadConfigMessage? offload;
+}
+
+/// Pigeon-side carrier of [OffloadConfig]. Functions (`onPairingRequest`,
+/// `onOffload`, `customDiscovery`) from the JS-side `OffloadConfig` are
+/// not representable across the Pigeon channel, so they're surfaced via
+/// the `pairingRequestEvents()` event-channel API instead.
+class OffloadConfigMessage {
+  OffloadConfigMessage({
+    required this.enabled,
+    this.discoverLAN,
+    this.minLocalCapability,
+    this.rendezvousUrl,
+    this.knownPeers,
+  });
+
+  bool enabled;
+  bool? discoverLAN;
+  double? minLocalCapability;
+  String? rendezvousUrl;
+  List<PeerMessage>? knownPeers;
+}
+
+/// Pigeon-side carrier of [Peer]. Capability is encoded as a flat
+/// `[k1, v1, k2, v2, ...]` `List<Object?>` because Pigeon's nested-Map
+/// support is generic-typed only when the value is non-nullable.
+class PeerMessage {
+  PeerMessage({
+    required this.deviceId,
+    required this.deviceName,
+    required this.dvaiVersion,
+    required this.baseUrl,
+    required this.loadedModels,
+    required this.capability,
+    required this.via,
+    required this.secure,
+    required this.lastSeenAt,
+  });
+
+  String deviceId;
+  String deviceName;
+  String dvaiVersion;
+  String baseUrl;
+  List<String> loadedModels;
+  // Flat alternating-pair encoding for `Map<String, double>`.
+  List<Object?> capability;
+  // One of: "mdns" | "static" | "rendezvous" | "custom".
+  String via;
+  bool secure;
+  int lastSeenAt;
+}
+
+/// Pigeon-side carrier of [PairingRequest]. Emitted on the
+/// `pairingRequestEvents()` event channel when a remote peer requests
+/// to pair with this device. The Dart side wires up
+/// [DVAIBridge.respondToPairingRequest] to the `respond` parameter so
+/// consumers can call `req.respond(approved: true)` directly.
+class PairingRequestMessage {
+  PairingRequestMessage({
+    required this.id,
+    required this.peer,
+    required this.expiresAt,
+  });
+
+  String id;
+  PeerMessage peer;
+  int expiresAt;
 }
 
 /// Pigeon-side carrier of [BoundServer].
@@ -195,6 +267,16 @@ abstract class DVAIBridgeHostApi {
 
   @async
   DownloadResultMessage downloadModel(DownloadOptionsMessage opts);
+
+  /// v3.0+ — Phase 3 distributed inference. Resolve a pending pairing
+  /// request emitted on the [pairingRequestEvents] channel. `requestId`
+  /// matches the `id` field of the [PairingRequestMessage] payload.
+  /// `approved=true` lets the inbound peer pair; `false` rejects.
+  ///
+  /// Idempotent — responding twice to the same `requestId` resolves
+  /// cleanly on subsequent calls.
+  @async
+  void respondToPairingRequest(String requestId, bool approved);
 }
 
 /// Event-channel API exposing the native progress stream
@@ -203,4 +285,10 @@ abstract class DVAIBridgeHostApi {
 @EventChannelApi()
 abstract class DVAIBridgeEventApi {
   ProgressEventMessage progressEvents();
+
+  /// v3.0+ — Phase 3 distributed inference. Native-side stream of
+  /// [PairingRequestMessage]s emitted when a remote peer requests
+  /// pairing. Surfaced on the Dart side as
+  /// [DVAIBridge.pairingRequests].
+  PairingRequestMessage pairingRequestEvents();
 }

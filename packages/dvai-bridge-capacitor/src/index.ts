@@ -8,6 +8,9 @@ import type {
   CachedModelInfo,
   CapacitorBackend,
   NativePluginInterface,
+  OffloadConfig,
+  PairingRequest,
+  Peer,
 } from "./types.js";
 
 export type {
@@ -19,6 +22,9 @@ export type {
   DownloadOptions,
   CachedModelInfo,
   NativePluginInterface,
+  OffloadConfig,
+  PairingRequest,
+  Peer,
 };
 
 export const DVAIBridge = {
@@ -46,6 +52,52 @@ export const DVAIBridge = {
       throw new Error("[DVAI] addProgressListener called before start()");
     }
     return native.addListener("progress", cb);
+  },
+
+  /**
+   * v3.0+ — distributed inference. Subscribe to one of the bridge's
+   * named event channels. Currently:
+   *
+   *  - `"pairingRequest"`: emitted when an inbound peer requests pairing.
+   *    The handler receives a {@link PairingRequest}; respond via
+   *    {@link respondToPairing}. Default behaviour without a listener
+   *    is to deny inbound pairing requests.
+   *
+   * Must be called after a successful {@link start} — the listener is
+   * dispatched on the active backend plugin, which is established by
+   * `start()`. Calling before `start()` throws.
+   */
+  async addListener(
+    eventName: "pairingRequest",
+    cb: (req: PairingRequest) => void,
+  ): Promise<{ remove: () => Promise<void> }> {
+    if (eventName !== "pairingRequest") {
+      throw new Error(
+        `[DVAI] addListener: unknown event name "${eventName}". Valid: "pairingRequest".`,
+      );
+    }
+    const native = dispatch.__activePlugin();
+    if (!native) {
+      throw new Error("[DVAI] addListener called before start()");
+    }
+    return native.addListener("pairingRequest", cb);
+  },
+
+  /**
+   * v3.0+ — distributed inference. Resolve a pending {@link PairingRequest}
+   * received via the `"pairingRequest"` event. Pass the request `id` and
+   * the user's decision; the native side records the decision and either
+   * lets the pairing proceed or rejects it.
+   *
+   * Idempotent — responding twice to the same `requestId` resolves
+   * cleanly on subsequent calls.
+   */
+  async respondToPairing(requestId: string, approved: boolean): Promise<void> {
+    const native = dispatch.__activePlugin();
+    if (!native) {
+      throw new Error("[DVAI] respondToPairing called before start()");
+    }
+    await native.respondToPairing({ requestId, approved });
   },
 
   /** Resumable, checksum-verified, app-data-cached download. */

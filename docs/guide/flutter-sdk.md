@@ -372,6 +372,48 @@ try {
 }
 ```
 
+## Distributed inference (`offload`) — v3.0+
+
+`dvai_bridge` v3.0+ surfaces the v3.0 distributed-inference configuration.
+Pass an `OffloadConfig` to `start()` to enable LAN / internet peer
+discovery and request offload when local capability is insufficient. See
+the [Distributed Inference guide](./distributed-inference.md) for the
+full feature description.
+
+```dart
+final BoundServer server = await DVAIBridge.instance.start(
+  const StartOptions(
+    backend: BackendKind.auto,
+    modelPath: '/path/to/model.gguf',
+    offload: OffloadConfig(
+      enabled: true,
+      discoverLAN: true,
+      minLocalCapability: 10,
+      rendezvousUrl: 'wss://rendezvous.myapp.com', // optional, internet path
+    ),
+  ),
+);
+```
+
+The `onPairingRequest` callback from the JS-side `OffloadConfig` cannot
+cross the Pigeon channel, so Dart consumers receive inbound pairing
+requests via the `pairingRequests` `Stream<PairingRequest>` and respond
+by calling `PairingRequest.respond(approved: ...)`:
+
+```dart
+final StreamSubscription<PairingRequest> sub =
+    DVAIBridge.instance.pairingRequests.listen((req) async {
+  final bool approved = await myUiConfirm(req.peerDeviceName);
+  await req.respond(approved: approved);
+});
+
+// Tear down on widget dispose:
+await sub.cancel();
+```
+
+Without a registered listener, inbound pairing requests are denied
+after the request's `expiresAt` deadline.
+
 ## Reference
 
 - [iOS Native SDK](./ios-native-sdk.md) — the underlying Swift surface.
