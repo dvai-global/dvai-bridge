@@ -44,14 +44,13 @@ final class SmokeTests: XCTestCase {
         //
         // Set SMOKE_MLX_FORCE_SIM=1 to opt back in (e.g., when verifying
         // against a future mlx-swift-lm that fixes the simulator path).
-        #if targetEnvironment(simulator)
         let env = SmokeEnv.load()
+        #if targetEnvironment(simulator)
         if env["SMOKE_MLX_FORCE_SIM"] != "1" {
             throw XCTSkip("MLX skipped on iOS Simulator (upstream mlx-swift-lm calls abort() before Swift can catch). Set SMOKE_MLX_FORCE_SIM=1 to override.")
         }
         #endif
 
-        let env = SmokeEnv.load()
         // Allow CI to override the model id via env (smaller checkpoints
         // for faster CI runs); default to the README's reference.
         let modelId = env["SMOKE_MLX_MODEL_ID"] ?? "mlx-community/Llama-3.2-3B-Instruct-4bit"
