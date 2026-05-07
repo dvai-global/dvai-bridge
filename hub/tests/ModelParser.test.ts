@@ -172,6 +172,22 @@ const CORPUS: CorpusEntry[] = [
     expected: { family: "qwen", version: "2.5", size: "7b", quant: null, type: "thinking" },
     notes: "Distinct type so substitution policy refuses thinking↔instruct mismatches.",
   },
+  // LM Studio filename surfaces (the engine's /v1/models advertises the GGUF path)
+  {
+    input: "hugging-quants/Llama-3.2-1B-Instruct-Q8_0-GGUF/llama-3.2-1b-instruct-q8_0.gguf",
+    expected: { family: "llama", version: "3.2", size: "1b", quant: "q8_0", type: "instruct" },
+    notes: "LM Studio /v1/models entry: namespace + repo + filename. Tail `.gguf` is stripped without leaving a dangling dot on the previous token.",
+  },
+  {
+    input: "bartowski/Phi-3-mini-4k-instruct-gguf/Phi-3-mini-4k-instruct-Q4_K_M.gguf",
+    expected: { family: "phi", version: "3", size: "mini", quant: "q4_k_m", type: "instruct" },
+    notes: "Phi-3 with `.gguf` filename suffix.",
+  },
+  {
+    input: "model-name-q4_K_M.safetensors",
+    expected: { family: "unknown", version: null, size: "unknown", quant: "q4_k_m", type: "unknown" },
+    notes: "`.safetensors` suffix dropped without dangling dot.",
+  },
   // Unknown / garbage
   {
     input: "complete-garbage-string",

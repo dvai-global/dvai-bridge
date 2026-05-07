@@ -253,14 +253,19 @@ export function parseModelName(input: string): ModelDescriptor {
   // quant tokens like `q4_k_m`, `q8_0`, `q4f16_1` survive tokenization
   // (the QUANT_ALIASES table indexes them with underscores). Keep periods
   // for version numbers like "3.2".
+  //
+  // Suffix-strip patterns consume either `-` OR `.` before the noise
+  // tag — handles both `Llama-3.2-1B-Instruct-GGUF` AND filename
+  // patterns like `llama-3.2-1b-instruct-q8_0.gguf` (LM Studio surfaces
+  // the latter via /v1/models).
   const normalized = afterSlash
     .replace(/:/g, "-")
-    .replace(/-?GGUF\b/gi, "")
-    .replace(/-?ONNX\b/gi, "")
-    .replace(/-?MLC\b/gi, "")
-    .replace(/-?mlpackage\b/gi, "")
-    .replace(/-?safetensors\b/gi, "")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[-.]?GGUF\b/gi, "")
+    .replace(/[-.]?ONNX\b/gi, "")
+    .replace(/[-.]?MLC\b/gi, "")
+    .replace(/[-.]?mlpackage\b/gi, "")
+    .replace(/[-.]?safetensors\b/gi, "")
+    .replace(/^[-.]+|[-.]+$/g, "");
 
   const tokens = normalized
     .split("-")
