@@ -39,4 +39,12 @@ export interface HandlerContext {
    * throws when exhausted; handler only awaits. Undefined → no recovery.
    */
   onRecovery?: () => Promise<void>;
+
+  /**
+   * Phase 3 — `/v1/dvai/*` route map populated when `offload.enabled`.
+   * Late-bound (getter) so transports can read it per request even
+   * though the routes are built after the transport starts. Undefined
+   * when offload isn't enabled — transports return 404 in that case.
+   */
+  dvaiRoutes?: Record<string, import("./dvai/index.js").DvaiHandler>;
 }

@@ -5,6 +5,7 @@ import {
   handleEmbeddings,
   handleModels,
 } from "../handlers/index.js";
+import type { DvaiHandler } from "../handlers/dvai/index.js";
 import type {
   HttpTransportOptions,
   Transport,
@@ -116,6 +117,28 @@ async function route(
       const r = await handleModels(ctx);
       return writeWhatwgResponse(res, r, cors);
     }
+    // /v1/dvai/* — Phase 3 distributed-inference plane. Routes are
+    // registered by DVAI when offload.enabled. Absent map → 404 (no
+    // offload state) which matches the pre-Phase-3 behaviour.
+    const dvaiRoutes = ctx.dvaiRoutes;
+    if (dvaiRoutes) {
+      const key = `${req.method ?? "GET"} ${path}`;
+      const dvaiHandler = dvaiRoutes[key];
+      if (dvaiHandler) {
+        let body: unknown = undefined;
+        if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
+          body = await readJsonBody(req);
+        }
+        const r = await dvaiHandler({ body });
+        const respHeaders: Record<string, string> = {
+          ...cors,
+          "Content-Type": "application/json",
+        };
+        res.writeHead(r.status, respHeaders);
+        res.end(JSON.stringify(r.body));
+        return;
+      }
+    }
     res.writeHead(404, { ...cors, "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "not found" }));
   } catch (err: any) {
@@ -143,10 +166,20 @@ export class HttpTransport implements Transport {
         }
       });
     });
-    const port = await tryBind(server, this.opts.httpBasePort, this.opts.httpMaxPortAttempts);
+    const bindHost = this.opts.bindHost ?? "127.0.0.1";
+    const port = await tryBind(
+      server,
+      this.opts.httpBasePort,
+      this.opts.httpMaxPortAttempts,
+      bindHost,
+    );
     this.server = server;
     this.boundPort = port;
-    return { baseUrl: `http://127.0.0.1:${port}/v1`, port };
+    // baseUrl reports the bind host so downstream consumers can choose
+    // a sensible advertise URL. 0.0.0.0 isn't directly callable from
+    // peers — they should use the host's actual LAN IP — but this URL
+    // accurately reflects what the server is listening on.
+    return { baseUrl: `http://${bindHost}:${port}/v1`, port };
   }
 
   async stop(): Promise<void> {

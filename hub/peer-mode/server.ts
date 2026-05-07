@@ -191,6 +191,10 @@ const dvaiFactory: NonNullable<PeerModeOptions["dvaiFactory"]> = (
       : {}),
     ...(HUB_PORT !== undefined ? { httpBasePort: HUB_PORT } : {}),
     transport: "http" as const,
+    // Hub binds 0.0.0.0 so paired peers on the LAN can reach it.
+    // Defaults can be overridden via DVAI_HUB_BIND_HOST=127.0.0.1 if
+    // the operator wants to keep loopback-only for some reason.
+    httpBindHost: process.env.DVAI_HUB_BIND_HOST ?? "0.0.0.0",
     offload: {
       enabled: true,
       discoverLAN: true,
