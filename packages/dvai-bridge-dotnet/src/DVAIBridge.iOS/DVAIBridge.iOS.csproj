@@ -24,12 +24,14 @@
       slice. PlatformBridgeFactory routes both runtime kinds (IsIOS /
       IsMacCatalyst) to IOSNativeBridge.
 
-      TPV `26.2` matches the .NET 10 default iOS / Mac Catalyst SDK
-      (Microsoft.iOS.Sdk.net10.0_26.2; only 26.0 and 26.2 are valid on
-      net10). Runtime floor is iOS 15.1 / Mac Catalyst 15.1 — same as the
-      underlying DVAIBridge umbrella.
+      TPV `26.4` matches the .NET 10.0.203 SDK's current iOS / Mac
+      Catalyst pack (Microsoft.iOS.Sdk.net10.0_26.4 +
+      Microsoft.MacCatalyst.Sdk.net10.0_26.4; valid TPVs on net10 are
+      26.0 and 26.4 — 26.2 was dropped in 10.0.20x). Runtime floor is
+      iOS 15.1 / Mac Catalyst 15.1 — same as the underlying DVAIBridge
+      umbrella.
     -->
-    <TargetFrameworks>net10.0-ios26.2;net10.0-maccatalyst26.2</TargetFrameworks>
+    <TargetFrameworks>net10.0-ios26.4;net10.0-maccatalyst26.4</TargetFrameworks>
     <SupportedOSPlatformVersion>15.1</SupportedOSPlatformVersion>
     <IsBindingProject>true</IsBindingProject>
     <NoBindingEmbedding>false</NoBindingEmbedding>

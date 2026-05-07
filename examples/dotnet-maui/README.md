@@ -53,8 +53,8 @@ bash smoke.sh
 # Or build one platform manually:
 dotnet build -f net10.0-android36.0
 # (Mac only)
-dotnet build -f net10.0-ios26.2
-dotnet build -f net10.0-maccatalyst26.2
+dotnet build -f net10.0-ios26.4
+dotnet build -f net10.0-maccatalyst26.4
 ```
 
 ## On-device flow

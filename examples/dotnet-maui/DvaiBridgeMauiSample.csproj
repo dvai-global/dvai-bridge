@@ -9,8 +9,8 @@
 
     TFMs match the .NET 10 SDK's actual platform versions and the
     DVAIBridge.iOS / DVAIBridge.Android csproj graph:
-      - net10.0-ios26.2 (iOS / Mac Catalyst SDK 26.2; runtime floor 15.1)
-      - net10.0-maccatalyst26.2
+      - net10.0-ios26.4 (iOS / Mac Catalyst SDK 26.2; runtime floor 15.1)
+      - net10.0-maccatalyst26.4
       - net10.0-android36.0 (Android API 36.0; minSdk 24)
 
     Mac Catalyst + iOS slices must be built on Mac via `ssh mac`. Android
@@ -19,7 +19,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>net10.0-android36.0</TargetFrameworks>
-    <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net10.0-ios26.2;net10.0-maccatalyst26.2</TargetFrameworks>
+    <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net10.0-ios26.4;net10.0-maccatalyst26.4</TargetFrameworks>
 
     <OutputType>Exe</OutputType>
     <RootNamespace>DvaiBridgeMauiSample</RootNamespace>
@@ -71,8 +71,8 @@
   </ItemGroup>
 
   <!--
-    DVAIBridge facade + iOS slice (multi-targets net10.0-ios26.2 +
-    net10.0-maccatalyst26.2). The facade compiles for any TFM; the iOS
+    DVAIBridge facade + iOS slice (multi-targets net10.0-ios26.4 +
+    net10.0-maccatalyst26.4). The facade compiles for any TFM; the iOS
     slice only contributes on the Apple TFMs.
   -->
   <ItemGroup>

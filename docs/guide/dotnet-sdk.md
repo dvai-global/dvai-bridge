@@ -21,8 +21,8 @@ at [iOS Native SDK](./ios-native-sdk.md) and
 
 - **.NET 10 LTS** (10.0.7 or later — released November 2025, supported through
   November 2028). Earlier .NET 8 / .NET 9 consumers can't consume this package
-  directly because the platform-versioned TFMs (`net10.0-ios26.2`,
-  `net10.0-maccatalyst26.2`, `net10.0-android36.0`) require a matching .NET 10
+  directly because the platform-versioned TFMs (`net10.0-ios26.4`,
+  `net10.0-maccatalyst26.4`, `net10.0-android36.0`) require a matching .NET 10
   base.
 - **iOS 15.1+ runtime floor**, **Mac Catalyst 15.1+ runtime floor**,
   **Android `minSdk 24`**, **Windows 10 1809+ / macOS 11+ / Ubuntu 22.04+** for
@@ -40,7 +40,7 @@ the platform / backend slices are pulled in transitively when needed.
 | NuGet                       | Role                                                     | When pulled in                                                |
 | --------------------------- | -------------------------------------------------------- | ------------------------------------------------------------- |
 | `DVAIBridge`                | Public facade (`DVAIBridge.Shared`, types, exceptions)   | Always — `dotnet add package DVAIBridge`                      |
-| `DVAIBridge.iOS`            | iOS + Mac Catalyst binding (xcframework bundled)         | Transitively when csproj has `net10.0-ios26.2` / `…-maccatalyst26.2` |
+| `DVAIBridge.iOS`            | iOS + Mac Catalyst binding (xcframework bundled)         | Transitively when csproj has `net10.0-ios26.4` / `…-maccatalyst26.2` |
 | `DVAIBridge.Android`        | Android binding (consumer-build AAR fetch)               | Transitively when csproj has `net10.0-android36.0`            |
 | `DVAIBridge.Desktop`        | llama.cpp native slice for desktop (Win / macOS / Linux) | Transitively when csproj has bare `net10.0`                   |
 | `DVAIBridge.OnnxRuntime`    | ONNX Runtime + GenAI cross-platform backend              | **Opt-in** (`dotnet add package DVAIBridge.OnnxRuntime`)      |
@@ -61,7 +61,7 @@ What `dotnet add package DVAIBridge` pulls in transitively:
 
 - **bare `net10.0` (desktop)** → `DVAIBridge.Desktop` (llama.cpp via
   `runtimes/<rid>/native/`).
-- **`net10.0-ios26.2` / `net10.0-maccatalyst26.2`** → `DVAIBridge.iOS`
+- **`net10.0-ios26.4` / `net10.0-maccatalyst26.4`** → `DVAIBridge.iOS`
   (single binding NuGet, multi-target). Bundles
   `DVAIBridgeNetBridge.xcframework` inside the NuGet — **no CocoaPods or
   SwiftPM auth required** for iOS / Catalyst consumers.
