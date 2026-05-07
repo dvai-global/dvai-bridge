@@ -36,6 +36,81 @@ The main configuration object used to initialize the orchestration layer.
 | `httpBasePort`          | `number`                                           | `38883`                                          | HTTP transport base port (retries +1 up to 16 times).                                                                                                    |
 | `httpMaxPortAttempts`   | `number`                                           | `16`                                             | Max HTTP port fallback attempts before throwing.                                                                                                         |
 | `corsOrigin`            | `string \| string[]`                               | `"*"`                                            | HTTP `Access-Control-Allow-Origin` value or allowlist.                                                                                                   |
+| `offload`               | `OffloadConfig \| undefined`                       | `undefined`                                      | Phase 3 (v3.0+) — distributed-inference / device-offload config. See [`OffloadConfig`](#offloadconfig-v30) below + the [Distributed Inference guide](/guide/distributed-inference). When unset, the library behaves exactly as v2.x. |
+
+---
+
+## `OffloadConfig` (v3.0+)
+
+Opts the library into peer-device discovery + offload. v2.x consumer
+code that doesn't set `offload` keeps working unchanged.
+
+| Property | Type | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | `false` | Master switch. Opt-in at v3.0; nothing changes when off. |
+| `discoverLAN` | `boolean` | `true` | Run mDNS / DNS-SD to discover peers on the local network. Browsers skip (can't speak mDNS); native SDKs use the platform-native API. |
+| `minLocalCapability` | `number` | `10` | Estimated decode tok/s the local device must hit to run locally. Below this, the library looks for a peer. |
+| `rendezvousUrl` | `string \| undefined` | `undefined` | URL of a self-hosted [rendezvous server](/guide/self-hosting-rendezvous). If unset, the internet path is disabled — only LAN works. |
+| `knownPeers` | `Peer[] \| undefined` | `undefined` | Pre-known peers (skip discovery). Useful for corporate device registries or persisted pairings. |
+| `onPairingRequest` | `(peer: Peer) => Promise<boolean>` | denies | Hook to surface a "Allow this device to pair?" UI to the user. Default: deny. The host app implements the UI. |
+| `onOffload` | `(peer: Peer) => void` | no-op | Diagnostic callback when a request is offloaded. Useful for analytics + UI feedback. |
+| `customDiscovery` | `() => Promise<Peer[]>` | `undefined` | Optional plug-in for app-specific discovery (e.g. corporate device registry). Combined with mDNS + `knownPeers`. |
+
+### Per-request override (`X-DVAI-Offload` header)
+
+| Header value | Meaning |
+| --- | --- |
+| `prefer` (default) | Offload if local can't serve fast enough AND a faster peer exists. |
+| `never` | Always run locally, even if slow. Privacy-sensitive prompts; on-device-only requirements. |
+| `require` | Refuse rather than fall back. Returns the structured `no_capable_device` error if no qualified peer is reachable. |
+
+### `Peer` type
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `deviceId` | `string` | Stable per-install peer device ID. |
+| `deviceName` | `string` | Human-readable hint (iOS device name, hostname). |
+| `dvaiVersion` | `string` | Library SemVer the peer is running. |
+| `baseUrl` | `string` | OpenAI-compatible base URL the peer's local server exposes. |
+| `loadedModels` | `string[]` | Models the peer claims to have loaded. |
+| `capability` | `Record<string, number>` | Peer-reported `{modelId → tok/s}` map (advisory; verified before first use). |
+| `via` | `"mdns" \| "static" \| "rendezvous" \| "custom"` | Discovery source. |
+| `secure` | `boolean` | Whether the peer's URL uses TLS. |
+| `lastSeenAt` | `number` | Unix ms — discovery sources update this. |
+
+### `no_capable_device` error response
+
+When the offload decision fails to find a qualified peer, the response
+is OpenAI-error-shaped (HTTP 503 + `Retry-After: 30`):
+
+```json
+{
+  "error": {
+    "type": "no_capable_device",
+    "code": 503,
+    "message": "No device with capability ≥ 10 tok/s for model … was reachable.",
+    "checked": [
+      { "deviceId": "self", "capabilityScore": 4.2, "reason": "below threshold" }
+    ],
+    "localCapability": 4.2,
+    "requiredAtLeast": 10,
+    "rendezvousConfigured": true,
+    "pairedRemotePeers": 0,
+    "requestId": "..."
+  }
+}
+```
+
+### New `DVAI` instance methods (v3.0+)
+
+| Method | Returns | Description |
+| --- | --- | --- |
+| `dvai.probeCapability()` | `Promise<CapabilityScore \| undefined>` | Run a 50-token cold-run against the active backend; persist the score per `(modelId, libraryVersion)`. No-op if `offload.enabled` is false. |
+| `dvai.getCapability(modelId?)` | `Promise<CapabilityScore \| undefined>` | Return the cached probe score or a heuristic fallback. No-op if `offload.enabled` is false. |
+| `dvai.getPeers()` | `Peer[]` | Snapshot of currently-discovered peers. |
+
+See the [Distributed Inference guide](/guide/distributed-inference) for
+the full design + flows.
 
 ---
 

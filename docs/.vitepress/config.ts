@@ -64,6 +64,7 @@ export default defineConfig({
 					{ text: "Multimodal", link: "/guide/multimodal" },
 					{ text: "Tested Models", link: "/guide/tested-models" },
 					{ text: "Auto-Recovery & Robustness", link: "/guide/auto-recovery" },
+					{ text: "Distributed Inference (v3.0)", link: "/guide/distributed-inference" },
 					{ text: "Self-Hosting Rendezvous (v3.0)", link: "/guide/self-hosting-rendezvous" },
 					{ text: "vs. Other Tools", link: "/guide/comparison" },
 				],
@@ -85,6 +86,7 @@ export default defineConfig({
 					{ text: "v2.1 → v2.2", link: "/migration/v2.1-to-v2.2" },
 					{ text: "v2.2 → v2.3", link: "/migration/v2.2-to-v2.3" },
 					{ text: "v2.3 → v2.4", link: "/migration/v2.3-to-v2.4" },
+					{ text: "v2.4 → v3.0", link: "/migration/v2.4-to-v3.0" },
 				],
 			},
 			{
