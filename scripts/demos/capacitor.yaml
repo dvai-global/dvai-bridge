@@ -1,15 +1,15 @@
 name: capacitor-quickstart
-description: Hello-world flow on the Capacitor hybrid example (iOS simulator, llama.cpp + Metal).
+description: Hello-world flow on the Capacitor hybrid example (examples/capacitor-mobile/, iOS simulator, llama.cpp + Metal).
 output: docs/marketing/assets/capacitor-quickstart.mp4
 fps: 30
 scenes:
   - duration: 6
-    caption: "Boot the Capacitor app in the iOS Simulator; splash → home."
-  - duration: 8
-    caption: "Tap 'Start local server'; native plugin loads the bundled GGUF."
+    caption: "Boot the Capacitor app in the iOS Simulator; splash -> home."
   - duration: 6
-    caption: "Status pill turns green: 'http://127.0.0.1:38883/v1'."
+    caption: "Paste the on-device GGUF path; tap 'Start local server'."
+  - duration: 8
+    caption: "Native plugin loads the bundled GGUF (status pill -> 'http://127.0.0.1:38883/v1')."
   - duration: 12
-    caption: "Type a prompt; tokens stream from native llama.cpp through the WebView."
+    caption: "Type a prompt; tokens stream from native llama.cpp through the WebView via fetch()."
   - duration: 5
     caption: "Closing card: '@dvai-bridge/capacitor — one HTTP surface, hybrid mobile'."

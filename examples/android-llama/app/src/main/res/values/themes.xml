@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Inherit from a Material 3 base; the actual theming is driven from
+         Compose `MaterialTheme {}`, so this manifest theme just needs to
+         render the splash without an action bar. -->
+    <style name="Theme.AndroidLlama" parent="android:Theme.Material.NoActionBar.Fullscreen" />
+</resources>

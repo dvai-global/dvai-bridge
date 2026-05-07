@@ -135,7 +135,10 @@ elsewhere (a launch announcement, a docs site, etc.).
 | `node-llama-cpp.yaml`   | `examples/node-llama-cpp/` native backend quickstart |
 | `capacitor.yaml`        | Capacitor hybrid mobile quickstart                  |
 | `ios-native.yaml`       | `@dvai-bridge/ios` SwiftUI quickstart               |
-| `android-native.yaml`   | `co.deepvoiceai:dvai-bridge` Compose quickstart     |
+| `android-native.yaml`   | `co.deepvoiceai:dvai-bridge` Compose quickstart (umbrella)     |
+| `android-llama.yaml`    | `examples/android-llama/` Llama-backend Compose flow |
+| `android-mediapipe.yaml`| `examples/android-mediapipe/` MediaPipe-backend Compose flow |
+| `android-litert.yaml`   | `examples/android-litert/` LiteRT-backend Compose flow |
 | `react-native.yaml`     | `@dvai-bridge/react-native` TurboModule quickstart  |
 | `flutter.yaml`          | `dvai_bridge` Flutter quickstart                    |
 | `dotnet-maui.yaml`      | `DVAIBridge` NuGet MAUI / desktop quickstart        |

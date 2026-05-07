@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>DVAI Bridge — Capacitor Example</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>DVAI Bridge — Capacitor</h1>
+        <p class="status" id="status">Idle. Tap "Start" to load the model.</p>
+      </header>
+
+      <section class="config">
+        <label>
+          <span>Model path on device</span>
+          <input
+            id="modelPath"
+            type="text"
+            placeholder="/data/user/0/co.deepvoiceai.bridge.example.capacitor/files/dvai-models/llama-3.2-1b.gguf"
+          />
+        </label>
+        <button id="start" type="button">Start local server</button>
+        <button id="stop" type="button" disabled>Stop</button>
+      </section>
+
+      <section class="prompt">
+        <label for="prompt">Prompt</label>
+        <textarea
+          id="prompt"
+          rows="3"
+          placeholder="Ask anything. Tokens stream from native llama.cpp through the WebView."
+        ></textarea>
+        <button id="send" type="button" disabled>Send</button>
+      </section>
+
+      <section class="response">
+        <label for="output">Response</label>
+        <textarea id="output" rows="10" readonly></textarea>
+      </section>
+    </main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

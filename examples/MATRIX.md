@@ -32,13 +32,13 @@ The matrix is being built out incrementally as part of post-v2.4 Phase
 | 7 | iOS native | CoreML | [`ios-coreml/`](./ios-coreml/) | [`ios-coreml/smoke.sh`](./ios-coreml/smoke.sh) | [`scripts/demos/ios-coreml.yaml`](../scripts/demos/ios-coreml.yaml) | Mac + Xcode 16+, iPhone 16 sim on iOS 18.5+. **Experimental — known IRValue crash; smoke gated.** |
 | 8 | iOS native | MLX | [`ios-mlx/`](./ios-mlx/) | [`ios-mlx/smoke.sh`](./ios-mlx/smoke.sh) | [`scripts/demos/ios-mlx.yaml`](../scripts/demos/ios-mlx.yaml) | **Apple Silicon Mac** + Xcode 16+, iPhone 16 sim on iOS 18.5+, ~1.8 GB MLX HF cache. SwiftPM-only. |
 
-## Android — planned
+## Android
 
-| # | SDK | Backend | Status |
-|---|---|---|---|
-| 9 | Android native (Kotlin) | llama.cpp | planned |
-| 10 | Android native | MediaPipe LLM | planned |
-| 11 | Android native | LiteRT | planned |
+| # | SDK | Backend | Path | Smoke | Demo flow | Host requirements |
+|---|---|---|---|---|---|---|
+| 9 | Android native (Kotlin) | llama.cpp | [`android-llama/`](./android-llama/) | [`android-llama/smoke.sh`](./android-llama/smoke.sh) | [`scripts/demos/android-llama.yaml`](../scripts/demos/android-llama.yaml) | JDK 21+ (Android Studio JBR), Android SDK 35/36, AGP 9.x. End-to-end needs an `arm64-v8a` device + ~770 MB GGUF push. |
+| 10 | Android native | MediaPipe LLM | [`android-mediapipe/`](./android-mediapipe/) | [`android-mediapipe/smoke.sh`](./android-mediapipe/smoke.sh) | [`scripts/demos/android-mediapipe.yaml`](../scripts/demos/android-mediapipe.yaml) | Same as #9 plus an `arm64-v8a` device for inference. ~1.3 GB Gemma-2-2B `.task` push for end-to-end. Snapdragon 8 Gen 2+ for QNN delegate. |
+| 11 | Android native | LiteRT | [`android-litert/`](./android-litert/) | [`android-litert/smoke.sh`](./android-litert/smoke.sh) | [`scripts/demos/android-litert.yaml`](../scripts/demos/android-litert.yaml) | Same as #9. End-to-end needs the `litert-community/Llama-3.2-1B-Instruct` `.tflite` (~1.0 GB) + matching `tokenizer.json` push. |
 
 ## Hybrid
 

@@ -3,6 +3,79 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.4.2] — 2026-05-07
+
+Phase 2 example-matrix work surfaced four library-side fixes during
+example construction. Bundled here so the fixes are available in a
+patch release before v3.0.0 ships.
+
+### Fixed
+
+- **`@dvai-bridge/core`** — wired `node-llama-cpp` as the native Node
+  backend. New `NodeLlamaCppBackend.ts`; `BackendType` widened to
+  include `"native"`; `DVAI.initializeBackend()` resolves the native
+  path via the existing `nativeModelPath` / `nativeContextSize` /
+  `nativeGpuLayers` / `nativeThreads` config. (Surfaced by Phase 2
+  Task 1's `examples/node-llama-cpp/`.)
+- **`@dvai-bridge/core`** — native backend auto-derives `modelId`
+  from the GGUF basename when not customised, so OpenAI responses
+  echo a meaningful name (e.g. `Llama-3.2-1B-Instruct-Q4_K_M`)
+  instead of the WebLLM placeholder.
+- **All 5 Android packages** (`dvai-bridge-android` umbrella +
+  `shared-core` + `llama-core` + `mediapipe-core` + `litert-core`)
+  — added a `compileSdkOverride` Gradle property (default `36`,
+  falls to `35` cleanly). Works around an AGP 9.2.0 + compileSdk 36
+  + Windows-host bug in Android's `parseLocalResources` task that
+  crashes parsing `android-36/data/res/values/public-final.xml`.
+  Mac builds clean at compile-sdk 36; Windows consumers can pass
+  `-PcompileSdkOverride=35` to sidestep. The new
+  `scripts/android-publish-local.ps1` (Windows companion to the
+  bash version) forwards the property automatically.
+- **`DVAIBridge.iOS.csproj`** — TFM bumped `26.2` → `26.4`. The
+  .NET 10.0.203 SDK shipped only `Microsoft.iOS.Sdk.net10.0_26.0`
+  and `_26.4`; `_26.2` was retired between SDK 10.0.200 and 10.0.203.
+  Building the iOS / Mac Catalyst slice on the current SDK now
+  succeeds. Runtime floor stays at iOS 15.1 / Mac Catalyst 15.1; only
+  the build TPV moved. `docs/guide/dotnet-sdk.md` consumer-facing TFM
+  strings updated in lockstep.
+- **`packages/dvai-bridge-dotnet/global.json`** SDK pin bumped from
+  `10.0.100` → `10.0.203` (matches the documented contributor floor;
+  `rollForward: latestFeature` continues to allow newer feature bands).
+
+### Added (Phase 2 examples)
+
+19 example apps under `examples/` covering the full (SDK × backend)
+matrix:
+
+- **Web/Node**: `web-vanilla-cdn`, `node-llama-cpp` (alongside the
+  pre-existing `web-react`, `node-langchain`).
+- **iOS native**: `ios-llama`, `ios-foundation`, `ios-coreml`, `ios-mlx`.
+- **Android native**: `android-llama`, `android-mediapipe`, `android-litert`.
+- **Hybrid**: `capacitor-mobile`, `react-native-app`, `flutter-app`.
+- **.NET**: `dotnet-maui`, `dotnet-desktop-llama`, `dotnet-desktop-onnx`,
+  `dotnet-desktop-mlnet`.
+- `examples/MATRIX.md` — full SDK × backend matrix with host requirements + demo-flow paths.
+- `scripts/demos/*.yaml` — per-example demo flows.
+- `scripts/mac-side-build-examples.sh` — batched Mac SSH driver for the iOS examples.
+
+All examples build clean on the host that supports them (Windows for
+.NET / Web / Android / Flutter; Mac for iOS via SSH); each ships a
+`smoke.sh` that exits 0.
+
+### Distribution
+
+- All 36 dvai-bridge packages bump 2.4.1 → 2.4.2 in lockstep via
+  `scripts/sync-versions.js`. **No registry publishes happen as part
+  of v2.4.2** — patch is git-tag-only; npm / Maven / NuGet / pub.dev
+  versions stay at 2.4.0 until the user runs the publish flow per
+  PUBLISHING.md.
+
+### No breaking changes
+
+Pure patch release. Migration not required.
+
+---
+
 ## [2.4.1] — 2026-04-27
 
 Phase 3H — end-of-Phase-3 polish. Documentation, build tooling, demo
