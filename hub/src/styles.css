@@ -1,0 +1,240 @@
+/* DVAI Hub — base styles. Task 7 swaps in shadcn-style primitives. */
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --bg: #0f1115;
+  --bg-elevated: #1a1d24;
+  --fg: #e7e9ee;
+  --fg-muted: #9aa0ad;
+  --accent: #4a90e2;
+  --ok: #38c172;
+  --warn: #f7b955;
+  --err: #e3342f;
+  --rail-w: 220px;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+}
+
+.hub-app {
+  display: grid;
+  grid-template-columns: var(--rail-w) 1fr;
+  height: 100vh;
+}
+
+.rail {
+  background: var(--bg-elevated);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #2a2d36;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+
+.version {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.rail nav {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-grow: 1;
+}
+
+.tab {
+  background: transparent;
+  border: 0;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.tab:hover { color: var(--fg); background: rgba(255,255,255,0.04); }
+.tab.active { color: var(--fg); background: rgba(74,144,226,0.15); }
+
+.status-pill {
+  margin-top: auto;
+  font-size: 12px;
+  color: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.dot.ok { background: var(--ok); }
+.dot.off { background: var(--fg-muted); }
+
+.pane {
+  padding: 32px;
+  overflow: auto;
+}
+
+.pane h2 { margin-top: 0; }
+.hint { color: var(--fg-muted); font-size: 13px; }
+.placeholder {
+  background: #14171d;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  overflow: auto;
+  border: 1px solid #2a2d36;
+}
+
+/* Modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--bg-elevated);
+  padding: 24px;
+  border-radius: 8px;
+  width: 480px;
+  max-width: 90%;
+  border: 1px solid #2a2d36;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.modal-actions button {
+  background: transparent;
+  border: 1px solid #2a2d36;
+  color: var(--fg);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.modal-actions button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+/* Buttons (shared for the in-pane actions) */
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 16px 0;
+}
+.actions button {
+  background: transparent;
+  border: 1px solid #2a2d36;
+  color: var(--fg);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.actions button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+.actions select {
+  background: var(--bg-elevated);
+  color: var(--fg);
+  border: 1px solid #2a2d36;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+/* Key-value grid for status surfaces */
+.kvgrid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 24px;
+  margin: 16px 0;
+  font-size: 13px;
+}
+.kvgrid .k { color: var(--fg-muted); }
+.kvgrid .v { color: var(--fg); }
+
+/* Callouts */
+.callout {
+  background: rgba(74,144,226,0.07);
+  border-left: 3px solid var(--accent);
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin: 16px 0;
+  font-size: 13px;
+}
+
+/* Grouped tables (paired apps) */
+.group {
+  background: var(--bg-elevated);
+  border: 1px solid #2a2d36;
+  border-radius: 6px;
+  margin: 16px 0;
+  padding: 16px;
+}
+.group header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.group header h3 { margin: 0; font-size: 15px; }
+.group header code { font-size: 11px; color: var(--fg-muted); }
+.group header .meta { margin-left: auto; color: var(--fg-muted); font-size: 12px; }
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--fg-muted);
+  border-bottom: 1px solid #2a2d36;
+  padding: 8px 8px 8px 0;
+}
+table td {
+  padding: 8px 8px 8px 0;
+  border-bottom: 1px solid #1f222a;
+  vertical-align: top;
+}
+table button {
+  background: transparent;
+  border: 1px solid #2a2d36;
+  color: var(--fg);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+table button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+code.dim { color: var(--fg-muted); font-size: 11px; }
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.err { color: var(--err); }

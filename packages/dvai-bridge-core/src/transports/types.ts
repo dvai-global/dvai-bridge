@@ -20,6 +20,17 @@ export interface HttpTransportOptions {
   httpBasePort: number;
   httpMaxPortAttempts: number;
   corsOrigin: string | string[];
+  /**
+   * Network interface to bind the HTTP server to. Default `127.0.0.1`
+   * (loopback only). Set to `0.0.0.0` for LAN-target deployments
+   * (the v3.1 Hub, native SDKs running in target mode) so peers on
+   * the same Wi-Fi can reach the server.
+   *
+   * Phone-as-source / single-device deployments should leave this at
+   * the default — a 0.0.0.0 bind on a developer laptop with no
+   * pairing protection would expose the OpenAI surface to the LAN.
+   */
+  bindHost?: string;
 }
 
 export interface MswTransportOptions {

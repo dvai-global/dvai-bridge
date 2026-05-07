@@ -10,6 +10,11 @@ export const MAX_PORT_ATTEMPTS = 16;
  * Attempt to bind `server` to `basePort`, falling back to basePort+1,
  * basePort+2, ... on EADDRINUSE up to `maxAttempts` times.
  *
+ * Default host is `127.0.0.1` (loopback-only) — safe default for any
+ * single-device DVAI deployment. v3.0 LAN-target deployments (the
+ * v3.1 Hub, native SDKs running in target mode) override to `0.0.0.0`
+ * so peers on the same Wi-Fi can reach the server.
+ *
  * Throws a loud, actionable error listing the tried range if all are in use.
  * Re-throws non-EADDRINUSE errors immediately (e.g. EACCES on privileged ports).
  *

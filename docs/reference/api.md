@@ -36,7 +36,9 @@ The main configuration object used to initialize the orchestration layer.
 | `httpBasePort`          | `number`                                           | `38883`                                          | HTTP transport base port (retries +1 up to 16 times).                                                                                                    |
 | `httpMaxPortAttempts`   | `number`                                           | `16`                                             | Max HTTP port fallback attempts before throwing.                                                                                                         |
 | `corsOrigin`            | `string \| string[]`                               | `"*"`                                            | HTTP `Access-Control-Allow-Origin` value or allowlist.                                                                                                   |
+| `httpBindHost`          | `string \| undefined`                              | `"127.0.0.1"`                                    | **v3.1+.** Network interface to bind. Default loopback only — safe for single-device deployments. Set to `"0.0.0.0"` for LAN-target deployments (the v3.1 Hub, native SDKs running in target mode). Phone-as-source / single-device deployments should leave the default; a 0.0.0.0 bind without pairing protection exposes the OpenAI surface. |
 | `offload`               | `OffloadConfig \| undefined`                       | `undefined`                                      | Phase 3 (v3.0+) — distributed-inference / device-offload config. See [`OffloadConfig`](#offloadconfig-v30) below + the [Distributed Inference guide](/guide/distributed-inference). When unset, the library behaves exactly as v2.x. |
+| `chatCompletionInterceptor` | `(body, ctx, headers?) => Promise<Response \| null> \| undefined` | `undefined` | **v3.1+.** First-chance hook for `/v1/chat/completions`. Return a `Response` to short-circuit; return `null` to fall through to the default local-backend handler. The Hub uses this to enforce its substitution policy + route through external engines. See [Chat completion interceptor](/guide/distributed-inference#chat-completion-interceptor-v31). |
 
 ---
 
@@ -52,7 +54,7 @@ code that doesn't set `offload` keeps working unchanged.
 | `minLocalCapability` | `number` | `10` | Estimated decode tok/s the local device must hit to run locally. Below this, the library looks for a peer. |
 | `rendezvousUrl` | `string \| undefined` | `undefined` | URL of a self-hosted [rendezvous server](/guide/self-hosting-rendezvous). If unset, the internet path is disabled — only LAN works. |
 | `knownPeers` | `Peer[] \| undefined` | `undefined` | Pre-known peers (skip discovery). Useful for corporate device registries or persisted pairings. |
-| `onPairingRequest` | `(peer: Peer) => Promise<boolean>` | denies | Hook to surface a "Allow this device to pair?" UI to the user. Default: deny. The host app implements the UI. |
+| `onPairingRequest` | `(peer: Peer) => Promise<boolean \| { approved: true; pairingKey: string } \| { approved: false }>` | denies | Hook to surface a "Allow this device to pair?" UI to the user. Default: deny. **v3.1+:** the return type was widened to a tagged union — return `{ approved: true, pairingKey }` when your host app maintains its own pairing state (e.g. the Hub's `MultiTenantPairing`) and wants the library to use that key instead of generating a fresh one. v3.0 `boolean` returns continue to work. |
 | `onOffload` | `(peer: Peer) => void` | no-op | Diagnostic callback when a request is offloaded. Useful for analytics + UI feedback. |
 | `customDiscovery` | `() => Promise<Peer[]>` | `undefined` | Optional plug-in for app-specific discovery (e.g. corporate device registry). Combined with mDNS + `knownPeers`. |
 
@@ -72,6 +74,7 @@ code that doesn't set `offload` keeps working unchanged.
 | `deviceName` | `string` | Human-readable hint (iOS device name, hostname). |
 | `dvaiVersion` | `string` | Library SemVer the peer is running. |
 | `baseUrl` | `string` | OpenAI-compatible base URL the peer's local server exposes. |
+| `appId` | `string \| undefined` | **v3.1+.** Identifies which application on the peer device is making the request — used by multi-tenant targets (Hub) to isolate per-app state. Optional for v3.0 SDK back-compat (Hub falls back to `deviceId`). |
 | `loadedModels` | `string[]` | Models the peer claims to have loaded. |
 | `capability` | `Record<string, number>` | Peer-reported `{modelId → tok/s}` map (advisory; verified before first use). |
 | `via` | `"mdns" \| "static" \| "rendezvous" \| "custom"` | Discovery source. |
@@ -214,3 +217,72 @@ DVAI-Bridge registers MSW handlers for these endpoints, derived from `mockUrl` (
 | `POST` | `/v1/completions`      | Legacy OpenAI completion endpoint. The `prompt` field is wrapped into a single user message and forwarded to `/v1/chat/completions`; the response is rewritten to the legacy `text_completion` shape. Streaming supported. |
 | `POST` | `/v1/embeddings`       | Returns embeddings. Gated on backend: `transformers` + `pipelineTask: "feature-extraction"`, or `native` + `nativeEmbeddingMode: true`. Returns `400` on WebLLM.                                                           |
 | `GET`  | `/v1/models`           | Returns a single-entry list with the currently loaded model ID.                                                                                                                                                            |
+
+### Distributed-inference plane (`/v1/dvai/*`, v3.0+; v3.1 wire fixes)
+
+Mounted only when `offload.enabled = true`. v3.0 had these handlers
+defined but never dispatched; **v3.1 wires them into the HTTP
+transport so they actually return JSON instead of 404**.
+
+| Method | Endpoint | Notes |
+| :--- | :--- | :--- |
+| `GET`  | `/v1/dvai/health`     | Liveness, version, uptime, `currentModelId`. |
+| `GET`  | `/v1/dvai/peers`      | Discovered LAN peers. |
+| `GET`  | `/v1/dvai/capability` | Local capability cache (per-model tok/s). |
+| `POST` | `/v1/dvai/probe`      | Run a fresh capability probe against the active backend. |
+| `POST` | `/v1/dvai/handshake`  | LAN-pairing handshake. v3.1 request body adds optional `appId`; response now echoes `pairingKey` + `peerDeviceId` so the requester can HMAC-sign subsequent calls. |
+| `POST` | `/v1/dvai/pair-qr`    | Rendezvous QR-pair (v3.0 — partial; per-SDK glue is a v3.1 finalization item). |
+| `POST` | `/v1/dvai/pair-scan`  | Rendezvous QR-scan (same status). |
+
+#### Handshake request shape (v3.1)
+
+```jsonc
+POST /v1/dvai/handshake
+{
+  "peerDeviceId": "phone-pixel-9",
+  "peerDeviceName": "Pixel 9",
+  "appId": "com.acme.chat",        // v3.1+ optional; falls back to peerDeviceId
+  "via": "lan-handshake"
+}
+```
+
+#### Handshake response shape (v3.1)
+
+```jsonc
+{
+  "paired": true,
+  "pairedAt": 1778184673778,
+  "via": "lan-handshake",
+  "pairingKey": "yxQwo0Xv9dws…",   // v3.1+ — base64url-encoded 256-bit HMAC secret
+  "peerDeviceId": "phone-pixel-9"  // v3.1+ — echoed for confirmation
+}
+```
+
+The pairing key is sent in the response over the same Wi-Fi the
+handshake request crossed (LAN trust model). Rendezvous-QR pairings
+use ECDH key agreement and don't reach this handler.
+
+### Identity-signed `/v1/chat/completions` (v3.1)
+
+Once paired, a peer can include four request headers to identify
+itself in the audit log:
+
+| Header | Description |
+| --- | --- |
+| `X-DVAI-Peer-Device-Id` | The peer's `deviceId` (matches the handshake). |
+| `X-DVAI-App-Id` | The peer's `appId` (matches the handshake). |
+| `X-DVAI-Nonce` | Per-request nonce (any unique string). |
+| `X-DVAI-Signature` | Hex `HMAC-SHA256(pairingKey, composeSignedMessage(nonce, "POST", "/v1/chat/completions", bodyJson))`. |
+
+The `composeSignedMessage` and `signHmac` / `verifyHmac` primitives
+are exported from `@dvai-bridge/core`'s package root. Targets
+(Hub) verify the signature against the stored pairing key:
+- All four headers present + verifies → audit row records the real
+  `appId` / `peerDeviceId`.
+- All four absent → backwards-compat anonymous path (audit logs
+  `appId: "anonymous"`). v3.0 SDKs that don't sign use this path.
+- Partial set → 401 with reason "all four or none".
+
+The Hub interceptor refuses requests whose model parses to
+`family: "unknown"` (parser sentinel for unparseable model names) —
+substituting on a sentinel-vs-sentinel match has no semantic basis.

@@ -12,8 +12,27 @@ import type { Pairing, PairingStore } from "./types.js";
 
 export interface PairingPolicyOptions {
   store: PairingStore;
-  /** Host-app callback that returns user's approve/deny. */
-  onPairingRequest?: (peerDeviceId: string, peerDeviceName: string) => Promise<boolean>;
+  /**
+   * Host-app callback that returns the user's approve/deny decision.
+   *
+   * Return value:
+   *   - `true` / `false` — backwards-compat boolean. PairingPolicy
+   *     generates a fresh pairingKey when approved.
+   *   - `{ approved: true, pairingKey }` — host has its OWN pairing
+   *     state (e.g. v3.1 Hub's MultiTenantPairing) and wants
+   *     PairingPolicy to use the host-supplied key. Avoids two
+   *     parallel stores generating divergent keys for the same peer.
+   *   - `{ approved: false }` — denied.
+   */
+  onPairingRequest?: (
+    peerDeviceId: string,
+    peerDeviceName: string,
+    appId?: string,
+  ) => Promise<
+    | boolean
+    | { approved: true; pairingKey: string }
+    | { approved: false }
+  >;
   /** Pairing TTL in days. Default 30. */
   expireAfterDays?: number;
 }
@@ -22,6 +41,15 @@ export interface IncomingHandshake {
   peerDeviceId: string;
   peerDeviceName: string;
   via: "lan-handshake" | "rendezvous-qr";
+  /**
+   * v3.1 wire-protocol extension. Identifies which application on the
+   * peer device is requesting pairing, so multi-tenant targets (the
+   * v3.1 Hub) can isolate per-app pairings, capability caches, and
+   * audit logs. Optional for backwards compat — v3.0 SDKs that don't
+   * send this field still pair, just under the deviceId-as-appId
+   * fallback the Hub uses today.
+   */
+  appId?: string;
 }
 
 export class PairingPolicy {
@@ -58,17 +86,27 @@ export class PairingPolicy {
     }
 
     const callback = this.opts.onPairingRequest;
-    const approved = callback ? await callback(req.peerDeviceId, req.peerDeviceName) : false;
+    const result = callback
+      ? await callback(req.peerDeviceId, req.peerDeviceName, req.appId)
+      : false;
+    const approved =
+      typeof result === "boolean" ? result : result.approved;
     if (!approved) {
       throw new Error(
         `[DVAI/pairing] denied: peer ${req.peerDeviceId} (${req.peerDeviceName})${callback ? "" : " (no onPairingRequest callback supplied)"}`,
       );
     }
-
+    // If the host returned a pairingKey (v3.1 Hub provides one from
+    // its own MultiTenantPairing store), use it. Otherwise generate
+    // a fresh one.
+    const hostKey =
+      typeof result === "object" && "pairingKey" in result
+        ? result.pairingKey
+        : undefined;
     const fresh: Pairing = {
       peerDeviceId: req.peerDeviceId,
       peerDeviceName: req.peerDeviceName,
-      pairingKey: generatePairingKey(),
+      pairingKey: hostKey ?? generatePairingKey(),
       pairedAt: Date.now(),
       lastUsedAt: Date.now(),
       via: req.via,
