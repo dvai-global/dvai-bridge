@@ -19,8 +19,51 @@
  */
 
 import { createInterface } from "node:readline";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import * as path from "node:path";
+
+/* -------------------------------------------------------------------------- */
+/* .env loader — Tauri 2 dev doesn't propagate .env to spawned sidecar        */
+/* processes automatically. We load it ourselves before any env-var reads     */
+/* below. Looked up in order:                                                 */
+/*   - DVAI_HUB_ENV_FILE if set (explicit override)                           */
+/*   - ../.env relative to this script (hub/.env when sidecar runs from dist) */
+/*   - ../src-tauri/.env (typical Tauri layout)                               */
+/* Existing process.env values WIN over .env entries (env var takes priority).*/
+/* -------------------------------------------------------------------------- */
+function loadDotenv(): void {
+  const candidates: string[] = [];
+  if (process.env.DVAI_HUB_ENV_FILE) candidates.push(process.env.DVAI_HUB_ENV_FILE);
+  candidates.push(path.join(import.meta.dirname ?? __dirname, "..", "..", ".env"));
+  candidates.push(path.join(import.meta.dirname ?? __dirname, "..", "..", "src-tauri", ".env"));
+  for (const candidate of candidates) {
+    let raw: string;
+    try {
+      raw = readFileSync(candidate, "utf8");
+    } catch {
+      continue;
+    }
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eq = trimmed.indexOf("=");
+      if (eq < 1) continue;
+      const key = trimmed.slice(0, eq).trim();
+      let val = trimmed.slice(eq + 1).trim();
+      // Strip surrounding quotes if present
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      if (process.env[key] === undefined) {
+        process.env[key] = val;
+      }
+    }
+    process.stderr.write(`[env] loaded ${candidate}\n`);
+    return;
+  }
+}
+loadDotenv();
 
 // IMPORTANT: redirect console.* to stderr BEFORE importing DVAI / any
 // other dependency. The JSON-RPC protocol owns stdout exclusively;
@@ -265,6 +308,36 @@ async function resolveIdentity(
   return { kind: "verified", appId, peerDeviceId };
 }
 
+/**
+ * Hop-by-hop headers (RFC 2616 §13.5.1) that must NOT be forwarded
+ * when proxying between two HTTP servers — they describe the immediate
+ * connection, not the message. Forwarding e.g. Ollama's `transfer-
+ * encoding: chunked` to a client whose response we're NOT actually
+ * chunking confuses some HTTP libraries (Node fetch surfaces a
+ * `terminated` error mid-response).
+ */
+const HOP_BY_HOP_HEADERS = new Set([
+  "connection",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailers",
+  "transfer-encoding",
+  "upgrade",
+  "content-length", // re-derived by the runtime; forwarding stale value is wrong
+]);
+
+function filterHopByHop(headers: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(headers)) {
+    if (!HOP_BY_HOP_HEADERS.has(k.toLowerCase())) {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
 /** AsyncIterable<Uint8Array> → ReadableStream<Uint8Array> for SSE pipe-through. */
 function asyncIterableToReadableStream(
   iter: AsyncIterable<Uint8Array>,
@@ -428,7 +501,7 @@ async function chatCompletionInterceptor(
     durationMs: Date.now() - startTs,
   });
 
-  const respHeaders = { ...adapterResponse.headers };
+  const respHeaders = filterHopByHop(adapterResponse.headers);
   if (isStream) {
     const stream = asyncIterableToReadableStream(
       (adapterResponse as StreamResponse).body,
@@ -451,7 +524,7 @@ async function chatCompletionInterceptor(
  * through PeerMode's MultiTenantPairing layer.
  */
 const dvaiFactory: NonNullable<PeerModeOptions["dvaiFactory"]> = (
-  onPairingRequest: (peer: DvaiPeerLike) => Promise<boolean>,
+  onPairingRequest,
 ): DvaiServerLike => {
   // Build a DVAIConfig that's typed as the union of all backends but
   // populated only with the fields the chosen backend needs. The cast
