@@ -38,6 +38,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    <!-- mDNS for distributed-inference peer discovery (Phase 3 Task 8e). -->
+    <PackageReference Include="Makaretu.Dns.Multicast" />
   </ItemGroup>
 
   <!--

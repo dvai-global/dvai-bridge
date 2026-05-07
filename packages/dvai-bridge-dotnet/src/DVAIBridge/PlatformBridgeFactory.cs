@@ -140,6 +140,60 @@ internal static class PlatformBridgeFactory
         return Activator.CreateInstance(t) as INativeBridge;
     }
 
+    /// <summary>
+    /// Test-only override for the discovery factory (Phase 3 Task 8e).
+    /// Production code routes through <see cref="ResolveDiscoveryFactory"/>
+    /// which probes the loaded slice assemblies via reflection.
+    /// </summary>
+    [ThreadStatic]
+    internal static IDiscoveryFactory? OverrideDiscoveryForTests;
+
+    /// <summary>
+    /// Resolve the per-platform <see cref="IDiscoveryFactory"/>. Returns
+    /// <c>null</c> when no slice has registered one (mobile bindings
+    /// not yet shipped, desktop NuGet not loaded). The facade treats a
+    /// <c>null</c> factory as "discovery disabled" — offload still
+    /// works against <see cref="OffloadConfig.KnownPeers"/>.
+    /// </summary>
+    internal static IDiscoveryFactory? ResolveDiscoveryFactory()
+    {
+        if (OverrideDiscoveryForTests is { } injected) return injected;
+
+        var os = SyntheticOsForTests ?? DetectOs();
+
+        // Mobile: delegate to the native binding's factory if loaded.
+        if (os == OsKind.IOS || os == OsKind.MacCatalyst)
+        {
+            return TryCreateDiscovery("DVAIBridge.iOS.Discovery.IOSDiscoveryFactory, DVAIBridge.iOS");
+        }
+        if (os == OsKind.Android)
+        {
+            return TryCreateDiscovery("DVAIBridge.Android.Discovery.AndroidDiscoveryFactory, DVAIBridge.Android");
+        }
+
+        // Desktop: Makaretu-backed factory in DVAIBridge.Desktop.
+        if (IsDesktop(os))
+        {
+            return TryCreateDiscovery("DVAIBridge.Desktop.Discovery.MdnsDiscoveryFactory, DVAIBridge.Desktop");
+        }
+
+        return null;
+    }
+
+    private static IDiscoveryFactory? TryCreateDiscovery(string assemblyQualifiedName)
+    {
+        try
+        {
+            var t = Type.GetType(assemblyQualifiedName);
+            if (t is null) return null;
+            return Activator.CreateInstance(t) as IDiscoveryFactory;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     internal enum OsKind { Unknown, IOS, MacCatalyst, Android, Windows, Linux, MacOS }
 
     /// <summary>

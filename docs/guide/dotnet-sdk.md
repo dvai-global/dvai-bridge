@@ -487,6 +487,101 @@ Every public method throws `DVAIBridgeException` on failure. The
 | `ChecksumMismatch`          | Downloaded sha256 didn't match `DownloadOptions.Sha256`.      | Re-issue the download or verify the canonical sha256 elsewhere.     |
 | `DownloadFailed`            | Network or filesystem error during download.                  | Retry with backoff; check `Details["reason"]` for the inner cause.  |
 
+## Distributed inference (offload)
+
+::: tip v3.0
+`OffloadConfig` lights up cross-device inference: send a request from a
+phone or laptop, run it on a beefier paired peer on the same LAN (or via
+a self-hosted rendezvous server). Opt-in — unset `Offload` and the
+bridge runs purely on-device exactly as v2.x did.
+:::
+
+```csharp
+using DVAIBridge;
+
+var server = await DVAIBridge.Shared.StartAsync(new StartOptions
+{
+    Backend = BackendKind.Auto,
+    ModelPath = "/path/to/model.gguf",
+    Offload = new OffloadConfig
+    {
+        Enabled = true,             // master switch — false = pure on-device
+        DiscoverLAN = true,         // mDNS browse for sibling devices
+        MinLocalCapability = 10.0,  // tok/s threshold below which we look for a peer
+        // RendezvousUrl = new Uri("wss://rendezvous.myapp.com"), // optional internet path
+        // KnownPeers = new[] { /* PeerInfo entries for kiosk / fleet deployments */ },
+        // OnPairingRequest = peer => MyMobileUiConfirm(peer.DeviceName),
+    },
+});
+
+// Desktop (Avalonia / WinUI / WPF) — consume the streaming pairing surface.
+_ = Task.Run(async () =>
+{
+    await foreach (var req in DVAIBridge.Shared.PairingRequests)
+    {
+        var approved = await MyDesktopUiConfirm(req.PeerDeviceName);
+        await req.RespondAsync(approved);
+    }
+});
+
+// Snapshot of currently-known + discovered peers.
+foreach (var peer in DVAIBridge.Shared.Peers)
+{
+    Console.WriteLine($"{peer.DeviceName} @ {peer.BaseUrl}");
+}
+```
+
+`OffloadConfig` fields (every property is optional except where noted):
+
+| Property                 | Type                              | Default            | Purpose                                                                |
+| ------------------------ | --------------------------------- | ------------------ | ---------------------------------------------------------------------- |
+| `Enabled`                | `bool`                            | `false`            | Master switch — must be `true` for any offload behaviour.              |
+| `DiscoverLAN`            | `bool`                            | `true`             | Run mDNS to browse for `_dvai-bridge._tcp` peers on the LAN.           |
+| `MinLocalCapability`     | `double`                          | `10.0` (tok/s)     | Below this estimate, the decider tries to route to a peer.             |
+| `RendezvousUrl`          | `Uri?`                            | `null`             | Optional `wss://` / `https://` rendezvous server for the internet path.|
+| `KnownPeers`             | `IReadOnlyList<PeerInfo>`         | empty              | Pre-known peers — handy for kiosk / fleet deployments.                 |
+| `OnPairingRequest`       | `Func<PeerInfo, Task<bool>>?`     | `null` (deny)      | Mobile-friendly approve/deny callback.                                 |
+
+Two host-app surfaces handle pairing:
+
+- **`DVAIBridge.Shared.PairingRequests`** —
+  `IAsyncEnumerable<PairingRequest>` for desktop UIs. Resolve each
+  request with `await req.RespondAsync(approved)`. Default deny if
+  no consumer subscribes.
+- **`OffloadConfig.OnPairingRequest`** — async callback for mobile
+  apps. Returning `true` approves the pairing; the persisted pairing
+  is reused on subsequent requests (HMAC-SHA256 signed via the shared
+  pairing key). The callback path takes precedence when both are
+  configured.
+
+Persistent state lives under
+`Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)/dvai-bridge/`:
+
+| File              | Contents                                                                  |
+| ----------------- | ------------------------------------------------------------------------- |
+| `device-id.txt`   | Stable 22-char URL-safe per-install device ID (regenerated on reinstall). |
+| `capability.json` | First-run probe results — keyed by `(modelId, libraryVersion)`.           |
+| `pairings.json`   | Active pairings — peer ID, name, HMAC key, last-used timestamp.           |
+
+Discovery on the desktop slice (`DVAIBridge.Desktop`) is backed by
+`Makaretu.Dns.Multicast`. iOS / Android slices delegate to the native
+NWBrowser / NsdManager bindings (lit up automatically when those
+bindings ship); on a slice without discovery the offload pipeline still
+works against `KnownPeers` and the rendezvous path.
+
+::: warning Pairing default
+With `Enabled = true` and no `OnPairingRequest` callback **and** no
+`PairingRequests` consumer, every incoming pairing request is denied —
+a safe default. Wire one of the two surfaces before shipping.
+:::
+
+See the [distributed inference guide](./distributed-inference.md) for
+the cross-runtime architecture, the
+[migration guide](../migration/v2.4-to-v3.0.md) for v2.4 → v3.0
+upgrade notes, and `OffloadConfig` /
+[`PairingRequest`](https://www.nuget.org/packages/DVAIBridge) on
+NuGet.org for the full API reference.
+
 ## Threading model
 
 - The `DVAIBridge.Shared` singleton is thread-safe — call from any context.

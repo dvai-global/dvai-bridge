@@ -76,4 +76,16 @@ public sealed record StartOptions
 
     /// <summary>Vision-enabled flag — when true the server accepts multi-modal requests.</summary>
     public bool VisionEnabled { get; init; }
+
+    /// <summary>
+    /// Optional distributed-inference (offload) configuration. When non-null
+    /// and <see cref="OffloadConfig.Enabled"/> is <c>true</c>, the bridge
+    /// runs LAN discovery (mDNS) for sibling devices, surfaces a
+    /// <see cref="DVAIBridge.PairingRequests"/> stream for host-app UI,
+    /// and persists capability + pairing data under
+    /// <c>Environment.SpecialFolder.LocalApplicationData/dvai-bridge/</c>.
+    /// Unset (the default) preserves v2.x behaviour exactly — offload is
+    /// opt-in at v3.0.
+    /// </summary>
+    public OffloadConfig? Offload { get; init; }
 }
