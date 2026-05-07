@@ -8,7 +8,8 @@
     The AAR is fetched from GitHub Packages Maven by CI before `dotnet
     build` runs (see .github/workflows/test-dotnet.yml Task 13). It's
     gitignored so we don't pin a binary to the repo. The fetched filename
-    is `native/dvai-bridge-2.4.0.aar`.
+    is `native/dvai-bridge-$(Version).aar` — auto-tracks the repo version
+    set in Directory.Build.props.
 
     `Transforms/Metadata.xml` rewrites Kotlin's `suspend fun(continuation)`
     surface to idiomatic C# `Task<T>`-returning methods, and renames the
@@ -45,16 +46,27 @@
     <!--
       AAR fetched by CI from GitHub Packages Maven before build:
         curl -L -u "$GITHUB_USER:$GITHUB_TOKEN" \
-          "https://maven.pkg.github.com/Westenets/dvai-bridge/co/deepvoiceai/dvai-bridge/2.4.0/dvai-bridge-2.4.0.aar" \
-          -o native/dvai-bridge-2.4.0.aar
+          "https://maven.pkg.github.com/Westenets/dvai-bridge/co/deepvoiceai/dvai-bridge/$(Version)/dvai-bridge-$(Version).aar" \
+          -o native/dvai-bridge-$(Version).aar
       Bind=true tells the binding generator to emit C# wrappers from the
       AAR's classes.jar.
+
+      The path uses $(Version) so a repo-wide version bump in
+      Directory.Build.props auto-propagates here without needing a sync
+      script. Local builds without the AAR fetched will skip the
+      AndroidLibrary item via the Condition (Exists check) — the binding
+      shim in AndroidNativeBridge.cs gracefully falls back to managed-only
+      mode under that condition (BINDINGS_GENERATED define guards the
+      AAR-bound surface).
     -->
-    <AndroidLibrary Include="native\dvai-bridge-2.4.0.aar">
+    <AndroidLibrary Include="native\dvai-bridge-$(Version).aar"
+                    Condition="Exists('native\dvai-bridge-$(Version).aar')">
       <Bind>true</Bind>
     </AndroidLibrary>
-    <TransformFile Include="Transforms\Metadata.xml" />
-    <TransformFile Include="Transforms\EnumFields.xml" />
+    <TransformFile Include="Transforms\Metadata.xml"
+                   Condition="Exists('Transforms\Metadata.xml')" />
+    <TransformFile Include="Transforms\EnumFields.xml"
+                   Condition="Exists('Transforms\EnumFields.xml')" />
   </ItemGroup>
 
   <ItemGroup>

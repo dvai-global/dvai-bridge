@@ -17,7 +17,7 @@
 // UnsupportedPlatformBridge handles the missing-binding case gracefully.
 //
 // To enable: pass `-p:DefineConstants=BINDINGS_GENERATED` to dotnet build
-// once the AAR is in place at native/dvai-bridge-2.4.0.aar AND the
+// once the AAR is in place at native/dvai-bridge-$(Version).aar AND the
 // generated wrappers compile cleanly. The CI workflow
 // (.github/workflows/test-dotnet.yml) sets this for the binding-build job.
 // =============================================================================
@@ -344,8 +344,8 @@ public static class Bootstrap
 /// <c>BINDINGS_GENERATED</c> compile flag (see header comment for
 /// activation steps). Until the AAR is fetched and the binding generator
 /// has run, this no-op preserves the public API surface so consumer
-/// MAUI csprojs that reference <see cref="DVAIBridge.Android"/> compile
-/// without errors.
+/// MAUI csprojs that reference the <c>DVAIBridge.Android</c> assembly
+/// compile without errors.
 /// </summary>
 public static class Bootstrap
 {

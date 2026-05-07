@@ -1,66 +1,51 @@
 # Examples
 
-Runnable examples for DVAI-Bridge across every supported stack. Each one
-is self-contained — the JavaScript examples live in this workspace; the
-native examples are thin starter projects you can copy into your own
-environment.
+Runnable examples for DVAI-Bridge. This directory ships the JavaScript
+examples as workspace packages — they install with `pnpm install` at the
+repo root and have no extra setup step.
 
-## JavaScript / TypeScript
+Native-platform examples (iOS, Android, React Native, Flutter, .NET) are
+**not yet** in this directory; the per-SDK quickstarts in
+[`docs/guide/`](../docs/guide/) are the current entry point for those
+platforms while the matrix of (SDK × backend) example apps is built out
+in Phase 2 of the post-v2.4 roadmap.
 
-Each JS example is a standalone workspace package — no extra install step
-beyond `pnpm install` at the repo root.
+## JavaScript / TypeScript (shipped)
 
 | Example | Platform | Backend | Transport | What it shows |
 |---|---|---|---|---|
-| `web-react` | Browser | WebLLM / Transformers.js | MSW | React + Vite + `@dvai-bridge/react` |
-| `node-langchain` | Node | Transformers.js | HTTP | LangChain + OpenAI SDK against local loopback |
-| `electron-desktop` | Electron | Native llama.cpp (CUDA / Metal / Vulkan) | HTTP | Desktop app with GPU-accelerated inference in the main process |
-| `capacitor-mobile` | Capacitor (iOS + Android) | Native llama.cpp | HTTP | Hybrid mobile app calling the embedded server from a webview |
-| `nextjs-app` | Browser + Node (Next.js) | Transformers.js | MSW (client) / HTTP (API routes) | Same agent code on server and client |
-| `vanilla-cdn` | Browser (no build step) | WebLLM | MSW | `<script>` tag via jsDelivr |
+| `web-react` | Browser | Transformers.js (default; pluggable to WebLLM) | MSW | React + Vite + LangChain `ChatOpenAI` against the local mocked endpoint |
+| `node-langchain` | Node | Transformers.js | HTTP loopback | LangChain `ChatOpenAI.stream()` against `dvai.baseUrl` |
 
-### Run a JS example
+### Run
 
 ```bash
-pnpm install
-pnpm --filter <example-name> start   # or `dev`, `build` — check the example's package.json
+# From repo root, one-time:
+pnpm install --ignore-scripts
+
+# web-react (in the browser):
+pnpm --filter web-react dev          # Vite dev server with HMR
+
+# node-langchain (in the terminal):
+pnpm --filter node-langchain start   # downloads the model on first run
 ```
 
-## iOS (Swift)
+The first run of either example downloads a small model (~500 MB for
+Transformers.js Gemma 3n; cached on subsequent runs).
 
-| Example | Shows |
-|---|---|
-| `ios-swift-basic` | Minimal iOS app using the `DVAIBridge` Swift Package and Apple's OpenAI SDK |
-| `ios-swift-multimodal` | Vision-language model (LLaVA) via llama.cpp with Metal acceleration |
+## Other platforms
 
-Open the `.xcodeproj` in Xcode, let SPM resolve dependencies, and run
-on simulator or device.
+For now, see:
 
-## Android (Kotlin)
+- [iOS native quickstart](../docs/guide/ios-native-sdk.md)
+- [Android native quickstart](../docs/guide/android-native-sdk.md)
+- [React Native quickstart](../docs/guide/react-native-sdk.md)
+- [Flutter quickstart](../docs/guide/flutter-sdk.md)
+- [.NET quickstart](../docs/guide/dotnet-sdk.md)
 
-| Example | Shows |
-|---|---|
-| `android-kotlin-basic` | Minimal Android app using the `co.deepvoiceai:dvai-bridge` AAR + a community OpenAI Kotlin client |
-| `android-kotlin-qnn` | QNN Hexagon acceleration on Snapdragon devices |
-
-Open in Android Studio, let Gradle sync, and run on emulator or device.
-
-## .NET desktop (C#)
-
-| Example | Shows |
-|---|---|
-| `dotnet-wpf-basic` | WPF desktop app consuming the `DeepVoiceAI.DVAIBridge` NuGet package |
-| `dotnet-winui-directml` | WinUI 3 app with DirectML acceleration on Windows |
-
-Open the `.sln` in Visual Studio or run `dotnet run` in the example
-directory.
-
-## React Native / Flutter
-
-Not currently shipped as dedicated examples — the frameworks consume the
-iOS Swift Package and Android AAR directly through standard native-bridge
-patterns. Dedicated React Native and Flutter example projects will land
-when the wrapper packages ship.
+Each guide contains a copy-pasteable minimum viable app that hits the
+same OpenAI-compatible local endpoint. The full per-(SDK × backend)
+example matrix is on the post-v2.4 roadmap.
 
 ---
 
@@ -71,11 +56,13 @@ Good examples:
 - **Teach one thing clearly.** Streaming. Multimodal. Embeddings. Offline
   mode. Pick one focus.
 - **Ship a complete project.** Not just a single source file — a full
-  manifest (`package.json`, `Package.swift`, `build.gradle.kts`, `.csproj`),
-  a focused `README.md`, and a clear `start` / `run` command.
+  manifest (`package.json`, `Package.swift`, `build.gradle.kts`,
+  `pubspec.yaml`, `.csproj`), a focused `README.md`, and a clear
+  `start` / `run` command.
 - **Use the platform's idiomatic OpenAI SDK** — not a DVAI-specific
   API. The point is to show "standard agent code, local server."
-- **Work on first-run with no extra setup.** Model downloads are OK
-  (flag them in the README); system-wide installs are not.
+- **Work on first-run with no extra setup beyond model download.**
+  Flag the download in the README; system-wide installs are not OK.
 
 Open a PR — the core team reviews examples like any other contribution.
+See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the PR flow.
