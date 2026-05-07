@@ -20,8 +20,9 @@ cd "$(dirname "$0")"
 # exercise the Foundation backend instead of skipping.
 DEST="${IOS_DEST:-platform=iOS Simulator,name=iPhone 16,OS=18.5}"
 
+mkdir -p ./build
 xcodebuild test \
-  -scheme IOSFoundationApp \
+  -scheme ios-foundation \
   -destination "$DEST" \
   -configuration Debug \
   -resultBundlePath ./build/SmokeResults.xcresult \
