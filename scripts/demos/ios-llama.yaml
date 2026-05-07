@@ -1,0 +1,17 @@
+name: ios-llama-example
+description: examples/ios-llama — SwiftUI app, llama.cpp backend, Llama-3.2-1B Q4_K_M.
+output: docs/marketing/assets/ios-llama-example.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Open examples/ios-llama in Xcode (`open Package.swift`); SwiftUI app links DVAIBridge + MacPaw OpenAI."
+  - duration: 6
+    caption: "Pick `iPhone 16` simulator destination; build + run."
+  - duration: 18
+    caption: "Tap 'Load + Ask' — bridge downloads Llama-3.2-1B-Q4_K_M GGUF (~800 MB) into the caches dir."
+  - duration: 6
+    caption: "llama.cpp loads the GGUF; status flips to 'Streaming'."
+  - duration: 10
+    caption: "MacPaw OpenAI SDK streams the chat completion; tokens render in the scroll view."
+  - duration: 5
+    caption: "Closing card: 'iOS native + llama.cpp + OpenAI Swift SDK on loopback'."

@@ -1,0 +1,17 @@
+name: ios-coreml-example
+description: examples/ios-coreml — SwiftUI app, CoreML / ANE backend, finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit. Experimental.
+output: docs/marketing/assets/ios-coreml-example.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Open examples/ios-coreml in Xcode; SwiftUI app links DVAIBridge + MacPaw OpenAI."
+  - duration: 6
+    caption: "Pick `iPhone 16` simulator destination; build + run."
+  - duration: 18
+    caption: "Tap 'Load + Ask' — bridge discovers the .mlmodelc directory via HF API and downloads files."
+  - duration: 8
+    caption: "CoreML loads the stateful 4-bit Llama mlpackage; tokenizer.json placed alongside."
+  - duration: 6
+    caption: "Status flips to the Known Issue notice (IRValue crash on first prediction — see README)."
+  - duration: 5
+    caption: "Closing card: 'CoreML backend is experimental; integration shape is in place; chat-completion gated until upstream fix.'"

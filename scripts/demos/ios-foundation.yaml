@@ -1,0 +1,17 @@
+name: ios-foundation-example
+description: examples/ios-foundation — SwiftUI app, Apple Foundation Models backend (iOS 26+).
+output: docs/marketing/assets/ios-foundation-example.mp4
+fps: 30
+scenes:
+  - duration: 5
+    caption: "Open examples/ios-foundation in Xcode; SwiftUI app links DVAIBridge + MacPaw OpenAI."
+  - duration: 6
+    caption: "Pick an `iPhone 16 (iOS 26.0)` simulator destination; build + run."
+  - duration: 5
+    caption: "Tap 'Load + Ask' — DVAIBridge.shared.start(.init(backend: .foundation)). No model download."
+  - duration: 4
+    caption: "Foundation Models backend boots instantly (Apple Intelligence already manages the model)."
+  - duration: 10
+    caption: "MacPaw OpenAI SDK streams the chat completion; tokens render in the scroll view."
+  - duration: 5
+    caption: "Closing card: 'iOS native + Apple Foundation Models + OpenAI Swift SDK on loopback'."
