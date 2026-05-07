@@ -1,99 +1,141 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 620" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 720" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
   <defs>
-    <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#374151" />
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6B7280" />
     </marker>
     <style>
-      .title {
-        font-size: 18px;
-        font-weight: 700;
-        fill: #111827;
-      }
-
-      .start {
-        font-size: 14px;
-        font-weight: 700;
-        fill: #111827;
-      }
-
-      .dec {
-        font-size: 13px;
-        font-weight: 600;
-        fill: #1E3A8A;
-      }
-
-      .leaf {
-        font-size: 14px;
-        font-weight: 700;
-        fill: #065F46;
-      }
-
-      .leaf-sub {
-        font-size: 11px;
-        fill: #065F46;
-      }
-
-      .edge {
-        font-size: 12px;
-        fill: #374151;
-        font-weight: 600;
-      }
-
-      .note {
-        font-size: 11px;
-        fill: #6B7280;
-        font-style: italic;
-      }
+      .title { font-size: 18px; font-weight: 700; fill: #111827; }
+      .subtitle { font-size: 11px; fill: #6B7280; font-style: italic; }
+      .root { font-size: 13px; font-weight: 700; fill: #111827; }
+      .q { font-size: 11px; font-weight: 600; fill: #1E3A8A; }
+      .leaf { font-size: 12px; font-weight: 700; fill: #ffffff; }
+      .leaf-sub { font-size: 10px; fill: #ffffff; opacity: 0.95; }
+      .branch-label { font-size: 10px; fill: #6B7280; font-style: italic; }
+      .platform-tag { font-size: 11px; font-weight: 700; fill: #ffffff; letter-spacing: 0.4px; }
     </style>
   </defs>
 
-  <text x="380" y="32" class="title" text-anchor="middle">Figure 2 — Backend Selection Decision Tree</text>
+  <text x="550" y="28" class="title" text-anchor="middle">Figure 2 — Backend Selection Decision Tree (v3.0)</text>
+  <text x="550" y="46" class="subtitle" text-anchor="middle">Per-platform routing rules — `backend: "auto"` resolves these at start time</text>
 
-  <!-- Start node -->
-  <rect x="280" y="60" width="200" height="56" rx="28" fill="#F3F4F6" stroke="#374151" stroke-width="1.5" />
-  <text x="380" y="84" class="start" text-anchor="middle">new DVAI(config)</text>
-  <text x="380" y="102" class="note" text-anchor="middle">config.backend = ?</text>
+  <!-- Root -->
+  <rect x="450" y="68" width="200" height="40" rx="6" fill="#1E3A8A" />
+  <text x="550" y="93" class="root" text-anchor="middle" fill="#ffffff">What platform?</text>
 
-  <line x1="380" y1="116" x2="380" y2="148" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow2)" />
+  <!-- Branch lines -->
+  <g stroke="#6B7280" stroke-width="1.5" fill="none">
+    <line x1="550" y1="108" x2="120" y2="148" marker-end="url(#arr)" />
+    <line x1="550" y1="108" x2="305" y2="148" marker-end="url(#arr)" />
+    <line x1="550" y1="108" x2="490" y2="148" marker-end="url(#arr)" />
+    <line x1="550" y1="108" x2="675" y2="148" marker-end="url(#arr)" />
+    <line x1="550" y1="108" x2="860" y2="148" marker-end="url(#arr)" />
+    <line x1="550" y1="108" x2="985" y2="148" marker-end="url(#arr)" />
+  </g>
 
-  <!-- Decision 1: is backend === "auto" -->
-  <polygon points="380,155 540,220 380,285 220,220" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5" />
-  <text x="380" y="216" class="dec" text-anchor="middle">backend === "auto" ?</text>
-  <text x="380" y="234" class="note" text-anchor="middle">resolveBackend() — index.ts:144</text>
+  <!-- Platform headers -->
+  <g>
+    <rect x="40"  y="148" width="160" height="28" rx="4" fill="#3B82F6" />
+    <text x="120" y="167" class="platform-tag" text-anchor="middle">BROWSER</text>
+    <rect x="225" y="148" width="160" height="28" rx="4" fill="#22C55E" />
+    <text x="305" y="167" class="platform-tag" text-anchor="middle">iOS / Catalyst</text>
+    <rect x="410" y="148" width="160" height="28" rx="4" fill="#16A34A" />
+    <text x="490" y="167" class="platform-tag" text-anchor="middle">ANDROID</text>
+    <rect x="595" y="148" width="160" height="28" rx="4" fill="#F59E0B" />
+    <text x="675" y="167" class="platform-tag" text-anchor="middle">.NET DESKTOP</text>
+    <rect x="780" y="148" width="160" height="28" rx="4" fill="#7C3AED" />
+    <text x="860" y="167" class="platform-tag" text-anchor="middle">.NET MAUI</text>
+    <rect x="905" y="148" width="160" height="28" rx="4" fill="#0E7490" />
+    <text x="985" y="167" class="platform-tag" text-anchor="middle">NODE / BUN</text>
+  </g>
 
-  <!-- Branch: No (explicit) -->
-  <line x1="220" y1="220" x2="140" y2="220" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow2)" />
-  <text x="180" y="212" class="edge" text-anchor="middle">no</text>
-  <rect x="30" y="185" width="110" height="70" rx="10" fill="#D1FAE5" stroke="#10B981" stroke-width="1.5" />
-  <text x="85" y="212" class="leaf" text-anchor="middle">Use explicit</text>
-  <text x="85" y="230" class="leaf-sub" text-anchor="middle">webllm |</text>
-  <text x="85" y="245" class="leaf-sub" text-anchor="middle">transformers | native</text>
+  <!-- BROWSER column -->
+  <g transform="translate(40,190)">
+    <text x="80" y="14" class="q" text-anchor="middle">Model in MLC catalogue?</text>
+    <text x="80" y="42" class="branch-label" text-anchor="middle">YES → ↓ · NO → ↓↓</text>
+    <rect x="0"  y="54" width="160" height="56" rx="6" fill="#3B82F6" />
+    <text x="80" y="78" class="leaf" text-anchor="middle">WebLLM</text>
+    <text x="80" y="98" class="leaf-sub" text-anchor="middle">WebGPU · async-iter</text>
+    <rect x="0"  y="124" width="160" height="56" rx="6" fill="#3B82F6" />
+    <text x="80" y="148" class="leaf" text-anchor="middle">Transformers.js</text>
+    <text x="80" y="168" class="leaf-sub" text-anchor="middle">ONNX · widest catalogue</text>
+  </g>
 
-  <!-- Branch: Yes -->
-  <line x1="380" y1="285" x2="380" y2="320" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow2)" />
-  <text x="395" y="308" class="edge">yes</text>
+  <!-- iOS column -->
+  <g transform="translate(225,190)">
+    <text x="80" y="14" class="q" text-anchor="middle">iOS 26+ floor + zero-download OK?</text>
+    <text x="80" y="42" class="branch-label" text-anchor="middle">YES → Foundation</text>
+    <rect x="0"  y="54" width="160" height="40" rx="6" fill="#22C55E" />
+    <text x="80" y="78" class="leaf" text-anchor="middle">Foundation Models</text>
+    <text x="80" y="106" class="q" text-anchor="middle">Battery-critical?</text>
+    <text x="80" y="124" class="branch-label" text-anchor="middle">YES → CoreML</text>
+    <rect x="0"  y="136" width="160" height="40" rx="6" fill="#22C55E" />
+    <text x="80" y="160" class="leaf" text-anchor="middle">CoreML / ANE</text>
+    <text x="80" y="190" class="q" text-anchor="middle">A17+ install base?</text>
+    <text x="80" y="208" class="branch-label" text-anchor="middle">YES → MLX · NO → llama</text>
+    <rect x="0"  y="220" width="78" height="40" rx="6" fill="#22C55E" />
+    <text x="39" y="244" class="leaf" text-anchor="middle">MLX</text>
+    <rect x="82" y="220" width="78" height="40" rx="6" fill="#22C55E" />
+    <text x="121" y="244" class="leaf" text-anchor="middle">llama.cpp</text>
+  </g>
 
-  <!-- Decision 2: is Capacitor native platform -->
-  <polygon points="380,327 570,400 380,473 190,400" fill="#DBEAFE" stroke="#3B82F6" stroke-width="1.5" />
-  <text x="380" y="395" class="dec" text-anchor="middle">window.Capacitor</text>
-  <text x="380" y="414" class="dec" text-anchor="middle">.isNativePlatform() ?</text>
+  <!-- ANDROID column -->
+  <g transform="translate(410,190)">
+    <text x="80" y="14" class="q" text-anchor="middle">Snapdragon 8-Gen-2+ install base?</text>
+    <text x="80" y="42" class="branch-label" text-anchor="middle">+ curated `.task` model? → MediaPipe</text>
+    <rect x="0"  y="54" width="160" height="40" rx="6" fill="#16A34A" />
+    <text x="80" y="78" class="leaf" text-anchor="middle">MediaPipe LLM</text>
+    <text x="80" y="106" class="q" text-anchor="middle">Need API 24 floor?</text>
+    <text x="80" y="124" class="branch-label" text-anchor="middle">YES → LiteRT</text>
+    <rect x="0"  y="136" width="160" height="40" rx="6" fill="#16A34A" />
+    <text x="80" y="160" class="leaf" text-anchor="middle">LiteRT</text>
+    <text x="80" y="190" class="q" text-anchor="middle">Otherwise:</text>
+    <rect x="0"  y="206" width="160" height="40" rx="6" fill="#16A34A" />
+    <text x="80" y="230" class="leaf" text-anchor="middle">llama.cpp / GGUF</text>
+  </g>
 
-  <!-- Branch Capacitor yes -->
-  <line x1="570" y1="400" x2="640" y2="400" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow2)" />
-  <text x="605" y="392" class="edge" text-anchor="middle">yes</text>
-  <rect x="640" y="365" width="110" height="70" rx="10" fill="#D1FAE5" stroke="#10B981" stroke-width="1.5" />
-  <text x="695" y="390" class="leaf" text-anchor="middle">native</text>
-  <text x="695" y="407" class="leaf-sub" text-anchor="middle">llama.cpp</text>
-  <text x="695" y="421" class="leaf-sub" text-anchor="middle">(iOS / Android)</text>
+  <!-- .NET Desktop column -->
+  <g transform="translate(595,190)">
+    <text x="80" y="14" class="q" text-anchor="middle">DirectML / Phi-tilt?</text>
+    <text x="80" y="42" class="branch-label" text-anchor="middle">YES → ONNX-GenAI</text>
+    <rect x="0"  y="54" width="160" height="40" rx="6" fill="#F59E0B" />
+    <text x="80" y="78" class="leaf" text-anchor="middle">ONNX Runtime GenAI</text>
+    <text x="80" y="106" class="q" text-anchor="middle">Generative + GGUF?</text>
+    <text x="80" y="124" class="branch-label" text-anchor="middle">YES → llama.cpp</text>
+    <rect x="0"  y="136" width="160" height="40" rx="6" fill="#F59E0B" />
+    <text x="80" y="160" class="leaf" text-anchor="middle">llama.cpp Desktop</text>
+    <text x="80" y="190" class="q" text-anchor="middle">Classifier / encoder?</text>
+    <text x="80" y="208" class="branch-label" text-anchor="middle">YES → ML.NET</text>
+    <rect x="0"  y="220" width="160" height="40" rx="6" fill="#F59E0B" />
+    <text x="80" y="244" class="leaf" text-anchor="middle">ML.NET</text>
+  </g>
 
-  <!-- Branch Capacitor no -->
-  <line x1="380" y1="473" x2="380" y2="508" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow2)" />
-  <text x="395" y="497" class="edge">no</text>
-  <rect x="320" y="510" width="120" height="70" rx="10" fill="#D1FAE5" stroke="#10B981" stroke-width="1.5" />
-  <text x="380" y="535" class="leaf" text-anchor="middle">webllm</text>
-  <text x="380" y="552" class="leaf-sub" text-anchor="middle">WebGPU</text>
-  <text x="380" y="566" class="leaf-sub" text-anchor="middle">(default web)</text>
+  <!-- .NET MAUI column -->
+  <g transform="translate(780,190)">
+    <text x="80" y="14" class="q" text-anchor="middle">.NET MAUI delegates to:</text>
+    <text x="80" y="42" class="branch-label" text-anchor="middle">native iOS / Android backends</text>
+    <rect x="0"  y="54" width="160" height="64" rx="6" fill="#7C3AED" />
+    <text x="80" y="80" class="leaf" text-anchor="middle">→ iOS column</text>
+    <text x="80" y="100" class="leaf-sub" text-anchor="middle">on net10.0-ios26.4</text>
+    <text x="80" y="115" class="leaf-sub" text-anchor="middle">+ net10.0-maccatalyst26.4</text>
+    <rect x="0"  y="130" width="160" height="64" rx="6" fill="#7C3AED" />
+    <text x="80" y="156" class="leaf" text-anchor="middle">→ Android column</text>
+    <text x="80" y="176" class="leaf-sub" text-anchor="middle">on net10.0-android36.0</text>
+  </g>
 
-  <!-- Footer note -->
-  <text x="380" y="604" class="note" text-anchor="middle">Transformers.js backend is selected only via explicit config — it is the multi-modal / CPU-fallback path.</text>
+  <!-- NODE column -->
+  <g transform="translate(905,190)">
+    <text x="80" y="14" class="q" text-anchor="middle">Want native llama.cpp via NAPI?</text>
+    <text x="80" y="42" class="branch-label" text-anchor="middle">YES → node-llama-cpp</text>
+    <rect x="0"  y="54" width="160" height="40" rx="6" fill="#0E7490" />
+    <text x="80" y="78" class="leaf" text-anchor="middle">node-llama-cpp</text>
+    <text x="80" y="106" class="q" text-anchor="middle">Otherwise:</text>
+    <rect x="0"  y="120" width="160" height="40" rx="6" fill="#0E7490" />
+    <text x="80" y="144" class="leaf" text-anchor="middle">Transformers.js (Node)</text>
+    <text x="80" y="170" class="leaf-sub" text-anchor="middle" fill="#0E7490">via onnxruntime-node</text>
+  </g>
+
+  <!-- Legend at bottom -->
+  <rect x="40" y="670" width="1020" height="36" rx="6" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1" />
+  <text x="60" y="690" class="q">Decision tree is orthogonal to model quality.</text>
+  <text x="60" y="704" class="branch-label">Pick a backend per the tree, then pick the model. The library keeps the surface above the backend identical so the agent code never has to make this choice.</text>
 </svg>
