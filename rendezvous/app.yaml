@@ -1,0 +1,46 @@
+# DigitalOcean App Platform spec for the dvai-bridge rendezvous server.
+# Used by the "Deploy to DigitalOcean" button in README.md.
+#
+# Smallest viable instance: basic-xxs ($5/mo at time of writing) handles
+# ~1k concurrent sessions. Scale to basic-xs / professional-xs if your
+# active session count grows.
+
+name: dvai-bridge-rendezvous
+region: nyc
+
+services:
+  - name: relay
+    source_dir: /
+    github:
+      branch: main
+      deploy_on_push: true
+    build_command: npm install && npm run build
+    run_command: npm start
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    http_port: 8080
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 10
+      period_seconds: 30
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    envs:
+      - key: PORT
+        value: "8080"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: SESSION_TTL_SECONDS
+        value: "60"
+      - key: MAX_SESSIONS
+        value: "10000"
+      - key: LOG_LEVEL
+        value: "info"
+      - key: METRICS_ENABLED
+        value: "0"
+      # Set RENDEZVOUS_URL after first deploy — DO assigns a *.ondigitalocean.app
+      # URL you'll plug in here, then redeploy. Or attach a custom domain and
+      # use that.
+      # - key: RENDEZVOUS_URL
+      #   value: "wss://your-app.ondigitalocean.app"
