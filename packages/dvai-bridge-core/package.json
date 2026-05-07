@@ -48,7 +48,8 @@
     "url": "https://github.com/westenets/dvai-bridge.git"
   },
   "dependencies": {
-    "msw": "^2.12.13"
+    "msw": "^2.12.13",
+    "@noble/curves": "^1.6.0"
   },
   "peerDependencies": {
     "@huggingface/transformers": "^4.0.1",
