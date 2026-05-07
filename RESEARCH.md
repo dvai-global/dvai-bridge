@@ -720,6 +720,80 @@ We see this as the right architectural move for a defined and growing class of A
 
 ---
 
+## 11. Distributed Inference (v3.0+)
+
+The v3 line extends the substrate beyond the single-device assumption that v1 and v2 implicitly made. The edge is no longer a single device — it is the cluster of devices a user owns. v3.0 introduces a cooperative inference layer that lets a weak device offload to a stronger device the same user is logged into, on the same Wi-Fi or across the internet, while preserving the same OpenAI HTTP contract that v1 established.
+
+### 11.1 The problem this solves
+
+The §6 case studies and §3.6 backend reference both implicitly assume that a model that runs on the user's *primary* device is the model they will use. That assumption holds for the canonical case — a single laptop, a single phone — but it breaks for the (common, growing) case where the user owns multiple devices of meaningfully different capability classes. A 2023 iPhone running Llama-3.2-3B at 6 tok/s while the user's Mac Studio sits idle on the same Wi-Fi at 80 tok/s is a workload mismatch the v2 architecture has no answer for. The user can't run the bigger model on the phone, and the app can't transparently route the inference to the more capable device — the result is either a degraded UX (small model only) or a cloud fallback (defeats the local-first thesis).
+
+We considered three structural responses:
+
+- **A) Vendor lock-in.** Ship a hosted "inference router" service that knows about all the user's devices, mediates capability negotiation, and routes requests. Cleanest UX; tightest dependency. Rejected because it makes us part of every consumer's uptime story and concentrates a man-in-the-middle position we don't want to occupy.
+- **B) Per-app mesh integration.** Document a pattern where the host app's backend tracks the user's devices and supplies the library with the routing list. Maximally flexible; zero infra on our side. Useful but doesn't address the LAN case (where the host app's backend isn't even involved) or the no-host-backend case (early-stage apps without auth).
+- **C) Substrate-level discovery + opt-in self-hosted relay.** LAN discovery via mDNS (zero infra, works for the common multi-device-on-one-network case); internet discovery via QR pairing through a self-hosted rendezvous server (consumer hosts; we ship the server code in the same monorepo). v3.0 ships path C.
+
+### 11.2 What v3.0 actually does
+
+The OpenAI HTTP wire is preserved. v2.x consumer code that doesn't opt in is unchanged. When a consumer sets `offload: { enabled: true, ... }` in their `DVAIConfig` (or the platform-equivalent on the native SDKs), the library:
+
+1. **Probes capability** on first use of each model: a 50-token cold-run measures decode tok/s, persisted per (modelId, libraryVersion). A heuristic fallback (NPU presence + RAM + GPU class) covers the gap before the first probe runs.
+2. **Discovers peers** via mDNS / DNS-SD (`_dvai-bridge._tcp.local`), per-platform implementations (`NWBrowser` on Apple, `NsdManager` on Android, `Makaretu.Dns.Multicast` on .NET desktop, `multicast-dns` in Node, no-op in browsers). Each peer's TXT record advertises its `(deviceId, dvaiVersion, deviceName, models, capability, port, secure)`.
+3. **Pairs** with peers via either (a) a LAN-handshake that surfaces a one-time approval prompt to the user, or (b) a QR-scan flow through an optional self-hosted rendezvous server. Both produce a 256-bit shared key used to HMAC-sign all subsequent offload requests.
+4. **Decides** per request — based on local capability, peer scores, and the `X-DVAI-Offload` header (`never | prefer | require`, default `prefer`) — whether to run locally or proxy to the best-eligible peer.
+5. **Returns** a structured `no_capable_device` JSON in OpenAI-error shape (HTTP 503 + `Retry-After: 30`) when no qualified peer is reachable. Existing OpenAI clients surface this naturally — no DVAI-specific error handler required.
+
+### 11.3 Why a self-hosted rendezvous server, not one we operate
+
+The rendezvous server (`rendezvous/` in the monorepo, ~700 LOC of Node + Fastify + WebSocket) is **stateless beyond per-session memory**. No database. No accounts. No plaintext inference data passes through it — both pairing peers do their own AEAD encryption with a key derived from an in-WebSocket X25519 exchange. The server only relays opaque payloads.
+
+The decision to ship it as code rather than operate it is structural: a rendezvous service we host would put us in the path of every internet-routed offload request from every dvai-bridge consumer's apps. That's a poor failure-domain story for consumers, an abuse-policing burden for us, and a perpetual cost. The right shape is to give app developers a working server they can deploy in 5 minutes (one-click buttons for Railway and DigitalOcean, with Docker / bare-VM / Fly / Render / Cloud Run / App Runner / Kubernetes documented for the rest) and let them own the inference path end-to-end.
+
+### 11.4 Capability probes vs. published benchmarks (revisited)
+
+§6.11 argues that first-party benchmarks are out of scope because perf belongs to upstream backends. v3.0's capability probes are not in tension with that argument. The probe measures *this device, this backend, this model, right now* — its purpose is to feed the offload decision, not to publish a comparative number. The probe result is consumer-private (cached locally, never aggregated), and it's only ever interpreted as "is local fast enough?" against a user-configurable threshold (`minLocalCapability`, default 10 tok/s). It is not a benchmark in the publication sense; it is a local capacity-planning input.
+
+### 11.5 Privacy properties of the offload path
+
+The HTTP contract preserves the privacy posture of v2: requests bodies are visible to the device that runs the inference, regardless of which device that is. What v3.0 adds is the question of *which device*. Two cases:
+
+- **LAN offload.** The peer is on the same Wi-Fi, owned by the same user. The privacy story is the same as the user opening the same app on the laptop directly — they trust their own devices.
+- **Rendezvous-mediated internet offload.** The relay server (which the consumer self-hosts) sees encrypted opaque payloads only. Both peers derive a shared secret via X25519 and AEAD-encrypt all relayed traffic. A compromised relay leaks pairing metadata (which devices paired with which, when) but cannot read prompts or responses.
+
+Pairing requires explicit user approval at first contact (`onPairingRequest` callback in the SDK; the host app implements the UI). The default is *deny* — apps that don't wire the UI cannot accidentally accept pairings. Approved pairings persist for 30 days of inactivity (`expireAfterDays` configurable), then require a re-handshake.
+
+### 11.6 What this enables that v2 couldn't
+
+The forward vision in §8 — DVAI-Connect (E2EE meetings) and LifeStream (longitudinal personal AI) — both implicitly assumed each user device works in isolation. v3.0 unblocks application patterns those products will eventually need:
+
+- **Phone-to-laptop offload** for prompts the phone can't serve at acceptable latency: the laptop runs the model, the phone gets the streaming response, the user sees no UX difference.
+- **Family-shared compute**: a single capable device in a household can serve inference to multiple weaker devices on the same Wi-Fi without any of them paying cloud costs or shipping data outside the network.
+- **Conference / event scenarios**: presenter scans a QR on the audience's app, the audience's prompts route through the presenter's beefier rig — a powerful demo pattern for showing "this app runs entirely on your devices, no cloud."
+
+None of these are *necessary* for v2 use cases. They are the next-tier UX patterns that become possible once the substrate treats "the user's devices" as a small cluster instead of a single endpoint.
+
+### 11.7 What v3.0 deliberately does NOT do
+
+To preserve the spec's tight focus, v3.0 explicitly excludes:
+
+- **Hosted relay we operate.** Per §11.3.
+- **Auth tokens.** The library doesn't issue, validate, or store auth tokens. LAN pairing uses a one-time-approval HMAC; internet pairing uses ephemeral X25519 + a host-app-supplied auth header on the rendezvous URL if needed.
+- **Mesh-VPN integration.** Apps that want Tailscale / ZeroTier / Headscale can use them externally. We don't ship a VPN client.
+- **Streaming-protocol invention.** The offload path is HTTP (LAN) or WebSocket-tunneled HTTP shape (rendezvous). The consumer sees SSE chunks via the local OpenAI endpoint, identical to a local request.
+- **Browser-as-target.** Browsers can't reliably accept inbound HTTP across origins. Browser is offload-source-only; native devices are the targets.
+- **Model migration mid-stream.** If a peer drops mid-inference, that request fails. We don't checkpoint and resume. The library can optionally retry on a different peer per the `X-DVAI-Offload: prefer` policy.
+
+These exclusions keep the v3.0 surface auditable and the failure modes legible. Each is the right shape — not because it can't be done, but because doing it would expand the substrate's responsibility into territory better owned by the host app or by external infrastructure.
+
+### 11.8 Position in the broader picture
+
+v1 made local models speak OpenAI on a single device. v2 made that capability cross every major client-development platform and language. v3 makes the device choice itself transparent to the agent code: the same `dvai.baseUrl` returns the result whether the inference ran on the device that received the request or on a more-capable device the user owns. The substrate's promise — "your agent code never learns where the inference ran" — extends from per-backend in v1/v2 to per-device in v3.
+
+The pattern is intentionally orthogonal to the cloud-vs-local debate that motivates §1. v3.0 isn't an answer to "what if local isn't enough?"; it's an answer to "what if the user's local fleet has more than one device?" The cloud question stays where v1 left it: a separate tier for workloads that genuinely need it. The edge tier — now a *cluster* of devices instead of a single endpoint — gets correspondingly more capable without changing the shape of the contract that gives it those properties.
+
+---
+
 ## References
 
 - [WebLLM] MLC Team. _WebLLM: A High-Performance In-Browser LLM Inference Engine_. https://github.com/mlc-ai/web-llm

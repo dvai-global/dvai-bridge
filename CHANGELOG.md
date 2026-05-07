@@ -3,6 +3,129 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [3.0.0] — Unreleased
+
+Phase 3 — distributed inference. The first major-version bump since
+v2.0.0. **Backwards compatible**: v2.x consumer code that doesn't set
+`offload` keeps working unchanged. The version major changed because
+v3.0 introduces a substantial new capability (cooperative inference
+across the user's devices), not because anything broke.
+
+This entry will consolidate from `[3.0.0-rc1]` (below) plus the
+per-SDK integration work (Tasks 8a–8f of the Phase 3 plan) once the
+final v3.0.0 tag lands. See `docs/migration/v2.4-to-v3.0.md` for the
+upgrade path and `docs/guide/distributed-inference.md` for the design.
+
+---
+
+## [3.0.0-rc1] — 2026-05-07
+
+Phase 3 backbone — the JS-side core for distributed inference.
+Tagged as a release-candidate so the per-SDK integration work
+(Tasks 8a–8f) can target a stable core API. v2.x consumer code
+that doesn't set `offload` is unchanged.
+
+### Added
+
+- **`@dvai-bridge/core` Phase 3 modules** (committed `8663573`):
+  - **`capability/`** — probe-based + heuristic-fallback capability
+    assessment + per-runtime persistent score cache (IndexedDB browser
+    / Node FS / in-memory). Stable per-install device ID.
+  - **`discovery/`** — peer discovery types + Node mDNS via
+    `multicast-dns` (optional dep) + browser no-op stub +
+    static-list source + composite layer.
+  - **`rendezvous/`** — WebSocket client for the rendezvous server.
+    X25519 ephemeral key exchange via `@noble/curves`. QR-payload
+    encode/decode. Source-side `startAsSource()` returns a
+    `PairingSession`; target-side `joinAsTarget()` completes the
+    handshake and returns the derived shared secret.
+  - **`offload/`** — pure `decide()` function (`(config, modelId,
+    localCapability, peers, header) → Decision`). LAN peers preferred
+    over rendezvous at comparable scores. Per-request
+    `X-DVAI-Offload` header (`never | prefer | require`, default
+    `prefer`). Structured `no_capable_device` response in OpenAI-error
+    shape (HTTP 503 + `Retry-After: 30`).
+  - **`pairing/`** — HMAC-SHA256-signed handshake auth via WebCrypto.
+    256-bit pairing keys. Persistent storage adapters (IndexedDB +
+    Node FS + in-memory). `PairingPolicy` coordinates the host-app
+    `onPairingRequest` callback (default: deny) with TTL-expiring
+    persistent state.
+  - **`handlers/dvai/`** — 7 new HTTP routes: `health`, `capability`,
+    `peers`, `probe`, `handshake`, `pair-qr`, `pair-scan`. The first
+    five are wired; the last two return 501 in rc1 — they light up
+    once the per-SDK QR-pairing UI surface lands in Tasks 8a–8f.
+  - **`qr/`** — QR-payload encoder + `dvai-bridge://pair?p=…`
+    deep-link helpers. Generation-only; scanning is the host app's
+    responsibility (camera UI is platform-specific).
+- **52 / 52 new tests passing** across `capability` (12), `discovery`
+  (6), `rendezvous-keys` (6), `offload-decide` (16), `pairing` (12).
+- **`@dvai-bridge/core` new dep**: `@noble/curves ^1.6.0`. Small
+  (~5 KB), audited, no native deps.
+- **`@dvai-bridge/core` `DVAIConfig.offload`** (committed `82cba0f`)
+  — opts the library into Phase 3 behaviour. Default unset = v2.x
+  exactly. When `enabled: true`, `initialize()` brings up the
+  capability cache + composite discovery + pairing policy; `unload()`
+  tears them down.
+- **`@dvai-bridge/core` `DVAI` instance methods**: `probeCapability()`,
+  `getCapability(modelId?)`, `getPeers()`. All no-op when offload is
+  off.
+- **`rendezvous/`** at monorepo root (committed `9717e3f`) —
+  self-hostable WebSocket relay server. ~700 LOC. Stateless beyond
+  per-session memory; no DB; no auth tokens; no plaintext inference
+  data passes through (peers do their own AEAD). Ships with
+  `Dockerfile` + `railway.json` + `app.yaml` deploy templates.
+  14/14 unit tests passing.
+- **Public docs**:
+  - `docs/guide/distributed-inference.md` (new) — quick start +
+    `OffloadConfig` reference + per-request header + capability
+    assessment + structured error shape + per-platform support
+    matrix + when-not-to-use.
+  - `docs/guide/self-hosting-rendezvous.md` (already shipped in
+    `7938659`; folded in DEPLOYMENT.md content for the public site).
+  - `docs/migration/v2.4-to-v3.0.md` (new) — backwards-compatible
+    upgrade path + per-stack migration snippets for JS / iOS /
+    Android / RN / Flutter / .NET + operational notes.
+  - `docs/reference/api.md` — `DVAIConfig` table gains `offload`
+    row + new `OffloadConfig` section with per-field reference + new
+    `DVAI` instance methods.
+  - VitePress sidebar gains "Distributed Inference (v3.0)" under
+    Guide + "v2.4 → v3.0" under Migration Guides.
+- **`RESEARCH.md` §11** (new) — "Distributed Inference (v3.0+)".
+  Covers the structural choices (LAN-first via mDNS; opt-in
+  rendezvous server we ship as code, not as a service), capability
+  probes vs. published benchmarks (revisit of §6.11), privacy
+  properties of the offload path, what v3.0 deliberately does NOT
+  do (no hosted relay, no auth tokens, no mesh-VPN integration, no
+  browser-as-target, no mid-stream model migration). PDF regenerated
+  (~1.0 MB).
+
+### Changed
+
+- **`@dvai-bridge/core` package.json** gains `@noble/curves` as a
+  hard dep; bumps to 2.4.2.
+- **All 36 packages** bump 2.4.1 → 2.4.2 in lockstep via
+  `scripts/sync-versions.js`. The v3.0.0-rc1 tag points at commit
+  `8663573` (the Phase 3 backbone); the per-package `version` fields
+  stay at 2.4.2 until the v3.0.0 final tag lands.
+
+### Distribution
+
+- No registry publishes happen as part of v3.0.0-rc1. The tag is
+  internal-development-only; the final v3.0.0 release will
+  consolidate this rc + the per-SDK integrations + the 2-device E2E
+  verification.
+
+### What's pending for v3.0.0 final
+
+- **Per-SDK integration** (Tasks 8a–8f) — surface `OffloadConfig` in
+  the iOS / Android / RN / Flutter / .NET / Capacitor SDKs with
+  platform-native discovery + pairing. In flight via parallel agents.
+- **2-device E2E test** (Task 9) — LAN (Win + Mac via SSH) + via a
+  deployed rendezvous server.
+- **CHANGELOG `[3.0.0]` consolidation** + final v3.0.0 tag.
+
+---
+
 ## [2.4.2] — 2026-05-07
 
 Phase 2 example-matrix work surfaced four library-side fixes during
