@@ -21,11 +21,36 @@ final class SmokeTests: XCTestCase {
     }
 
     func testMLXSmoke() async throws {
-        // Skip on non-Apple-Silicon hosts; the MLX backend has no
-        // device on x86_64 simulators.
+        // Skip on non-Apple-Silicon hosts; MLX has no device on x86_64.
         #if arch(x86_64)
         throw XCTSkip("MLX backend requires Apple Silicon at runtime; skipping on x86_64")
-        #else
+        #endif
+
+        // Skip on iOS Simulator unconditionally.
+        //
+        // mlx-swift-lm reaches into native MLX C++ during model resolution.
+        // On the iOS Simulator (even arm64 sims), it reliably triggers a
+        // libc++ hardening assertion ("basic_string(const char*) detected
+        // nullptr") inside the upstream C++ layer when resolving the
+        // HuggingFace model id, before our Swift code can intercept the
+        // failure. The libc++ assertion calls abort() — Swift `do/catch`
+        // can't recover from a process-level abort, so the test process
+        // dies before we can XCTSkip.
+        //
+        // MLX is genuinely device-only in practice. CI for this example
+        // should target a real Apple-Silicon Mac (Catalyst destination)
+        // or a real iPhone 15 Pro+ device. For CI matrices that only have
+        // simulators available, the skip below keeps the smoke phase green.
+        //
+        // Set SMOKE_MLX_FORCE_SIM=1 to opt back in (e.g., when verifying
+        // against a future mlx-swift-lm that fixes the simulator path).
+        #if targetEnvironment(simulator)
+        let env = SmokeEnv.load()
+        if env["SMOKE_MLX_FORCE_SIM"] != "1" {
+            throw XCTSkip("MLX skipped on iOS Simulator (upstream mlx-swift-lm calls abort() before Swift can catch). Set SMOKE_MLX_FORCE_SIM=1 to override.")
+        }
+        #endif
+
         let env = SmokeEnv.load()
         // Allow CI to override the model id via env (smaller checkpoints
         // for faster CI runs); default to the README's reference.
@@ -39,8 +64,8 @@ final class SmokeTests: XCTestCase {
                 contextSize: 1024
             ))
         } catch {
-            // mlx-swift-lm download failures or simulator-side missing
-            // device errors → skip rather than fail the host's smoke run.
+            // mlx-swift-lm download failures or device errors → skip
+            // rather than fail the host's smoke run.
             throw XCTSkip("MLX backend could not start in this destination: \(error.localizedDescription)")
         }
         XCTAssertEqual(server.backend, .mlx)
@@ -50,6 +75,5 @@ final class SmokeTests: XCTestCase {
             messages: [["role": "user", "content": "What is 2+2?"]]
         )
         XCTAssertFalse(response.isEmpty, "MLX completion should not be empty")
-        #endif
     }
 }
