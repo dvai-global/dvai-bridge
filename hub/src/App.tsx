@@ -106,7 +106,9 @@ export function App(): JSX.Element {
         </nav>
         <div className="status-pill">
           {status?.running ? (
-            <span className="dot ok" /> Running
+            <>
+              <span className="dot ok" /> Running
+            </>
           ) : (
             <>
               <span className="dot off" /> Stopped
