@@ -111,10 +111,25 @@ impl SidecarManager {
             c.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
             c
         } else {
-            // Dev path — run via node
+            // Dev path — run the built sidecar JS via the system Node.
+            //
+            // CARGO_MANIFEST_DIR is the absolute path to `hub/src-tauri`
+            // at compile time. From there, `../dist/peer-mode/server.js`
+            // is the output of `pnpm build:peer-mode`. Override with
+            // DVAI_HUB_SIDECAR_JS at runtime if needed (e.g. for
+            // packaged installs that ship JS rather than a binary).
+            let sidecar_js = std::env::var("DVAI_HUB_SIDECAR_JS").unwrap_or_else(|_| {
+                let manifest_dir = env!("CARGO_MANIFEST_DIR");
+                std::path::Path::new(manifest_dir)
+                    .join("..")
+                    .join("dist")
+                    .join("peer-mode")
+                    .join("server.js")
+                    .to_string_lossy()
+                    .into_owned()
+            });
             let mut c = Command::new("node");
-            c.arg("../peer-mode/server.js")
-                .current_dir(resource_path.clone())
+            c.arg(&sidecar_js)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
