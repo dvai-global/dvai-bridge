@@ -64,6 +64,7 @@ export default defineConfig({
 					{ text: "Multimodal", link: "/guide/multimodal" },
 					{ text: "Tested Models", link: "/guide/tested-models" },
 					{ text: "Auto-Recovery & Robustness", link: "/guide/auto-recovery" },
+					{ text: "Self-Hosting Rendezvous (v3.0)", link: "/guide/self-hosting-rendezvous" },
 					{ text: "vs. Other Tools", link: "/guide/comparison" },
 				],
 			},
