@@ -5,7 +5,7 @@
   "identifier": "co.deepvoiceai.dvai-hub",
   "build": {
     "beforeDevCommand": "pnpm dev:vite",
-    "beforeBuildCommand": "pnpm build:peer-mode && pnpm build:vite",
+    "beforeBuildCommand": "pnpm build:peer-mode && pnpm bundle:sidecar && pnpm build:vite",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../dist-frontend"
   },
@@ -43,6 +43,7 @@
       "icons/icon.ico"
     ],
     "resources": [],
+    "externalBin": ["binaries/dvai-hub-peer-mode"],
     "targets": "all",
     "linux": {
       "deb": {

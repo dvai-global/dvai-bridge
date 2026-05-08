@@ -78,7 +78,7 @@ caveat.
 ### Android — Gradle
 
 The package's autolinking config registers the Android module
-automatically. The umbrella AAR (`co.deepvoiceai:dvai-bridge:2.1.0`) is
+automatically. The umbrella AAR (`co.deepvoiceai:dvai-bridge:3.0.0`) is
 hosted on **GitHub Packages Maven**, so consumer apps need three pieces of
 config:
 

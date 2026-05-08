@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build:peer-mode": "tsc -p peer-mode/tsconfig.json",
+    "bundle:sidecar": "node scripts/bundle-sidecar.mjs",
     "smoke:ollama": "node dist/scripts/smoke-ollama.js",
     "smoke:lmstudio": "node dist/scripts/smoke-lmstudio.js",
     "smoke:identity": "node dist/scripts/smoke-identity.js",
