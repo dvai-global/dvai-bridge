@@ -444,49 +444,37 @@ export class DVAI {
 
 		try {
 			// 0.5 v3.2 — pre-init capability gate. Runs the heuristic
-			// (CPU/GPU/RAM hints, no model required) and decides:
+			// (CPU/GPU/RAM hints, no model required) and decides
+			// internally whether to load a model locally:
 			//
-			//   - too-weak: fire onHardwareTooWeak host callback so the
-			//     consumer can show a system popup, then throw — no
-			//     model download, no backend init, no transport.
-			//   - offload-only: skip the backend init below; bring up
-			//     only the transport + offload state. Every chat
-			//     request is expected to forward to a paired peer.
-			//   - ok: proceed to full initialization.
+			//   - too-weak     → enter offload-only mode silently
+			//                    (no model download/load). The SDK
+			//                    does NOT throw and does NOT show any
+			//                    UI — consumers query
+			//                    `dvai.assessHardware()` ahead of
+			//                    initialize() if they want to refuse
+			//                    to start on too-weak devices.
+			//   - offload-only → same internal treatment: skip backend
+			//                    init; bring up only transport + offload.
+			//   - ok           → proceed to full initialization.
+			//
+			// Both too-weak and offload-only collapse to "skip backend
+			// init" from the SDK's perspective; the *informational*
+			// distinction lives in assessHardware()'s return value for
+			// consumers to react to.
 			//
 			// Skipped entirely when offload is not configured or when
 			// `offload.enabled` is false — there's no point gating a
 			// device that has no offload path.
 			if (this.offload?.enabled) {
-				const { assessCapability, HardwareTooWeakError } =
+				const { assessCapability } =
 					await import("./capability/precheck.js");
 				const result = await assessCapability({
 					hardwareMinimum: this.offload.hardwareMinimum,
 					minLocalCapability: this.offload.minLocalCapability,
 				});
-				if (result.mode === "too-weak") {
-					try {
-						await this.offload.onHardwareTooWeak?.({
-							tokPerSec: result.tokPerSec,
-							hardwareMinimum:
-								this.offload.hardwareMinimum ?? 3,
-							reason: result.reason,
-						});
-					} catch (e) {
-						console.warn(
-							"[DVAI/precheck] onHardwareTooWeak callback threw; ignoring:",
-							e,
-						);
-					}
-					throw new HardwareTooWeakError({
-						tokPerSec: result.tokPerSec,
-						hardwareMinimum:
-							this.offload.hardwareMinimum ?? 3,
-						hints: result.hints,
-						reason: result.reason,
-					});
-				}
-				this.offloadOnlyMode = result.mode === "offload-only";
+				this.offloadOnlyMode =
+					result.mode === "offload-only" || result.mode === "too-weak";
 				onProgress({
 					phase: "precheck",
 					mode: result.mode,
@@ -496,16 +484,16 @@ export class DVAI {
 			}
 
 			// 1. Initialize the selected backend (lazy import). Skipped
-			// when the precheck put us in offload-only mode — the
-			// consumer won't be running inference locally, so we don't
-			// pay the model download/load cost.
+			// when the precheck put us in offload-only mode (or
+			// too-weak) — the consumer won't be running inference
+			// locally, so we don't pay the model download/load cost.
 			if (!this.offloadOnlyMode) {
 				await this.initializeBackend(onProgress);
 			} else {
 				onProgress({
 					phase: "backend",
 					skipped: true,
-					reason: "offload-only mode (device below minLocalCapability)",
+					reason: "offload-only mode (device below minLocalCapability or below hardwareMinimum)",
 				});
 			}
 
@@ -1032,6 +1020,58 @@ export class DVAI {
 	}
 
 	/* ----- Phase 3 — public surface for offload diagnostics ----- */
+
+	/**
+	 * v3.2 — pre-init hardware assessment.
+	 *
+	 * Returns a JSON-serializable description of how this device
+	 * would handle local inference, BEFORE any model download/load.
+	 *
+	 * Consumers should call this before `initialize()` if they want
+	 * to refuse to start on too-weak devices. The SDK itself never
+	 * shows UI — it's the consumer app's job to decide what (if
+	 * anything) to surface based on the result.
+	 *
+	 * Result `mode` values:
+	 *   - `ok`           → device can comfortably run the model
+	 *                      locally; initialize() will proceed normally.
+	 *   - `offload-only` → device can run but slowly (below
+	 *                      `minLocalCapability`); initialize() will
+	 *                      skip the model load and route every
+	 *                      request to a paired peer.
+	 *   - `too-weak`     → device is below the hardware floor (3
+	 *                      tok/s by default); initialize() will
+	 *                      ALSO skip the model load — the consumer
+	 *                      should typically bail rather than even
+	 *                      calling initialize().
+	 *
+	 * Pass `hardwareMinimum` / `minLocalCapability` to override the
+	 * defaults (matches `OffloadConfig`).
+	 *
+	 * @returns a serializable assessment (safe to JSON.stringify and
+	 *   ship over a Pigeon / Capacitor channel).
+	 */
+	async assessHardware(opts: {
+		hardwareMinimum?: number;
+		minLocalCapability?: number;
+	} = {}): Promise<{
+		mode: "ok" | "offload-only" | "too-weak";
+		tokPerSec: number;
+		reason: string;
+		hints: import("./capability/index.js").DeviceCapabilityHints;
+	}> {
+		const { assessCapability } = await import("./capability/precheck.js");
+		const result = await assessCapability({
+			hardwareMinimum: opts.hardwareMinimum,
+			minLocalCapability: opts.minLocalCapability,
+		});
+		return {
+			mode: result.mode,
+			tokPerSec: result.tokPerSec,
+			reason: result.reason,
+			hints: result.hints,
+		};
+	}
 
 	/**
 	 * Run a cold-run capability probe against the active backend +

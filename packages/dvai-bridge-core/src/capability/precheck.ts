@@ -117,10 +117,13 @@ export async function assessCapability(
 }
 
 /**
- * Error thrown when the precheck returns `mode: "too-weak"`. The
- * `initialize()` flow throws this AFTER calling the host-supplied
- * `onHardwareTooWeak` callback, so the consumer can show a system
- * popup before the exception propagates.
+ * @deprecated v3.2 — kept only to avoid breaking type imports. The
+ * SDK no longer throws on too-weak hardware; consumers call
+ * `dvai.assessHardware()` and decide their own UI. start() in a
+ * too-weak case enters offload-only mode silently (no model
+ * download/load).
+ *
+ * Will be removed in v4.0.
  */
 export class HardwareTooWeakError extends Error {
   readonly tokPerSec: number;

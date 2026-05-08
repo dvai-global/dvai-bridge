@@ -36,17 +36,6 @@ export interface OffloadConfig {
    * chat should leave it.
    */
   hardwareMinimum?: number;
-  /**
-   * v3.2 — host hook fired when the precheck returns `too-weak`.
-   * Use this to surface a platform-native alert (UIAlertController,
-   * AlertDialog, etc.). The SDK still throws afterward so initialize()
-   * fails in a structured way.
-   */
-  onHardwareTooWeak?: (info: {
-    tokPerSec: number;
-    hardwareMinimum: number;
-    reason: string;
-  }) => void | Promise<void>;
   /** Optional rendezvous-server URL — enables internet path if set. */
   rendezvousUrl?: string;
   /** Optional pre-known peers (skip discovery). */
