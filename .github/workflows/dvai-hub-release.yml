@@ -1,8 +1,8 @@
 name: DVAI Hub — release binaries
 
 # Triggered when a v3.1.* tag is pushed. Builds Windows .msi, macOS
-# universal .dmg (notarized), and Linux .AppImage / .deb / .rpm; then
-# attaches the artefacts to the corresponding GitHub Release.
+# arm64 .dmg, and Linux .AppImage / .deb / .rpm; then attaches the
+# artefacts to the auto-created GitHub Release.
 #
 # Required secrets (configured in repo settings):
 #   APPLE_SIGNING_IDENTITY            "Developer ID Application: <Org> (<TEAM_ID>)"
@@ -14,8 +14,9 @@ name: DVAI Hub — release binaries
 #   WIN_SIGNING_CERT_BASE64           base64 of the .pfx cert
 #   WIN_SIGNING_CERT_PASSWORD         .pfx password
 #
-# A separate sister file `HUB-SIGNING-CERTS.md` (gitignored) documents
-# the procurement and rotation process for these credentials.
+# All signing steps gate on secret presence — missing secrets produce
+# unsigned artefacts (SmartScreen / Gatekeeper warnings on first
+# launch). Persistent code-signing TODO lives in `TODO.md`.
 
 on:
   push:
@@ -34,30 +35,32 @@ jobs:
         include:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            bundle: msi
+            bundles: msi
           - os: macos-latest
-            target: universal-apple-darwin
-            bundle: dmg
+            target: aarch64-apple-darwin
+            bundles: dmg
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            bundle: appimage,deb,rpm
+            bundles: appimage,deb,rpm
 
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      # pnpm/action-setup MUST run before setup-node so that
+      # setup-node's `cache: pnpm` can find pnpm on PATH.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       # Bun bundles the Node sidecar into a single-file native binary
       # via `bun build --compile`. tauri.conf.json's beforeBuildCommand
-      # invokes `pnpm bundle:sidecar` which delegates here.
+      # invokes `pnpm bundle:sidecar` which delegates to bun.
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -78,20 +81,21 @@ jobs:
             librsvg2-dev \
             patchelf
 
-      - name: Install pnpm deps
-        run: |
-          pnpm install --frozen-lockfile
-        working-directory: hub
+      # `pnpm install` from repo root — the lockfile lives at the
+      # workspace root, not in `hub/`. The `hub` package is wired up
+      # via `pnpm-workspace.yaml`.
+      #
+      # `--ignore-scripts` skips the root `prepare` script which
+      # `pnpm -r run build`s every workspace package (including ones
+      # with cross-platform tsup issues unrelated to the Hub). We
+      # rebuild only what the Hub needs — `@dvai-bridge/core` — in
+      # the next step.
+      - name: Install workspace deps
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Build peer-mode TypeScript
-        run: pnpm build:peer-mode
-        working-directory: hub
+      - name: Build @dvai-bridge/core (Hub dep)
+        run: pnpm --filter @dvai-bridge/core build
 
-      # Signing steps are gated on secret presence — when the cert
-      # secrets are absent (e.g. early v3.1 unsigned releases), the
-      # workflow still produces installable artefacts. End users see
-      # SmartScreen / Gatekeeper warnings on first launch. See
-      # `TODO.md` for the persistent code-signing TODO.
       - name: macOS — import signing cert
         if: matrix.os == 'macos-latest' && env.APPLE_CERT_BASE64 != ''
         env:
@@ -118,6 +122,9 @@ jobs:
           [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\\cert.pfx", $bytes)
         shell: pwsh
 
+      # `pnpm tauri build` invokes the CLI in `hub/node_modules/.bin`.
+      # tauri.conf.json's beforeBuildCommand chains the JS build,
+      # sidecar bundling, and Vite frontend build automatically.
       - name: Build Tauri app
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -126,8 +133,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_NOTARIZATION_TEAM_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
+        run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
         working-directory: hub
 
       - name: Upload artefacts
@@ -135,22 +141,51 @@ jobs:
         with:
           name: dvai-hub-${{ matrix.os }}
           path: |
-            hub/src-tauri/target/${{ matrix.target }}/release/bundle/
+            hub/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
+            hub/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            hub/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            hub/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            hub/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
+          if-no-files-found: error
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: artefacts
 
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract release notes for this version
+        id: notes
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "DVAI Hub ${GITHUB_REF_NAME}" \
-            --notes-file CHANGELOG.md \
-            artefacts/**/*
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Pull the section between `## [VERSION]` and the next `## [`
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" {f=1; next}
+            f && /^## \[/ {f=0}
+            f
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "No CHANGELOG section for $VERSION — falling back to full file."
+            cp CHANGELOG.md release-notes.md
+          fi
+          echo "Wrote release-notes.md ($(wc -l < release-notes.md) lines)"
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: DVAI Hub ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          files: |
+            artefacts/**/*.msi
+            artefacts/**/*.dmg
+            artefacts/**/*.AppImage
+            artefacts/**/*.deb
+            artefacts/**/*.rpm
+          fail_on_unmatched_files: true
