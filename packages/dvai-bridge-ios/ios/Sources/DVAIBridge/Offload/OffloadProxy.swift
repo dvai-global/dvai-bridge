@@ -35,7 +35,8 @@ public actor OffloadProxy {
     public let pairingPolicy: PairingPolicy?
     /// Live snapshot of paired peers — re-read on each request so
     /// runtime additions are honored without restarting the proxy.
-    public let peerProvider: @Sendable () -> [MDNSPeer]
+    /// `async` because `NWBrowserDiscovery` is an actor.
+    public let peerProvider: @Sendable () async -> [MDNSPeer]
     public let appId: String
     public let selfDeviceId: String
 
@@ -47,7 +48,7 @@ public actor OffloadProxy {
         backendBaseUrl: String?,
         offloadConfig: OffloadConfig,
         pairingPolicy: PairingPolicy?,
-        peerProvider: @escaping @Sendable () -> [MDNSPeer],
+        peerProvider: @escaping @Sendable () async -> [MDNSPeer],
         appId: String,
         selfDeviceId: String
     ) {
@@ -148,7 +149,7 @@ public actor OffloadProxy {
         let body = request.body
         let headers = lowerCasedHeaders(request.headers)
 
-        let decision = decideRoute(path: path, body: body, headers: headers)
+        let decision = await decideRoute(path: path, body: body, headers: headers)
         switch decision {
         case .local:
             return await forwardToLocal(request: request)
@@ -177,7 +178,7 @@ public actor OffloadProxy {
         path: String,
         body: Data,
         headers: [String: String]
-    ) -> RouteDecision {
+    ) async -> RouteDecision {
         let isChatCompletion = path.hasSuffix("/chat/completions") ||
             path.hasSuffix("/v1/chat/completions")
 
@@ -195,13 +196,13 @@ public actor OffloadProxy {
         }
 
         let modelId = readModelId(from: body) ?? ""
-        let peers = peerProvider()
+        let peers = await peerProvider()
         let best = pickBestPeer(peers: peers, modelId: modelId)
         let threshold = offloadConfig.minLocalCapability
 
         if offloadHeader == "require" {
             if let best {
-                return .offload(baseUrl: best.peer.baseUrl.absoluteString, peerDeviceId: best.peer.deviceId)
+                return .offload(baseUrl: best.peer.baseUrl, peerDeviceId: best.peer.deviceId)
             }
             return .noCapableDevice(
                 json: noCapableDeviceError(localCapability: 0, required: threshold)
@@ -210,7 +211,7 @@ public actor OffloadProxy {
 
         // header == "prefer" (default)
         if let best, best.score >= threshold {
-            return .offload(baseUrl: best.peer.baseUrl.absoluteString, peerDeviceId: best.peer.deviceId)
+            return .offload(baseUrl: best.peer.baseUrl, peerDeviceId: best.peer.deviceId)
         }
         if backendBaseUrl != nil { return .local }
         return .noCapableDevice(
@@ -288,10 +289,14 @@ public actor OffloadProxy {
         urlRequest.httpBody = request.body.isEmpty ? nil : request.body
 
         // Copy through headers, dropping hop-by-hop + content-length.
+        // Telegraph's HTTPHeaders maps HTTPHeaderName → String;
+        // HTTPHeaderName has a `name: String` property we use for the
+        // URLRequest header field name and lowercased filtering.
         for (k, v) in request.headers {
-            let lk = k.lowercased()
+            let nameStr = String(describing: k)
+            let lk = nameStr.lowercased()
             if hopByHop.contains(lk) || lk == "host" || lk == "content-length" { continue }
-            urlRequest.setValue(v, forHTTPHeaderField: k)
+            urlRequest.setValue(v, forHTTPHeaderField: nameStr)
         }
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
@@ -395,7 +400,7 @@ public actor OffloadProxy {
     private nonisolated func lowerCasedHeaders(_ headers: HTTPHeaders) -> [String: String] {
         var out: [String: String] = [:]
         for (k, v) in headers {
-            out[k.lowercased()] = v
+            out[String(describing: k).lowercased()] = v
         }
         return out
     }

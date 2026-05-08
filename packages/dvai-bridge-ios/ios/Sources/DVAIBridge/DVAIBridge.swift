@@ -51,6 +51,13 @@ public actor DVAIBridge {
     private var activeKind: BackendKind?
     private var activeBaseUrl: String?
     private var offloadRuntime: Any?  // type-erased; gated by availability
+    /// v3.2 — pre-routing proxy in front of the native backend when
+    /// offload is enabled. Owns the public `BoundServer.baseUrl`.
+    private var offloadProxy: Any?  // OffloadProxy; type-erased for availability
+    /// v3.2 — set true when the precheck classified this device as
+    /// `tooWeak` or `offloadOnly`. In that mode no model is loaded;
+    /// the proxy stands alone and forwards every request to a peer.
+    public private(set) var offloadOnlyMode: Bool = false
     private let downloader = ModelDownloader()
     internal let progressBroadcaster = ProgressBroadcaster()
 
@@ -93,19 +100,106 @@ public actor DVAIBridge {
 
     // MARK: - Lifecycle
 
-    /// v3.0 surface: start with `StartOptions` (carries optional
-    /// `OffloadConfig`). For v2.x backwards compat, the
-    /// `start(_ config:)` overload below is preserved.
+    /// v3.0+ surface: start with `StartOptions` (carries optional
+    /// `OffloadConfig`).
+    ///
+    /// v3.2 lifecycle:
+    ///   - if `offload.enabled == true`, run the pre-init capability
+    ///     gate (`assessHardware`) before any backend init.
+    ///   - if the precheck returns `tooWeak` / `offloadOnly`, skip
+    ///     backend init entirely (`offloadOnlyMode = true`); only the
+    ///     OffloadRuntime + OffloadProxy come up. Every chat request
+    ///     forwards to a paired peer.
+    ///   - otherwise the inner `start(_ config:)` runs normally with
+    ///     the backend on `httpBasePort + 100` (internal). The
+    ///     OffloadProxy binds the user-facing `httpBasePort` and
+    ///     decides per-request whether to forward locally or to a
+    ///     peer.
+    ///
+    /// For v2.x backwards compat (no offload): the inner
+    /// `start(_ config:)` overload behaves exactly as before.
     public func start(_ options: StartOptions) async throws -> BoundServer {
-        let server = try await start(options.config)
-        if let offload = options.offload, offload.enabled {
+        offloadOnlyMode = false
+
+        let isOffloadEnabled = options.offload?.enabled == true
+        if isOffloadEnabled {
+            let assessment = assessHardware(
+                hardwareMinimum: 3.0,
+                minLocalCapability: options.offload!.minLocalCapability
+            )
+            offloadOnlyMode = (assessment.mode == .tooWeak || assessment.mode == .offloadOnly)
+            progressBroadcaster.emit(ProgressEvent(
+                phase: .load,
+                message: "[DVAI/precheck] \(assessment.mode.rawValue): \(assessment.reason)"
+            ))
+        }
+
+        // Determine the backend's internal port. When the proxy is in
+        // front, shift the backend off the user-facing port to avoid
+        // collision: backend at httpBasePort + 100, proxy at httpBasePort.
+        let userPort = options.config.httpBasePort
+        let backendOpts: DVAIBridgeConfig
+        if isOffloadEnabled && !offloadOnlyMode {
+            backendOpts = options.config.with(httpBasePort: userPort + 100)
+        } else {
+            backendOpts = options.config
+        }
+
+        let backendServer: BoundServer? = offloadOnlyMode
+            ? nil
+            : try await start(backendOpts)
+
+        // Bring up offload runtime + proxy when offload is enabled.
+        if isOffloadEnabled, let offload = options.offload {
             if #available(iOS 14.0, macOS 11.0, *) {
                 let runtime = try OffloadRuntime(config: offload)
-                try await runtime.start(boundServer: server, libraryVersion: DVAIBridgeVersion.current)
+                // OffloadRuntime.start expects a BoundServer for the
+                // advertiser's `port`. Use a synthetic one in offload-only
+                // mode (port = userPort, the proxy's port).
+                let resolvedBackend = try BackendSelector.resolve(options.config.backend, config: options.config)
+                let serverForRuntime = backendServer ?? BoundServer(
+                    baseUrl: "http://127.0.0.1:\(userPort)",
+                    port: userPort,
+                    backend: resolvedBackend,
+                    modelId: ""
+                )
+                try await runtime.start(
+                    boundServer: serverForRuntime,
+                    libraryVersion: DVAIBridgeVersion.current
+                )
                 self.offloadRuntime = runtime
+
+                // Spin up the OffloadProxy in front of the backend.
+                let deviceId = (try? await runtime.deviceIDStore.get()) ?? "unknown"
+                let proxy = OffloadProxy(
+                    backendBaseUrl: backendServer?.baseUrl,
+                    offloadConfig: offload,
+                    pairingPolicy: runtime.pairingPolicy,
+                    peerProvider: { [weak runtime] in
+                        guard let runtime else { return [] }
+                        return await runtime.discovery.peers()
+                    },
+                    appId: "co.deepvoiceai.dvai-bridge",
+                    selfDeviceId: deviceId
+                )
+                let boundProxyPort = try await proxy.start(basePort: userPort, maxAttempts: 16)
+                self.offloadProxy = proxy
+
+                let proxyServer = BoundServer(
+                    baseUrl: "http://127.0.0.1:\(boundProxyPort)",
+                    port: boundProxyPort,
+                    backend: resolvedBackend,
+                    modelId: backendServer?.modelId ?? ""
+                )
+                self.activeBaseUrl = proxyServer.baseUrl
+                if active == nil {
+                    activeKind = proxyServer.backend
+                }
+                return proxyServer
             }
         }
-        return server
+
+        return backendServer!
     }
 
     public func start(_ config: DVAIBridgeConfig) async throws -> BoundServer {
@@ -199,8 +293,19 @@ public actor DVAIBridge {
     }
 
     public func stop() async throws {
-        // Tear down the offload runtime first — it depends on the
-        // bound server being up while we stop discovery cleanly.
+        // v3.2 — tear down the proxy first so consumer requests stop
+        // arriving before we drop the backend; then stop the offload
+        // runtime (discovery + advertiser) before the backend dies.
+        if #available(iOS 14.0, macOS 11.0, *) {
+            if let proxy = offloadProxy as? OffloadProxy {
+                await proxy.stop()
+            }
+        }
+        offloadProxy = nil
+        offloadOnlyMode = false
+
+        // Tear down the offload runtime — it depends on the bound
+        // server being up while we stop discovery cleanly.
         if #available(iOS 14.0, macOS 11.0, *) {
             if let runtime = offloadRuntime as? OffloadRuntime {
                 await runtime.stop()
