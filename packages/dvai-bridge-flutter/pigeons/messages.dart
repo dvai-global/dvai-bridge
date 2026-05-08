@@ -165,6 +165,32 @@ class PairingRequestMessage {
   int expiresAt;
 }
 
+/// v3.2 — Pigeon-side carrier of [HardwareAssessment]. Returned by
+/// [DVAIBridge.assessHardware]; mirrors the iOS / Android / TS shape.
+/// Mode values: "ok" | "offload-only" | "too-weak". GpuClass values:
+/// "none" | "integrated" | "discrete" | "apple-silicon". CpuClass
+/// values: "low" | "mid" | "high". Strings (vs enums) keep
+/// pigeon-generated wire format stable across SDK versions.
+class HardwareAssessmentMessage {
+  HardwareAssessmentMessage({
+    required this.mode,
+    required this.tokPerSec,
+    required this.reason,
+    required this.hasNpu,
+    required this.ramGb,
+    required this.gpuClass,
+    required this.cpuClass,
+  });
+
+  String mode;
+  double tokPerSec;
+  String reason;
+  bool hasNpu;
+  int ramGb;
+  String gpuClass;
+  String cpuClass;
+}
+
 /// Pigeon-side carrier of [BoundServer].
 class BoundServerMessage {
   BoundServerMessage({
@@ -277,6 +303,16 @@ abstract class DVAIBridgeHostApi {
   /// cleanly on subsequent calls.
   @async
   void respondToPairingRequest(String requestId, bool approved);
+
+  /// v3.2 — pre-init hardware assessment. Returns a structured result
+  /// describing how this device would handle local inference, BEFORE
+  /// any model download/load. The SDK never shows UI for hardware
+  /// decisions; consumers query this and decide their own UX based
+  /// on `result.mode`.
+  HardwareAssessmentMessage assessHardware(
+    double hardwareMinimum,
+    double minLocalCapability,
+  );
 }
 
 /// Event-channel API exposing the native progress stream

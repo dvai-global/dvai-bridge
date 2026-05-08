@@ -28,8 +28,13 @@ export 'src/types.dart'
         BackendKind,
         BoundServer,
         CorsOrigin,
+        CpuClass,
+        DeviceCapabilityHints,
         DownloadOptions,
         DownloadResult,
+        GpuClass,
+        HardwareAssessment,
         LogLevel,
+        PrecheckMode,
         StartOptions,
         StatusInfo;
