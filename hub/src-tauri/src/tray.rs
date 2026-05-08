@@ -26,7 +26,16 @@ pub fn install_tray(app: &mut tauri::App) -> tauri::Result<()> {
         &[&open_item, &pause_item, &resume_item, &separator, &quit_item],
     )?;
 
+    // Use the app's bundled icon (icon.ico on Windows, icon.icns on macOS,
+    // icon.png on Linux). Without this Tauri 2 doesn't auto-attach an icon
+    // to the tray — the slot renders blank.
+    let icon = handle
+        .default_window_icon()
+        .cloned()
+        .ok_or_else(|| tauri::Error::AssetNotFound("default window icon".into()))?;
+
     let tray = TrayIconBuilder::with_id("dvai-hub-tray")
+        .icon(icon)
         .menu(&menu)
         .show_menu_on_left_click(false)
         .tooltip("DVAI Hub")
