@@ -36,6 +36,12 @@ RCT_EXTERN_METHOD(downloadModel:(NSDictionary *)opts
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+// v3.2 — pre-init hardware assessment.
+RCT_EXTERN_METHOD(assessHardware:(NSNumber *)hardwareMinimum
+                  minLocalCapability:(NSNumber *)minLocalCapability
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 // `RCTEventEmitter` already declares `addListener:` / `removeListeners:`,
 // but RN ≥ 0.65 expects subclasses to re-export them via RCT_EXTERN_METHOD
 // so the JS side's NativeEventEmitter housekeeping resolves cleanly.

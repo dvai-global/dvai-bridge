@@ -340,3 +340,57 @@ export interface PairingSubscription {
   /** Detach the listener. Idempotent. */
   remove(): void;
 }
+
+/* -------------------------------------------------------------------------- */
+/* v3.2 — pre-init hardware assessment                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Lifecycle mode the SDK would enter on `start()`. Returned by
+ * {@link DVAIBridge.assessHardware}. Mirrors the kebab-case enum values
+ * used on the Kotlin / Swift / TS sides so cross-platform consumers see
+ * the same strings regardless of the host runtime.
+ */
+export type PrecheckMode = "ok" | "offload-only" | "too-weak";
+
+/** GPU class buckets used by the heuristic. */
+export type GpuClass = "none" | "integrated" | "discrete" | "apple-silicon";
+
+/** CPU class buckets used by the heuristic. */
+export type CpuClass = "low" | "mid" | "high";
+
+/** Coarse hardware hints used by the precheck heuristic. */
+export interface DeviceCapabilityHints {
+  hasNpu: boolean;
+  ramGb: number;
+  gpuClass: GpuClass;
+  cpuClass: CpuClass;
+}
+
+/**
+ * v3.2 — pre-init hardware assessment.
+ *
+ * Returned by {@link DVAIBridge.assessHardware}. The SDK never shows
+ * UI for hardware decisions — consumer apps query this and decide
+ * their own UX based on `mode`:
+ *
+ * - `"ok"`           → device can comfortably run the model locally;
+ *                      `start()` proceeds normally.
+ * - `"offload-only"` → device can run but slowly (below
+ *                      `OffloadConfig.minLocalCapability`); `start()`
+ *                      skips the model load and routes every request
+ *                      to a paired peer.
+ * - `"too-weak"`     → device is below the hardware floor (3 tok/s
+ *                      by default); `start()` ALSO skips the model
+ *                      load. Consumers typically bail rather than
+ *                      even calling `start()`.
+ */
+export interface HardwareAssessment {
+  mode: PrecheckMode;
+  /** Estimated decode tok/s for any 1–3B-class model. */
+  tokPerSec: number;
+  /** Human-readable explanation; safe to log + display. */
+  reason: string;
+  /** Underlying hints used to compute the estimate. */
+  hints: DeviceCapabilityHints;
+}

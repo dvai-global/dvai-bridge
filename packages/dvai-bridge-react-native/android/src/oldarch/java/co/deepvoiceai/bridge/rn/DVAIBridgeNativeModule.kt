@@ -45,6 +45,11 @@ class DVAIBridgeNativeModule(
     }
 
     @ReactMethod
+    fun assessHardware(hardwareMinimum: Double, minLocalCapability: Double, promise: Promise) {
+        impl.assessHardware(hardwareMinimum, minLocalCapability, promise)
+    }
+
+    @ReactMethod
     fun addListener(eventName: String) {
         impl.addListener(eventName)
     }

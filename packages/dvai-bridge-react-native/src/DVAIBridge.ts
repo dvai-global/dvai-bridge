@@ -5,8 +5,11 @@ import { DVAIBridgeError } from "./errors";
 import type {
   BackendKind,
   BoundServer,
+  CpuClass,
   DownloadOptions,
   DownloadResult,
+  GpuClass,
+  HardwareAssessment,
   PairingRequest,
   PairingSubscription,
   ProgressEvent,
@@ -141,6 +144,40 @@ function coerceDownloadResult(value: unknown): DownloadResult {
   };
 }
 
+/** Coerce an unknown TurboModule result into a `HardwareAssessment`. */
+function coerceHardwareAssessment(value: unknown): HardwareAssessment {
+  if (!value || typeof value !== "object") {
+    throw new DVAIBridgeError(
+      "configurationInvalid",
+      "Native assessHardware() returned a non-object payload.",
+    );
+  }
+  const v = value as Record<string, unknown>;
+  const mode = typeof v.mode === "string" ? v.mode : "";
+  if (mode !== "ok" && mode !== "offload-only" && mode !== "too-weak") {
+    throw new DVAIBridgeError(
+      "configurationInvalid",
+      `Native assessHardware() returned an unknown mode: ${JSON.stringify(v.mode)}`,
+    );
+  }
+  const hintsValue = (v.hints && typeof v.hints === "object") ? v.hints as Record<string, unknown> : {};
+  return {
+    mode,
+    tokPerSec: typeof v.tokPerSec === "number" ? v.tokPerSec : 0,
+    reason: typeof v.reason === "string" ? v.reason : "",
+    hints: {
+      hasNpu: typeof hintsValue.hasNpu === "boolean" ? hintsValue.hasNpu : false,
+      ramGb: typeof hintsValue.ramGb === "number" ? hintsValue.ramGb : 0,
+      gpuClass: (typeof hintsValue.gpuClass === "string"
+        ? (hintsValue.gpuClass as GpuClass)
+        : "integrated"),
+      cpuClass: (typeof hintsValue.cpuClass === "string"
+        ? (hintsValue.cpuClass as CpuClass)
+        : "mid"),
+    },
+  };
+}
+
 /**
  * Public TS facade over the `NativeDVAIBridge` TurboModule. Mirrors the
  * iOS `DVAIBridge.shared` actor and the Android `DVAIBridge` singleton 1:1
@@ -193,6 +230,40 @@ export const DVAIBridge = {
     try {
       const result = await NativeDVAIBridge.status();
       return coerceStatus(result);
+    } catch (err) {
+      throw DVAIBridgeError.fromNative(err);
+    }
+  },
+
+  /**
+   * v3.2 — pre-init hardware assessment.
+   *
+   * Returns a JSON-shaped {@link HardwareAssessment}. The SDK itself
+   * never shows UI for hardware decisions — consumer apps call this
+   * before {@link start} and decide their own UX based on
+   * `result.mode`:
+   *
+   *  - `"ok"`           → call {@link start} normally.
+   *  - `"offload-only"` → call {@link start}; SDK will skip the model
+   *                       load and route every request to a paired
+   *                       peer.
+   *  - `"too-weak"`     → consumer typically bails rather than calling
+   *                       {@link start}; if you do call it anyway, the
+   *                       SDK enters offload-only mode silently.
+   *
+   * Defaults match the native sides (3.0 / 10.0 tok/s). Pass overrides
+   * matching your `OffloadConfig` if you've customized.
+   */
+  async assessHardware(
+    hardwareMinimum: number = 3.0,
+    minLocalCapability: number = 10.0,
+  ): Promise<HardwareAssessment> {
+    try {
+      const result = await NativeDVAIBridge.assessHardware(
+        hardwareMinimum,
+        minLocalCapability,
+      );
+      return coerceHardwareAssessment(result);
     } catch (err) {
       throw DVAIBridgeError.fromNative(err);
     }

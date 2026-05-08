@@ -50,6 +50,21 @@ export interface Spec extends TurboModule {
   downloadModel(opts: Object): Promise<Object>;
 
   /**
+   * v3.2 — pre-init hardware assessment.
+   *
+   * Returns a JSON-shaped value: `{ mode, tokPerSec, reason, hints }`
+   * mirroring the Android DVAIBridge.assessHardware() and iOS
+   * DVAIBridge.shared.assessHardware() return shapes. Lets the
+   * consumer app decide whether to call `start` and what UI to show
+   * if the device is too weak — the SDK never shows UI itself.
+   *
+   * Both `hardwareMinimum` and `minLocalCapability` default to the
+   * same values as the native sides (3.0 / 10.0 tok/s). Pass
+   * overrides matching your `OffloadConfig` if you've customized.
+   */
+  assessHardware(hardwareMinimum: number, minLocalCapability: number): Promise<Object>;
+
+  /**
    * v3.0+ — Phase 3 distributed inference.
    *
    * Respond to a pending pairing request emitted via the
