@@ -358,7 +358,7 @@ its native backend:
 | --- | --- |
 | TS / Node | Built-in handler interceptor in `@dvai-bridge/core` |
 | Android | Ktor 2.3 (CIO engine, +500 KB AAR) |
-| iOS | Telegraph (already used by the iOS llama backend) |
+| iOS | Hummingbird 2.x (swift-nio backbone — also the local backend HTTP server as of v3.2.0; replaced Telegraph for proper SSE streaming) |
 | .NET (desktop) | Kestrel middleware in the existing `OpenAIServer` |
 | React Native | Delegates to native iOS / Android proxies |
 | Flutter | Delegates to native iOS / Android proxies |
