@@ -51,7 +51,7 @@ dependencies {
     // The umbrella `co.deepvoiceai:dvai-bridge` brings in all four cores
     // (shared/llama/mediapipe/litert) as transitive `api` deps. Resolved
     // from `mavenLocal()` after `pwsh scripts/android-publish-local.ps1`.
-    implementation("co.deepvoiceai:dvai-bridge:3.0.0")
+    implementation("co.deepvoiceai:dvai-bridge:3.2.0")
 
     // OkHttp is already pulled in transitively through shared-core, but
     // declaring it here makes the example self-explanatory.
