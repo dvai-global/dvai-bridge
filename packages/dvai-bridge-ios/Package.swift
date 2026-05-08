@@ -61,6 +61,10 @@ let package = Package(
                 .product(name: "DVAIFoundationCore", package: "dvai-bridge-ios-foundation-core"),
                 .product(name: "DVAIMLXCore", package: "dvai-bridge-ios-mlx-core"),
                 "DVAICoreMLCore",
+                // v3.2 Phase 5 — outgoing-offload pre-routing proxy uses
+                // Telegraph as the embedded HTTP server (same as the iOS
+                // llama backend; already a top-level dep).
+                "Telegraph",
             ],
             path: "ios/Sources/DVAIBridge"
         ),
