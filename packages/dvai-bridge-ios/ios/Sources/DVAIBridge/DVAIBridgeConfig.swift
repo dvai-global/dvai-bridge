@@ -51,6 +51,15 @@ public struct DVAIBridgeConfig: Sendable {
         self.logLevel = logLevel
     }
 
+    /// v3.2 — copy with `httpBasePort` overridden. Used by the
+    /// OffloadProxy lifecycle to push the backend off the user-facing
+    /// port (proxy claims `httpBasePort`, backend gets `httpBasePort + 100`).
+    public func with(httpBasePort newPort: Int) -> DVAIBridgeConfig {
+        var copy = self
+        copy.httpBasePort = newPort
+        return copy
+    }
+
     /// Translate this config into the `[String: Any]` shape the underlying
     /// core PluginStates expect (matches the Capacitor JSObject shape).
     internal func toCoreOpts() -> [String: Any] {
