@@ -48,4 +48,21 @@ sealed class DVAIBridgeError(message: String, cause: Throwable? = null) : Except
 
     /** [DVAIBridge.downloadModel] failed before completion (network, disk, HTTP error). */
     class DownloadFailed(reason: String, cause: Throwable? = null) : DVAIBridgeError("Download failed: $reason", cause)
+
+    /**
+     * v3.2 — pre-init capability gate decided this device is too weak to run
+     * inference at all. Thrown by [DVAIBridge.start] AFTER the host
+     * `OffloadConfig.onHardwareTooWeak` callback fires (or, if no callback was
+     * supplied, after the SDK's default system-popup helper runs). The
+     * consumer's catch path can offer a cloud-fallback or a "device not
+     * supported" UI.
+     */
+    class HardwareTooWeak(
+        val tokPerSec: Double,
+        val hardwareMinimum: Double,
+        val reason: String,
+    ) : DVAIBridgeError(
+        "DVAI: hardware too weak to run inference locally. " +
+                "Estimated $tokPerSec tok/s; minimum is $hardwareMinimum tok/s.",
+    )
 }
