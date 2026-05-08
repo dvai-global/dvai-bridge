@@ -6,9 +6,12 @@ import co.deepvoiceai.bridge.llama.core.ModelDownloader
 import co.deepvoiceai.bridge.shared.core.CorsConfig
 import co.deepvoiceai.bridge.shared.core.capability.CapabilityCache
 import co.deepvoiceai.bridge.shared.core.capability.DeviceID
+import co.deepvoiceai.bridge.shared.core.capability.CapabilityPrecheck
+import co.deepvoiceai.bridge.shared.core.capability.PrecheckMode
 import co.deepvoiceai.bridge.shared.core.discovery.NsdAdvertiser
 import co.deepvoiceai.bridge.shared.core.discovery.NsdDiscovery
 import co.deepvoiceai.bridge.shared.core.discovery.PeerTxtKeys
+import co.deepvoiceai.bridge.shared.core.offload.HardwareTooWeakInfo
 import co.deepvoiceai.bridge.shared.core.offload.OffloadConfig
 import co.deepvoiceai.bridge.shared.core.pairing.PairingPolicy
 import co.deepvoiceai.bridge.shared.core.pairing.PairingRequest
@@ -73,6 +76,16 @@ object DVAIBridge {
     @Volatile private var pairingStore: PairingStore? = null
     @Volatile private var pairingPolicy: PairingPolicy? = null
 
+    // -------------------------------------------------------------------------
+    // v3.2 Phase 5 — pre-routing offload proxy
+    // -------------------------------------------------------------------------
+    @Volatile private var offloadProxy: OffloadProxy? = null
+    /** Set true after the precheck classifies the device into offload-only.
+     *  In that mode no model is downloaded / loaded; every request forwards
+     *  to a paired peer. */
+    @Volatile var offloadOnlyMode: Boolean = false
+        private set
+
     /**
      * Hot stream of [PairingRequest]s — surfaced to host UI when a peer
      * device requests to pair with this device over the LAN. Compose
@@ -115,30 +128,124 @@ object DVAIBridge {
         }
         broadcaster.emit(ProgressEvent.Started(phase = "start"))
 
-        val server: BoundServer = try {
-            when (resolved) {
-                BackendKind.Llama -> startLlama(opts)
-                BackendKind.MediaPipe -> startMediaPipe(opts)
-                BackendKind.LiteRT -> startLiteRT(opts)
-                BackendKind.Auto -> error("unreachable")
+        // ---------------------------------------------------------------
+        // v3.2 Phase 5 — pre-init capability gate.
+        //
+        // Runs the heuristic (no model required) and decides:
+        //   - TOO_WEAK     → call host onHardwareTooWeak hook + throw
+        //   - OFFLOAD_ONLY → skip backend init; bring up only proxy +
+        //                    discovery + pairing
+        //   - OK           → start backend normally + proxy in front
+        //
+        // Only executes when offload.enabled === true; otherwise the
+        // existing v3.1 path runs unchanged.
+        // ---------------------------------------------------------------
+        val offload = opts.offload?.takeIf { it.enabled }
+        offloadOnlyMode = false
+        if (offload != null) {
+            val ctx = applicationContext
+                ?: throw DVAIBridgeError.ConfigurationInvalid(
+                    "DVAIBridge.init(context) must be called before start() with offload enabled.",
+                )
+            val precheck = CapabilityPrecheck.assess(
+                context = ctx,
+                thresholds = CapabilityPrecheck.Thresholds(
+                    hardwareMinimum = offload.hardwareMinimum,
+                    minLocalCapability = offload.minLocalCapability,
+                ),
+            )
+            broadcaster.emit(
+                ProgressEvent.Progress(
+                    phase = "precheck",
+                    percent = -1f,
+                    message = "[DVAI/precheck] ${precheck.mode}: ${precheck.reason}",
+                ),
+            )
+            when (precheck.mode) {
+                PrecheckMode.TOO_WEAK -> {
+                    val info = HardwareTooWeakInfo(
+                        tokPerSec = precheck.tokPerSec,
+                        hardwareMinimum = offload.hardwareMinimum,
+                        reason = precheck.reason,
+                    )
+                    try {
+                        offload.onHardwareTooWeak?.invoke(info)
+                    } catch (e: Throwable) {
+                        broadcaster.emit(
+                            ProgressEvent.Progress(
+                                phase = "precheck",
+                                percent = -1f,
+                                message = "[DVAI/precheck] onHardwareTooWeak callback threw: ${e.message}",
+                            ),
+                        )
+                    }
+                    val err = DVAIBridgeError.HardwareTooWeak(
+                        tokPerSec = precheck.tokPerSec,
+                        hardwareMinimum = offload.hardwareMinimum,
+                        reason = precheck.reason,
+                    )
+                    broadcaster.emit(ProgressEvent.Failed(phase = "start", error = err))
+                    throw err
+                }
+                PrecheckMode.OFFLOAD_ONLY -> {
+                    offloadOnlyMode = true
+                }
+                PrecheckMode.OK -> {
+                    // proceed normally
+                }
             }
-        } catch (e: DVAIBridgeError) {
-            broadcaster.emit(ProgressEvent.Failed(phase = "start", error = e))
-            throw e
-        } catch (e: Throwable) {
-            val wrapped = DVAIBridgeError.BackendError(e)
-            broadcaster.emit(ProgressEvent.Failed(phase = "start", error = wrapped))
-            throw wrapped
         }
 
-        activeServer = server
-        activeBackend = resolved
-        // Phase 3 Task 8b: spin up offload services if enabled. Must happen
-        // *after* the server is bound so the advertiser can publish the right
-        // port. Non-fatal: failures here are logged but don't break start().
-        opts.offload?.takeIf { it.enabled }?.let { off ->
+        // Determine the backend's internal port. When the proxy is in
+        // front, shift the backend off the user-facing port to avoid
+        // collision: backend at httpBasePort + 100, proxy at httpBasePort.
+        val proxyEnabled = offload != null
+        val backendInternalBasePort = if (proxyEnabled) opts.httpBasePort + 100 else opts.httpBasePort
+        val backendOpts = if (proxyEnabled && !offloadOnlyMode) {
+            opts.copy(httpBasePort = backendInternalBasePort)
+        } else {
+            opts
+        }
+
+        // ---- Backend init (skipped in offload-only mode) ----
+        val backendServer: BoundServer? = if (offloadOnlyMode) {
+            broadcaster.emit(
+                ProgressEvent.Progress(
+                    phase = "backend",
+                    percent = -1f,
+                    message = "[DVAI/precheck] OFFLOAD_ONLY — backend init skipped (no model download/load).",
+                ),
+            )
+            null
+        } else {
             try {
-                initOffload(off, server)
+                when (resolved) {
+                    BackendKind.Llama -> startLlama(backendOpts)
+                    BackendKind.MediaPipe -> startMediaPipe(backendOpts)
+                    BackendKind.LiteRT -> startLiteRT(backendOpts)
+                    BackendKind.Auto -> error("unreachable")
+                }
+            } catch (e: DVAIBridgeError) {
+                broadcaster.emit(ProgressEvent.Failed(phase = "start", error = e))
+                throw e
+            } catch (e: Throwable) {
+                val wrapped = DVAIBridgeError.BackendError(e)
+                broadcaster.emit(ProgressEvent.Failed(phase = "start", error = wrapped))
+                throw wrapped
+            }
+        }
+
+        // ---- Public-facing server: backend (no offload) OR proxy (offload) ----
+        val server: BoundServer = if (proxyEnabled) {
+            // Bring up offload services (discovery + pairing) BEFORE proxy
+            // start so the proxy can read the live peer list on first request.
+            try {
+                initOffload(offload!!, backendServer ?: BoundServer(
+                    baseUrl = "http://127.0.0.1:0",
+                    port = 0,
+                    backend = resolved,
+                    modelId = "",
+                ))
             } catch (e: Throwable) {
                 broadcaster.emit(
                     ProgressEvent.Progress(
@@ -148,7 +255,50 @@ object DVAIBridge {
                     ),
                 )
             }
+
+            val proxy = OffloadProxy(
+                backendBaseUrl = backendServer?.baseUrl,
+                offloadConfig = offload!!,
+                pairingPolicy = pairingPolicy,
+                discovery = nsdDiscovery,
+                appId = opts.modelId ?: "co.deepvoiceai.dvai-bridge",
+                selfDeviceId = applicationContext?.let { DeviceID.get(it) } ?: "unknown",
+            )
+            val boundProxyPort = proxy.start(basePort = opts.httpBasePort, maxAttempts = opts.httpMaxPortAttempts)
+            offloadProxy = proxy
+            BoundServer(
+                baseUrl = proxy.baseUrl()!!,
+                port = boundProxyPort,
+                backend = resolved,
+                modelId = backendServer?.modelId.orEmpty(),
+            )
+        } else {
+            backendServer!!
         }
+
+        activeServer = server
+        activeBackend = resolved
+
+        // When the proxy is NOT in use, run the legacy offload-init path
+        // for parity with v3.0/v3.1 consumers that have offload set but
+        // not enabled (or for non-offload consumers — initOffload is a no-op
+        // when offload == null, but defensively gate on enabled here too).
+        if (!proxyEnabled) {
+            opts.offload?.takeIf { it.enabled }?.let { off ->
+                try {
+                    initOffload(off, server)
+                } catch (e: Throwable) {
+                    broadcaster.emit(
+                        ProgressEvent.Progress(
+                            phase = "start",
+                            percent = -1f,
+                            message = "[DVAI/offload] init skipped: ${e.message}",
+                        ),
+                    )
+                }
+            }
+        }
+
         reactive.onStarted(server)
         broadcaster.emit(ProgressEvent.Completed(phase = "start"))
         return server
@@ -249,6 +399,12 @@ object DVAIBridge {
         // before the HTTP port closes.
         try { nsdAdvertiser?.stop() } catch (_: Throwable) { }
         try { nsdDiscovery?.stop() } catch (_: Throwable) { }
+        // v3.2 — stop the proxy *after* discovery so in-flight peer
+        // forwards drain cleanly, but before the backend so consumer
+        // requests stop coming in before the backend goes away.
+        try { offloadProxy?.stop() } catch (_: Throwable) { }
+        offloadProxy = null
+        offloadOnlyMode = false
         nsdAdvertiser = null
         nsdDiscovery = null
         capabilityCache = null
