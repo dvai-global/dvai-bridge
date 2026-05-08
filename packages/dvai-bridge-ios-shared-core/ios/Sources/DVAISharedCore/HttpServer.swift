@@ -146,33 +146,32 @@ public actor HttpServer {
 
         // OpenAI-compatible API surface — every route delegates to
         // dispatchRoute, which produces a framework-neutral DVAIResponse.
-        // We wire all four POST + GET endpoints AND a catch-all so
-        // unmatched paths get the same CORS-aware 404 the Telegraph
-        // version emitted.
-        router.post("/v1/chat/completions") { req, _ in
+        // Hummingbird's trie-based router doesn't fall through from a
+        // specific path with mismatched method to a wildcard route, so
+        // we register OPTIONS explicitly for each known endpoint AS
+        // WELL AS the wildcard catch-all. CORS preflights against
+        // unknown paths still hit the wildcard and get a CORS-aware
+        // response.
+        let routeHandler: @Sendable (Request, BasicRequestContext) async throws -> Response = { req, _ in
             try await Self.handle(req, handlers: handlers, ctx: ctx, corsConfig: corsConfig)
         }
-        router.post("/v1/completions") { req, _ in
-            try await Self.handle(req, handlers: handlers, ctx: ctx, corsConfig: corsConfig)
-        }
-        router.post("/v1/embeddings") { req, _ in
-            try await Self.handle(req, handlers: handlers, ctx: ctx, corsConfig: corsConfig)
-        }
-        router.get("/v1/models") { req, _ in
-            try await Self.handle(req, handlers: handlers, ctx: ctx, corsConfig: corsConfig)
-        }
-        // OPTIONS catch-all (CORS preflight) for any path.
-        router.on("/**", method: .options) { req, _ in
-            try await Self.handle(req, handlers: handlers, ctx: ctx, corsConfig: corsConfig)
-        }
-        // GET / POST catch-all so unmatched paths get a CORS-aware 404
-        // body shape (rather than Hummingbird's default 404).
-        router.on("/**", method: .get) { req, _ in
-            try await Self.handle(req, handlers: handlers, ctx: ctx, corsConfig: corsConfig)
-        }
-        router.on("/**", method: .post) { req, _ in
-            try await Self.handle(req, handlers: handlers, ctx: ctx, corsConfig: corsConfig)
-        }
+
+        router.post("/v1/chat/completions", use: routeHandler)
+        router.post("/v1/completions", use: routeHandler)
+        router.post("/v1/embeddings", use: routeHandler)
+        router.get("/v1/models", use: routeHandler)
+
+        // Explicit OPTIONS preflight for each known endpoint so the
+        // trie matches BEFORE falling to 405 / 404.
+        router.on("/v1/chat/completions", method: .options, use: routeHandler)
+        router.on("/v1/completions", method: .options, use: routeHandler)
+        router.on("/v1/embeddings", method: .options, use: routeHandler)
+        router.on("/v1/models", method: .options, use: routeHandler)
+
+        // Catch-alls for unknown paths — CORS-aware 404 / 204 body.
+        router.on("/**", method: .options, use: routeHandler)
+        router.on("/**", method: .get, use: routeHandler)
+        router.on("/**", method: .post, use: routeHandler)
 
         let app = Application(
             router: router,
