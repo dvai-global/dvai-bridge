@@ -66,16 +66,19 @@ public actor MLXPluginState {
             )
         }
 
+        // Build handlers first; Hummingbird requires routes to be
+        // installed at Application construction time, so installRoutes
+        // → tryBind is the mandatory order.
+        let handlers = MLXHandlers(modelId: modelPath, modelContainer: modelContainer)
+        let ctx = HandlerContext(modelId: modelPath, backendName: "mlx")
         let server = HttpServer()
+        await server.installRoutes(handlers: handlers, ctx: ctx, corsConfig: corsConfig)
+
         let port = try await server.tryBind(
             basePort: httpBasePort,
             maxAttempts: httpMaxPortAttempts,
             host: "127.0.0.1"
         )
-
-        let handlers = MLXHandlers(modelId: modelPath, modelContainer: modelContainer)
-        let ctx = HandlerContext(modelId: modelPath, backendName: "mlx")
-        await server.installRoutes(handlers: handlers, ctx: ctx, corsConfig: corsConfig)
 
         self.handlers = handlers
         self.modelId = modelPath

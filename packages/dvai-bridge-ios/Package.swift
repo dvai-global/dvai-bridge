@@ -30,20 +30,22 @@ let package = Package(
         // / applyChatTemplate / encode / decode is API-compatible across
         // 1.2.x → 1.3.x.
         .package(url: "https://github.com/huggingface/swift-transformers.git", from: "1.2.0"),
-        // Telegraph HTTP server — transitively used by shared-core; we pull
-        // it directly for DVAICoreMLCore so the target's link line is
-        // self-explanatory.
-        .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
+        // v3.2.0 — Hummingbird is the iOS HTTP server backbone (replaces
+        // Telegraph). DVAISharedCore exports it transitively via its
+        // HttpServer actor, but we pull it here too so the OffloadProxy
+        // can use it directly without a `@_implementationOnly` import
+        // gymnastics step.
+        .package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.0.0"),
     ],
     targets: [
         .target(
             name: "DVAICoreMLCore",
             dependencies: [
                 .product(name: "Tokenizers", package: "swift-transformers"),
-                "Telegraph",
                 // CoreML backend uses shared HTTP types — DOES NOT depend on
                 // DVAILlamaCore (so CoreML-only consumers don't transitively
-                // pull llama.xcframework).
+                // pull llama.xcframework). DVAISharedCore brings Hummingbird
+                // transitively as of v3.2.0.
                 .product(name: "DVAISharedCore", package: "dvai-bridge-ios-shared-core"),
             ],
             path: "ios/Sources/DVAICoreMLCore"
@@ -61,10 +63,10 @@ let package = Package(
                 .product(name: "DVAIFoundationCore", package: "dvai-bridge-ios-foundation-core"),
                 .product(name: "DVAIMLXCore", package: "dvai-bridge-ios-mlx-core"),
                 "DVAICoreMLCore",
-                // v3.2 Phase 5 — outgoing-offload pre-routing proxy uses
-                // Telegraph as the embedded HTTP server (same as the iOS
-                // llama backend; already a top-level dep).
-                "Telegraph",
+                // v3.2 Phase 5 — outgoing-offload pre-routing proxy.
+                // Hummingbird (built on swift-nio) gives us proper
+                // streaming SSE bodies through the proxy.
+                .product(name: "Hummingbird", package: "hummingbird"),
             ],
             path: "ios/Sources/DVAIBridge"
         ),

@@ -22,13 +22,13 @@ let package = Package(
         // requirement that would force us to build a HF download/auth
         // story alongside this scaffold; defer to Phase 3D.
         .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", "2.31.3" ..< "3.0.0"),
-        // Telegraph: same HTTP server stack as the other *-core packages.
-        .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
         // Shared HTTP-server / handler-dispatch types. Note: previously
         // depended on DVAILlamaCore for these types, but that transitively
         // pulled the llama.xcframework into MLX-only builds. The
         // shared-core extraction breaks that coupling so MLX consumers
-        // don't drag a binary they never use.
+        // don't drag a binary they never use. DVAISharedCore brings in
+        // Hummingbird transitively as of v3.2.0 — the iOS HTTP server
+        // backbone is no longer Telegraph.
         .package(path: "../dvai-bridge-ios-shared-core"),
     ],
     targets: [
@@ -38,7 +38,6 @@ let package = Package(
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "DVAISharedCore", package: "dvai-bridge-ios-shared-core"),
-                "Telegraph",
             ],
             path: "ios/Sources/DVAIMLXCore"
         ),

@@ -69,17 +69,20 @@ public actor FoundationPluginState {
         let modelIdOverride = opts["modelId"] as? String
         let modelId = modelIdOverride ?? "apple-foundation-3b"
 
-        // Bind server with port-fallback (mirrors capacitor-llama).
+        // Build handlers first; Hummingbird requires routes to be
+        // installed at Application construction time, so installRoutes
+        // → tryBind is the mandatory order.
+        let handlers = FoundationHandlers(modelId: modelId)
+        let ctx = HandlerContext(modelId: modelId, backendName: "foundation")
         let server = HttpServer()
+        await server.installRoutes(handlers: handlers, ctx: ctx, corsConfig: corsConfig)
+
+        // Bind server with port-fallback (mirrors capacitor-llama).
         let port = try await server.tryBind(
             basePort: httpBasePort,
             maxAttempts: httpMaxPortAttempts,
             host: "127.0.0.1"
         )
-
-        let handlers = FoundationHandlers(modelId: modelId)
-        let ctx = HandlerContext(modelId: modelId, backendName: "foundation")
-        await server.installRoutes(handlers: handlers, ctx: ctx, corsConfig: corsConfig)
 
         self.handlers = handlers
         self.modelId = modelId

@@ -14,11 +14,12 @@ let package = Package(
         .library(name: "DVAIFoundationCore", targets: ["DVAIFoundationCore"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
         // Shared HTTP-server / handler-dispatch types (formerly duplicated
         // inline; now extracted into dvai-bridge-ios-shared-core for reuse
         // across all backend cores). Path-dep identity =
-        // "dvai-bridge-ios-shared-core".
+        // "dvai-bridge-ios-shared-core". DVAISharedCore brings in
+        // Hummingbird transitively as of v3.2.0 — the iOS HTTP server
+        // backbone is no longer Telegraph.
         .package(path: "../dvai-bridge-ios-shared-core"),
     ],
     targets: [
@@ -28,7 +29,6 @@ let package = Package(
         .target(
             name: "DVAIFoundationCore",
             dependencies: [
-                "Telegraph",
                 .product(name: "DVAISharedCore", package: "dvai-bridge-ios-shared-core"),
             ],
             path: "ios/Sources/DVAIFoundationCore"

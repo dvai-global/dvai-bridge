@@ -71,9 +71,29 @@ public actor PluginState {
         // an audio encoder is present in the projector.
         let modelHasAudioEncoder = mmprojLoaded && bridge.hasAudioEncoder()
 
-        // Bind server (with port-fallback). If bind fails, release the bridge
-        // so the loaded llama context doesn't leak until next start().
+        // Build handlers + context first; Hummingbird requires routes
+        // to be registered at Application construction time, so the
+        // installRoutes → tryBind order is mandatory. Phase 2A Pass 2:
+        // real flags mirrored from the bridge state. embeddingMode
+        // comes straight from the start opts so /v1/embeddings can
+        // short-circuit when off. chatTemplate is an optional
+        // Jinja-compatible override; nil/empty falls through to the
+        // model's bundled `tokenizer.chat_template`.
+        let handlers = LlamaHandlers(
+            bridge: bridge,
+            modelId: modelPath,
+            mmprojLoaded: mmprojLoaded,
+            modelHasAudioEncoder: modelHasAudioEncoder,
+            embeddingMode: embeddingMode,
+            chatTemplate: chatTemplate
+        )
+        let ctx = HandlerContext(modelId: modelPath, backendName: "llama")
         let server = HttpServer()
+        await server.installRoutes(handlers: handlers, ctx: ctx, corsConfig: corsConfig)
+
+        // Bind server (with port-fallback). If bind fails, release the
+        // bridge so the loaded llama context doesn't leak until next
+        // start().
         let port: Int
         do {
             port = try await server.tryBind(
@@ -85,22 +105,6 @@ public actor PluginState {
             bridge.unload()
             throw error
         }
-
-        // Install routes. Phase 2A Pass 2: real flags mirrored from the
-        // bridge state. embeddingMode comes straight from the start opts so
-        // /v1/embeddings can short-circuit when off. chatTemplate is an
-        // optional Jinja-compatible override; nil/empty falls through to
-        // the model's bundled `tokenizer.chat_template`.
-        let handlers = LlamaHandlers(
-            bridge: bridge,
-            modelId: modelPath,
-            mmprojLoaded: mmprojLoaded,
-            modelHasAudioEncoder: modelHasAudioEncoder,
-            embeddingMode: embeddingMode,
-            chatTemplate: chatTemplate
-        )
-        let ctx = HandlerContext(modelId: modelPath, backendName: "llama")
-        await server.installRoutes(handlers: handlers, ctx: ctx, corsConfig: corsConfig)
 
         self.bridge = bridge
         self.server = server
