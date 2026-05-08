@@ -28,6 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import co.deepvoiceai.bridge.DVAIBridge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,11 +58,21 @@ import java.util.concurrent.TimeUnit
  * path). Authenticated identity for Android requires the SDK to
  * complete its handshake/HMAC implementation — a v3.1 finalization
  * task that's separate from this E2E.
+ *
+ * v3.2 — added "Probe device hardware" button at the bottom. Calls
+ * the new SDK-side `DVAIBridge.assessHardware()` to demo the
+ * pre-init capability gate without needing to actually start a
+ * model. The full SDK-routed-offload demo (with mDNS pairing to
+ * Hub) is intentionally NOT in this example yet — it requires a
+ * pairing UI flow. Tracked as a v3.2.x dogfood example.
  */
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // v3.2 — DVAIBridge.assessHardware() needs the application
+        // context for ActivityManager-backed RAM detection.
+        DVAIBridge.init(applicationContext)
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -144,6 +155,41 @@ private fun HubE2EScreen() {
                     }
                 },
             ) { Text(if (busy) "Working…" else "Test Refuse (no matching backend)") }
+
+            // v3.2 — pre-init hardware assessment demo.
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "v3.2 — pre-init hardware assessment",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Button(
+                enabled = !busy,
+                onClick = {
+                    busy = true
+                    status = "Running DVAIBridge.assessHardware()…"
+                    response = ""
+                    try {
+                        val a = DVAIBridge.assessHardware(
+                            hardwareMinimum = 3.0,
+                            minLocalCapability = 10.0,
+                        )
+                        response = buildString {
+                            append("mode: ").append(a.mode).append('\n')
+                            append("tokPerSec: ").append(a.tokPerSec).append('\n')
+                            append("hints: hasNpu=").append(a.hints.hasNpu)
+                            append(", ramGb=").append(a.hints.ramGb)
+                            append(", gpu=").append(a.hints.gpuClass)
+                            append(", cpu=").append(a.hints.cpuClass).append('\n')
+                            append("reason: ").append(a.reason)
+                        }
+                        status = "Done. Mode: ${a.mode}"
+                    } catch (e: Throwable) {
+                        status = "assessHardware() threw: ${e.message}"
+                    } finally {
+                        busy = false
+                    }
+                },
+            ) { Text(if (busy) "Working…" else "Probe device hardware (assessHardware)") }
 
             if (busy) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth(1f))
