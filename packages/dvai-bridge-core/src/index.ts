@@ -287,6 +287,15 @@ export class DVAI {
 
 	/** OffloadConfig as supplied by the consumer (or undefined). */
 	public offload?: import("./offload/index.js").OffloadConfig;
+	/**
+	 * v3.2 — set true when the pre-init capability gate decides this
+	 * device is below `OffloadConfig.minLocalCapability`. In this mode
+	 * `initialize()` skips backend init entirely (no model download /
+	 * load) and only brings up discovery + pairing. Every request is
+	 * expected to be forwarded to a paired peer; without one, requests
+	 * 503.
+	 */
+	public offloadOnlyMode: boolean = false;
 	/** Capability cache (persistent storage of probe scores). */
 	private capabilityCache?: import("./capability/index.js").CapabilityCache;
 	/** Phase 3 — built when offload.enabled; mounted on the HTTP transport via the handler context. */
@@ -434,8 +443,71 @@ export class DVAI {
 		}
 
 		try {
-			// 1. Initialize the selected backend (lazy import)
-			await this.initializeBackend(onProgress);
+			// 0.5 v3.2 — pre-init capability gate. Runs the heuristic
+			// (CPU/GPU/RAM hints, no model required) and decides:
+			//
+			//   - too-weak: fire onHardwareTooWeak host callback so the
+			//     consumer can show a system popup, then throw — no
+			//     model download, no backend init, no transport.
+			//   - offload-only: skip the backend init below; bring up
+			//     only the transport + offload state. Every chat
+			//     request is expected to forward to a paired peer.
+			//   - ok: proceed to full initialization.
+			//
+			// Skipped entirely when offload is not configured or when
+			// `offload.enabled` is false — there's no point gating a
+			// device that has no offload path.
+			if (this.offload?.enabled) {
+				const { assessCapability, HardwareTooWeakError } =
+					await import("./capability/precheck.js");
+				const result = await assessCapability({
+					hardwareMinimum: this.offload.hardwareMinimum,
+					minLocalCapability: this.offload.minLocalCapability,
+				});
+				if (result.mode === "too-weak") {
+					try {
+						await this.offload.onHardwareTooWeak?.({
+							tokPerSec: result.tokPerSec,
+							hardwareMinimum:
+								this.offload.hardwareMinimum ?? 3,
+							reason: result.reason,
+						});
+					} catch (e) {
+						console.warn(
+							"[DVAI/precheck] onHardwareTooWeak callback threw; ignoring:",
+							e,
+						);
+					}
+					throw new HardwareTooWeakError({
+						tokPerSec: result.tokPerSec,
+						hardwareMinimum:
+							this.offload.hardwareMinimum ?? 3,
+						hints: result.hints,
+						reason: result.reason,
+					});
+				}
+				this.offloadOnlyMode = result.mode === "offload-only";
+				onProgress({
+					phase: "precheck",
+					mode: result.mode,
+					tokPerSec: result.tokPerSec,
+					reason: result.reason,
+				});
+			}
+
+			// 1. Initialize the selected backend (lazy import). Skipped
+			// when the precheck put us in offload-only mode — the
+			// consumer won't be running inference locally, so we don't
+			// pay the model download/load cost.
+			if (!this.offloadOnlyMode) {
+				await this.initializeBackend(onProgress);
+			} else {
+				onProgress({
+					phase: "backend",
+					skipped: true,
+					reason: "offload-only mode (device below minLocalCapability)",
+				});
+			}
 
 			// 2. Select transport based on env + config
 			const { selectTransport, MswTransport, HttpTransport, CapacitorTransport } =
