@@ -110,6 +110,18 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion"
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
 
+    // Phase 5 (v3.2) — outgoing-offload pre-routing proxy. The proxy
+    // binds the public port; the underlying native backend binds an
+    // internal loopback port. Per-request the proxy decides local-vs-
+    // forward and either streams from local or HMAC-signs + forwards
+    // to a paired peer. CIO engine is the smallest of the Ktor engine
+    // options (~500 KB AAR contribution vs Netty's ~3 MB).
+    implementation "io.ktor:ktor-server-core:$ktorVersion"
+    implementation "io.ktor:ktor-server-cio:$ktorVersion"
+    implementation "io.ktor:ktor-server-status-pages:$ktorVersion"
+    implementation "io.ktor:ktor-client-core:$ktorVersion"
+    implementation "io.ktor:ktor-client-cio:$ktorVersion"
+
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion"
     testImplementation 'org.robolectric:robolectric:4.16.1'
