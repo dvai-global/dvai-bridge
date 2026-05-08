@@ -80,6 +80,9 @@ pub fn run() {
             ipc::respond_to_pairing,
             ipc::get_audit_log,
             ipc::invalidate_engine_cache,
+            ipc::get_app_config,
+            ipc::set_app_config,
+            ipc::revoke_all_pairings,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

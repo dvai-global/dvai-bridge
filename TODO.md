@@ -226,21 +226,40 @@ Apply the same pattern to llama.cpp (`progress_callback` in
 
 ---
 
-## Phase 5 territory (post-v3.1)
+## Phase 6+ territory (post-v3.2)
 
-Out of scope for v3.1, parked here so the trail isn't lost:
+Parked here so the trail isn't lost. Mobile-Hub (DVAI Hub on iPad /
+Android tablet) was previously listed and has been **explicitly
+dropped from the roadmap** — the iOS background-server entitlement
+story is too fragile and Android tablets aren't compelling enough
+on their own.
 
-- **Mobile-Hub flavor** — DVAI Hub for tablets / iPad. Same idea,
-  different form factor, different distribution path (App Store
-  rather than Homebrew/winget).
-- **Multi-instance rendezvous scaling** — Redis-backed session store
-  so the WebSocket relay scales horizontally past one VM.
+What's left:
+
+- **Headless Hub (NAS / Docker / Unraid)** — Synology DSM SPK,
+  Docker image, Unraid template. Likely the highest-value Hub
+  use-case for users with idle server hardware. Candidate for
+  v3.3.0.
 - **Persistent rendezvous-pairing across reboots** — currently
-  rendezvous sessions are in-memory; restarts force re-pair.
-- **TensorRT-LLM as a first-party backend** — parked per the Phase
-  4 spec; revisit when the build chain stabilizes.
+  rendezvous sessions are in-memory; restarts force re-pair. Only
+  becomes acute once Headless Hub lands ("the NAS rebooted, now
+  every phone needs to re-pair"). Pull into v3.3.x with Headless.
+- **Multi-instance rendezvous scaling** — Redis-backed session
+  store so the WebSocket relay scales horizontally past one VM.
+  Phase 7 / v4.0 territory; only matters if rendezvous traffic
+  outgrows one box.
+- **Multi-user / federated Hub** — Phase 7 / v4.0. "DVAI Hub Pro":
+  per-user audit logs, quotas, optional centralized policy + Hub-
+  to-Hub mesh discovery so a household with multiple capable
+  devices forms an inference cluster.
+- **TensorRT-LLM as a first-party backend** — parked per the
+  Phase 4 spec; revisit when the build chain stabilizes.
 - **CLI diagnostics tool** — `dvai-bridge cli peers`, `... probe`,
   `... pair`. Useful for ops without the Tauri UI.
+- **Voice / image pipelines as first-class Hub-side capabilities**
+  — Hub today is LLM-shaped (`/v1/chat/completions`). Whisper-in
+  + TTS-out on Hub would unlock real assistant UX without a cloud
+  round-trip. Probably v3.3+.
 
 ---
 

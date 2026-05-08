@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, type Pairing } from "../api/index.js";
+import { PerAppConfig } from "./PerAppConfig.js";
 
 export function PairedAppsTab(): JSX.Element {
   const [pairings, setPairings] = useState<Pairing[]>([]);
@@ -56,6 +57,14 @@ export function PairedAppsTab(): JSX.Element {
             <code>{appId}</code>
             <span className="meta">{peers.length} device{peers.length === 1 ? "" : "s"}</span>
           </header>
+
+          {/* v3.1.x scaffold: per-app pairing-mode + rate-limit + revoke-all. */}
+          <PerAppConfig
+            appId={appId}
+            pairingCount={peers.length}
+            onRevokedAll={refresh}
+          />
+
           <table>
             <thead>
               <tr>

@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { api, type PeerModeStatus } from "../api/index.js";
+import { ModelLoadProgressBar } from "./ModelLoadProgress.js";
 
 export interface StatusTabProps {
   status: PeerModeStatus | null;
@@ -109,6 +110,11 @@ export function StatusTab(props: StatusTabProps): JSX.Element {
           Pause
         </button>
       </div>
+
+      {/* v3.1.x scaffold: surfaces Transformers.js + llama.cpp model
+          load/download progress while at least one is in flight.
+          Renders nothing when idle. */}
+      <ModelLoadProgressBar />
 
       {pairingCount === 0 && (
         <div className="callout">
