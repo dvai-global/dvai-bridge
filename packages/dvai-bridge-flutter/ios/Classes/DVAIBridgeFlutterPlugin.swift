@@ -158,6 +158,26 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
     }
   }
 
+  public func assessHardware(
+    hardwareMinimum: Double,
+    minLocalCapability: Double,
+    completion: @escaping (Result<HardwareAssessmentMessage, Error>) -> Void
+  ) {
+    let a = DVAIBridge.shared.assessHardware(
+      hardwareMinimum: hardwareMinimum,
+      minLocalCapability: minLocalCapability
+    )
+    completion(.success(HardwareAssessmentMessage(
+      mode: a.mode.rawValue,
+      tokPerSec: a.tokPerSec,
+      reason: a.reason,
+      hasNpu: a.hints.hasNpu,
+      ramGb: Int64(a.hints.ramGb),
+      gpuClass: a.hints.gpuClass.rawValue,
+      cpuClass: a.hints.cpuClass.rawValue
+    )))
+  }
+
   // MARK: - Translation helpers
 
   private static func makeConfig(from msg: StartOptionsMessage) throws -> DVAIBridgeConfig {

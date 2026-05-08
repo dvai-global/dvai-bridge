@@ -202,6 +202,33 @@ class DVAIBridge {
     }
   }
 
+  /// v3.2 — pre-init hardware assessment.
+  ///
+  /// Returns a JSON-shaped [HardwareAssessment] describing how this
+  /// device would handle local inference, BEFORE any model
+  /// download/load. The SDK never shows UI for hardware decisions;
+  /// consumer apps query this and decide their own UX based on
+  /// [HardwareAssessment.mode].
+  ///
+  /// Defaults match the native sides (3.0 / 10.0 tok/s). Pass
+  /// overrides matching your `OffloadConfig` if you've customized.
+  Future<HardwareAssessment> assessHardware({
+    double hardwareMinimum = 3.0,
+    double minLocalCapability = 10.0,
+  }) async {
+    try {
+      final wire.HardwareAssessmentMessage msg =
+          await _api.assessHardware(hardwareMinimum, minLocalCapability);
+      return HardwareAssessment.fromMessage(msg);
+    } on PlatformException catch (err) {
+      throw DVAIBridgeError.fromPlatform(
+        code: err.code,
+        message: err.message,
+        details: err.details,
+      );
+    }
+  }
+
   /// Download a model file with SHA-256 verification. Resolves with the
   /// cached file's path on success.
   Future<DownloadResult> downloadModel(DownloadOptions opts) async {

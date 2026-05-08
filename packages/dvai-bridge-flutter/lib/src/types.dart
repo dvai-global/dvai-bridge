@@ -548,3 +548,205 @@ class DownloadResult {
         'sizeBytes: $sizeBytes, cached: $cached)';
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* v3.2 — pre-init hardware assessment                                        */
+/* -------------------------------------------------------------------------- */
+
+/// Lifecycle mode the SDK would enter on `start()`. Returned by
+/// [DVAIBridge.assessHardware]. Matches the kebab-case enum values
+/// used on every other platform so cross-platform consumers see the
+/// same strings regardless of host.
+enum PrecheckMode {
+  /// Device can comfortably run the model locally.
+  ok('ok'),
+
+  /// Device can run but slowly; route requests to a paired peer.
+  offloadOnly('offload-only'),
+
+  /// Device is below the hardware floor; consumer should typically bail.
+  tooWeak('too-weak');
+
+  const PrecheckMode(this.wire);
+
+  /// Wire-format string ("ok" | "offload-only" | "too-weak").
+  final String wire;
+
+  /// Decode a wire-format string. Defaults to [PrecheckMode.tooWeak] for
+  /// unknown values — safer to under-promise than to over-promise.
+  static PrecheckMode fromWire(String value) {
+    for (final v in PrecheckMode.values) {
+      if (v.wire == value) return v;
+    }
+    return PrecheckMode.tooWeak;
+  }
+}
+
+/// GPU class buckets used by the heuristic.
+enum GpuClass {
+  /// No GPU acceleration — CPU-only inference.
+  none('none'),
+
+  /// Integrated GPU (mobile / iGPU).
+  integrated('integrated'),
+
+  /// Dedicated discrete GPU (e.g. RTX-class).
+  discrete('discrete'),
+
+  /// Apple Silicon unified memory + Metal.
+  appleSilicon('apple-silicon');
+
+  const GpuClass(this.wire);
+
+  /// Wire-format string used over the Pigeon channel.
+  final String wire;
+
+  /// Decode a wire-format string. Defaults to [GpuClass.integrated]
+  /// for unknown values.
+  static GpuClass fromWire(String value) {
+    for (final v in GpuClass.values) {
+      if (v.wire == value) return v;
+    }
+    return GpuClass.integrated;
+  }
+}
+
+/// CPU class buckets used by the heuristic.
+enum CpuClass {
+  /// Low core count (< 4 logical cores).
+  low('low'),
+
+  /// Mid core count (4–7 logical cores).
+  mid('mid'),
+
+  /// High core count (8+ logical cores).
+  high('high');
+
+  const CpuClass(this.wire);
+
+  /// Wire-format string used over the Pigeon channel.
+  final String wire;
+
+  /// Decode a wire-format string. Defaults to [CpuClass.mid] for
+  /// unknown values.
+  static CpuClass fromWire(String value) {
+    for (final v in CpuClass.values) {
+      if (v.wire == value) return v;
+    }
+    return CpuClass.mid;
+  }
+}
+
+/// Coarse hardware hints used by the precheck heuristic.
+class DeviceCapabilityHints {
+  /// Construct hints directly. Production code uses
+  /// [DVAIBridge.assessHardware] which fills these in via the native
+  /// SDK; callers occasionally construct synthetic hints for tests.
+  const DeviceCapabilityHints({
+    required this.hasNpu,
+    required this.ramGb,
+    required this.gpuClass,
+    required this.cpuClass,
+  });
+
+  /// Whether the device has a dedicated NPU (Apple Neural Engine,
+  /// Hexagon, Intel NPU, etc.) used by the active backend.
+  final bool hasNpu;
+
+  /// Approximate system RAM in GB.
+  final int ramGb;
+
+  /// Best-guess GPU class.
+  final GpuClass gpuClass;
+
+  /// Coarse CPU class bucket.
+  final CpuClass cpuClass;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DeviceCapabilityHints &&
+      other.hasNpu == hasNpu &&
+      other.ramGb == ramGb &&
+      other.gpuClass == gpuClass &&
+      other.cpuClass == cpuClass;
+
+  @override
+  int get hashCode => Object.hash(hasNpu, ramGb, gpuClass, cpuClass);
+
+  @override
+  String toString() =>
+      'DeviceCapabilityHints(hasNpu: $hasNpu, ramGb: $ramGb, '
+      'gpuClass: ${gpuClass.wire}, cpuClass: ${cpuClass.wire})';
+}
+
+/// v3.2 — JSON-serializable result of [DVAIBridge.assessHardware].
+///
+/// The SDK never shows UI for hardware decisions — consumer apps query
+/// this and decide their own UX based on [mode]:
+///
+///  - [PrecheckMode.ok]          → device can comfortably run the
+///                                 model locally; `start()` proceeds
+///                                 normally.
+///  - [PrecheckMode.offloadOnly] → device can run but slowly (below
+///                                 `OffloadConfig.minLocalCapability`);
+///                                 `start()` skips the model load and
+///                                 routes every request to a paired
+///                                 peer.
+///  - [PrecheckMode.tooWeak]     → device is below the hardware floor
+///                                 (3 tok/s by default); `start()`
+///                                 ALSO skips the model load.
+///                                 Consumers typically bail rather
+///                                 than even calling `start()`.
+class HardwareAssessment {
+  /// Construct an assessment directly. Production code uses
+  /// [DVAIBridge.assessHardware] which fills these in.
+  const HardwareAssessment({
+    required this.mode,
+    required this.tokPerSec,
+    required this.reason,
+    required this.hints,
+  });
+
+  /// Decode from the Pigeon wire format.
+  factory HardwareAssessment.fromMessage(wire.HardwareAssessmentMessage msg) {
+    return HardwareAssessment(
+      mode: PrecheckMode.fromWire(msg.mode),
+      tokPerSec: msg.tokPerSec,
+      reason: msg.reason,
+      hints: DeviceCapabilityHints(
+        hasNpu: msg.hasNpu,
+        ramGb: msg.ramGb,
+        gpuClass: GpuClass.fromWire(msg.gpuClass),
+        cpuClass: CpuClass.fromWire(msg.cpuClass),
+      ),
+    );
+  }
+
+  /// Lifecycle mode the SDK would enter on `start()`.
+  final PrecheckMode mode;
+
+  /// Estimated decode tok/s for any 1–3B-class model on this device.
+  final double tokPerSec;
+
+  /// Human-readable explanation; safe to log + display.
+  final String reason;
+
+  /// Underlying hints used to compute the estimate.
+  final DeviceCapabilityHints hints;
+
+  @override
+  bool operator ==(Object other) =>
+      other is HardwareAssessment &&
+      other.mode == mode &&
+      other.tokPerSec == tokPerSec &&
+      other.reason == reason &&
+      other.hints == hints;
+
+  @override
+  int get hashCode => Object.hash(mode, tokPerSec, reason, hints);
+
+  @override
+  String toString() =>
+      'HardwareAssessment(mode: ${mode.wire}, tokPerSec: $tokPerSec, '
+      'reason: $reason, hints: $hints)';
+}
