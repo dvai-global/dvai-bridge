@@ -72,18 +72,21 @@ public actor CoreMLPluginState {
         let modelIdValue = modelURL.deletingPathExtension().lastPathComponent
         let handlers = CoreMLHandlers(generator: gen, modelId: modelIdValue)
 
+        // Build context + cors first, install routes, THEN bind —
+        // Hummingbird requires routes at Application construction time
+        // so the install → bind order is mandatory.
+        let ctx = HandlerContext(modelId: modelIdValue, backendName: "coreml")
+        // Note: plan used DispatchConfig which doesn't exist in DVAILlamaCore.
+        // Real type is CORSConfig (public). parseCors() below maps opts → CORSConfig.
+        let corsConfig = parseCors(opts["corsOrigin"])
         let server = HttpServer()
+        await server.installRoutes(handlers: handlers, ctx: ctx, corsConfig: corsConfig)
+
         let boundPort = try await server.tryBind(
             basePort: httpBasePort,
             maxAttempts: httpMaxPortAttempts,
             host: "127.0.0.1"
         )
-
-        let ctx = HandlerContext(modelId: modelIdValue, backendName: "coreml")
-        // Note: plan used DispatchConfig which doesn't exist in DVAILlamaCore.
-        // Real type is CORSConfig (public). parseCors() below maps opts → CORSConfig.
-        let corsConfig = parseCors(opts["corsOrigin"])
-        await server.installRoutes(handlers: handlers, ctx: ctx, corsConfig: corsConfig)
 
         self.httpServer = server
         self.generator = gen

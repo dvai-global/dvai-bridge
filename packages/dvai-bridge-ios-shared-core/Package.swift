@@ -10,25 +10,47 @@ import PackageDescription
 //
 // Public types here:
 //   - HandlerContext, HandlerResponse, DVAIHandlers (HandlerContext.swift)
+//   - DVAIRequest, DVAIResponse, DVAIHttpMethod (HandlerContext.swift)
 //   - CORSConfig, dispatchRoute, formatResponse (HandlerDispatch.swift)
 //   - HttpServer (HttpServer.swift)
 //
-// Platform floor matches the most permissive consumer (DVAILlamaCore =
-// iOS 14 / macOS 12). Other consumers (DVAIFoundationCore, DVAIMLXCore,
-// DVAIBridge) raise their own minimums independently.
+// v3.2.0 — migrated off Telegraph onto Hummingbird. Telegraph 0.40
+// buffered SSE bodies server-side AND its private HTTPParserC clang
+// module collided with swift-nio's CNIOLLHTTP whenever a downstream
+// target imported both. Hummingbird (built on swift-nio) gives us
+// proper streaming SSE plus a single, consistent C-module footprint
+// across DVAISharedCore, DVAIBridge, and the OffloadProxy. Public
+// API surface is unchanged: HttpServer.installRoutes / tryBind / stop
+// signatures match the Telegraph era 1:1 (the only call-site change
+// is install-then-bind ordering, since Hummingbird requires the
+// router at Application construction time).
+//
+// Platform floor: iOS 17 / macOS 14 — Hummingbird 2.x's own minimum.
+// Earlier (Telegraph era) we shipped iOS 14 / macOS 12; the SSE
+// streaming + cross-platform clang-module fix in v3.2.0 required
+// migrating to swift-nio's HTTP stack, which carries the iOS 17 floor
+// transitively. Backend cores bump their floors to match (DVAILlamaCore
+// → 17/14; DVAIFoundationCore + DVAIMLXCore + DVAIBridge already at
+// iOS 17+/macOS 14+).
 let package = Package(
     name: "DVAISharedCore",
-    platforms: [.iOS(.v14), .macOS(.v12)],
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "DVAISharedCore", targets: ["DVAISharedCore"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
+        // Hummingbird 2.x — our HTTP server backbone. Built on swift-nio
+        // so we get streaming SSE response bodies for free. Pinned to
+        // 2.0.0 minor so swift-nio dep ranges line up with mlx-swift's
+        // pins; can be relaxed once Hummingbird 3 stabilises.
+        .package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.0.0"),
     ],
     targets: [
         .target(
             name: "DVAISharedCore",
-            dependencies: ["Telegraph"],
+            dependencies: [
+                .product(name: "Hummingbird", package: "hummingbird"),
+            ],
             path: "ios/Sources/DVAISharedCore"
         ),
         .testTarget(

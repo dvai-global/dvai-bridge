@@ -1,6 +1,5 @@
 import XCTest
 @testable import DVAISharedCore
-import Telegraph
 
 /// A fake DVAIHandlers implementation that returns canned responses.
 final class FakeHandlers: DVAIHandlers, @unchecked Sendable {
@@ -22,39 +21,39 @@ final class HandlerDispatchTest: XCTestCase {
     let ctx = HandlerContext(modelId: "test", backendName: "llama")
 
     func testCorsPreflightReturns204WithPNA() async {
-        let req = HTTPRequest(.OPTIONS, uri: URI(path: "/v1/chat/completions"))
+        let req = DVAIRequest(method: .options, path: "/v1/chat/completions")
         let resp = await dispatchRoute(
             request: req,
             handlers: FakeHandlers(),
             ctx: ctx,
             corsConfig: .wildcard
         )
-        XCTAssertEqual(resp.status.code, 204)
+        XCTAssertEqual(resp.status, 204)
         XCTAssertEqual(resp.headers["Access-Control-Allow-Private-Network"], "true")
         XCTAssertEqual(resp.headers["Access-Control-Allow-Origin"], "*")
         XCTAssertNotNil(resp.headers["Access-Control-Allow-Methods"])
     }
 
     func testUnknownPathReturns404() async {
-        let req = HTTPRequest(.GET, uri: URI(path: "/v1/unknown"))
+        let req = DVAIRequest(method: .get, path: "/v1/unknown")
         let resp = await dispatchRoute(
             request: req,
             handlers: FakeHandlers(),
             ctx: ctx,
             corsConfig: .wildcard
         )
-        XCTAssertEqual(resp.status.code, 404)
+        XCTAssertEqual(resp.status, 404)
     }
 
     func testGetModelsReturnsCannedResponse() async throws {
-        let req = HTTPRequest(.GET, uri: URI(path: "/v1/models"))
+        let req = DVAIRequest(method: .get, path: "/v1/models")
         let resp = await dispatchRoute(
             request: req,
             handlers: FakeHandlers(),
             ctx: ctx,
             corsConfig: .wildcard
         )
-        XCTAssertEqual(resp.status.code, 200)
+        XCTAssertEqual(resp.status, 200)
         XCTAssertEqual(resp.headers["Content-Type"], "application/json")
 
         let json = try JSONSerialization.jsonObject(with: resp.body) as? [String: Any]
@@ -65,12 +64,10 @@ final class HandlerDispatchTest: XCTestCase {
         let body = try JSONSerialization.data(
             withJSONObject: ["messages": [["role": "user", "content": "hi"]]]
         )
-        var headers: HTTPHeaders = .empty
-        headers["Content-Type"] = "application/json"
-        let req = HTTPRequest(
-            .POST,
-            uri: URI(path: "/v1/chat/completions"),
-            headers: headers,
+        let req = DVAIRequest(
+            method: .post,
+            path: "/v1/chat/completions",
+            headers: ["Content-Type": "application/json"],
             body: body
         )
         let resp = await dispatchRoute(
@@ -79,20 +76,17 @@ final class HandlerDispatchTest: XCTestCase {
             ctx: ctx,
             corsConfig: .wildcard
         )
-        XCTAssertEqual(resp.status.code, 200)
+        XCTAssertEqual(resp.status, 200)
 
         let json = try JSONSerialization.jsonObject(with: resp.body) as? [String: Any]
         XCTAssertEqual(json?["id"] as? String, "chatcmpl-fake")
     }
 
     func testCorsAllowlistMatchesOrigin() async {
-        var headers: HTTPHeaders = .empty
-        headers["Origin"] = "https://app.example.com"
-        let req = HTTPRequest(
-            .GET,
-            uri: URI(path: "/v1/models"),
-            headers: headers,
-            body: Data()
+        let req = DVAIRequest(
+            method: .get,
+            path: "/v1/models",
+            headers: ["Origin": "https://app.example.com"]
         )
         let resp = await dispatchRoute(
             request: req,
@@ -107,13 +101,10 @@ final class HandlerDispatchTest: XCTestCase {
     }
 
     func testCorsAllowlistRejectsUnlistedOrigin() async {
-        var headers: HTTPHeaders = .empty
-        headers["Origin"] = "https://evil.example.com"
-        let req = HTTPRequest(
-            .GET,
-            uri: URI(path: "/v1/models"),
-            headers: headers,
-            body: Data()
+        let req = DVAIRequest(
+            method: .get,
+            path: "/v1/models",
+            headers: ["Origin": "https://evil.example.com"]
         )
         let resp = await dispatchRoute(
             request: req,
@@ -121,7 +112,49 @@ final class HandlerDispatchTest: XCTestCase {
             ctx: ctx,
             corsConfig: .allowlist(["https://app.example.com"])
         )
-        // Allow-Origin header should be missing entirely (browser will block)
+        // Allow-Origin header should be missing entirely (browser will block).
         XCTAssertNil(resp.headers["Access-Control-Allow-Origin"])
+    }
+
+    func testStreamingResponseRoundTrips() async throws {
+        // SSE handlers return AsyncStream<String>; dispatchRoute should
+        // return .streaming so the transport flushes chunks live.
+        final class StreamingHandlers: DVAIHandlers, @unchecked Sendable {
+            func handleChatCompletion(body: [String: Any], ctx: HandlerContext) async throws -> HandlerResponse {
+                let (stream, cont) = AsyncStream<String>.makeStream()
+                Task {
+                    cont.yield("data: chunk1\n\n")
+                    cont.yield("data: chunk2\n\n")
+                    cont.yield("data: [DONE]\n\n")
+                    cont.finish()
+                }
+                return .sse(stream)
+            }
+            func handleCompletion(body: [String: Any], ctx: HandlerContext) async throws -> HandlerResponse { .json(200, [:]) }
+            func handleEmbeddings(body: [String: Any], ctx: HandlerContext) async throws -> HandlerResponse { .json(200, [:]) }
+            func handleModels(ctx: HandlerContext) async throws -> HandlerResponse { .json(200, [:]) }
+        }
+
+        let req = DVAIRequest(method: .post, path: "/v1/chat/completions")
+        let resp = await dispatchRoute(
+            request: req,
+            handlers: StreamingHandlers(),
+            ctx: ctx,
+            corsConfig: .wildcard
+        )
+
+        guard case .streaming(let status, let headers, let stream) = resp else {
+            XCTFail("expected .streaming response, got \(resp)")
+            return
+        }
+        XCTAssertEqual(status, 200)
+        XCTAssertEqual(headers["Content-Type"], "text/event-stream")
+        XCTAssertEqual(headers["Cache-Control"], "no-cache")
+
+        var collected = ""
+        for await chunk in stream { collected += chunk }
+        XCTAssertTrue(collected.contains("chunk1"))
+        XCTAssertTrue(collected.contains("chunk2"))
+        XCTAssertTrue(collected.contains("[DONE]"))
     }
 }

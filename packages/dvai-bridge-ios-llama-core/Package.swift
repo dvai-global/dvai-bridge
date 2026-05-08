@@ -3,15 +3,19 @@ import PackageDescription
 
 let package = Package(
     name: "DVAILlamaCore",
-    platforms: [.iOS(.v14), .macOS(.v12)],
+    // Platform floor bumped to iOS 17 / macOS 14 in v3.2.0 — DVAISharedCore
+    // moved to Hummingbird (swift-nio) which carries that floor. Earlier
+    // (Telegraph era) we shipped iOS 14 / macOS 12.
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "DVAILlamaCore", targets: ["DVAILlamaCore"]),
         .library(name: "DVAILlamaCoreObjC", targets: ["DVAILlamaCoreObjC"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
         // Shared HTTP-server / handler-dispatch types that all backend
         // cores re-use. Path-dep identity = "dvai-bridge-ios-shared-core".
+        // DVAISharedCore brings in Hummingbird transitively as of
+        // v3.2.0 — the iOS HTTP server backbone is no longer Telegraph.
         .package(path: "../dvai-bridge-ios-shared-core"),
     ],
     targets: [
@@ -43,13 +47,12 @@ let package = Package(
                 .linkedFramework("Foundation"),
             ]
         ),
-        // Swift target — depends on the ObjC++ target, Telegraph, and the
-        // extracted shared HTTP types in DVAISharedCore.
+        // Swift target — depends on the ObjC++ target and the extracted
+        // shared HTTP types in DVAISharedCore.
         .target(
             name: "DVAILlamaCore",
             dependencies: [
                 "DVAILlamaCoreObjC",
-                "Telegraph",
                 .product(name: "DVAISharedCore", package: "dvai-bridge-ios-shared-core"),
             ],
             path: "ios/Sources/DVAILlamaCore"
