@@ -134,6 +134,42 @@ public sealed class DVAIBridge : IAsyncDisposable
     }
 
     /// <summary>
+    /// v3.2 — pre-init hardware assessment.
+    ///
+    /// Returns a JSON-serializable description of how this device would
+    /// handle local inference, BEFORE any model download/load. The SDK
+    /// itself never shows UI for hardware decisions — consumer apps
+    /// query this and decide their own UX based on the returned
+    /// <see cref="Capability.PrecheckMode"/>:
+    ///
+    /// <list type="bullet">
+    /// <item><see cref="Capability.PrecheckMode.Ok"/> → device can
+    ///   comfortably run the model locally; <c>StartAsync</c> proceeds
+    ///   normally.</item>
+    /// <item><see cref="Capability.PrecheckMode.OffloadOnly"/> → device
+    ///   can run but slowly (below
+    ///   <see cref="OffloadConfig.MinLocalCapability"/>);
+    ///   <c>StartAsync</c> skips the model load and routes every
+    ///   request to a paired peer.</item>
+    /// <item><see cref="Capability.PrecheckMode.TooWeak"/> → device is
+    ///   below the hardware floor (3 tok/s by default);
+    ///   <c>StartAsync</c> ALSO skips the model load. Consumers
+    ///   typically bail rather than even calling <c>StartAsync</c>.</item>
+    /// </list>
+    ///
+    /// The result is JSON-serializable
+    /// (<see cref="System.Text.Json.JsonSerializer.Serialize{T}(T, System.Text.Json.JsonSerializerOptions?)"/>)
+    /// so it round-trips cleanly through MAUI / Avalonia view-model
+    /// bindings or Capacitor / RN bridges.
+    /// </summary>
+    public Capability.HardwareAssessment AssessHardware(
+        double hardwareMinimum = Capability.CapabilityPrecheck.DefaultHardwareMinimum,
+        double minLocalCapability = Capability.CapabilityPrecheck.DefaultMinLocalCapability) =>
+        Capability.CapabilityPrecheck.Assess(
+            hardwareMinimum: hardwareMinimum,
+            minLocalCapability: minLocalCapability);
+
+    /// <summary>
     /// Boot the embedded HTTP server with the given <see cref="StartOptions"/>.
     /// </summary>
     /// <param name="opts">Backend + model + sampling options.</param>
