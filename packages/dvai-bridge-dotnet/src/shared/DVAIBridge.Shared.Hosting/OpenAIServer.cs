@@ -35,16 +35,27 @@ internal sealed class OpenAIServer : IAsyncDisposable
     public int Port { get; private set; }
     public string ModelId => _engine.ModelId;
 
+    /// <summary>
+    /// Optional v3.2 offload router. When non-null, every
+    /// `/v1/chat/completions` request first runs through the router's
+    /// decision logic; if it returns a peer to forward to, the proxy
+    /// writes the peer's reply directly. If it returns null, the
+    /// request falls through to the existing local route handlers.
+    /// </summary>
+    private readonly IOffloadRouter? _offloadRouter;
+
     public OpenAIServer(
         IInferenceEngine engine,
         BackendKind backend,
         string? corsOrigin = null,
-        IEmbeddingEngine? embeddings = null)
+        IEmbeddingEngine? embeddings = null,
+        IOffloadRouter? offloadRouter = null)
     {
         _engine = engine;
         _embeddings = embeddings;
         _corsOrigin = corsOrigin ?? "*";
         _backendWire = backend.ToWireString();
+        _offloadRouter = offloadRouter;
     }
 
     public async Task StartAsync(int? basePort, int? maxAttempts, CancellationToken ct)
@@ -73,6 +84,61 @@ internal sealed class OpenAIServer : IAsyncDisposable
             }
             await next();
         });
+
+        // v3.2 — optional offload pre-routing middleware. Runs before
+        // the local route handlers; when it forwards to a peer, the
+        // local handlers don't run.
+        if (_offloadRouter is not null)
+        {
+            var router = _offloadRouter;
+            app.Use(async (ctx, next) =>
+            {
+                if (HttpMethods.IsPost(ctx.Request.Method) &&
+                    ctx.Request.Path.HasValue &&
+                    (ctx.Request.Path.Value!.EndsWith("/chat/completions", StringComparison.Ordinal)))
+                {
+                    // Buffer so the offload-decline path can let the
+                    // existing local handler re-read the body.
+                    ctx.Request.EnableBuffering();
+                    var ms = new MemoryStream();
+                    await ctx.Request.Body.CopyToAsync(ms, ctx.RequestAborted).ConfigureAwait(false);
+                    var bodyBytes = ms.ToArray();
+                    ctx.Request.Body.Position = 0;
+
+                    var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var h in ctx.Request.Headers)
+                    {
+                        headers[h.Key] = h.Value.ToString();
+                    }
+
+                    var routed = await router.TryRouteAsync(
+                        ctx.Request.Path.Value!,
+                        bodyBytes,
+                        headers,
+                        ctx.RequestAborted).ConfigureAwait(false);
+                    if (routed is not null)
+                    {
+                        // Peer answered — write through and stop.
+                        ctx.Response.StatusCode = routed.StatusCode;
+                        foreach (var (k, v) in routed.Headers)
+                        {
+                            ctx.Response.Headers[k] = v;
+                        }
+                        if (routed.Body is { } body && body.Length > 0)
+                        {
+                            await ctx.Response.Body.WriteAsync(body, 0, body.Length, ctx.RequestAborted)
+                                .ConfigureAwait(false);
+                        }
+                        return;
+                    }
+
+                    // Router said local; rewind so the existing handler
+                    // re-reads the body cleanly.
+                    ctx.Request.Body.Position = 0;
+                }
+                await next();
+            });
+        }
 
         app.MapGet("/v1/models", () => Results.Json(new
         {
