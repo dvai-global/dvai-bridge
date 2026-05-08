@@ -100,6 +100,29 @@ function main() {
   // node-llama-cpp, sharp) ship as .node files alongside; bun resolves
   // them at runtime. For pure-JS deps, everything is inside the
   // resulting binary.
+  //
+  // EXTERNALS: @dvai-bridge/core declares four *optional* peerDependencies
+  // (`@dvai-bridge/capacitor`, `@huggingface/transformers`, `@mlc-ai/web-llm`,
+  // `node-llama-cpp`). Each is reached via a guarded `await import(...)`
+  // selected by the runtime backend. None of those code paths fire from the
+  // Hub's peer-mode server (which uses Ollama / LM Studio / llama-server /
+  // vLLM / llamafile adapters), so we mark them external. Bun emits the
+  // dynamic `import()` calls as runtime resolves; if a code path ever did
+  // try to load one, the import would reject — but the Hub never enters
+  // that branch.
+  //
+  // Without these flags Bun fails with `Could not resolve: "@dvai-bridge/
+  // capacitor"` because the workspace package isn't built in CI (we only
+  // build @dvai-bridge/core), and the JS files capacitor's package.json
+  // points at don't exist on disk yet.
+  const externals = [
+    "@dvai-bridge/capacitor",
+    "@huggingface/transformers",
+    "@mlc-ai/web-llm",
+    "node-llama-cpp",
+  ];
+  const externalArgs = externals.flatMap((name) => ["--external", name]);
+
   execFileSync(
     "bun",
     [
@@ -108,6 +131,7 @@ function main() {
       "--minify",
       "--sourcemap",
       `--target=${bunTarget()}`,
+      ...externalArgs,
       SIDECAR_SRC,
       "--outfile",
       out,
