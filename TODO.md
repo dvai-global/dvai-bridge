@@ -94,6 +94,34 @@ client. The Hub side is fully wired; the SDK glue is what's missing.
 
 ---
 
+## Linux AppImage support
+
+v3.1.0 ships `.deb` + `.rpm` only on Linux. `linuxdeploy-plugin-gtk`
+runs `ldd` against the Bun-compiled sidecar binary
+(`dvai-hub-peer-mode-x86_64-unknown-linux-gnu`) to walk shared-lib
+dependencies; `bun build --compile` produces a near-static binary
+with its own embedded loader, so `ldd` exits 1 and the plugin
+aborts with `exit code 134`.
+
+Possible paths to fix:
+
+- Switch the Linux sidecar bundling away from `bun --compile` to
+  something `ldd`-friendly (esbuild + node, pkg + node, or shipping
+  Node alongside the Hub).
+- Patch the Bun binary post-bundle so `ldd` returns success
+  (e.g. `patchelf --set-interpreter` to a stock loader).
+- Tell linuxdeploy-plugin-gtk to skip the sidecar via an exclude
+  pattern (the plugin doesn't currently expose that knob — would
+  need a fork or upstream PR).
+- Drop linuxdeploy-plugin-gtk and use a different AppImage build
+  pipeline (e.g. `appimagetool` directly, with hand-rolled AppDir).
+
+Once any of these land, re-add `appimage` to the `bundles:` matrix
+in `.github/workflows/dvai-hub-release.yml` and to the upload /
+release-artifact globs.
+
+---
+
 ## Phase 5 territory (post-v3.1)
 
 Out of scope for v3.1, parked here so the trail isn't lost:

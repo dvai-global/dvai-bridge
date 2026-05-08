@@ -29,7 +29,7 @@ verification procedure.
     and shipped as Tauri's `externalBin`. No `node` install required
     on the user's machine.
   - **Cross-platform installers** — Windows MSI, macOS DMG (arm64),
-    Linux AppImage / .deb / .rpm. Built by
+    Linux .deb / .rpm. Built by
     `.github/workflows/dvai-hub-release.yml` on every `v3.1.*` tag.
   - **Brand-neutral identity** — the Hub identifies itself to mobile
     apps with the host's machine name, not "DVAI." End users see
@@ -67,6 +67,12 @@ verification procedure.
 - **macOS arm64 only** for v3.1.0 (`aarch64-apple-darwin`). x86_64
   Mac support follows in a v3.1.x patch once Bun's universal-binary
   story stabilizes.
+- **Linux ships as `.deb` / `.rpm` only** for v3.1.0. AppImage is
+  fundamentally fighting `bun build --compile`'s near-static binary
+  layout — `linuxdeploy-plugin-gtk` runs `ldd` on the Bun-bundled
+  sidecar, gets exit code 1, and aborts. AppImage support follows
+  once we have a different sidecar bundling strategy on Linux
+  (tracked in `TODO.md`).
 
 ## [3.0.0] — 2026-05-07
 
