@@ -29,6 +29,7 @@ import io.ktor.server.request.uri
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondBytesWriter
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.ByteWriteChannel
@@ -82,10 +83,32 @@ class OffloadProxy(
     private val backendBaseUrl: String?,
     private val offloadConfig: OffloadConfig,
     private val pairingPolicy: PairingPolicy?,
-    private val discovery: NsdDiscovery?,
+    /** Snapshot of the live peer list. Defaults to [discovery]?.peers(). */
+    private val peerProvider: () -> List<Peer>,
     private val appId: String,
     private val selfDeviceId: String,
 ) {
+
+    /**
+     * Convenience constructor used by [DVAIBridge] — wraps an
+     * NsdDiscovery's peer list as the provider. Tests can use the
+     * primary constructor to inject a fake peer source.
+     */
+    constructor(
+        backendBaseUrl: String?,
+        offloadConfig: OffloadConfig,
+        pairingPolicy: PairingPolicy?,
+        discovery: NsdDiscovery?,
+        appId: String,
+        selfDeviceId: String,
+    ) : this(
+        backendBaseUrl = backendBaseUrl,
+        offloadConfig = offloadConfig,
+        pairingPolicy = pairingPolicy,
+        peerProvider = { discovery?.peers() ?: emptyList() },
+        appId = appId,
+        selfDeviceId = selfDeviceId,
+    )
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -124,8 +147,13 @@ class OffloadProxy(
                     }
                     routing {
                         // Catch-all — the route logic is inside the handler.
-                        handle {
-                            handleRequest(call)
+                        // `{...}` matches any path including slashes; the
+                        // bare `handle { }` form without a path pattern
+                        // doesn't actually wire a handler in Ktor 2.3.
+                        route("{...}") {
+                            handle {
+                                handleRequest(call)
+                            }
                         }
                     }
                 }
@@ -224,7 +252,7 @@ class OffloadProxy(
         }
 
         val modelId = readModelId(body) ?: ""
-        val peers = discovery?.peers().orEmpty()
+        val peers = peerProvider()
 
         val best = pickBestPeer(peers, modelId)
         val threshold = offloadConfig.minLocalCapability
