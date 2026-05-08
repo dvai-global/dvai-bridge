@@ -59,7 +59,11 @@ internal sealed class OnnxNativeBridge : INativeBridge
 
         _modelId = modelId;
 
-        var server = new OpenAIServer(runner, BackendKind.Onnx, opts.CorsOrigin);
+        // v3.2 — install the pre-routing OffloadRouter when
+        // OffloadConfig.Enabled is true. See LlamaDesktopBridge for
+        // the full lifecycle note.
+        var server = new OpenAIServer(runner, BackendKind.Onnx, opts.CorsOrigin,
+            offloadRouter: OffloadRouterFactory.BuildOffloadRouterIfEnabled(opts));
         try
         {
             await server.StartAsync(opts.HttpBasePort, opts.HttpMaxPortAttempts, ct).ConfigureAwait(false);

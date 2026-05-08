@@ -51,7 +51,17 @@ internal sealed class LlamaDesktopBridge : INativeBridge
         var engine = await LlamaInferenceEngine.CreateAsync(opts.ModelPath, opts, EmitProgress, ct).ConfigureAwait(false);
         _modelId = engine.ModelId;
 
-        var server = new OpenAIServer(engine, BackendKind.Llama, opts.CorsOrigin);
+        // v3.2 — when offload.enabled, install the pre-routing
+        // OffloadRouter middleware so /v1/chat/completions requests
+        // can be forwarded to a paired peer transparently. The peer +
+        // pairing data lives on DVAIBridge.Shared (the facade), so the
+        // factory closes over it via lazy lambdas; the OffloadSession
+        // is brought up by the facade RIGHT AFTER bridge.StartAsync
+        // returns, so by the time the first consumer request hits the
+        // proxy the state is in place.
+        var offloadRouter = OffloadRouterFactory.BuildOffloadRouterIfEnabled(opts);
+
+        var server = new OpenAIServer(engine, BackendKind.Llama, opts.CorsOrigin, offloadRouter: offloadRouter);
         try
         {
             await server.StartAsync(opts.HttpBasePort, opts.HttpMaxPortAttempts, ct).ConfigureAwait(false);

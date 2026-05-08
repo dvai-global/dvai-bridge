@@ -95,7 +95,7 @@ public sealed class OffloadRouter : IOffloadRouter
     };
 
     private readonly Func<IReadOnlyList<OffloadPeerInfo>> _peerProvider;
-    private readonly Func<string, OffloadPairing?> _pairingLookup;
+    private readonly Func<string, CancellationToken, Task<OffloadPairing?>> _pairingLookup;
     private readonly double _minLocalCapability;
     private readonly bool _enabled;
     private readonly bool _offloadOnlyMode;
@@ -109,7 +109,8 @@ public sealed class OffloadRouter : IOffloadRouter
     ///   (no local backend); changes how the "local" decision is reported.</param>
     /// <param name="minLocalCapability">Below this peer score the request stays local.</param>
     /// <param name="peerProvider">Live snapshot of discovered + paired peers.</param>
-    /// <param name="pairingLookup">Find the pairing key for a peer device id.</param>
+    /// <param name="pairingLookup">Find the pairing key for a peer device id (async; pairing
+    ///   stores typically read off disk).</param>
     /// <param name="appId">This consumer app's identifier.</param>
     /// <param name="selfDeviceId">This device's stable identifier.</param>
     public OffloadRouter(
@@ -117,7 +118,7 @@ public sealed class OffloadRouter : IOffloadRouter
         bool offloadOnlyMode,
         double minLocalCapability,
         Func<IReadOnlyList<OffloadPeerInfo>> peerProvider,
-        Func<string, OffloadPairing?> pairingLookup,
+        Func<string, CancellationToken, Task<OffloadPairing?>> pairingLookup,
         string appId,
         string selfDeviceId)
     {
@@ -191,7 +192,7 @@ public sealed class OffloadRouter : IOffloadRouter
         var basePath = path.StartsWith("/v1", StringComparison.Ordinal) ? path : "/v1" + path;
         var target = best.Peer.BaseUrl.TrimEnd('/') + basePath;
 
-        var pairing = _pairingLookup(best.Peer.DeviceId);
+        var pairing = await _pairingLookup(best.Peer.DeviceId, ct).ConfigureAwait(false);
         using var req = new HttpRequestMessage(HttpMethod.Post, target);
         req.Content = new ByteArrayContent(body);
         req.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
