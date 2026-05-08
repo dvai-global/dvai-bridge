@@ -56,6 +56,41 @@ public actor DVAIBridge {
 
     public init() {}
 
+    // MARK: - v3.2 — Hardware assessment (data, not UI)
+
+    /// v3.2 — pre-init hardware assessment.
+    ///
+    /// Returns a JSON-serializable description of how this device would
+    /// handle local inference, BEFORE any model download/load. The SDK
+    /// itself never shows UI for hardware decisions — consumer apps
+    /// call this and decide their own UX based on the returned `mode`:
+    ///
+    ///   - `.ok`           → device can comfortably run the model
+    ///                       locally; `start()` proceeds normally.
+    ///   - `.offloadOnly`  → device can run but slowly (below
+    ///                       `OffloadConfig.minLocalCapability`);
+    ///                       `start()` skips the model load and routes
+    ///                       every request to a paired peer.
+    ///   - `.tooWeak`      → device is below the hardware floor (3
+    ///                       tok/s by default); `start()` ALSO skips
+    ///                       the model load. Consumers typically bail
+    ///                       rather than even calling `start()`.
+    ///
+    /// The result is `Codable` so it round-trips cleanly through
+    /// Capacitor / React Native / Pigeon bridges as JSON.
+    public nonisolated func assessHardware(
+        hardwareMinimum: Double = 3.0,
+        minLocalCapability: Double = 10.0
+    ) -> HardwareAssessment {
+        let result = CapabilityPrecheck.assess(
+            thresholds: CapabilityPrecheck.Thresholds(
+                hardwareMinimum: hardwareMinimum,
+                minLocalCapability: minLocalCapability
+            )
+        )
+        return HardwareAssessment(from: result)
+    }
+
     // MARK: - Lifecycle
 
     /// v3.0 surface: start with `StartOptions` (carries optional
