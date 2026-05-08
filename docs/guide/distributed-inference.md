@@ -220,6 +220,149 @@ chatCompletionInterceptor?: (
 Headers are passed lower-cased so the interceptor can read v3.1
 identity fields and verify HMAC against a stored pairing key.
 
+## v3.2 — Per-SDK outgoing-offload routing
+
+v3.0 shipped the wire protocol + decision logic in
+`@dvai-bridge/core`; v3.1 packaged the strong-peer side as the
+[DVAI Hub](./dvai-hub.md). v3.2 closes the loop by wiring the
+**source side** in every native SDK so any consumer app — Android
+Kotlin, iOS Swift, .NET, React Native, Flutter — gets
+zero-code-change offload routing on every outgoing
+`/v1/chat/completions` request.
+
+### What changed for the consumer app
+
+**Nothing.** That's the design point. You still call the same
+`start()` you've always called and read `baseUrl` off the returned
+`BoundServer`. v3.2's pre-routing proxy claims that public port and
+decides per-request whether to serve the request locally or forward
+to a paired peer. Your OpenAI client doesn't know the difference.
+
+```kotlin
+// Android — exact same code as v3.1, plus offload enabled.
+val server = DVAIBridge.start(
+    StartOptions(
+        backend = BackendKind.Auto,
+        modelPath = "/path/to/model.gguf",
+        offload = OffloadConfig(
+            enabled = true,
+            minLocalCapability = 10.0,
+            hardwareMinimum = 3.0,
+        ),
+    ),
+)
+
+// Use server.baseUrl with any OpenAI-compatible client.
+// Internally, a Ktor pre-routing proxy decides per-request whether
+// to forward locally or to a paired peer.
+val client = OkHttpClient()
+val req = Request.Builder()
+    .url("${server.baseUrl}/v1/chat/completions")
+    .post(jsonBody)
+    .build()
+client.newCall(req).execute()
+```
+
+### Pre-init hardware assessment (`assessHardware`)
+
+Before any model download or backend init, consumer apps can ask
+the SDK how this device is going to handle local inference:
+
+```kotlin
+val a = DVAIBridge.assessHardware(
+    hardwareMinimum = 3.0,
+    minLocalCapability = 10.0,
+)
+when (a.mode) {
+    PrecheckMode.OK -> {
+        // Run normally.
+        DVAIBridge.start(opts)
+    }
+    PrecheckMode.OFFLOAD_ONLY -> {
+        // Capable enough to bridge but not to run the model
+        // comfortably. start() will skip the model load and
+        // route every request to a paired peer.
+        DVAIBridge.start(opts)
+    }
+    PrecheckMode.TOO_WEAK -> {
+        // Below the hardware floor. Show your own UI explaining
+        // the device isn't supported; don't call start().
+        showCustomNotSupportedDialog(a.reason)
+    }
+}
+```
+
+Same shape on every SDK:
+
+| Platform | Public method |
+| --- | --- |
+| TS / Node | `dvai.assessHardware({ hardwareMinimum, minLocalCapability })` |
+| Android | `DVAIBridge.assessHardware(hardwareMinimum, minLocalCapability)` |
+| iOS | `DVAIBridge.shared.assessHardware(hardwareMinimum:minLocalCapability:)` |
+| .NET | `DVAIBridge.Shared.AssessHardware(hardwareMinimum, minLocalCapability)` |
+| React Native | `DVAIBridge.assessHardware(hardwareMinimum, minLocalCapability)` |
+| Flutter | `DVAIBridge.shared.assessHardware(hardwareMinimum: 3, minLocalCapability: 10)` |
+
+Returns the same JSON-serializable shape on every platform:
+
+```json
+{
+  "mode": "offload-only",
+  "tokPerSec": 8.0,
+  "reason": "estimated 8 tok/s, below the 10 tok/s comfort threshold — model will not be loaded locally; every request will be forwarded to a paired peer.",
+  "hints": {
+    "hasNpu": false,
+    "ramGb": 8,
+    "gpuClass": "integrated",
+    "cpuClass": "mid"
+  }
+}
+```
+
+**The SDK never shows UI for hardware decisions** — the consumer
+app decides what (if anything) to surface based on `mode`. That's a
+deliberate v3.2 design point: SDK is a data source, not a UX driver.
+
+### How the runtime decision works
+
+Every chat-completion request through the SDK's public `baseUrl`
+hits the pre-routing proxy first. The proxy:
+
+1. Honours the `X-DVAI-Offload` header (`never` | `prefer` |
+   `require`) — defaults to `prefer`.
+2. Reads the live discovered-peer list (LAN mDNS + optional
+   rendezvous).
+3. Picks the best peer for the requested `model` (peers with the
+   model already loaded preferred over higher-score peers without
+   it).
+4. If the best peer's score is at or above
+   `OffloadConfig.minLocalCapability`, forwards the request with
+   HMAC-signed identity headers (`X-DVAI-Peer-Device-Id`,
+   `X-DVAI-App-Id`, `X-DVAI-Nonce`, `X-DVAI-Signature`).
+5. Otherwise, serves the request locally (if a backend is loaded)
+   or returns 503 `no_capable_device` (if not — i.e. offload-only
+   mode).
+
+In `offload-only` mode (precheck classified the device as too weak
+to comfortably run the model), the SDK **never downloads or loads
+the model file**. The proxy stands alone and forwards every
+request. Saves bandwidth + battery on devices that wouldn't run
+the model anyway.
+
+### Per-platform implementation
+
+Each native SDK uses the platform-idiomatic HTTP server in front of
+its native backend:
+
+| Platform | Proxy implementation |
+| --- | --- |
+| TS / Node | Built-in handler interceptor in `@dvai-bridge/core` |
+| Android | Ktor 2.3 (CIO engine, +500 KB AAR) |
+| iOS | Telegraph (already used by the iOS llama backend) |
+| .NET (desktop) | Kestrel middleware in the existing `OpenAIServer` |
+| React Native | Delegates to native iOS / Android proxies |
+| Flutter | Delegates to native iOS / Android proxies |
+
 ## Per-platform support matrix
 
 | SDK | LAN discovery (mDNS) | Internet pairing (rendezvous) | Capability probe |

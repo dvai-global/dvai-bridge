@@ -48,13 +48,13 @@ the platform / backend slices are pulled in transitively when needed.
 
 ```bash
 # Most consumers only need this:
-dotnet add package DVAIBridge --version 3.0.0
+dotnet add package DVAIBridge --version 3.2.0
 
 # Optional: cross-platform ONNX Runtime backend (BackendKind.Onnx).
-dotnet add package DVAIBridge.OnnxRuntime --version 3.0.0
+dotnet add package DVAIBridge.OnnxRuntime --version 3.2.0
 
 # Optional: ML.NET backend (BackendKind.MLNet, desktop only).
-dotnet add package DVAIBridge.MLNet --version 3.0.0
+dotnet add package DVAIBridge.MLNet --version 3.2.0
 ```
 
 What `dotnet add package DVAIBridge` pulls in transitively:
@@ -66,7 +66,7 @@ What `dotnet add package DVAIBridge` pulls in transitively:
   `DVAIBridgeNetBridge.xcframework` inside the NuGet — **no CocoaPods or
   SwiftPM auth required** for iOS / Catalyst consumers.
 - **`net10.0-android36.0`** → `DVAIBridge.Android`. The Android binding
-  consumes the `co.deepvoiceai:dvai-bridge:3.0.0` AAR at **consumer-build
+  consumes the `co.deepvoiceai:dvai-bridge:3.2.0` AAR at **consumer-build
   time**, so Android consumers still need GitHub Packages Maven configured
   (next section).
 
@@ -89,7 +89,7 @@ csproj needs the Maven repo entry and a personal access token with
 <ItemGroup Condition="$(TargetFramework.Contains('android'))">
   <AndroidMavenLibrary
     Include="co.deepvoiceai:dvai-bridge"
-    Version="3.0.0"
+    Version="3.2.0"
     Repository="https://maven.pkg.github.com/Westenets/dvai-bridge" />
 </ItemGroup>
 ```
@@ -634,6 +634,42 @@ Follows the family's `2.x.y` line. Phase 3G ships at **v2.4.0** alongside
 the Phase 3D Android AAR republish at 2.4.0. Phase 3C iOS umbrella stays
 at 2.3 (no source changes). The Flutter plugin stays at 2.3 (no source
 changes; Flutter is unaffected by 3G).
+
+## Outgoing offload (v3.2)
+
+`StartAsync` with `Offload = new OffloadConfig { Enabled = true }`
+turns on the v3.2 pre-routing proxy in front of the native
+backend. Your existing `HttpClient` keeps pointing at
+`server.BaseUrl`; the SDK decides per-request whether to serve
+locally or forward to a paired peer.
+
+```csharp
+var assessment = DVAIBridge.Shared.AssessHardware(
+    hardwareMinimum: 3.0,
+    minLocalCapability: 10.0);
+
+switch (assessment.Mode)
+{
+    case PrecheckMode.Ok:
+    case PrecheckMode.OffloadOnly:
+        await DVAIBridge.Shared.StartAsync(opts);
+        break;
+    case PrecheckMode.TooWeak:
+        ShowCustomNotSupportedDialog(assessment.Reason);
+        break;
+}
+```
+
+The SDK never shows UI for hardware decisions — your app does.
+See the [distributed-inference guide](./distributed-inference.md#v32--per-sdk-outgoing-offload-routing)
+for the full contract.
+
+> **Status note for v3.2.0**: the .NET-side proxy ships as
+> `AssessHardware()` + the v3.0 OffloadSession discovery layer; the
+> Kestrel-middleware integration that fully turns on the
+> per-request decision in `OpenAIServer` lands in v3.2.x. .NET MAUI
+> consumers on iOS / Android already get full proxy routing via
+> the native iOS / Android SDKs that ship beneath.
 
 ## See also
 

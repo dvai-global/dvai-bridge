@@ -78,7 +78,7 @@ caveat.
 ### Android — Gradle
 
 The package's autolinking config registers the Android module
-automatically. The umbrella AAR (`co.deepvoiceai:dvai-bridge:3.0.0`) is
+automatically. The umbrella AAR (`co.deepvoiceai:dvai-bridge:3.2.0`) is
 hosted on **GitHub Packages Maven**, so consumer apps need three pieces of
 config:
 
@@ -351,6 +351,34 @@ sub.remove();
 
 Without a registered listener, inbound pairing requests are denied
 after the request's `expiresAt` deadline.
+
+## Outgoing offload (v3.2)
+
+When `offload: { enabled: true }` is set, the underlying native
+SDK (iOS Swift / Android Kotlin) runs a pre-routing proxy in front
+of the native backend. RN consumer code is unchanged — `fetch` /
+your OpenAI client points at `server.baseUrl` exactly as before;
+the proxy decides per-request whether to serve locally or forward
+to a paired peer.
+
+```ts
+import { DVAIBridge } from "@dvai-bridge/react-native";
+
+const a = await DVAIBridge.assessHardware(3.0, 10.0);
+switch (a.mode) {
+  case "ok":
+  case "offload-only":
+    await DVAIBridge.start(opts);
+    break;
+  case "too-weak":
+    showCustomNotSupportedAlert(a.reason);
+    break;
+}
+```
+
+The SDK never shows UI for hardware decisions — your app does. See
+the [distributed-inference guide](./distributed-inference.md#v32--per-sdk-outgoing-offload-routing)
+for the full contract.
 
 ## Build / publish (for contributors)
 
