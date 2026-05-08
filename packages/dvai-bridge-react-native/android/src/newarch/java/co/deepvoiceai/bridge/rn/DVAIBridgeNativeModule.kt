@@ -37,6 +37,14 @@ class DVAIBridgeNativeModule(
         impl.downloadModel(opts, promise)
     }
 
+    override fun assessHardware(
+        hardwareMinimum: Double,
+        minLocalCapability: Double,
+        promise: Promise,
+    ) {
+        impl.assessHardware(hardwareMinimum, minLocalCapability, promise)
+    }
+
     override fun addListener(eventName: String) {
         impl.addListener(eventName)
     }

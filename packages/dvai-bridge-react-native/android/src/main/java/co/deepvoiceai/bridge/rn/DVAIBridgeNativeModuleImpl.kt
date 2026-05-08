@@ -172,6 +172,38 @@ internal class DVAIBridgeNativeModuleImpl(
         }
     }
 
+    /* ---------------------------------------------------------------- *
+     * v3.2 — pre-init hardware assessment                              *
+     * ---------------------------------------------------------------- */
+
+    fun assessHardware(hardwareMinimum: Double, minLocalCapability: Double, promise: Promise) {
+        try {
+            val a = DVAIBridge.assessHardware(
+                hardwareMinimum = hardwareMinimum,
+                minLocalCapability = minLocalCapability,
+            )
+            val hintsMap = Arguments.createMap().apply {
+                putBoolean("hasNpu", a.hints.hasNpu)
+                putInt("ramGb", a.hints.ramGb)
+                putString("gpuClass", a.hints.gpuClass.toJsName())
+                putString("cpuClass", a.hints.cpuClass.toJsName())
+            }
+            val map = Arguments.createMap().apply {
+                putString("mode", a.mode.toJsName())
+                putDouble("tokPerSec", a.tokPerSec)
+                putString("reason", a.reason)
+                putMap("hints", hintsMap)
+            }
+            promise.resolve(map)
+        } catch (e: Throwable) {
+            promise.reject(
+                "configurationInvalid",
+                e.message ?: e::class.qualifiedName ?: "assessHardware failed",
+                e,
+            )
+        }
+    }
+
     // MARK: - Event emitter housekeeping
 
     fun addListener(@Suppress("UNUSED_PARAMETER") eventName: String) {
@@ -263,6 +295,28 @@ internal fun BackendKind.toJsName(): String = when (this) {
     BackendKind.Llama -> "llama"
     BackendKind.MediaPipe -> "mediapipe"
     BackendKind.LiteRT -> "litert"
+}
+
+/** Convert v3.2 PrecheckMode → kebab-case JS-facing string. */
+internal fun co.deepvoiceai.bridge.shared.core.capability.PrecheckMode.toJsName(): String = when (this) {
+    co.deepvoiceai.bridge.shared.core.capability.PrecheckMode.OK -> "ok"
+    co.deepvoiceai.bridge.shared.core.capability.PrecheckMode.OFFLOAD_ONLY -> "offload-only"
+    co.deepvoiceai.bridge.shared.core.capability.PrecheckMode.TOO_WEAK -> "too-weak"
+}
+
+/** Convert v3.2 GpuClass → kebab-case JS-facing string. */
+internal fun co.deepvoiceai.bridge.shared.core.capability.GpuClass.toJsName(): String = when (this) {
+    co.deepvoiceai.bridge.shared.core.capability.GpuClass.NONE -> "none"
+    co.deepvoiceai.bridge.shared.core.capability.GpuClass.INTEGRATED -> "integrated"
+    co.deepvoiceai.bridge.shared.core.capability.GpuClass.DISCRETE -> "discrete"
+    co.deepvoiceai.bridge.shared.core.capability.GpuClass.APPLE_SILICON -> "apple-silicon"
+}
+
+/** Convert v3.2 CpuClass → JS-facing string. */
+internal fun co.deepvoiceai.bridge.shared.core.capability.CpuClass.toJsName(): String = when (this) {
+    co.deepvoiceai.bridge.shared.core.capability.CpuClass.LOW -> "low"
+    co.deepvoiceai.bridge.shared.core.capability.CpuClass.MID -> "mid"
+    co.deepvoiceai.bridge.shared.core.capability.CpuClass.HIGH -> "high"
 }
 
 /**

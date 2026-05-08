@@ -142,6 +142,30 @@ final class DVAIBridgeNative: RCTEventEmitter {
     }
 
     @objc
+    func assessHardware(_ hardwareMinimum: NSNumber,
+                        minLocalCapability: NSNumber,
+                        resolver resolve: @escaping RCTPromiseResolveBlock,
+                        rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let a = DVAIBridge.shared.assessHardware(
+            hardwareMinimum: hardwareMinimum.doubleValue,
+            minLocalCapability: minLocalCapability.doubleValue
+        )
+        let hintsDict: [String: Any] = [
+            "hasNpu": a.hints.hasNpu,
+            "ramGb": a.hints.ramGb,
+            "gpuClass": a.hints.gpuClass.rawValue,
+            "cpuClass": a.hints.cpuClass.rawValue,
+        ]
+        let dict: [String: Any] = [
+            "mode": a.mode.rawValue,
+            "tokPerSec": a.tokPerSec,
+            "reason": a.reason,
+            "hints": hintsDict,
+        ]
+        resolve(dict)
+    }
+
+    @objc
     func downloadModel(_ opts: NSDictionary,
                        resolver resolve: @escaping RCTPromiseResolveBlock,
                        rejecter reject: @escaping RCTPromiseRejectBlock) {
