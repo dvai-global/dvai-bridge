@@ -9,3 +9,7 @@ export { decide } from "./decide.js";
 export { buildNoCapableDeviceResponse } from "./error.js";
 export { parseOffloadHeader } from "./policy.js";
 export { proxyToPeer, type ProxyRequest, type ProxyResponse } from "./proxy.js";
+export {
+  buildOffloadInterceptor,
+  type ForwarderOptions,
+} from "./forwarder.js";
