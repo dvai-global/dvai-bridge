@@ -3,6 +3,71 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [3.1.0] — 2026-05-08
+
+Phase 4 — **DVAI Hub**. The strong-peer side of distributed inference,
+packaged as a brand-neutral installable desktop utility. Same wire
+protocol as v3.0; the difference is the user-facing artefact: instead
+of "embed the strong-peer code in your own app," ship a small
+tray-resident utility that any DVAI-enabled mobile app on the same Wi-Fi
+can pair with. **Backwards compatible**: every v3.0 SDK keeps working
+unchanged.
+
+See `docs/guide/dvai-hub.md` for the user-facing design,
+`hub/DEVELOPER-FORK.md` for the developer fork story, and
+`docs/development/distributed-inference-testing.md` for the E2E
+verification procedure.
+
+### Added
+
+- **DVAI Hub desktop utility** (`hub/`) — Tauri 2 shell + Node sidecar
+  bridging via JSON-RPC. Tray-resident, single-instance. First-run
+  pairing wizard, dashboard with audit log + manual peer controls,
+  pause / resume, autostart on login.
+  - **Sidecar packaging via Bun** — the Node peer-mode server is
+    bundled into a single-file native binary (`bun build --compile`)
+    and shipped as Tauri's `externalBin`. No `node` install required
+    on the user's machine.
+  - **Cross-platform installers** — Windows MSI, macOS DMG (arm64),
+    Linux AppImage / .deb / .rpm. Built by
+    `.github/workflows/dvai-hub-release.yml` on every `v3.1.*` tag.
+  - **Brand-neutral identity** — the Hub identifies itself to mobile
+    apps with the host's machine name, not "DVAI." End users see
+    "Pair with Mum's MacBook," not "Pair with deepvoiceai-something."
+- **Per-app audit log** at `~/.dvai-hub/apps/<appId>/audit.log` —
+  every cross-device inference request is recorded with timestamp,
+  app ID, peer device, model, and response code. Privacy: log is
+  local-only, never leaves the device.
+- **`co.deepvoiceai.dvai-bridge.onnxruntime` + `.mlnet`** — optional
+  .NET 10 LTS NuGet slices. Hosts pulling these in get ONNX Runtime
+  GenAI / ML.NET as additional backends in the auto-selection mix.
+- **Mac Catalyst** routing — .NET MAUI Mac Catalyst now inherits the
+  same backend matrix as iOS native (Foundation Models / CoreML /
+  MLX / Llama).
+
+### Changed
+
+- **Documentation site** has been audited end-to-end. All references
+  to internal `docs/superpowers/*.md` spec/plan files have been
+  replaced with pointers to the public API reference + relevant
+  guides. `docs/guide/introduction.md` now lists every v3.1 platform
+  and framework.
+- **Native SDK install snippets** in `docs/guide/{android-native,
+  ios-native,react-native,flutter,dotnet}-sdk.md` updated to v3.0.0
+  (was 1.8 / 2.0 / 2.1 / 2.3 / 2.4 depending on which platform shipped
+  most recently before the v3 cut).
+
+### Notes
+
+- **Code-signing is deferred** for v3.1.0. Both the GitHub Actions
+  signing/notarization steps and the Tauri update-signing keypair
+  are gated on secret presence; missing secrets just produce
+  unsigned artefacts. End users will see SmartScreen / Gatekeeper
+  warnings on first launch; tracked persistently in `TODO.md`.
+- **macOS arm64 only** for v3.1.0 (`aarch64-apple-darwin`). x86_64
+  Mac support follows in a v3.1.x patch once Bun's universal-binary
+  story stabilizes.
+
 ## [3.0.0] — 2026-05-07
 
 Phase 3 — distributed inference. The first major-version bump since
