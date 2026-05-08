@@ -139,3 +139,16 @@ packages/dvai-bridge-ios/Sources/_external/
 .idea/
 *.iml
 experiments/mlc-perf-spike/
+
+# Local cross-platform validation helpers (machine-specific paths).
+/mac-build.sh
+/mac-probe.sh
+/mac-rust-update.sh
+/mac-setup.sh
+/wsl-build.sh
+/wsl-setup.sh
+/mac-build.log
+/mac-setup.log
+/wsl-build.log
+/mac-toolchain-install.log
+/hub/tauri-build.log

@@ -116,3 +116,35 @@ pub async fn invalidate_engine_cache(
     )
     .await
 }
+
+/* ---- Per-app config (v3.1.x scaffold) -------------------------------- */
+
+#[tauri::command]
+pub async fn get_app_config(
+    state: State<'_, AppState>,
+    app_id: String,
+) -> Result<Value, String> {
+    call(&state, "get_app_config", json!({ "appId": app_id })).await
+}
+
+#[tauri::command]
+pub async fn set_app_config(
+    state: State<'_, AppState>,
+    app_id: String,
+    config: Value,
+) -> Result<Value, String> {
+    call(
+        &state,
+        "set_app_config",
+        json!({ "appId": app_id, "config": config }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn revoke_all_pairings(
+    state: State<'_, AppState>,
+    app_id: String,
+) -> Result<Value, String> {
+    call(&state, "revoke_all_pairings", json!({ "appId": app_id })).await
+}

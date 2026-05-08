@@ -20,6 +20,7 @@
 
 import { createInterface } from "node:readline";
 import { readFileSync } from "node:fs";
+import * as fs from "node:fs/promises";
 import { homedir } from "node:os";
 import * as path from "node:path";
 
@@ -208,6 +209,57 @@ function respond(id: string, result: unknown): void {
 
 function respondError(id: string, code: number, message: string): void {
   emit({ id, error: { code, message } });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Per-app config — `<STORE_DIR>/apps/<appId>/config.json`                    */
+/* -------------------------------------------------------------------------- */
+
+type PairingMode = "always-allow" | "require-approval" | "always-deny";
+
+interface PerAppConfig {
+  appId: string;
+  pairingMode: PairingMode;
+  rateLimit: { requestsPerMinute: number | null };
+  updatedAt: number;
+}
+
+const DEFAULT_APP_CONFIG: Omit<PerAppConfig, "appId" | "updatedAt"> = {
+  pairingMode: "require-approval",
+  rateLimit: { requestsPerMinute: null },
+};
+
+function appConfigPath(appId: string): string {
+  // Match the audit-log layout: STORE_DIR/apps/<safeAppId>/config.json
+  const safe = appId.replace(/[^A-Za-z0-9._-]/g, "_");
+  return path.join(STORE_DIR, "apps", safe, "config.json");
+}
+
+async function loadAppConfig(appId: string): Promise<PerAppConfig> {
+  const file = appConfigPath(appId);
+  try {
+    const raw = await fs.readFile(file, "utf8");
+    const parsed = JSON.parse(raw) as Partial<PerAppConfig>;
+    return {
+      appId,
+      pairingMode: (parsed.pairingMode as PairingMode) ?? DEFAULT_APP_CONFIG.pairingMode,
+      rateLimit: parsed.rateLimit ?? DEFAULT_APP_CONFIG.rateLimit,
+      updatedAt: parsed.updatedAt ?? 0,
+    };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return { appId, ...DEFAULT_APP_CONFIG, updatedAt: 0 };
+    }
+    throw err;
+  }
+}
+
+async function saveAppConfig(appId: string, config: PerAppConfig): Promise<void> {
+  const file = appConfigPath(appId);
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  const tmp = `${file}.tmp`;
+  await fs.writeFile(tmp, JSON.stringify(config, null, 2), "utf8");
+  await fs.rename(tmp, file);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -672,6 +724,59 @@ const handlers: Record<string, (params: Record<string, unknown>) => Promise<unkn
     const limit = typeof params.limit === "number" ? params.limit : undefined;
     if (!appId) throw new Error("appId required");
     return peer.getAppAudit(appId, limit);
+  },
+
+  /* ---- Per-app config (v3.1.x scaffold) ------------------------------ *
+   *
+   * Persists to `<STORE_DIR>/apps/<appId>/config.json`. The file shape
+   * matches the `PerAppConfig` interface in `hub/src/api/index.ts`.
+   *
+   * Enforcement is scaffolding-only: the pairing-mode value is read on
+   * each pairing request (handled in `MultiTenantPairing` / the Hub
+   * approval path) but the wire-up of `always-allow` /`always-deny`
+   * fast-paths and `rateLimit` request gating lands in a follow-up
+   * patch. v3.1.0 ships the storage + UI surface; the user finishes
+   * the policy enforcement on top of it.
+   */
+  get_app_config: async (params) => {
+    const appId = String(params.appId ?? "");
+    if (!appId) throw new Error("appId required");
+    return loadAppConfig(appId);
+  },
+  set_app_config: async (params) => {
+    const appId = String(params.appId ?? "");
+    if (!appId) throw new Error("appId required");
+    const incoming = (params.config ?? {}) as Partial<{
+      pairingMode: string;
+      rateLimit: { requestsPerMinute: number | null };
+    }>;
+    const validModes: PairingMode[] = ["always-allow", "require-approval", "always-deny"];
+    const requestedMode = incoming.pairingMode;
+    const pairingMode: PairingMode | undefined =
+      typeof requestedMode === "string" && (validModes as string[]).includes(requestedMode)
+        ? (requestedMode as PairingMode)
+        : undefined;
+    const current = await loadAppConfig(appId);
+    const next: PerAppConfig = {
+      ...current,
+      pairingMode: pairingMode ?? current.pairingMode,
+      rateLimit: incoming.rateLimit ?? current.rateLimit,
+      updatedAt: Date.now(),
+    };
+    await saveAppConfig(appId, next);
+    return { ok: true };
+  },
+  revoke_all_pairings: async (params) => {
+    const appId = String(params.appId ?? "");
+    if (!appId) throw new Error("appId required");
+    const all = await peer.listAllPairings();
+    const targets = all.filter((p) => p.appId === appId);
+    let revoked = 0;
+    for (const t of targets) {
+      await peer.revokePairing(t.appId, t.peerDeviceId);
+      revoked++;
+    }
+    return { ok: true, revoked };
   },
   shutdown: async () => {
     await peer.stop();
