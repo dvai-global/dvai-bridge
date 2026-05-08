@@ -67,20 +67,37 @@ outgoing-offload routing" for the user-facing design.
   pure data source for hardware decisions. `HardwareTooWeakError`
   remains in the TS package as a no-op deprecated export so
   existing imports don't break compile; it's removed in v4.0.
-- **iOS SSE buffering**: Telegraph 0.40 buffers SSE response
-  bodies server-side, so the offload-forwarded streaming response
-  is delivered to the consumer in one chunk rather than
-  incrementally. Functional but suboptimal UX. Tracked as a
-  v3.2.x patch. We attempted the swap to Hummingbird /
-  swift-nio-http1 in this release but rolled it back: swift-nio's
-  `CNIOLLHTTP` clang module conflicts with Telegraph's
-  `HTTPParserC` (both vend `enum llhttp_method` with overlapping
-  but non-identical members). Since Telegraph is the HTTP server
-  for the existing `DVAISharedCore` incoming surface, both
-  modules end up linked into any test target that uses
-  `@testable import DVAIBridge`, breaking compilation. The clean
-  fix requires migrating `DVAISharedCore` off Telegraph too,
-  which is a bigger surgery scoped to v3.2.1.
+- **iOS SSE streaming — full Hummingbird migration lands in
+  v3.2.0**: Telegraph 0.40 buffered SSE response bodies
+  server-side, breaking incremental token streaming through the
+  OffloadProxy. We tried a partial Hummingbird swap (only the
+  proxy) earlier in this release cycle and rolled it back when
+  swift-nio's `CNIOLLHTTP` clang module collided with Telegraph's
+  `HTTPParserC` (both vend `enum llhttp_method` with
+  overlapping-but-non-identical members; any TU that imported
+  both — including every `@testable import DVAIBridge` test —
+  refused to compile). The fix in this release migrates the
+  *entire* iOS HTTP backbone — `DVAISharedCore`'s `HttpServer`
+  + `HandlerDispatch` AND the `OffloadProxy` — onto Hummingbird
+  2.x in a single coordinated change. To keep handler logic
+  decoupled from any specific HTTP framework, the dispatch layer
+  now consumes framework-neutral `DVAIRequest` / `DVAIResponse`
+  shapes instead of Telegraph's `HTTPRequest` / `HTTPResponse`;
+  the `HttpServer` actor translates between Hummingbird's
+  `Request` / `Response` and the neutral types at the edge. SSE
+  handlers return `.streaming(AsyncStream<String>)` which the
+  transport pipes through Hummingbird's `ResponseBody { writer
+  in ... }` closure, flushing per-chunk to the consumer's TCP
+  socket. Side benefits:
+  - Faster port-fallback bind (BSD-socket pre-check fails
+    occupied ports in microseconds vs Telegraph's seconds).
+  - Single, consistent C-module footprint across all iOS
+    targets — Telegraph's `HTTPParserC` is gone from every
+    `Package.swift` (shared-core, llama-core, foundation-core,
+    mlx-core, dvai-bridge).
+  - Proper streaming end-to-end: consumer's OpenAI client now
+    sees tokens arrive as the upstream peer / backend produces
+    them, matching the Android Ktor and TS proxy paths.
 - **Per-SDK parallel test suites land in this release**:
   - Android — 39 tests (existing)
   - iOS — 20 tests (10 capability precheck +
