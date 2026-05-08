@@ -64,9 +64,11 @@ verification procedure.
   are gated on secret presence; missing secrets just produce
   unsigned artefacts. End users will see SmartScreen / Gatekeeper
   warnings on first launch; tracked persistently in `TODO.md`.
-- **macOS arm64 only** for v3.1.0 (`aarch64-apple-darwin`). x86_64
-  Mac support follows in a v3.1.x patch once Bun's universal-binary
-  story stabilizes.
+- **macOS arm64 only** (`aarch64-apple-darwin`). Intel Mac support
+  is intentionally not on the roadmap — Apple Silicon's unified
+  memory + ANE / GPU is what makes a meaningful local-LLM strong-peer
+  on the macOS side. An x86_64 Mac running this would mostly
+  underperform any modern phone running the same model.
 - **Linux ships as `.deb` / `.rpm` only** for v3.1.0. AppImage is
   fundamentally fighting `bun build --compile`'s near-static binary
   layout — `linuxdeploy-plugin-gtk` runs `ldd` on the Bun-bundled
