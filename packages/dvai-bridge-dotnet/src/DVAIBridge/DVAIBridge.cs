@@ -116,6 +116,19 @@ public sealed class DVAIBridge : IAsyncDisposable
     /// </summary>
     public string? DeviceId => _offload?.DeviceId;
 
+    /// <summary>
+    /// v3.2 — async pairing lookup used by the
+    /// <c>DVAIBridge.Shared.Hosting.OffloadRouter</c> middleware in
+    /// <c>DVAIBridge.Desktop</c> / <c>OnnxRuntime</c> / <c>MLNet</c>.
+    /// Returns the active pairing for <paramref name="peerDeviceId"/>
+    /// (TTL-aware per the configured pairing-expiry window),
+    /// or <c>null</c> when offload is disabled / no pairing exists /
+    /// the pairing has expired.
+    /// </summary>
+    public Task<global::DVAIBridge.Pairing.Pairing?> GetActivePairingAsync(string peerDeviceId, CancellationToken ct = default) =>
+        _offload?.PairingPolicy.GetActiveAsync(peerDeviceId, ct) ??
+        Task.FromResult<global::DVAIBridge.Pairing.Pairing?>(null);
+
     private static async IAsyncEnumerable<T> EmptyAsync<T>()
     {
         await Task.CompletedTask;
