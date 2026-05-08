@@ -94,7 +94,7 @@ FoundationModels imports compiled in). This is the same caveat the
 
 ### Android — Gradle
 
-The plugin's `build.gradle` depends on `co.deepvoiceai:dvai-bridge:3.0.0`,
+The plugin's `build.gradle` depends on `co.deepvoiceai:dvai-bridge:3.2.0`,
 hosted on **GitHub Packages Maven**. The consumer app needs three pieces
 of config:
 
@@ -413,6 +413,35 @@ await sub.cancel();
 
 Without a registered listener, inbound pairing requests are denied
 after the request's `expiresAt` deadline.
+
+## Outgoing offload (v3.2)
+
+When `OffloadConfig(enabled: true)` is set, the underlying native
+SDK (iOS Swift / Android Kotlin) runs a pre-routing proxy in front
+of the native backend. Flutter consumer code is unchanged — point
+your `http.Client` at `server.baseUrl` exactly as before; the
+proxy decides per-request whether to serve locally or forward to a
+paired peer.
+
+```dart
+final assessment = await DVAIBridge.shared.assessHardware(
+  hardwareMinimum: 3.0,
+  minLocalCapability: 10.0,
+);
+switch (assessment.mode) {
+  case PrecheckMode.ok:
+  case PrecheckMode.offloadOnly:
+    await DVAIBridge.shared.start(opts);
+    break;
+  case PrecheckMode.tooWeak:
+    showCustomNotSupportedDialog(assessment.reason);
+    break;
+}
+```
+
+The SDK never shows UI for hardware decisions — your widget tree
+does. See the [distributed-inference guide](./distributed-inference.md#v32--per-sdk-outgoing-offload-routing)
+for the full contract.
 
 ## Reference
 

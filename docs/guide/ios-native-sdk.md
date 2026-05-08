@@ -16,7 +16,7 @@ Add the package to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Westenets/dvai-bridge.git", from: "3.0.0"),
+    .package(url: "https://github.com/Westenets/dvai-bridge.git", from: "3.2.0"),
 ],
 targets: [
     .target(
@@ -367,6 +367,46 @@ to the finnvoorhees mirror. Until the bug is fixed, prefer `.llama` or
 
 This is tracked as the top-priority CoreML follow-up under "Known
 Phase 3D follow-ups" in [CHANGELOG.md](../../CHANGELOG.md).
+
+## Outgoing offload (v3.2)
+
+When `OffloadConfig(enabled: true)` is passed to
+`DVAIBridge.shared.start(_:)`, a Telegraph-based pre-routing proxy
+binds the public port and decides per-request whether to serve the
+request locally or forward it to a paired peer. **No consumer code
+change** — your existing OpenAI client points at
+`server.baseUrl` exactly as before.
+
+```swift
+let server = try await DVAIBridge.shared.start(StartOptions(
+    backend: .auto,
+    modelPath: "/path/to/model.gguf",
+    offload: OffloadConfig(enabled: true)
+))
+// Use server.baseUrl with URLSession / any OpenAI client.
+```
+
+### Pre-init hardware assessment
+
+Before any model download or backend init:
+
+```swift
+let assessment = DVAIBridge.shared.assessHardware(
+    hardwareMinimum: 3.0,
+    minLocalCapability: 10.0
+)
+switch assessment.mode {
+case .ok:           try await DVAIBridge.shared.start(options)
+case .offloadOnly:  try await DVAIBridge.shared.start(options)  // SDK skips backend
+case .tooWeak:      showCustomNotSupportedAlert(assessment.reason)
+}
+```
+
+The SDK never shows UI for hardware decisions — your app does.
+See the [distributed-inference guide](./distributed-inference.md#v32--per-sdk-outgoing-offload-routing)
+for the full `assessHardware()` contract and the SSE-buffering
+caveat on iOS (Telegraph 0.40 buffers SSE responses server-side;
+v3.2.x will swap for a streaming-capable HTTP server).
 
 ## Reference
 

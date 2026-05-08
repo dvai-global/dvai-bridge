@@ -57,7 +57,7 @@ it into your local `gradle.properties`, and you're done.
 
 ```kotlin
 dependencies {
-    implementation("co.deepvoiceai:dvai-bridge:3.0.0")
+    implementation("co.deepvoiceai:dvai-bridge:3.2.0")
 }
 ```
 
@@ -71,7 +71,7 @@ declare just the relevant `*-core` artifact instead:
 
 ```kotlin
 dependencies {
-    implementation("co.deepvoiceai:android-litert-core:3.0.0")
+    implementation("co.deepvoiceai:android-litert-core:3.2.0")
     // No `dvai-bridge` umbrella, no llama-core, no mediapipe-core.
 }
 ```
@@ -348,6 +348,57 @@ The `kotlinx.coroutines.flow.SharedFlow` returned by
 `DVAIBridge.pairingRequests` is hot — collect it from a
 `LifecycleOwner.lifecycleScope` and the requests are dropped (default-deny)
 when no UI is bound.
+
+## Outgoing offload (v3.2)
+
+In v3.0/v3.1, only the *strong-peer side* (the device serving
+inference) was wired up natively. Consumer apps still had to talk
+to the peer via raw OkHttp + manual HMAC signing. v3.2 closes that
+loop: when `OffloadConfig.enabled = true`, the SDK runs a Ktor
+pre-routing proxy in front of the native backend. Every
+chat-completion request through the SDK's public `baseUrl` is
+inspected and either served locally or forwarded to a paired peer
+— transparently, with no consumer code change.
+
+```kotlin
+val server = DVAIBridge.start(
+    StartOptions(
+        backend = BackendKind.Auto,
+        modelPath = "/path/to/model.gguf",
+        offload = OffloadConfig(enabled = true),
+    ),
+)
+
+// `server.baseUrl` is the proxy port. Use any OkHttp / OpenAI client.
+val client = OkHttpClient()
+val response = client.newCall(
+    Request.Builder()
+        .url("${server.baseUrl}/v1/chat/completions")
+        .post(jsonBody)
+        .build()
+).execute()
+```
+
+### Pre-init hardware assessment
+
+Before any model download or backend init, ask the SDK how this
+device will behave:
+
+```kotlin
+val a = DVAIBridge.assessHardware(
+    hardwareMinimum = 3.0,
+    minLocalCapability = 10.0,
+)
+when (a.mode) {
+    PrecheckMode.OK -> DVAIBridge.start(opts)
+    PrecheckMode.OFFLOAD_ONLY -> DVAIBridge.start(opts)  // SDK skips backend
+    PrecheckMode.TOO_WEAK -> showCustomNotSupportedDialog(a.reason)
+}
+```
+
+The SDK never shows UI for hardware decisions — your app does.
+See the [distributed-inference guide](./distributed-inference.md#v32--per-sdk-outgoing-offload-routing)
+for the full `assessHardware()` contract.
 
 ## Reference
 

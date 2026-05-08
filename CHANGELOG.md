@@ -3,6 +3,80 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [3.2.0] — 2026-05-08
+
+Phase 5 — **Per-SDK outgoing-offload routing**. Closes the loop on
+v3.0's distributed-inference work: every native SDK now routes
+chat-completion requests through a pre-routing HTTP proxy that
+decides per-request whether to serve locally or forward to a paired
+peer. **Zero consumer code change** — apps still call `start()` and
+read `baseUrl` from the returned `BoundServer` exactly as in v3.1.
+
+See `docs/guide/distributed-inference.md` § "v3.2 — Per-SDK
+outgoing-offload routing" for the user-facing design.
+
+### Added
+
+- **Pre-routing proxy** in front of every native backend:
+  - Android (`co.deepvoiceai:dvai-bridge`) — Ktor 2.3 (CIO engine,
+    +500 KB AAR contribution).
+  - iOS (`DVAIBridge`) — Telegraph (already used by the iOS llama
+    backend; no new dep).
+  - .NET (`co.deepvoiceai.dvai-bridge`) — Kestrel-friendly
+    surface (full middleware integration tracked for v3.2.x).
+  - React Native (`@dvai-bridge/react-native`) — delegates to
+    native iOS / Android.
+  - Flutter (`dvai_bridge`) — delegates to native iOS / Android.
+- **Pre-init hardware assessment**: new `assessHardware()` public
+  method on every SDK. Returns a JSON-serializable
+  `HardwareAssessment` describing whether this device should run
+  locally (`ok`), in offload-only mode (`offload-only`), or refuse
+  local inference entirely (`too-weak`). The SDK never shows UI
+  for hardware decisions — consumer apps query this and decide
+  their own UX.
+  - Same kebab-case enum values across every platform
+    (`"ok"` / `"offload-only"` / `"too-weak"`,
+    `"apple-silicon"`, etc.) so cross-platform consumers see
+    identical strings.
+- **Offload-only mode**: when the precheck classifies the device
+  as too-weak or below `minLocalCapability`, the SDK skips the
+  model download/load entirely and only brings up the proxy +
+  discovery + pairing layer. Saves bandwidth + battery on devices
+  that wouldn't run the model usefully anyway.
+- **HMAC-signed peer forwarding** in every native SDK: forwarded
+  requests carry `X-DVAI-Peer-Device-Id`, `X-DVAI-App-Id`,
+  `X-DVAI-Nonce`, and `X-DVAI-Signature` (HMAC-SHA256 over
+  canonical `METHOD\nPATH\nNONCE\nbody`).
+
+### Changed
+
+- **`OffloadConfig.hardwareMinimum`** — new field (default
+  `3.0` tok/s). Below this estimate, the device classifies as
+  `too-weak`.
+- **`DVAIBridge.start()` lifecycle** on Android + iOS: when
+  `offload.enabled === true`, runs the precheck before any
+  backend init and shifts the backend's internal port to
+  `httpBasePort + 100` so the proxy can claim `httpBasePort`.
+  When offload is disabled, behavior is unchanged from v3.1.
+
+### Notes
+
+- **No throw on too-weak**: earlier v3.2 drafts threw
+  `HardwareTooWeakError` from `start()` on weak devices. That
+  shipped briefly and was reverted before tag — the SDK is now a
+  pure data source for hardware decisions. `HardwareTooWeakError`
+  remains in the TS package as a no-op deprecated export so
+  existing imports don't break compile; it's removed in v4.0.
+- **iOS SSE buffering**: Telegraph 0.40 buffers SSE response
+  bodies server-side, so the offload-forwarded streaming response
+  is delivered to the consumer in one chunk rather than
+  incrementally. Functional but suboptimal UX. Tracked as a
+  v3.2.x patch — likely swap to Hummingbird / swift-nio-http1.
+- **Per-SDK tests**: Android ships with full Robolectric coverage
+  (39 tests across precheck, decision logic, and
+  MockWebServer-based forwarding). iOS / .NET / RN / Flutter
+  parallel suites land alongside the next dogfood pass.
+
 ## [3.1.0] — 2026-05-08
 
 Phase 4 — **DVAI Hub**. The strong-peer side of distributed inference,
