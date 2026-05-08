@@ -5,6 +5,70 @@ Long-running items that are intentionally deferred. Items here are
 not because they need to ship next. For active release-prep, see
 `RELEASE-CHECKLIST.md` (when present).
 
+> **Reminder protocol:** at the end of each milestone (each minor
+> release, each completed Phase) skim this file and surface anything
+> that's now ripe to pick up. Don't pre-emptively action items here
+> — wait for an explicit "OK take this on" before scoping work into
+> the active plan.
+
+---
+
+## Hub immediate post-v3.1.0
+
+These were originally in `RELEASE-CHECKLIST.md` but consciously
+descoped from v3.1.0 ship. They block the Hub becoming a "click to
+install from a package manager" experience but not a "download the
+binary from GitHub Release" experience, which is what v3.1.0 is.
+
+### Distribution channels — Homebrew + winget
+
+Hub today is install-by-download from the GitHub Release page. The
+Homebrew + winget paths give the user-facing `brew install` /
+`winget install` UX without changing how the binaries are produced.
+
+**Homebrew tap** (`Westenets/homebrew-dvai-hub`):
+- Create the empty tap repo (public).
+- Generate a PAT with `repo` scope; add as `HOMEBREW_TAP_GH_TOKEN`
+  on `Westenets/dvai-bridge`.
+- Hand-bootstrap the first formula by copying
+  `hub/packaging/homebrew/dvai-hub.rb` → `Formula/dvai-hub.rb` in
+  the tap repo, with the actual `version` / `url` / `sha256` from
+  the v3.1.0 release.
+- Test from a clean Mac:
+  `brew tap deepvoiceai/dvai-hub https://github.com/Westenets/homebrew-dvai-hub`,
+  `brew install dvai-hub`.
+- Add a `update-homebrew-formula.yml` workflow that opens a PR to
+  the tap repo on every future `v3.1.*` tag (placeholder is in the
+  formula's comments).
+
+**winget manifest:**
+- Fork `microsoft/winget-pkgs` to a Westenets-controlled account.
+- Take the v3.1.0 `.msi` SHA256, paste into a copy of
+  `hub/packaging/winget/DeepVoiceAI.DVAIHub.installer.yaml` at
+  `manifests/d/DeepVoiceAI/DVAIHub/3.1.0/`.
+- Open PR upstream to `microsoft/winget-pkgs`.
+- Address Microsoft's automated CI feedback (manifest validation
+  can take days/weeks first time).
+- Once merged, test from a clean Windows:
+  `winget install DeepVoiceAI.DVAIHub`.
+- Add `update-winget-manifest.yml` to auto-PR on future tags.
+
+### Hub dogfood (pre-announcement)
+
+Pre-announcement validation that the Hub actually does what we
+claim across the full happy-path:
+
+- Run `pnpm smoke:identity` against a freshly-installed Hub.
+- Pair an Android device — either the rebuilt example app, or an
+  SDK that has outgoing-offload routing wired (see "Per-SDK
+  outgoing-offload routing" below).
+- Verify `~/.dvai-hub/apps/<appId>/audit.log` captures cross-device
+  requests (timestamp + app ID + peer device + model + response
+  code).
+- Sit on the install for ~a week before announcing publicly. The
+  auto-update path, restart cycle, and pairing TTL all need
+  real-world soak time.
+
 ---
 
 ## Code signing — DVAI Hub
@@ -119,6 +183,46 @@ Possible paths to fix:
 Once any of these land, re-add `appimage` to the `bundles:` matrix
 in `.github/workflows/dvai-hub-release.yml` and to the upload /
 release-artifact globs.
+
+---
+
+## Hub UX gaps — to surface in a v3.1.x patch
+
+Items the Hub dashboard / status page needs but didn't make v3.1.0:
+
+### Per-app config UI
+
+The Hub already has the data model (`PairingPolicy` carries
+per-app TTLs / approval requirements / persistent state) but the
+dashboard doesn't expose any of it. v3.1.x should surface:
+
+- A per-app row showing app ID + display name + last-seen + active
+  pairing state.
+- Per-app toggle: **always allow / always deny / require approval
+  per-request**. Stored in `~/.dvai-hub/apps/<appId>/config.json`
+  alongside the audit log.
+- Revoke button — drops the pairing key, marks the app
+  un-paired; future requests trigger fresh pairing.
+- Optional per-app rate limit (req/min). Probably v3.2+.
+
+### Model load progress
+
+When the Transformers.js backend is selected, model
+download / cache-load can take 30s–5min depending on size and the
+user gets no feedback. Transformers.js already emits structured
+progress events:
+
+```json
+{"text":"progress_total","progress":0.00012017354630092248,"timeElapsed":0}
+```
+
+Pipe these from the worker to the Hub's React dashboard, render
+as a progress bar on the status page. Should also cover initial
+model fetch (network → IndexedDB) vs. warm load (IndexedDB →
+WebGPU/WASM).
+
+Apply the same pattern to llama.cpp (`progress_callback` in
+`node-llama-cpp`) so non-Transformers.js backends look consistent.
 
 ---
 
