@@ -39,9 +39,16 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             bundles: dmg
+          # AppImage is intentionally absent: linuxdeploy-plugin-gtk runs
+          # `ldd` on the Bun-compiled sidecar binary to walk shared-lib
+          # dependencies, but `bun build --compile` produces a near-static
+          # binary with its own embedded loader; ldd exits 1 and the
+          # plugin aborts. .deb / .rpm don't trigger that code path.
+          # Re-enable AppImage when we have a different sidecar
+          # bundling strategy (tracked in TODO.md).
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            bundles: appimage,deb,rpm
+            bundles: deb,rpm
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -138,14 +145,22 @@ jobs:
       # tauri.conf.json's beforeBuildCommand chains the JS build,
       # sidecar bundling, and Vite frontend build automatically.
       #
-      # APPLE_SIGNING_IDENTITY: when the secret is missing (early
-      # unsigned releases), fall back to `-` which makes codesign do
-      # ad-hoc signing. Empty string would make Tauri attempt to sign
-      # with identity "" and codesign errors with "specified item
-      # could not be found in the keychain". `-` produces a
-      # locally-runnable bundle with the usual Gatekeeper warnings on
-      # first launch.
-      - name: Build Tauri app
+      # Signing/notarization env handling:
+      # - APPLE_SIGNING_IDENTITY falls back to `-` (codesign ad-hoc)
+      #   when the cert secret is absent — empty string would make
+      #   Tauri attempt to sign with identity "" and codesign would
+      #   error with "specified item could not be found in the
+      #   keychain".
+      # - APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID must be *unset*
+      #   (not empty) for Tauri to skip notarization; otherwise
+      #   Tauri proceeds and the App Store Connect API rejects with
+      #   "Team ID must be at least 3 characters". GH Actions can't
+      #   conditionally include env keys, so we unset them in shell
+      #   when empty.
+      # - Same treatment for TAURI_SIGNING_PRIVATE_KEY (update
+      #   signing) — empty string enables update signing with no key.
+      - name: Build Tauri app (unix)
+        if: matrix.os != 'windows-latest'
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
           APPLE_ID: ${{ secrets.APPLE_NOTARIZATION_USERNAME }}
@@ -153,7 +168,24 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_NOTARIZATION_TEAM_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --verbose
+        run: |
+          for v in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD; do
+            if [ -z "${!v}" ]; then unset "$v"; fi
+          done
+          pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --verbose
+        shell: bash
+        working-directory: hub
+
+      - name: Build Tauri app (windows)
+        if: matrix.os == 'windows-latest'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrEmpty($env:TAURI_SIGNING_PRIVATE_KEY)) { Remove-Item Env:TAURI_SIGNING_PRIVATE_KEY }
+          if ([string]::IsNullOrEmpty($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD)) { Remove-Item Env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD }
+          pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --verbose
+        shell: pwsh
         working-directory: hub
 
       - name: Upload artefacts
@@ -163,7 +195,6 @@ jobs:
           path: |
             hub/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
             hub/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
-            hub/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
             hub/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
             hub/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
           if-no-files-found: error
@@ -205,7 +236,6 @@ jobs:
           files: |
             artefacts/**/*.msi
             artefacts/**/*.dmg
-            artefacts/**/*.AppImage
             artefacts/**/*.deb
             artefacts/**/*.rpm
           fail_on_unmatched_files: true
