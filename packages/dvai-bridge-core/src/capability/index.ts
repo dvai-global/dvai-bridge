@@ -21,9 +21,22 @@ import {
 import { detectDeviceHints, detectDeviceHintsAsync, heuristicTokPerSec } from "./heuristic.js";
 import { generateDeviceId } from "./deviceId.js";
 import { probeCapability, type ProbableBackend } from "./probe.js";
+import {
+  assessCapability,
+  HardwareTooWeakError,
+  type PrecheckOptions,
+  type PrecheckResult,
+} from "./precheck.js";
 import type { CapabilityCache, CapabilityScore, DeviceCapabilityHints } from "./types.js";
 
-export type { CapabilityScore, CapabilityCache, DeviceCapabilityHints, ProbableBackend };
+export type {
+  CapabilityScore,
+  CapabilityCache,
+  DeviceCapabilityHints,
+  ProbableBackend,
+  PrecheckOptions,
+  PrecheckResult,
+};
 
 export {
   IndexedDBCapabilityCache,
@@ -35,6 +48,8 @@ export {
   detectDeviceHintsAsync,
   generateDeviceId,
   probeCapability,
+  assessCapability,
+  HardwareTooWeakError,
 };
 
 const DEVICE_ID_META_KEY = "dvai.deviceId";
