@@ -42,6 +42,29 @@ minimum because `DVAIFoundationCore` weak-links Apple's `FoundationModels`
 framework (whose iOS-26 symbols resolve at runtime); macOS 14 is the
 floor for the CoreML state-machine API used by `DVAICoreMLCore`.
 
+::: warning Upgrading from v3.1 or earlier
+v3.2.0 raised the standalone-package floors for `DVAILlamaCore` +
+`DVAISharedCore` from **iOS 14 / macOS 12** to **iOS 17 / macOS 14**
+because we migrated the iOS HTTP backbone from Telegraph to
+Hummingbird (built on swift-nio) to enable proper SSE streaming
+through the offload proxy. The umbrella `DVAIBridge` SDK was already
+at iOS 18.1 / macOS 14, so apps consuming the umbrella aren't
+affected — but if you depend on `DVAILlamaCore` directly and still
+target iOS 14–16, you'll need to either:
+
+  - bump your app's `IPHONEOS_DEPLOYMENT_TARGET` to `17.0`, or
+  - pin to `dvai-bridge` `3.1.x` (last release on the iOS 14 floor).
+
+The HTTP server's *public* API is unchanged: `HttpServer.installRoutes`
+/ `tryBind` / `stop` keep their signatures. The only behavioural
+difference is install-then-bind ordering — Hummingbird requires the
+router at `Application` construction time, so call
+`installRoutes(...)` *before* `tryBind(...)`. All four bundled
+plugin states (`PluginState` / `FoundationPluginState` /
+`MLXPluginState` / `CoreMLPluginState`) already follow the new
+order; consumers wiring their own backends should mirror it.
+:::
+
 ### CocoaPods
 
 Add to your `Podfile`:
@@ -371,11 +394,13 @@ Phase 3D follow-ups" in [CHANGELOG.md](../../CHANGELOG.md).
 ## Outgoing offload (v3.2)
 
 When `OffloadConfig(enabled: true)` is passed to
-`DVAIBridge.shared.start(_:)`, a Telegraph-based pre-routing proxy
-binds the public port and decides per-request whether to serve the
-request locally or forward it to a paired peer. **No consumer code
-change** — your existing OpenAI client points at
-`server.baseUrl` exactly as before.
+`DVAIBridge.shared.start(_:)`, a Hummingbird/swift-nio pre-routing
+proxy binds the public port and decides per-request whether to
+serve the request locally or forward it to a paired peer. **No
+consumer code change** — your existing OpenAI client points at
+`server.baseUrl` exactly as before. SSE responses stream through
+the proxy chunk-by-chunk so consumer apps see tokens arrive
+incrementally, matching the Android Ktor and TS proxy paths.
 
 ```swift
 let server = try await DVAIBridge.shared.start(StartOptions(
@@ -404,9 +429,7 @@ case .tooWeak:      showCustomNotSupportedAlert(assessment.reason)
 
 The SDK never shows UI for hardware decisions — your app does.
 See the [distributed-inference guide](./distributed-inference.md#v32--per-sdk-outgoing-offload-routing)
-for the full `assessHardware()` contract and the SSE-buffering
-caveat on iOS (Telegraph 0.40 buffers SSE responses server-side;
-v3.2.x will swap for a streaming-capable HTTP server).
+for the full `assessHardware()` contract.
 
 ## Reference
 

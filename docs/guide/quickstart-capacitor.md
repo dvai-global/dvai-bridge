@@ -51,9 +51,9 @@ npx cap sync
 This step is **mandatory**. It does two things:
 
 - **iOS** — adds the plugin's `Package.swift` / podspec to your Xcode
-  project. The first build pulls Telegraph (HTTP server) and Swift NIO
-  transitively. Run `pnpm cap open ios` and let CocoaPods / SwiftPM
-  resolve once.
+  project. The first build pulls Hummingbird (HTTP server) and
+  swift-nio transitively. Run `pnpm cap open ios` and let CocoaPods
+  / SwiftPM resolve once.
 - **Android** — registers the plugin's Gradle module, merges its
   `AndroidManifest.xml` (which declares the `network_security_config.xml`
   whitelisting cleartext to `127.0.0.1` / `localhost`), and links

@@ -61,7 +61,7 @@ chooses which backend's `start()` to call based on `StartOptions.backend`.
 
 The HTTP server library differs per OS:
 
-- **iOS** — [Telegraph](https://github.com/Building42/Telegraph) (Swift NIO–based).
+- **iOS** — [Hummingbird 2.x](https://github.com/hummingbird-project/hummingbird) (built on swift-nio). Replaced Telegraph in v3.2.0 to enable SSE streaming through the offload proxy and fix a clang-module collision.
 - **Android** — [NanoHTTPD](https://github.com/NanoHttpd/nanohttpd).
 
 In both cases it serves the OpenAI-compatible surface (`/v1/chat/completions`,
