@@ -53,8 +53,8 @@ conditional, so unsigned builds still produce artifacts.
 
 | # | Task | State |
 |---|---|---|
-| D1 | Tag `v3.1.0` on `main` after A+B land | ☐ |
-| D2 | Push tag to `origin` — workflow auto-fires | ☐ |
+| D1 | Tag `v3.1.0` on `main` after A+B land | ☑ |
+| D2 | Push tag to `origin` — workflow auto-fires | ☑ |
 | D3 | Inspect run at `Actions → DVAI Hub — release binaries`; iterate on failures | ☐ |
 | D4 | Verify three artefacts attach to the auto-created GitHub Release: `.msi`, `.dmg`, `.AppImage` (+ `.deb` / `.rpm`) | ☐ |
 | D5 | Download each on the corresponding host; sanity-check installer launches the app | ☐ |
