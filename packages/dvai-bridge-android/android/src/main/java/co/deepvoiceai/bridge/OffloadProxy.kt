@@ -193,13 +193,13 @@ class OffloadProxy(
      * Decision logic                                                     *
      * ================================================================== */
 
-    private sealed class RouteDecision {
+    internal sealed class RouteDecision {
         data object Local : RouteDecision()
         data class Offload(val baseUrl: String, val peerDeviceId: String) : RouteDecision()
         data class NoCapableDevice(val body: String) : RouteDecision()
     }
 
-    private fun decideRoute(
+    internal fun decideRoute(
         path: String,
         body: ByteArray,
         headers: Map<String, String>,
@@ -248,9 +248,9 @@ class OffloadProxy(
         )
     }
 
-    private data class RankedPeer(val peer: Peer, val score: Double, val hasModel: Boolean)
+    internal data class RankedPeer(val peer: Peer, val score: Double, val hasModel: Boolean)
 
-    private fun pickBestPeer(peers: List<Peer>, modelId: String): RankedPeer? {
+    internal fun pickBestPeer(peers: List<Peer>, modelId: String): RankedPeer? {
         val ranked = peers
             .map { p ->
                 val score = p.capability[modelId] ?: 0.0
