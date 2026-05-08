@@ -71,11 +71,33 @@ outgoing-offload routing" for the user-facing design.
   bodies server-side, so the offload-forwarded streaming response
   is delivered to the consumer in one chunk rather than
   incrementally. Functional but suboptimal UX. Tracked as a
-  v3.2.x patch — likely swap to Hummingbird / swift-nio-http1.
-- **Per-SDK tests**: Android ships with full Robolectric coverage
-  (39 tests across precheck, decision logic, and
-  MockWebServer-based forwarding). iOS / .NET / RN / Flutter
-  parallel suites land alongside the next dogfood pass.
+  v3.2.x patch. We attempted the swap to Hummingbird /
+  swift-nio-http1 in this release but rolled it back: swift-nio's
+  `CNIOLLHTTP` clang module conflicts with Telegraph's
+  `HTTPParserC` (both vend `enum llhttp_method` with overlapping
+  but non-identical members). Since Telegraph is the HTTP server
+  for the existing `DVAISharedCore` incoming surface, both
+  modules end up linked into any test target that uses
+  `@testable import DVAIBridge`, breaking compilation. The clean
+  fix requires migrating `DVAISharedCore` off Telegraph too,
+  which is a bigger surgery scoped to v3.2.1.
+- **Per-SDK parallel test suites land in this release**:
+  - Android — 39 tests (existing)
+  - iOS — 20 tests (10 capability precheck +
+    10 offload-proxy decision)
+  - .NET — 22 tests (10 capability precheck + 12 offload-router
+    decision, including `X-DVAI-Offload` header behavior, peer
+    selection by score / loaded-model, and HMAC-pairing
+    forward-path proof via deterministic 502 from unreachable
+    fake peer URLs)
+  - Flutter — 18 tests (wire-format round-trips, Pigeon
+    `HardwareAssessmentMessage` decoding, equality contracts)
+  - React Native — 12 tests (TurboModule mock + coercion
+    contract for `assessHardware()`, mode-string validation,
+    safe defaults for missing hint subfields, native-error
+    propagation)
+  Total: 111 tests across the five SDK surfaces guarding the
+  same pre-routing decision logic + cross-platform wire format.
 
 ## [3.1.0] — 2026-05-08
 
