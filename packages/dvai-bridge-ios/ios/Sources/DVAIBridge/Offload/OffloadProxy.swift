@@ -1,10 +1,6 @@
 import Foundation
 import CryptoKit
-import Hummingbird
-import HummingbirdCore
-import NIOCore
-import NIOHTTPTypes
-import HTTPTypes
+import Telegraph
 
 /// v3.2 — Pre-routing HTTP proxy for the iOS SDK.
 ///
@@ -19,15 +15,17 @@ import HTTPTypes
 ///                                                X-DVAI-Nonce +
 ///                                                X-DVAI-Signature)
 ///
-/// Lifecycle is owned by `DVAIBridge.shared.start(_:)`. Don't construct
+/// Lifecycle is owned by `DVAIBridge.shared.start()`. Don't construct
 /// from consumer code.
 ///
-/// Streaming: built on Hummingbird (swift-nio) so SSE responses pipe
-/// through cleanly — when the upstream peer / backend emits chunks,
-/// the consumer sees them incrementally. The earlier Telegraph-based
-/// implementation (v3.2.0-rc) buffered the whole body server-side,
-/// breaking incremental token streaming through the proxy.
-@available(iOS 14.0, macOS 14.0, *)
+/// Streaming caveat: Telegraph 0.40 buffers SSE bodies server-side
+/// (the same limitation the existing iOS llama backend hits when
+/// serving SSE responses). For v3.2.0 we accept this — chat completion
+/// still works, the user just doesn't see incremental tokens until the
+/// upstream finishes. v3.2.x can swap Telegraph for a streaming-capable
+/// HTTP server (Hummingbird, swift-nio-http1) without changing the
+/// public API.
+@available(iOS 14.0, macOS 11.0, *)
 public actor OffloadProxy {
 
     /// Backend's internal loopback URL (e.g. `http://127.0.0.1:38983`).
@@ -37,12 +35,12 @@ public actor OffloadProxy {
     public let pairingPolicy: PairingPolicy?
     /// Live snapshot of paired peers — re-read on each request so
     /// runtime additions are honored without restarting the proxy.
+    /// `async` because `NWBrowserDiscovery` is an actor.
     public let peerProvider: @Sendable () async -> [MDNSPeer]
     public let appId: String
     public let selfDeviceId: String
 
-    private var application: (any ApplicationProtocol)?
-    private var serverTask: Task<Void, Error>?
+    private var server: Telegraph.Server?
     private var boundPort: Int = -1
     private let session: URLSession
 
@@ -64,55 +62,41 @@ public actor OffloadProxy {
         let cfg = URLSessionConfiguration.default
         cfg.timeoutIntervalForRequest = 600
         cfg.timeoutIntervalForResource = 600
+        cfg.httpAdditionalHeaders = [:]
         self.session = URLSession(configuration: cfg)
     }
 
     /// Bind the proxy. Tries `basePort..basePort+maxAttempts-1`.
     /// Returns the bound port.
-    public func start(basePort: Int, maxAttempts: Int = 16, host: String = "127.0.0.1") async throws -> Int {
-        precondition(application == nil, "OffloadProxy already started")
-
+    public func start(basePort: Int, maxAttempts: Int = 16, host: String = "127.0.0.1") throws -> Int {
+        precondition(server == nil, "OffloadProxy already started")
         var lastError: Error?
         for i in 0..<maxAttempts {
             let port = basePort + i
+            let s = Telegraph.Server()
+            installRoutes(on: s)
             do {
-                let router = buildRouter()
-                let app = Application(
-                    router: router,
-                    configuration: .init(
-                        address: .hostname(host, port: port),
-                        serverName: "dvai-offload-proxy"
-                    )
-                )
-                // Start the server. Application.runService() blocks; we
-                // run it in a Task and rely on the bound port being
-                // exposed before the first request lands.
-                let task = Task<Void, Error> {
-                    try await app.runService()
-                }
-                self.application = app
-                self.serverTask = task
+                try s.start(port: port, interface: host)
+                self.server = s
                 self.boundPort = port
                 return port
             } catch {
                 lastError = error
+                s.stop(immediately: true)
                 continue
             }
         }
         throw NSError(
             domain: "OffloadProxy",
             code: 1,
-            userInfo: [NSLocalizedDescriptionKey:
-                "OffloadProxy: failed to bind any port in \(basePort)..\(basePort + maxAttempts - 1) (\(lastError?.localizedDescription ?? "no detail"))"]
+            userInfo: [NSLocalizedDescriptionKey: "OffloadProxy: failed to bind any port in \(basePort)..\(basePort + maxAttempts - 1)"]
         )
     }
 
     /// Stop the proxy. Idempotent.
-    public func stop() async {
-        serverTask?.cancel()
-        _ = try? await serverTask?.value
-        serverTask = nil
-        application = nil
+    public func stop() {
+        server?.stop(immediately: true)
+        server = nil
         boundPort = -1
     }
 
@@ -124,46 +108,56 @@ public actor OffloadProxy {
     public func currentPort() -> Int { boundPort }
 
     /* ================================================================== *
-     * Hummingbird router                                                 *
+     * Route registration                                                 *
      * ================================================================== */
 
-    private nonisolated func buildRouter() -> Router<BasicRequestContext> {
-        let router = Router(context: BasicRequestContext.self)
-        // Catch-all on every method + path — the proxy decides per-request.
-        router.on("/**", method: .get, use: { req, ctx in await self.handle(req: req, ctx: ctx) })
-        router.on("/**", method: .post, use: { req, ctx in await self.handle(req: req, ctx: ctx) })
-        router.on("/**", method: .options, use: { req, ctx in await self.handle(req: req, ctx: ctx) })
-        return router
+    private nonisolated func installRoutes(on s: Telegraph.Server) {
+        // Catch-all: every request goes through the proxy decision logic.
+        let handler: HTTPRequest.Handler = { [weak self] request in
+            guard let self else {
+                return HTTPResponse(.serviceUnavailable, content: "proxy gone")
+            }
+            return self.handleSync(request: request)
+        }
+        // Specific routes first (Telegraph matches in registration order).
+        s.route(.POST, "/v1/chat/completions", handler)
+        s.route(.POST, "/v1/completions", handler)
+        s.route(.POST, "/v1/embeddings", handler)
+        s.route(.GET, "/v1/models", handler)
+        s.route(.OPTIONS, regex: "^/.*$", handler)
+        s.route(.GET, regex: "^/.*$", handler)
+        s.route(.POST, regex: "^/.*$", handler)
     }
 
-    private func handle(req: Request, ctx: BasicRequestContext) async -> Response {
-        let path = req.uri.path
-        let bodyData: Data
-        do {
-            bodyData = try await collectBody(req.body)
-        } catch {
-            return jsonResponse(status: .badGateway,
-                body: #"{"error":{"type":"proxy_error","code":502,"message":"\#(escapeJson(error.localizedDescription))"}}"#)
+    /// Sync entry-point Telegraph calls; bridges to async via a
+    /// semaphore. Same pattern as `HttpServer.installRoutes` in
+    /// shared-core. Acceptable for v3.2.0 — Telegraph doesn't stream.
+    private nonisolated func handleSync(request: HTTPRequest) -> HTTPResponse {
+        let semaphore = DispatchSemaphore(value: 0)
+        let box = ResponseBox()
+        Task {
+            let resp = await self.handle(request: request)
+            box.set(resp)
+            semaphore.signal()
         }
+        semaphore.wait()
+        return box.get() ?? HTTPResponse(.internalServerError)
+    }
 
-        // Build a lower-cased header map for decision + forwarding.
-        var headerMap: [String: String] = [:]
-        for f in req.headers {
-            headerMap[f.name.canonicalName.lowercased()] = f.value
-        }
+    private func handle(request: HTTPRequest) async -> HTTPResponse {
+        let path = request.uri.path
+        let body = request.body
+        let headers = lowerCasedHeaders(request.headers)
 
-        let decision = await decideRoute(path: path, body: bodyData, headers: headerMap)
+        let decision = await decideRoute(path: path, body: body, headers: headers)
         switch decision {
         case .local:
-            return await forwardToLocal(method: req.method, path: path, body: bodyData, headers: req.headers)
+            return await forwardToLocal(request: request)
         case .offload(let baseUrl, let peerDeviceId):
             return await forwardToPeer(
                 baseUrl: baseUrl,
                 peerDeviceId: peerDeviceId,
-                method: req.method,
-                path: path,
-                body: bodyData,
-                headers: req.headers
+                request: request
             )
         case .noCapableDevice(let json):
             return jsonResponse(status: .serviceUnavailable, body: json)
@@ -245,71 +239,75 @@ public actor OffloadProxy {
     }
 
     /* ================================================================== *
-     * Forwarding (URLSession streaming on the upstream leg, Hummingbird  *
-     * AsyncStream on the response leg)                                   *
+     * Forwarding                                                         *
      * ================================================================== */
 
-    private func forwardToLocal(
-        method: HTTPRequest.Method,
-        path: String,
-        body: Data,
-        headers: HTTPFields
-    ) async -> Response {
+    private func forwardToLocal(request: HTTPRequest) async -> HTTPResponse {
         guard let backend = backendBaseUrl else {
             return jsonResponse(status: .serviceUnavailable, body: noLocalBackendError())
         }
-        let target = "\(stripTrailing(backend, suffix: "/"))\(path)"
-        return await forward(target: target, method: method, body: body, headers: headers,
-                             signRequest: false, peerDeviceId: nil)
+        let target = "\(stripTrailing(backend, suffix: "/"))\(request.uri.path)"
+        return await forward(
+            target: target,
+            request: request,
+            signRequest: false,
+            peerDeviceId: nil
+        )
     }
 
     private func forwardToPeer(
         baseUrl: String,
         peerDeviceId: String,
-        method: HTTPRequest.Method,
-        path: String,
-        body: Data,
-        headers: HTTPFields
-    ) async -> Response {
-        let normalizedPath = path.hasPrefix("/v1")
-            ? path
-            : "/v1" + (path.hasPrefix("/") ? path : "/" + path)
+        request: HTTPRequest
+    ) async -> HTTPResponse {
+        let normalizedPath = request.uri.path.hasPrefix("/v1")
+            ? request.uri.path
+            : "/v1" + (request.uri.path.hasPrefix("/") ? request.uri.path : "/" + request.uri.path)
         let target = "\(stripTrailing(baseUrl, suffix: "/"))\(normalizedPath)"
-        return await forward(target: target, method: method, body: body, headers: headers,
-                             signRequest: true, peerDeviceId: peerDeviceId)
+        return await forward(
+            target: target,
+            request: request,
+            signRequest: true,
+            peerDeviceId: peerDeviceId
+        )
     }
 
     private func forward(
         target: String,
-        method: HTTPRequest.Method,
-        body: Data,
-        headers: HTTPFields,
+        request: HTTPRequest,
         signRequest: Bool,
         peerDeviceId: String?
-    ) async -> Response {
+    ) async -> HTTPResponse {
         guard let url = URL(string: target) else {
-            return jsonResponse(status: .badGateway,
-                body: #"{"error":{"type":"proxy_error","code":502,"message":"invalid forward target"}}"#)
+            return jsonResponse(
+                status: .badGateway,
+                body: #"{"error":{"type":"proxy_error","code":502,"message":"invalid forward target"}}"#
+            )
         }
         var urlRequest = URLRequest(url: url)
-        urlRequest.httpMethod = method.rawValue
-        urlRequest.httpBody = body.isEmpty ? nil : body
+        urlRequest.httpMethod = request.method.name
+        urlRequest.httpBody = request.body.isEmpty ? nil : request.body
 
-        for f in headers {
-            let nameStr = f.name.canonicalName
+        // Copy through headers, dropping hop-by-hop + content-length.
+        // Telegraph's HTTPHeaders maps HTTPHeaderName → String;
+        // HTTPHeaderName has a `name: String` property we use for the
+        // URLRequest header field name and lowercased filtering.
+        for (k, v) in request.headers {
+            let nameStr = String(describing: k)
             let lk = nameStr.lowercased()
             if hopByHop.contains(lk) || lk == "host" || lk == "content-length" { continue }
-            urlRequest.setValue(f.value, forHTTPHeaderField: nameStr)
+            urlRequest.setValue(v, forHTTPHeaderField: nameStr)
         }
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        // HMAC-sign for peer forwards.
         if signRequest, let peerDeviceId, let policy = pairingPolicy {
             if let pairing = await policy.getActive(peerDeviceId: peerDeviceId) {
                 let nonce = newNonce()
                 let signature = signCanonical(
-                    method: method.rawValue,
+                    method: request.method.name,
                     path: url.path,
-                    body: body,
+                    body: request.body,
                     nonce: nonce,
                     pairingKey: pairing.pairingKey
                 )
@@ -322,56 +320,34 @@ public actor OffloadProxy {
         }
 
         do {
-            let (asyncBytes, response) = try await session.bytes(for: urlRequest)
+            let (data, response) = try await session.data(for: urlRequest)
             guard let http = response as? HTTPURLResponse else {
-                return jsonResponse(status: .badGateway,
-                    body: #"{"error":{"type":"peer_unreachable","code":502,"message":"non-HTTP response from upstream"}}"#)
+                return jsonResponse(
+                    status: .badGateway,
+                    body: #"{"error":{"type":"peer_unreachable","code":502,"message":"non-HTTP response from upstream"}}"#
+                )
             }
-
-            // Build response headers, dropping hop-by-hop + Content-Length.
-            var outHeaders = HTTPFields()
+            let resp = HTTPResponse(
+                HTTPStatus(code: http.statusCode, phrase: HTTPURLResponse.localizedString(forStatusCode: http.statusCode))
+            )
+            resp.body = data
             for (key, value) in http.allHeaderFields {
                 let k = "\(key)"
                 let lk = k.lowercased()
                 if hopByHop.contains(lk) || lk == "content-length" { continue }
-                if let nameKey = HTTPField.Name(k) {
-                    outHeaders.append(HTTPField(name: nameKey, value: "\(value)"))
-                }
+                resp.headers[k] = "\(value)"
             }
-            // Default content-type to JSON if upstream omitted.
-            if outHeaders[.contentType] == nil {
-                outHeaders.append(HTTPField(name: .contentType, value: "application/json"))
+            // If upstream didn't say Content-Type, default to JSON so
+            // the consumer's OpenAI client doesn't choke.
+            if resp.headers["Content-Type"] == nil {
+                resp.headers["Content-Type"] = "application/json"
             }
-
-            // Stream the upstream body back via ResponseBody.withTrailingHeaders
-            // closure. asyncBytes yields UInt8 chunks; we buffer per-line and
-            // emit ByteBuffers downstream so the consumer sees incremental
-            // tokens for SSE.
-            let status = HTTPResponse.Status(code: http.statusCode)
-            return Response(
-                status: status,
-                headers: outHeaders,
-                body: ResponseBody { writer in
-                    var chunkBuf: [UInt8] = []
-                    chunkBuf.reserveCapacity(8192)
-                    for try await byte in asyncBytes {
-                        chunkBuf.append(byte)
-                        // Flush on newline or every 8 KB so SSE chunks land
-                        // promptly without per-byte writes.
-                        if byte == 0x0A || chunkBuf.count >= 8192 {
-                            try await writer.write(ByteBuffer(bytes: chunkBuf))
-                            chunkBuf.removeAll(keepingCapacity: true)
-                        }
-                    }
-                    if !chunkBuf.isEmpty {
-                        try await writer.write(ByteBuffer(bytes: chunkBuf))
-                    }
-                    try await writer.finish(nil)
-                }
-            )
+            return resp
         } catch {
-            return jsonResponse(status: .badGateway,
-                body: #"{"error":{"type":"peer_unreachable","code":502,"message":"\#(escapeJson(error.localizedDescription))"}}"#)
+            return jsonResponse(
+                status: .badGateway,
+                body: #"{"error":{"type":"peer_unreachable","code":502,"message":"\#(escapeJson(error.localizedDescription))"}}"#
+            )
         }
     }
 
@@ -412,18 +388,6 @@ public actor OffloadProxy {
      * Helpers                                                            *
      * ================================================================== */
 
-    private func collectBody(_ body: RequestBody) async throws -> Data {
-        var out = Data()
-        for try await buffer in body {
-            out.append(contentsOf: buffer.readableBytesView)
-            if out.count > MAX_REQUEST_BYTES {
-                throw NSError(domain: "OffloadProxy", code: 413,
-                    userInfo: [NSLocalizedDescriptionKey: "request body exceeds \(MAX_REQUEST_BYTES) bytes"])
-            }
-        }
-        return out
-    }
-
     private func readModelId(from body: Data) -> String? {
         guard !body.isEmpty,
               let any = try? JSONSerialization.jsonObject(with: body),
@@ -431,6 +395,14 @@ public actor OffloadProxy {
             return nil
         }
         return dict["model"] as? String
+    }
+
+    private nonisolated func lowerCasedHeaders(_ headers: HTTPHeaders) -> [String: String] {
+        var out: [String: String] = [:]
+        for (k, v) in headers {
+            out[String(describing: k).lowercased()] = v
+        }
+        return out
     }
 
     private nonisolated func noLocalBackendError() -> String {
@@ -441,10 +413,10 @@ public actor OffloadProxy {
         #"{"error":{"type":"no_capable_device","code":503,"message":"No device with capability >= \#(required) tok/s available.","localCapability":\#(localCapability),"requiredAtLeast":\#(required)}}"#
     }
 
-    private nonisolated func jsonResponse(status: HTTPResponse.Status, body: String) -> Response {
-        var headers = HTTPFields()
-        headers.append(HTTPField(name: .contentType, value: "application/json"))
-        return Response(status: status, headers: headers, body: .init(byteBuffer: ByteBuffer(string: body)))
+    private nonisolated func jsonResponse(status: HTTPStatus, body: String) -> HTTPResponse {
+        let resp = HTTPResponse(status, content: body)
+        resp.headers["Content-Type"] = "application/json"
+        return resp
     }
 
     private nonisolated func stripTrailing(_ s: String, suffix: String) -> String {
@@ -464,4 +436,18 @@ public actor OffloadProxy {
     ]
 }
 
-private let MAX_REQUEST_BYTES = 32 * 1024 * 1024
+/// Reference-typed box used to capture the dispatch result from the
+/// detached `Task` inside `handleSync`. Same pattern as `ResultBox`
+/// in shared-core's `HttpServer`.
+private final class ResponseBox: @unchecked Sendable {
+    private var value: HTTPResponse?
+    private let lock = NSLock()
+    func set(_ v: HTTPResponse) {
+        lock.lock(); defer { lock.unlock() }
+        value = v
+    }
+    func get() -> HTTPResponse? {
+        lock.lock(); defer { lock.unlock() }
+        return value
+    }
+}
