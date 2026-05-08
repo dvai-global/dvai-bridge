@@ -55,6 +55,13 @@ jobs:
         with:
           version: 9
 
+      # Bun bundles the Node sidecar into a single-file native binary
+      # via `bun build --compile`. tauri.conf.json's beforeBuildCommand
+      # invokes `pnpm bundle:sidecar` which delegates here.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -80,14 +87,19 @@ jobs:
         run: pnpm build:peer-mode
         working-directory: hub
 
+      # Signing steps are gated on secret presence — when the cert
+      # secrets are absent (e.g. early v3.1 unsigned releases), the
+      # workflow still produces installable artefacts. End users see
+      # SmartScreen / Gatekeeper warnings on first launch. See
+      # `TODO.md` for the persistent code-signing TODO.
       - name: macOS — import signing cert
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && env.APPLE_CERT_BASE64 != ''
         env:
-          CERT_B64: ${{ secrets.APPLE_CERT_BASE64 }}
+          APPLE_CERT_BASE64: ${{ secrets.APPLE_CERT_BASE64 }}
           CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
         run: |
-          echo "$CERT_B64" | base64 --decode > $RUNNER_TEMP/cert.p12
+          echo "$APPLE_CERT_BASE64" | base64 --decode > $RUNNER_TEMP/cert.p12
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
@@ -97,12 +109,12 @@ jobs:
             -s -k "$KEYCHAIN_PASSWORD" build.keychain
 
       - name: Windows — import signing cert
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && env.WIN_SIGNING_CERT_BASE64 != ''
         env:
-          CERT_B64: ${{ secrets.WIN_SIGNING_CERT_BASE64 }}
+          WIN_SIGNING_CERT_BASE64: ${{ secrets.WIN_SIGNING_CERT_BASE64 }}
           CERT_PASSWORD: ${{ secrets.WIN_SIGNING_CERT_PASSWORD }}
         run: |
-          $bytes = [Convert]::FromBase64String($env:CERT_B64)
+          $bytes = [Convert]::FromBase64String($env:WIN_SIGNING_CERT_BASE64)
           [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\\cert.pfx", $bytes)
         shell: pwsh
 

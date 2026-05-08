@@ -409,6 +409,5 @@ All URLs fetched 2026-04-27.
 - Vision-related issues: https://api.github.com/search/issues?q=repo:mlc-ai/mlc-llm+vision+is:issue
 - Xcode-related issues: https://api.github.com/search/issues?q=repo:mlc-ai/mlc-llm+xcode+is:issue
 - Supported model architectures: https://api.github.com/repos/mlc-ai/mlc-llm/contents/python/mlc_llm/model
-- Phase 3D spec (the closest analog for sizing): `docs/superpowers/specs/2026-04-27-phase3d-android-native-sdk-design.md`
 - iOS MLX core (the closest analog for iOS LoC sizing): `packages/dvai-bridge-ios-mlx-core/`
 - Android MediaPipe core (the closest analog for Android LoC sizing): `packages/dvai-bridge-android-mediapipe-core/`

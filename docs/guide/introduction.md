@@ -24,6 +24,13 @@ language's OpenAI client — at a real, fully local HTTP endpoint, across:
 - **Flutter** (Dart, via pub.dev — `dvai_bridge`)
 - **.NET 10 LTS** (C#, via NuGet — `co.deepvoiceai.dvai-bridge*`; covers .NET MAUI on iOS / Android, Mac Catalyst, Avalonia / WinUI desktop, and Windows / macOS / Linux console apps)
 
+Plus, since v3.0, **distributed inference across the user's
+devices** — phones offload to laptops on the same Wi-Fi via mDNS
+pairing, OR via a [self-hosted rendezvous server](/guide/self-hosting-rendezvous)
+for cross-network paths. And since v3.1, the
+**[DVAI Hub](/guide/dvai-hub)** packages the strong-peer side as a
+brand-neutral installable utility.
+
 Same OpenAI HTTP surface, multiple language ecosystems, every major
 platform. No other project covers this combination.
 

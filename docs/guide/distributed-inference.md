@@ -15,11 +15,13 @@ The OpenAI HTTP wire surface stays unchanged. Your consumer code
 points at `dvai.baseUrl` and writes plain OpenAI requests; the
 library decides per-request whether to run locally or proxy to a peer.
 
-This page covers the consumer-facing config + behaviour. The full
-design rationale is in
-[`RESEARCH.md`](https://github.com/Westenets/dvai-bridge/blob/main/RESEARCH.md)
-§11 ("Distributed inference"); the v3.0 spec is in
-[`docs/superpowers/specs/2026-05-07-phase3-distributed-inference-design.md`](https://github.com/Westenets/dvai-bridge/blob/main/docs/superpowers/specs/2026-05-07-phase3-distributed-inference-design.md).
+This page is the consumer-facing config + behaviour. The
+[API reference](/reference/api#offloadconfig-v30) lists every
+`OffloadConfig` field with default values; the
+[wire-protocol section](#wire-protocol-additions-in-v3-1) below
+covers the v3.1 handshake + HMAC-signed identity headers; the
+[v3.0 design rationale lives in `RESEARCH.md` §7](https://github.com/Westenets/dvai-bridge/blob/main/RESEARCH.md)
+on the public repo.
 
 ## Quick start
 
