@@ -15,20 +15,20 @@ and `winget install DeepVoiceAI.DVAIHub` actually work.
 
 | # | Task | State |
 |---|---|---|
-| A1 | Pick a Node→single-binary bundler (bun build --compile) | ☐ |
-| A2 | Add a `pnpm bundle:peer-mode` script that produces `hub/src-tauri/binaries/dvai-hub-peer-mode-<target-triple>.<ext>` | ☐ |
-| A3 | Re-enable `bundle.externalBin: ["binaries/dvai-hub-peer-mode"]` in `hub/src-tauri/tauri.conf.json` | ☐ |
-| A4 | Update `hub/src-tauri/src/sidecar.rs` so the production path uses the bundled binary; dev path still spawns `node dist/peer-mode/server.js` | ☐ |
-| A5 | Wire `pnpm bundle:peer-mode` into `tauri.conf.json`'s `beforeBuildCommand` so the binary is regenerated on every `tauri build` | ☐ |
+| A1 | Pick a Node→single-binary bundler (bun build --compile) | ☑ |
+| A2 | Add a `pnpm bundle:sidecar` script that produces `hub/src-tauri/binaries/dvai-hub-peer-mode-<target-triple>.<ext>` | ☑ |
+| A3 | Re-enable `bundle.externalBin: ["binaries/dvai-hub-peer-mode"]` in `hub/src-tauri/tauri.conf.json` | ☑ |
+| A4 | Update `hub/src-tauri/src/sidecar.rs` so the production path uses the bundled binary; dev path still spawns `node dist/peer-mode/server.js` | ☑ |
+| A5 | Wire `pnpm bundle:sidecar` into `tauri.conf.json`'s `beforeBuildCommand` so the binary is regenerated on every `tauri build` | ☑ |
 | A6 | Local smoke: `pnpm tauri build` → installer → install → tray launches → dashboard opens → Start triggers DVAI initialize → audit log writes | ☐ |
 
 ## B. Icon set
 
 | # | Task | State |
 |---|---|---|
-| B1 | Commission a 1024×1024 master PNG (or accept a placeholder one — design can iterate post-release) | ☐ |
-| B2 | Run `pnpm dlx @tauri-apps/cli icon path/to/master.png` from `hub/` to generate the full set | ☐ |
-| B3 | Replace the dev placeholders in `hub/src-tauri/icons/`; delete `hub/src-tauri/icons/README.md` (it explains the placeholders) | ☐ |
+| B1 | Commission a 1024×1024 master PNG (or accept a placeholder one — design can iterate post-release) | ☑ |
+| B2 | Run `pnpm dlx @tauri-apps/cli icon path/to/master.png` from `hub/` to generate the full set | ☑ |
+| B3 | Replace the dev placeholders in `hub/src-tauri/icons/`; delete `hub/src-tauri/icons/README.md` (it explains the placeholders) | ☑ |
 
 ## C. Code signing — DEFERRED (tracked in `TODO.md`)
 
@@ -45,8 +45,8 @@ conditional, so unsigned builds still produce artifacts.
 
 | # | Task | State |
 |---|---|---|
-| C1 | Gate macOS signing/notarize steps in workflow on `secrets.APPLE_CERT_BASE64 != ''` so unsigned builds work | ☐ |
-| C2 | Gate Windows signing step on `secrets.WIN_SIGNING_CERT_BASE64 != ''` similarly | ☐ |
+| C1 | Gate macOS signing/notarize steps in workflow on `secrets.APPLE_CERT_BASE64 != ''` so unsigned builds work | ☑ |
+| C2 | Gate Windows signing step on `secrets.WIN_SIGNING_CERT_BASE64 != ''` similarly | ☑ |
 | C3 | Document the `signed=false` warning UX users will see (macOS Gatekeeper, Windows SmartScreen) | ☐ |
 
 ## D. First GitHub Release
