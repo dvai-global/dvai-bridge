@@ -602,6 +602,34 @@ export class DVAI {
 			if (this.offload?.enabled) {
 				try {
 					await this.initializeOffload();
+					// v3.2 — auto-attach the offload forwarder so requests
+					// route to peers without the consumer wiring an
+					// interceptor manually. Skipped when:
+					//   1. The consumer already supplied their own
+					//      chatCompletionInterceptor (e.g. the Hub uses
+					//      one for substitution-policy routing — they're
+					//      responsible for composing offload themselves).
+					//   2. We're not in offload-only mode AND a local
+					//      backend is available — for v3.2.0 we keep the
+					//      auto-attach scoped to the offload-only path
+					//      to avoid changing local-first behavior. The
+					//      richer "decide per request even when local
+					//      works" wiring follows in a future patch.
+					if (
+						this.chatCompletionInterceptor === undefined &&
+						this.offloadOnlyMode
+					) {
+						const { buildOffloadInterceptor } = await import(
+							"./offload/index.js"
+						);
+						const offloadConfig = this.offload;
+						this.chatCompletionInterceptor = buildOffloadInterceptor({
+							config: offloadConfig,
+							getPeers: () => this.discovery?.peers() ?? [],
+							getLocalCapability: () => 0, // offload-only ⇒ no local backend
+							offloadOnlyMode: true,
+						});
+					}
 				} catch (err) {
 					console.warn(
 						"[DVAI/offload] failed to initialize offload state; " +
