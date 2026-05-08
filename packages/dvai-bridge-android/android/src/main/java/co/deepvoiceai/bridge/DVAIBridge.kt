@@ -7,13 +7,14 @@ import co.deepvoiceai.bridge.shared.core.CorsConfig
 import co.deepvoiceai.bridge.shared.core.capability.CapabilityCache
 import co.deepvoiceai.bridge.shared.core.capability.DeviceID
 import co.deepvoiceai.bridge.shared.core.capability.CapabilityPrecheck
+import co.deepvoiceai.bridge.shared.core.capability.DeviceCapabilityHints
 import co.deepvoiceai.bridge.shared.core.capability.PrecheckMode
 import co.deepvoiceai.bridge.shared.core.discovery.NsdAdvertiser
 import co.deepvoiceai.bridge.shared.core.discovery.NsdDiscovery
 import co.deepvoiceai.bridge.shared.core.discovery.PeerTxtKeys
-import co.deepvoiceai.bridge.shared.core.offload.HardwareTooWeakInfo
 import co.deepvoiceai.bridge.shared.core.offload.OffloadConfig
 import co.deepvoiceai.bridge.shared.core.pairing.PairingPolicy
+import kotlinx.serialization.Serializable
 import co.deepvoiceai.bridge.shared.core.pairing.PairingRequest
 import co.deepvoiceai.bridge.shared.core.pairing.PairingStore
 import kotlinx.coroutines.Dispatchers
@@ -112,6 +113,54 @@ object DVAIBridge {
     }
 
     /**
+     * v3.2 — pre-init hardware assessment.
+     *
+     * Returns a JSON-serializable description of how this device would
+     * handle local inference, BEFORE any model download/load. The SDK
+     * itself never shows UI for hardware decisions — consumer apps
+     * call this and decide their own UX based on the returned `mode`:
+     *
+     *   - `OK`           → device can comfortably run the model
+     *                      locally; [start] proceeds normally.
+     *   - `OFFLOAD_ONLY` → device can run but slowly (below
+     *                      `minLocalCapability`); [start] skips the
+     *                      model load and routes every request to
+     *                      a paired peer.
+     *   - `TOO_WEAK`     → device is below the hardware floor (3
+     *                      tok/s by default); [start] also skips
+     *                      the model load. Consumers typically bail
+     *                      rather than even calling [start].
+     *
+     * The result is `kotlinx.serialization.Serializable` so it can be
+     * passed to a Capacitor / React Native bridge as JSON or stored
+     * directly. Pass overrides for [hardwareMinimum] and
+     * [minLocalCapability] to mirror your `OffloadConfig`.
+     */
+    @JvmStatic
+    fun assessHardware(
+        hardwareMinimum: Double = 3.0,
+        minLocalCapability: Double = 10.0,
+    ): HardwareAssessment {
+        val ctx = applicationContext
+            ?: throw DVAIBridgeError.ConfigurationInvalid(
+                "DVAIBridge.init(context) must be called before assessHardware().",
+            )
+        val precheck = CapabilityPrecheck.assess(
+            context = ctx,
+            thresholds = CapabilityPrecheck.Thresholds(
+                hardwareMinimum = hardwareMinimum,
+                minLocalCapability = minLocalCapability,
+            ),
+        )
+        return HardwareAssessment(
+            mode = precheck.mode,
+            tokPerSec = precheck.tokPerSec,
+            reason = precheck.reason,
+            hints = precheck.hints,
+        )
+    }
+
+    /**
      * Boot the embedded HTTP server with the chosen backend. Throws
      * [DVAIBridgeError.AlreadyStarted] if a previous start() hasn't been
      * paired with a [stop]. Throws [DVAIBridgeError.BackendUnavailable] if
@@ -161,39 +210,13 @@ object DVAIBridge {
                     message = "[DVAI/precheck] ${precheck.mode}: ${precheck.reason}",
                 ),
             )
-            when (precheck.mode) {
-                PrecheckMode.TOO_WEAK -> {
-                    val info = HardwareTooWeakInfo(
-                        tokPerSec = precheck.tokPerSec,
-                        hardwareMinimum = offload.hardwareMinimum,
-                        reason = precheck.reason,
-                    )
-                    try {
-                        offload.onHardwareTooWeak?.invoke(info)
-                    } catch (e: Throwable) {
-                        broadcaster.emit(
-                            ProgressEvent.Progress(
-                                phase = "precheck",
-                                percent = -1f,
-                                message = "[DVAI/precheck] onHardwareTooWeak callback threw: ${e.message}",
-                            ),
-                        )
-                    }
-                    val err = DVAIBridgeError.HardwareTooWeak(
-                        tokPerSec = precheck.tokPerSec,
-                        hardwareMinimum = offload.hardwareMinimum,
-                        reason = precheck.reason,
-                    )
-                    broadcaster.emit(ProgressEvent.Failed(phase = "start", error = err))
-                    throw err
-                }
-                PrecheckMode.OFFLOAD_ONLY -> {
-                    offloadOnlyMode = true
-                }
-                PrecheckMode.OK -> {
-                    // proceed normally
-                }
-            }
+            // v3.2 — both TOO_WEAK and OFFLOAD_ONLY collapse to "skip
+            // backend init" from the SDK's perspective. The SDK does
+            // NOT throw and does NOT show any UI; consumers query
+            // [assessHardware] ahead of start() and decide their own UX.
+            offloadOnlyMode =
+                precheck.mode == PrecheckMode.OFFLOAD_ONLY ||
+                precheck.mode == PrecheckMode.TOO_WEAK
         }
 
         // Determine the backend's internal port. When the proxy is in
@@ -515,6 +538,26 @@ object DVAIBridge {
         broadcaster.removeListener(listener)
     }
 }
+
+/**
+ * v3.2 — JSON-serializable result of [DVAIBridge.assessHardware]. Returned
+ * to consumer code so the app developer can decide whether to call
+ * [DVAIBridge.start] and what (if anything) to surface in the UI.
+ *
+ * `@Serializable` so it round-trips cleanly through Capacitor / React
+ * Native / Pigeon bridges as JSON without any custom converter.
+ */
+@Serializable
+data class HardwareAssessment(
+    /** Lifecycle mode the SDK would enter on [DVAIBridge.start]. */
+    val mode: PrecheckMode,
+    /** Estimated decode tok/s for any 1–3B-class model on this device. */
+    val tokPerSec: Double,
+    /** Human-readable explanation; safe to log or display. */
+    val reason: String,
+    /** Underlying hints used to compute the estimate. */
+    val hints: DeviceCapabilityHints,
+)
 
 /**
  * Convert [StartOptions] to the loose `Map<String, Any?>` that each

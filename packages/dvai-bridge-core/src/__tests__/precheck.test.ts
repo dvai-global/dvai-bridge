@@ -7,10 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import {
-  assessCapability,
-  HardwareTooWeakError,
-} from "../capability/precheck.js";
+import { assessCapability } from "../capability/precheck.js";
 import type { DeviceCapabilityHints } from "../capability/types.js";
 
 const HIGH_END_DESKTOP: DeviceCapabilityHints = {
@@ -106,18 +103,14 @@ describe("assessCapability", () => {
   });
 });
 
-describe("HardwareTooWeakError", () => {
-  it("carries the structured fields", () => {
-    const err = new HardwareTooWeakError({
-      tokPerSec: 1,
-      hardwareMinimum: 3,
-      hints: VERY_WEAK_DEVICE,
-      reason: "test",
-    });
-    expect(err.name).toBe("HardwareTooWeakError");
-    expect(err.tokPerSec).toBe(1);
-    expect(err.hardwareMinimum).toBe(3);
-    expect(err.hints).toEqual(VERY_WEAK_DEVICE);
-    expect(err.message).toContain("test");
+describe("assessHardware result is JSON-serializable", () => {
+  it("survives a JSON round-trip", async () => {
+    const result = await assessCapability({ hints: VERY_WEAK_DEVICE });
+    const json = JSON.stringify(result);
+    const parsed = JSON.parse(json);
+    expect(parsed.mode).toBe("too-weak");
+    expect(parsed.tokPerSec).toBeLessThan(3);
+    expect(parsed.hints).toEqual(VERY_WEAK_DEVICE);
+    expect(typeof parsed.reason).toBe("string");
   });
 });
