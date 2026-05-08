@@ -34,6 +34,13 @@ let package = Package(
         // it directly for DVAICoreMLCore so the target's link line is
         // self-explanatory.
         .package(url: "https://github.com/Building42/Telegraph.git", from: "0.40.0"),
+        // v3.2 — Hummingbird HTTP server for the OffloadProxy. Telegraph
+        // 0.40 buffers SSE bodies server-side, which kills incremental
+        // streaming through the proxy. Hummingbird (built on swift-nio)
+        // streams cleanly. ~1.5 MB framework contribution; only used by
+        // DVAIBridge (the umbrella) so consumers who don't use offload
+        // pay nothing extra.
+        .package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.0.0"),
     ],
     targets: [
         .target(
@@ -61,9 +68,12 @@ let package = Package(
                 .product(name: "DVAIFoundationCore", package: "dvai-bridge-ios-foundation-core"),
                 .product(name: "DVAIMLXCore", package: "dvai-bridge-ios-mlx-core"),
                 "DVAICoreMLCore",
-                // v3.2 Phase 5 — outgoing-offload pre-routing proxy uses
-                // Telegraph as the embedded HTTP server (same as the iOS
-                // llama backend; already a top-level dep).
+                // v3.2 Phase 5 — outgoing-offload pre-routing proxy.
+                // Hummingbird gives us streaming SSE through the proxy
+                // (Telegraph 0.40 buffers); we keep the Telegraph dep
+                // for backwards-compat in case the existing iOS llama
+                // backend's incoming server still uses it elsewhere.
+                .product(name: "Hummingbird", package: "hummingbird"),
                 "Telegraph",
             ],
             path: "ios/Sources/DVAIBridge"
