@@ -212,8 +212,25 @@ public sealed class OffloadRouter : IOffloadRouter
 
         if (pairing is not null)
         {
-            var nonce = NewNonce();
-            var sig = SignCanonical("POST", new Uri(target).AbsolutePath, body, nonce, pairing.PairingKey);
+            // v3.2.1 — route through DVAIBridge.Pairing.PairingHandshake
+            // helpers (which already match the TS reference byte-for-byte)
+            // instead of the local SignCanonical/NewNonce. The local
+            // helpers had three protocol bugs vs the Hub's verifier:
+            //   - canonical msg order: TS uses
+            //       `nonce\nMETHOD\npath\nsha256hex(body)`;
+            //     local used `METHOD\npath\nnonce\nbody-bytes`.
+            //   - pairingKey encoding: TS decodes base64-url; local
+            //     used raw UTF-8 bytes.
+            //   - signature encoding: TS produces base64-url; local
+            //     emitted hex.
+            // Same fix iOS got in commit 5292482; mobile + .NET were
+            // both running the wrong format and getting 401 from the
+            // Hub on every signed request.
+            var nonce = global::DVAIBridge.Pairing.PairingHandshake.GenerateNonce();
+            var bodyString = body.Length == 0 ? null : System.Text.Encoding.UTF8.GetString(body);
+            var canonical = global::DVAIBridge.Pairing.PairingHandshake.ComposeSignedMessage(
+                nonce, "POST", new Uri(target).AbsolutePath, bodyString);
+            var sig = global::DVAIBridge.Pairing.PairingHandshake.SignHmac(pairing.PairingKey, canonical);
             req.Headers.TryAddWithoutValidation("X-DVAI-Peer-Device-Id", _selfDeviceId);
             req.Headers.TryAddWithoutValidation("X-DVAI-App-Id", _appId);
             req.Headers.TryAddWithoutValidation("X-DVAI-Nonce", nonce);
@@ -260,28 +277,12 @@ public sealed class OffloadRouter : IOffloadRouter
         return "";
     }
 
-    private static string SignCanonical(string method, string path, byte[] body, string nonce, string pairingKey)
-    {
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(pairingKey));
-        using var ms = new MemoryStream();
-        var lf = new[] { (byte)0x0A };
-        ms.Write(Encoding.UTF8.GetBytes(method.ToUpperInvariant()));
-        ms.Write(lf);
-        ms.Write(Encoding.UTF8.GetBytes(path));
-        ms.Write(lf);
-        ms.Write(Encoding.UTF8.GetBytes(nonce));
-        ms.Write(lf);
-        ms.Write(body);
-        var hash = hmac.ComputeHash(ms.ToArray());
-        return Convert.ToHexString(hash).ToLowerInvariant();
-    }
-
-    private static string NewNonce()
-    {
-        var bytes = new byte[16];
-        RandomNumberGenerator.Fill(bytes);
-        return Convert.ToHexString(bytes).ToLowerInvariant();
-    }
+    // v3.2.1 — `SignCanonical` and `NewNonce` deleted. Signing now
+    // routes through `DVAIBridge.Pairing.PairingHandshake` which
+    // matches the TS canonical reference byte-for-byte. Keeping a
+    // duplicate implementation here is what caused the silent 401
+    // bug — the two drifted (wrong canonical order, wrong key
+    // encoding, wrong sig encoding).
 
     private static OffloadResponse NoLocalBackendResponse() => JsonResponse(503,
         "{\"error\":{\"type\":\"no_local_backend\",\"code\":503,\"message\":\"DVAI is in offload-only mode and no peer is available.\"}}");

@@ -32,7 +32,7 @@ public class OffloadRouterTests
             minLocalCapability: minLocalCapability,
             peerProvider: () => peers ?? new List<OffloadPeerInfo>(),
             pairingLookup: (peerId, ct) =>
-                Task.FromResult<OffloadPairing?>(new OffloadPairing(peerId, "test-pairing-key-32-bytes")),
+                Task.FromResult<OffloadPairing?>(new OffloadPairing(peerId, "vGzn8h_FNHkqL5Q1tN-rTu3pYWB7K0vGzn8h_FNHkqI")),
             appId: "test.app",
             selfDeviceId: "test-self-device");
 

@@ -60,7 +60,13 @@ class OffloadProxyForwardingTest {
         .callTimeout(5, TimeUnit.SECONDS)
         .build()
 
-    private val pairingKey = "test-pairing-key-32-bytes-hex-padding"
+    // Base64-url-encoded 256-bit pairing key (matches the v3.2.1 wire
+    // format — `OffloadProxy.signCanonical` decodes the key as
+    // base64-url before HMAC-keying, mirroring the TS Hub's
+    // `verifyHmac`). The test asserts header shape, not signature
+    // value, so the exact bytes don't matter — only that the string
+    // is decodable.
+    private val pairingKey = "vGzn8h_FNHkqL5Q1tN-rTu3pYWB7K0vGzn8h_FNHkqI"
     private val peerDeviceId = "peer-device-id"
 
     @Before

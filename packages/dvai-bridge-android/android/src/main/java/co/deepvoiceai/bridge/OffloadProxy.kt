@@ -40,6 +40,7 @@ import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.BindException
+import java.security.MessageDigest
 import java.security.SecureRandom
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -315,10 +316,15 @@ class OffloadProxy(
         body: ByteArray,
         headers: Map<String, String>,
     ) {
-        val targetBase = decision.baseUrl.trimEnd('/')
-        // Peer might or might not have /v1 in its baseUrl; normalize.
+        // v3.2.1 — peer baseUrls always carry `/v1` (synthesised by
+        // both NsdDiscovery on Android + NWBrowserDiscovery on iOS as
+        // `<scheme>://<host>:<port>/v1`). Strip it before appending
+        // the consumer's path (which itself begins with `/v1`),
+        // otherwise we end up with `…/v1/v1/chat/completions` and
+        // the peer 404s. Same fix iOS got in commit 30d0be2.
+        val baseStripped = decision.baseUrl.trimEnd('/').removeSuffix("/v1")
         val normalizedPath = if (path.startsWith("/v1")) path else "/v1${path.removePrefix("/")}"
-        val target = "$targetBase$normalizedPath"
+        val target = "$baseStripped$normalizedPath"
         forwardRequest(call, method, target, body, headers, signRequest = true, peerDeviceId = decision.peerDeviceId)
     }
 
@@ -411,6 +417,19 @@ class OffloadProxy(
      * HMAC                                                               *
      * ================================================================== */
 
+    /**
+     * v3.2.1 — sign the canonical message that matches the TS Hub's
+     * `verifyHmac` byte-for-byte. The earlier implementation had three
+     * independent protocol bugs that produced 401 every time:
+     *   - canonical msg order: TS spec is
+     *       `nonce\nMETHOD\npath\nsha256hex(body)`;
+     *     prior local impl used `METHOD\npath\nnonce\nbody-bytes`.
+     *   - pairingKey encoding: TS decodes base64-url; prior local
+     *     impl used raw UTF-8 bytes.
+     *   - signature encoding: TS produces base64-url; prior local
+     *     impl emitted hex.
+     * Fixed inline here to keep mobile parity with iOS commit 5292482.
+     */
     private fun signCanonical(
         method: String,
         path: String,
@@ -418,23 +437,50 @@ class OffloadProxy(
         nonce: String,
         pairingKey: String,
     ): String {
-        val mac = Mac.getInstance("HmacSHA256").apply {
-            init(SecretKeySpec(pairingKey.toByteArray(Charsets.UTF_8), "HmacSHA256"))
+        // sha256(body) → lowercase hex, OR all-zeros for empty body.
+        val bodyHash: String = if (body.isEmpty()) {
+            "0".repeat(64)
+        } else {
+            val md = MessageDigest.getInstance("SHA-256")
+            md.digest(body).toHex()
         }
-        mac.update(method.uppercase().toByteArray(Charsets.UTF_8))
-        mac.update(LF)
-        mac.update(path.toByteArray(Charsets.UTF_8))
-        mac.update(LF)
-        mac.update(nonce.toByteArray(Charsets.UTF_8))
-        mac.update(LF)
-        mac.update(body)
-        return mac.doFinal().toHex()
+        val canonical = "$nonce\n${method.uppercase()}\n$path\n$bodyHash"
+
+        val keyBytes = base64UrlDecode(pairingKey)
+        val mac = Mac.getInstance("HmacSHA256").apply {
+            init(SecretKeySpec(keyBytes, "HmacSHA256"))
+        }
+        val sigBytes = mac.doFinal(canonical.toByteArray(Charsets.UTF_8))
+        return base64UrlEncode(sigBytes)
     }
 
+    /**
+     * Generate a fresh 128-bit nonce. Encoded as base64-url to match
+     * the TS reference; encoding doesn't actually matter for HMAC
+     * verification (both sides see the same string in the
+     * `X-DVAI-Nonce` header) but keeping the format consistent with
+     * iOS + .NET avoids confusion in audit logs.
+     */
     private fun newNonce(): String {
         val bytes = ByteArray(16)
         SecureRandom().nextBytes(bytes)
-        return bytes.toHex()
+        return base64UrlEncode(bytes)
+    }
+
+    /**
+     * RFC 4648 §5 base64-url encode without padding. Uses
+     * `java.util.Base64` rather than `android.util.Base64` so the
+     * helper is reachable from plain-JVM unit tests too — Android's
+     * util class isn't present off-device unless Robolectric is
+     * shimmed in.
+     */
+    private fun base64UrlEncode(bytes: ByteArray): String {
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+    }
+
+    /** RFC 4648 §5 base64-url decode (accepts padding or no-padding). */
+    private fun base64UrlDecode(s: String): ByteArray {
+        return java.util.Base64.getUrlDecoder().decode(s)
     }
 
     /* ================================================================== *
@@ -480,7 +526,6 @@ class OffloadProxy(
         private const val REQUEST_TIMEOUT_MS: Long = 600_000L         // 10 min
         private const val MAX_REQUEST_BYTES: Long = 32L * 1024 * 1024  // 32 MB
         private const val MAX_RESPONSE_BYTES: Long = 64L * 1024 * 1024 // 64 MB
-        private val LF = byteArrayOf(0x0A)
         private val HOP_BY_HOP = setOf(
             "connection", "keep-alive", "proxy-authenticate",
             "proxy-authorization", "te", "trailers",
