@@ -3,7 +3,229 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [3.2.0] — 2026-05-08
+## [3.2.1] — 2026-05-09
+
+Critical patch release. v3.2.0's outgoing-offload path was
+**non-functional in production** because of three protocol-level bugs
+that all surfaced during the first real-device dogfood pass against
+the desktop Hub. Every signed offload request returned 401 from the
+Hub; mobile peers couldn't auto-discover the Hub on macOS at all;
+and the iOS proxy looped chat-completion requests back to itself
+under specific port-binding conditions. None of the v3.2.0 SDKs
+could complete a peer-served chat completion. v3.2.1 fixes all
+three plus several smaller issues found in the same pass.
+
+The public API surface is **unchanged** — this is a wire-protocol
++ routing fix release. Consumers upgrading from v3.2.0 should see
+no source-code changes required.
+
+### Fixed — wire-protocol parity
+
+- **HMAC canonicalisation aligned across iOS / Android / .NET / TS.**
+  The TS reference (`@dvai-bridge/core`'s
+  `composeSignedMessage` in `packages/dvai-bridge-core/src/pairing/
+  handshake.ts`) defines the canonical signed message as
+  `nonce\nMETHOD\npath\nsha256hex(body)` with the pairing key
+  base64-url-decoded and the resulting HMAC base64-url-encoded. All
+  three native SDKs had drifted to a different format with three
+  independent bugs each:
+    - Wrong order: `METHOD\npath\nnonce\nbody-bytes` (raw body, no
+      hash).
+    - Pairing key passed as raw UTF-8 bytes instead of base64-url
+      decoded.
+    - Signature emitted as lowercase hex instead of base64-url.
+  Every signed offload request reached the Hub, the Hub recomputed
+  the expected signature using the canonical format, the strings
+  didn't match, and the Hub returned 401 with `hmac signature did
+  not verify`. Fixed in `OffloadProxy.swift` (commit 5292482),
+  `OffloadProxy.kt` + `OffloadRouter.cs` (commit f206a57). The
+  fixed implementations route through the existing
+  `PairingHandshake` helpers (Swift / .NET) or use an inline
+  rewrite (Kotlin — Android has no separate handshake module).
+  Duplicate `signCanonical` / `SignCanonical` / `newNonce` methods
+  deleted to prevent future drift.
+
+- **iOS pairing-handshake handler wired in.** v3.2.0 had the
+  receiver-side pairing logic (`PairingPolicy.approveOrFetch`)
+  defined but never called — there was no HTTP route registered
+  for `POST /v1/dvai/handshake` on the iOS side. The TS Hub's
+  attempts to handshake with an iOS peer 404'd, and
+  `pairingRequests()` AsyncStream was never fed. Fixed by adding
+  a special-case branch in `OffloadProxy.handle()` ahead of
+  `decideRoute()` that maps `/v1/dvai/handshake` POSTs to a new
+  `handleHandshakeRequest()` private method, which validates the
+  request body, calls `pairingPolicy.approveOrFetch(...)`, and
+  responds with the wire-compatible
+  `{ paired, pairedAt, via, pairingKey, peerDeviceId }` envelope
+  (commit 4938ef3).
+
+- **iOS outbound pairing API.** The iOS SDK now exposes
+  `DVAIBridge.shared.initiatePairing(with peer: MDNSPeer) async
+  throws -> Pairing`, mirroring the receiver-side handler. Posts a
+  handshake to `peer.baseUrl + /v1/dvai/handshake`, parses the
+  response, and persists the returned pairing key to the local
+  `PairingStore`. Required for the host-initiates-handshake half
+  of the pairing flow that v3.2.0 left open (commit a0aa1a8).
+
+- **URL-doubling bug in iOS + Android peer-forward path.** The
+  `forwardToPeer` path concatenated `peer.baseUrl` (which always
+  ends in `/v1`) with the consumer's path (which itself begins
+  with `/v1`), producing
+  `http://peer-host:port/v1/v1/chat/completions` — a guaranteed
+  404 at the peer. Same bug surfaced in `initiatePairing` on iOS
+  before `forwardToPeer` did. Both sides now strip a trailing
+  `/v1` from the baseUrl before appending (commits 30d0be2,
+  4f608aa, f206a57).
+
+- **iOS service-name mismatch in NSBonjourServices.** The example
+  dogfood app declared `_dvai._tcp` in its `Info.plist`
+  `NSBonjourServices` whitelist, but the SDK browses + advertises
+  `_dvai-bridge._tcp`. iOS 14+ silently rejects every
+  `NWBrowser.start()` with `-65555: NoAuth` when the type isn't in
+  the plist whitelist — diagnosed as a Local-Network-permission
+  bug, fixed by aligning the whitelist with the SDK's actual
+  service type (commit 4938ef3).
+
+### Fixed — discovery + routing
+
+- **Hub mDNS advertise on macOS.** `multicast-dns` (the npm
+  library used by `@dvai-bridge/core`'s discovery layer) cannot
+  actually broadcast `_dvai-bridge._tcp` on macOS — Apple's
+  `mDNSResponder` daemon owns UDP port 5353 first, so the lib's
+  raw-socket bind silently fails. Verified via `dns-sd -B
+  _dvai-bridge._tcp` showing only locally-running iPhones, no
+  Hub. The Hub's wrapper now spawns a `dns-sd -R` subprocess on
+  Darwin (new `MdnsAdvertiserDarwin` class in
+  `hub/peer-mode/`) which delegates to `mDNSResponder` directly.
+  iOS NWBrowser sees the Hub immediately on the LAN. The JS-core
+  advertise path silently no-ops on Darwin so the Hub doesn't
+  double-broadcast (commits 1c9349d, 4723317).
+
+- **iOS self-discovery filter moved into the SDK.** NWBrowser
+  surfaces the local device's own `_dvai-bridge._tcp`
+  advertisement alongside remote peers; v3.2.0's example app
+  filtered it at the UI layer, which left
+  `OffloadProxy.decideRoute`'s peer list contaminated with self.
+  Combined with the URL-doubling bug above, this caused the
+  proxy to forward chat completions to the iPhone's own loopback
+  proxy in a self-referential loop (`http://deeps-iphone.local:
+  38883/v1/v1/chat/completions` → connection-reset). Fixed by
+  moving the filter into `NWBrowserDiscovery`. New
+  `setSelfDeviceId(_:)` is called from `OffloadRuntime.start`
+  before `browser.start` so the very first peerUp event from our
+  own advertisement is dropped race-free (commit 4f608aa).
+
+- **Pairing record gains optional `baseUrl`.** Captured at
+  pairing time by `initiatePairing(with:)`. The OffloadProxy's
+  paired-peer fallback uses it to route to the Hub even when the
+  Hub is dark in mDNS (which was the v3.2.0 macOS situation).
+  Optional / back-compat — pairings persisted by earlier builds
+  decode with `nil` baseUrl; the fallback skips them
+  (commit 4f608aa).
+
+- **`OffloadProxy.decideRoute` paired-peer fallback.** When
+  `pickBestPeer()` returns nil because no peer's advertised
+  `capability[modelId]` exceeds the threshold (the common case
+  with a freshly-paired Hub whose capability map is empty), the
+  router now falls through to any peer with an active pairing
+  record. Capability scoring stays a soft hint; pairing presence
+  is the real route gate (commit 4f608aa).
+
+- **Defensive cleanup of stale self-pairings.** `OffloadRuntime.
+  start` now removes any pairing keyed by our own deviceId on
+  startup. Earlier builds (without the self-filter) could
+  persist a self-pairing that the new fallback would otherwise
+  loop on (commit 4f608aa).
+
+### Added — auto-advertise + auto-loop affordances
+
+- **`OffloadConfig.advertiseLAN: bool`** — when true, the SDK
+  registers an `_dvai-bridge._tcp` mDNS advertisement so other
+  peers can discover this instance via NWBrowser. Defaults
+  false to preserve v3.1 behaviour. Set to true on the desktop
+  Hub via `hub/peer-mode/server.ts`. The native mobile SDKs
+  already advertised themselves; this lets the JS-core (Hub,
+  Node CLI consumers) opt in (commit 54ccf88).
+
+- **`DVAIBridge.shared.deviceId() async throws -> String`** —
+  exposes the per-install device ID. Used by host apps to filter
+  the local device's own advertisement out of `discoveryEvents()`
+  (race-safe since the SDK now does this internally too, but the
+  accessor remains useful for app-level identification UX)
+  (commit 30d0be2).
+
+- **`PairingPolicy.listPairings()` accessor** — snapshot of
+  every persisted pairing. Used by the OffloadProxy's two-stage
+  paired-peer fallback (commit 4f608aa).
+
+### Tests
+
+- **iOS HttpServerIntegrationTest** — drives a live HTTP request
+  through the Hummingbird-backed HttpServer end-to-end. Caught a
+  routing bug in the Hummingbird trie router that v3.2.0 missed
+  (OPTIONS preflights against specific paths fell through to 404
+  instead of matching the wildcard) (commit 034fd5f).
+
+- **.NET OffloadRouterForwardingTests** — full-loop integration:
+  HttpListener stand-in for the peer, asserts HMAC headers +
+  signature against an independent oracle that mirrors the
+  canonical TS format (commit 5f4643d, updated to TS canonical in
+  f206a57).
+
+- **iOS dogfood loop** — `examples/ios-offload-dogfood`
+  auto-pairs + auto-sends chats with `os_log` instrumentation,
+  visible via `xcrun simctl spawn booted log stream`. 59
+  consecutive iterations validated end-to-end with ttfb ~200 ms,
+  ttlb ~1700-2100 ms (10× ratio confirms incremental SSE
+  streaming through the proxy).
+
+### Changed
+
+- **Dogfood example moved off SwiftPM-only to a real iOS App
+  project via XcodeGen.** SwiftPM packages can't be deployed to
+  physical iPhones via Xcode's signing pane; an iOS App target is
+  required. The example now ships a `project.yml` consumed by
+  XcodeGen + a `.gitignore`'d `.xcodeproj` (commit 0d519c7).
+
+- **Dogfood model id default changed from `"local"` to
+  `"llama3.2:latest"`** to match the model the dogfood Mac has
+  installed via `ollama pull`. The id is forwarded verbatim
+  through the Hub to its engine adapter, so an Ollama Hub
+  receiving `model: "local"` would 404 at the adapter (commit
+  54ccf88).
+
+- **Dogfood example binds OffloadProxy on port 38900 instead of
+  the SDK default 38883** to avoid a port conflict when the
+  iPhone simulator runs on the same Mac as the Hub. Both ends
+  binding 38883 caused kernel routing of local-IP packets to the
+  more-specific `127.0.0.1:38883` listener (the sim's own proxy)
+  rather than the Hub's `*:38883` wildcard (commit 5292482).
+
+### Notes
+
+- **Public API unchanged.** Consumers upgrading from v3.2.0 see
+  no source-level changes required. The wire format on the LAN
+  changed (HMAC canonical now matches the TS spec), so a
+  3.2.0-on-3.2.1 mixed deployment will fail authentication on
+  the offload path. Upgrade both ends together.
+
+- **Hub mDNS auto-discovery is now live on macOS** as of
+  1c9349d's `dns-sd -R` subprocess. iOS clients on the same LAN
+  as the Hub see it appear in their NWBrowser results without
+  manual URL paste. Linux + Windows Hubs continue to use the
+  JS-core's `multicast-dns` advertise (which works there because
+  no system daemon owns 5353).
+
+- **Verified on iPhone 16 Pro Simulator + Tauri-dev Hub
+  (transformers.js backend) on macOS 26.4, Xcode 26.4.1.** 59
+  consecutive dogfood iterations passed; full DVAIBridgeTests +
+  DVAISharedCoreTests still 95/95; .NET full suite 111/111;
+  Android `testDebugUnitTest` `*OffloadProxy*` 13/13. Real-device
+  iPhone dogfood was deferred — the simulator + Hub on the same
+  Mac is the harder test configuration anyway (port-conflict
+  territory, loopback routing).
+
+
 
 Phase 5 — **Per-SDK outgoing-offload routing**. Closes the loop on
 v3.0's distributed-inference work: every native SDK now routes

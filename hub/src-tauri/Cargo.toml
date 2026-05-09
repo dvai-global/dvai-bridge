@@ -1,6 +1,6 @@
 [package]
 name = "dvai-hub"
-version = "3.1.0"
+version = "3.2.1"
 description = "DVAI Hub — household-utility flavor of distributed inference"
 authors = ["Deep Voice AI Limited"]
 edition = "2021"

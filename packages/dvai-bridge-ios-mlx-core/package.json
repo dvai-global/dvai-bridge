@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/ios-mlx-core",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "description": "DVAI-Bridge iOS MLX core — Swift wrapper around Apple's MLX Swift LM (mlx-swift-lm) running LLM inference on Apple Silicon. Apple-Silicon-only at runtime; iOS 17+/macOS 14+ link-time minimum.",
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",

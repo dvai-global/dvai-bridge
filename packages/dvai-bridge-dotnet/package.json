@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/dotnet",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "private": true,
   "description": "Local-LLM bridge with OpenAI-compatible HTTP server for .NET MAUI / Avalonia / WinUI on iOS + Android. Wraps the @dvai-bridge/ios + @dvai-bridge/android native SDKs behind an idiomatic C# API. Published to NuGet.org as DVAIBridge + DVAIBridge.iOS + DVAIBridge.Android.",
   "scripts": {
