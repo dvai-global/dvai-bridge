@@ -655,12 +655,43 @@ export class DVAI {
 
 		const sources: Array<import("./discovery/index.js").IDiscovery> = [];
 		if (this.offload?.discoverLAN !== false) {
+			// v3.2.1 — when `offload.advertiseLAN` is true, register an
+			// `_dvai-bridge._tcp` mDNS advertisement so remote peers
+			// (mobile SDKs, other Hubs) can discover this instance via
+			// NWBrowser without manual URL entry. The native SDKs
+			// already do this themselves; the JS-side core (Hub, Node
+			// CLI) opts in here. Port defaults to the bound DVAI server
+			// port; `models` is empty until the Hub feeds enumeration
+			// in (loadedModels via setLoadedModels at runtime).
+			const advertise: import("./discovery/mdns-node.js").AdvertisedTxt | undefined =
+				this.offload?.advertiseLAN
+					? {
+							deviceId: this.deviceId,
+							deviceName:
+								(typeof globalThis.process !== "undefined" &&
+									(globalThis.process.env.DVAI_DEVICE_NAME ?? "")) ||
+								"DVAI",
+							dvaiVersion: "3.2.1",
+							// Default to the bound DVAI server port (set in
+							// `start()` after the transport binds). If the
+							// transport is `none` (rare for advertising), fall
+							// back to the legacy default 38883.
+							port:
+								this.offload.advertisePort ??
+								this.port ??
+								38883,
+							secure: false,
+							// Field name matches the AdvertisedTxt schema
+							// (NOT `loadedModels` — that's the iOS-side
+							// struct name, not the wire encoding).
+							models: [],
+							capability: {},
+						}
+					: undefined;
 			sources.push(
 				await createMdnsDiscovery({
 					selfDeviceId: this.deviceId,
-					// We don't auto-advertise from the JS-side core today —
-					// native SDKs (Phase 3 Task 8) own the advertise side
-					// because they know the right port + capability map.
+					...(advertise ? { advertise } : {}),
 				}),
 			);
 		}

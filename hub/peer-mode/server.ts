@@ -614,6 +614,11 @@ const dvaiFactory: NonNullable<PeerModeOptions["dvaiFactory"]> = (
     offload: {
       enabled: true,
       discoverLAN: true,
+      // v3.2.1 — Hub advertises itself on `_dvai-bridge._tcp` so
+      // mobile peers can auto-discover it via NWBrowser. Without
+      // this, mobile peers see no peers in their browse and fall
+      // back to manual URL entry (the v3.2.0 dogfood path).
+      advertiseLAN: true,
       // The Hub itself never offloads further upstream — it IS the
       // strong peer. Set minLocalCapability to 0 so any local
       // capability is "good enough" and outgoing-offload never fires.

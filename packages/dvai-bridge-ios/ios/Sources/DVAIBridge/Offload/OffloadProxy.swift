@@ -217,9 +217,31 @@ public actor OffloadProxy {
         let best = pickBestPeer(peers: peers, modelId: modelId)
         let threshold = offloadConfig.minLocalCapability
 
+        // v3.2.1 — paired-peer fallback. `pickBestPeer` filters by
+        // `capability[modelId] > 0`, but a freshly-discovered Hub
+        // (mDNS-only, no benchmark run yet) advertises an empty
+        // capability map → every peer scores 0 → `best == nil` even
+        // though the peer is reachable AND we have a valid pairing.
+        // Fall back to the first discovered peer that we have an
+        // active pairing for. The Hub will route the actual
+        // chat-completion to its bound engine adapter (Ollama / vLLM /
+        // etc.) — capability scoring is a soft hint, not a hard gate.
+        let pairedFallback: MDNSPeer? = await {
+            guard let policy = pairingPolicy else { return nil }
+            for p in peers {
+                if await policy.getActive(peerDeviceId: p.deviceId) != nil {
+                    return p
+                }
+            }
+            return nil
+        }()
+
         if offloadHeader == "require" {
             if let best {
                 return .offload(baseUrl: best.peer.baseUrl, peerDeviceId: best.peer.deviceId)
+            }
+            if let fallback = pairedFallback {
+                return .offload(baseUrl: fallback.baseUrl, peerDeviceId: fallback.deviceId)
             }
             return .noCapableDevice(
                 json: noCapableDeviceError(localCapability: 0, required: threshold)
@@ -229,6 +251,12 @@ public actor OffloadProxy {
         // header == "prefer" (default)
         if let best, best.score >= threshold {
             return .offload(baseUrl: best.peer.baseUrl, peerDeviceId: best.peer.deviceId)
+        }
+        // No capability-match candidate. If we're offload-only AND
+        // have a paired peer, route to it; the alternative is a 503
+        // even though offload is fully wired.
+        if backendBaseUrl == nil, let fallback = pairedFallback {
+            return .offload(baseUrl: fallback.baseUrl, peerDeviceId: fallback.deviceId)
         }
         if backendBaseUrl != nil { return .local }
         return .noCapableDevice(
