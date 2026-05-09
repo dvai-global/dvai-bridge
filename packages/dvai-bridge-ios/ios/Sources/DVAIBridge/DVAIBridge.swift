@@ -1,5 +1,8 @@
 import Foundation
 import Combine
+#if canImport(UIKit)
+import UIKit
+#endif
 #if !COCOAPODS
 import DVAILlamaCore
 #endif
@@ -483,6 +486,96 @@ public actor DVAIBridge {
         return AsyncStream { continuation in
             continuation.finish()
         }
+    }
+
+    /// v3.2.1 — initiate a LAN pairing handshake against a discovered
+    /// peer. POSTs `/v1/dvai/handshake` to `peer.baseUrl` with our
+    /// device identity in the body; on the peer's approval, persists
+    /// the returned pairing key to our local `PairingStore` so future
+    /// offload requests to that peer get HMAC-signed.
+    ///
+    /// Wire-compatible with the TS-side `handleHandshake` in
+    /// `packages/dvai-bridge-core/src/handlers/dvai/index.ts` AND the
+    /// matching iOS-side handler that ships with this release in
+    /// `OffloadProxy.handleHandshakeRequest`.
+    ///
+    /// - Throws `DVAIBridgeError.configurationInvalid` if offload
+    ///   isn't started, or the peer rejects the handshake (HTTP 4xx),
+    ///   or the response body is malformed.
+    /// - Throws underlying URLSession errors on transport failure.
+    @available(iOS 14.0, macOS 11.0, *)
+    public func initiatePairing(with peer: MDNSPeer) async throws -> Pairing {
+        guard let runtime = self.offloadRuntime as? OffloadRuntime else {
+            throw DVAIBridgeError.configurationInvalid(reason:
+                "initiatePairing requires offload to be enabled and start() to have been called.")
+        }
+
+        // Identity of THIS device — what we send to the peer so it
+        // knows who's asking. The peer's UI surfaces these strings
+        // in its approval prompt.
+        let selfDeviceId = try await runtime.deviceIDStore.get()
+        let selfDeviceName = await Self.resolveSelfName()
+
+        let url = URL(string: peer.baseUrl)!.appendingPathComponent("v1/dvai/handshake")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let bodyDict: [String: Any] = [
+            "peerDeviceId": selfDeviceId,
+            "peerDeviceName": selfDeviceName,
+            "via": "lan-handshake",
+            "appId": "co.deepvoiceai.dvai-bridge",
+        ]
+        req.httpBody = try JSONSerialization.data(withJSONObject: bodyDict, options: [])
+        req.timeoutInterval = 60.0  // matches the iOS pairing-policy default
+
+        let session = URLSession(configuration: .ephemeral)
+        let (data, response) = try await session.data(for: req)
+        guard let http = response as? HTTPURLResponse else {
+            throw DVAIBridgeError.configurationInvalid(reason: "[DVAI/pairing] non-HTTP response from peer")
+        }
+        if http.statusCode != 200 {
+            let detail = String(data: data, encoding: .utf8) ?? "<no body>"
+            throw DVAIBridgeError.configurationInvalid(reason:
+                "[DVAI/pairing] peer rejected handshake (HTTP \(http.statusCode)): \(detail)")
+        }
+
+        // Response shape mirrors the TS handler:
+        //   { paired: true, pairedAt, via, pairingKey, peerDeviceId }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              json["paired"] as? Bool == true,
+              let pairingKey = json["pairingKey"] as? String,
+              let peerDeviceIdResp = json["peerDeviceId"] as? String,
+              let pairedAt = (json["pairedAt"] as? Int64)
+                ?? (json["pairedAt"] as? Int).map(Int64.init) else {
+            throw DVAIBridgeError.configurationInvalid(reason:
+                "[DVAI/pairing] malformed handshake response from peer")
+        }
+        let viaRaw = (json["via"] as? String) ?? "lan-handshake"
+        let via = Pairing.Via(rawValue: viaRaw) ?? .lanHandshake
+
+        let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
+        let pairing = Pairing(
+            peerDeviceId: peerDeviceIdResp,
+            peerDeviceName: peer.deviceName,
+            pairingKey: pairingKey,
+            pairedAt: pairedAt,
+            lastUsedAt: nowMs,
+            via: via
+        )
+        try await runtime.pairingStore.set(pairing)
+        return pairing
+    }
+
+    /// Best-effort device-name lookup used by `initiatePairing`. iOS
+    /// blocks `UIDevice.current.name` off the main thread; fall back
+    /// to the host name when off-main.
+    private static func resolveSelfName() async -> String {
+        #if canImport(UIKit) && !os(macOS)
+        return await MainActor.run { UIDevice.current.name }
+        #else
+        return ProcessInfo.processInfo.hostName
+        #endif
     }
 
     private static func emptyStream<T: Sendable>() -> AsyncStream<T> {

@@ -40,12 +40,15 @@ struct ChunkEvent: Identifiable, Hashable {
 final class DogfoodModel: ObservableObject {
     @Published var serverBaseUrl: String? = nil
     @Published var status: String = "Idle — tap Start"
-    @Published var discoveredPeers: [String] = []
+    /// Live MDNSPeer objects so we can pass them to `initiatePairing`.
+    /// Keyed by `deviceId` so peer-down events remove the right entry.
+    @Published var discoveredPeers: [MDNSPeer] = []
     @Published var pairings: [String] = []
     @Published var pendingPairing: PairingRequest? = nil
     @Published var chunks: [ChunkEvent] = []
     @Published var isStarted = false
     @Published var isStreaming = false
+    @Published var isPairing = false
 
     private var pairingObserverTask: Task<Void, Never>? = nil
     private var discoveryObserverTask: Task<Void, Never>? = nil
@@ -107,11 +110,20 @@ final class DogfoodModel: ObservableObject {
             for await event in stream {
                 guard let self else { return }
                 await MainActor.run {
-                    // Re-build the displayed list each event so peers
-                    // that drop off get removed.
-                    let names = String(describing: event)
-                    if !self.discoveredPeers.contains(names) {
-                        self.discoveredPeers.append(names)
+                    switch event {
+                    case .peerUp(let peer):
+                        // De-dupe by deviceId. NWBrowser fires peerUp
+                        // repeatedly when TXT records change, so we
+                        // index by stable id and replace.
+                        if let idx = self.discoveredPeers.firstIndex(where: { $0.deviceId == peer.deviceId }) {
+                            self.discoveredPeers[idx] = peer
+                        } else {
+                            self.discoveredPeers.append(peer)
+                        }
+                    case .peerDown(let deviceId):
+                        self.discoveredPeers.removeAll { $0.deviceId == deviceId }
+                    case .error(let msg):
+                        self.status = "Discovery error: \(msg)"
                     }
                 }
             }
@@ -142,6 +154,26 @@ final class DogfoodModel: ObservableObject {
         pendingPairing?.respond(approved: false)
         pendingPairing = nil
         status = "Pairing denied."
+    }
+
+    /// Initiate a LAN handshake against the first discovered peer.
+    /// The peer's UI surfaces an approval prompt; on approve, we
+    /// receive the pairing key + persist it via the SDK.
+    func pairWithFirstPeer() async {
+        guard let peer = discoveredPeers.first else {
+            status = "No peers discovered yet."
+            return
+        }
+        isPairing = true
+        defer { isPairing = false }
+        status = "Pairing with \(peer.deviceName) at \(peer.baseUrl)…"
+        do {
+            let pairing = try await DVAIBridge.shared.initiatePairing(with: peer)
+            pairings.append("\(pairing.peerDeviceName) (\(pairing.peerDeviceId))")
+            status = "Paired with \(pairing.peerDeviceName). Ready to chat."
+        } catch {
+            status = "Pairing failed: \(error.localizedDescription)"
+        }
     }
 
     func sendChat() async {
@@ -216,9 +248,14 @@ struct DogfoodView: View {
                             Button("Stop") { Task { await model.stop() } }
                                 .buttonStyle(.bordered)
                         }
+                        Button(model.isPairing ? "Pairing…" : "Pair with Hub") {
+                            Task { await model.pairWithFirstPeer() }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!model.isStarted || model.isPairing || model.discoveredPeers.isEmpty)
                         Button("Send chat") { Task { await model.sendChat() } }
                             .buttonStyle(.borderedProminent)
-                            .disabled(!model.isStarted || model.isStreaming || model.pairings.isEmpty)
+                            .disabled(!model.isStarted || model.isStreaming)
                     }
 
                     sectionHeader("Pairings")
@@ -236,9 +273,14 @@ struct DogfoodView: View {
                         Text("Waiting for peers…")
                             .font(.footnote).foregroundColor(.secondary)
                     } else {
-                        ForEach(model.discoveredPeers, id: \.self) { p in
-                            Text("• \(p)").font(.caption.monospaced())
-                                .lineLimit(2).truncationMode(.middle)
+                        ForEach(model.discoveredPeers, id: \.deviceId) { p in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("• \(p.deviceName)").font(.caption).bold()
+                                Text("  \(p.baseUrl) — v\(p.dvaiVersion)")
+                                    .font(.caption.monospaced())
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1).truncationMode(.middle)
+                            }
                         }
                     }
 
