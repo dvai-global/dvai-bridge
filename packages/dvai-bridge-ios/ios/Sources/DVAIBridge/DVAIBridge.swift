@@ -590,7 +590,15 @@ public actor DVAIBridge {
             pairingKey: pairingKey,
             pairedAt: pairedAt,
             lastUsedAt: nowMs,
-            via: via
+            via: via,
+            // v3.2.1 — capture the peer's baseUrl so the OffloadProxy
+            // can route here even when the peer isn't currently in
+            // mDNS discovery (the macOS Hub case). We store the
+            // ORIGINAL baseUrl supplied to this method, not the
+            // possibly-mutated handshake URL — `peer.baseUrl` is the
+            // OpenAI-API root (`<scheme>://<host>:<port>/v1`) the
+            // OffloadProxy can forward chat requests to.
+            baseUrl: peer.baseUrl
         )
         try await runtime.pairingStore.set(pairing)
         return pairing

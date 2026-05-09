@@ -23,6 +23,12 @@ public actor NWBrowserDiscovery {
     private let continuation: AsyncStream<Event>.Continuation
     public nonisolated let events: AsyncStream<Event>
     private var started = false
+    /// Our own deviceId. NWBrowser surfaces the local device's own
+    /// `_dvai-bridge._tcp` advertisement alongside remote peers, so
+    /// we filter parses whose `deviceId` matches and refuse to emit
+    /// peerUp events for them. Set by `OffloadRuntime.start()`
+    /// before `start()` is called.
+    private var selfDeviceId: String?
 
     public init() {
         let descriptor = NWBrowser.Descriptor.bonjourWithTXTRecord(
@@ -35,6 +41,18 @@ public actor NWBrowserDiscovery {
             savedContinuation = c
         }
         self.continuation = savedContinuation
+    }
+
+    /// Configure self-filtering. Called from `OffloadRuntime.start`
+    /// once the deviceId is resolved. Without this, the OffloadProxy
+    /// would see (and try to forward to) the iPhone's own service.
+    public func setSelfDeviceId(_ id: String) {
+        self.selfDeviceId = id
+        // Drop any already-known peers that match — racing peerUp
+        // events can land before the id is set.
+        for (key, peer) in resultsByEndpoint where peer.deviceId == id {
+            resultsByEndpoint.removeValue(forKey: key)
+        }
     }
 
     /// Start browsing. Idempotent.
@@ -85,6 +103,11 @@ public actor NWBrowserDiscovery {
             switch change {
             case .added(let result):
                 if let peer = parsePeer(from: result) {
+                    if let myId = self.selfDeviceId, peer.deviceId == myId {
+                        // Skip our own advertisement — NWBrowser
+                        // doesn't filter self automatically.
+                        continue
+                    }
                     let key = endpointKey(result.endpoint)
                     resultsByEndpoint[key] = peer
                     continuation.yield(.peerUp(peer))
@@ -98,6 +121,12 @@ public actor NWBrowserDiscovery {
                 let oldKey = endpointKey(old.endpoint)
                 let newKey = endpointKey(new.endpoint)
                 if let peer = parsePeer(from: new) {
+                    if let myId = self.selfDeviceId, peer.deviceId == myId {
+                        // Drop any cached entry — never emit self.
+                        resultsByEndpoint.removeValue(forKey: oldKey)
+                        resultsByEndpoint.removeValue(forKey: newKey)
+                        continue
+                    }
                     if oldKey != newKey {
                         resultsByEndpoint.removeValue(forKey: oldKey)
                     }

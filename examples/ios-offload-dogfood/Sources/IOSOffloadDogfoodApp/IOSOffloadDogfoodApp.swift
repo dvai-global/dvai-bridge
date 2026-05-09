@@ -232,7 +232,17 @@ final class DogfoodModel: ObservableObject {
         status = "Pairing with \(peer.deviceName) at \(peer.baseUrl)…"
         do {
             let pairing = try await DVAIBridge.shared.initiatePairing(with: peer)
-            pairings.append("\(pairing.peerDeviceName) (\(pairing.peerDeviceId))")
+            // De-dupe by content — re-pairing the same device replaces
+            // the entry rather than appending a duplicate (the
+            // PairingStore overwrites by deviceId; we mirror that in
+            // the UI list so SwiftUI's `ForEach(id: \.self)` doesn't
+            // hit the "duplicate ids" warning).
+            let entry = "\(pairing.peerDeviceName) (\(pairing.peerDeviceId))"
+            if let idx = pairings.firstIndex(where: { $0.contains(pairing.peerDeviceId) }) {
+                pairings[idx] = entry
+            } else {
+                pairings.append(entry)
+            }
             status = "Paired with \(pairing.peerDeviceName). Ready to chat."
         } catch {
             status = "Pairing failed: \(error.localizedDescription)"

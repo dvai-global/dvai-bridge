@@ -222,15 +222,29 @@ public actor OffloadProxy {
         // (mDNS-only, no benchmark run yet) advertises an empty
         // capability map → every peer scores 0 → `best == nil` even
         // though the peer is reachable AND we have a valid pairing.
-        // Fall back to the first discovered peer that we have an
-        // active pairing for. The Hub will route the actual
-        // chat-completion to its bound engine adapter (Ollama / vLLM /
-        // etc.) — capability scoring is a soft hint, not a hard gate.
-        let pairedFallback: MDNSPeer? = await {
+        //
+        // Two-stage fallback:
+        //   (a) prefer a discovered peer that we have an active
+        //       pairing for (lets us pick up TXT-record updates etc.);
+        //   (b) if discovery is dark for the paired peer (the macOS
+        //       Hub case — Node's `multicast-dns` lib can't advertise
+        //       through mDNSResponder), fall back to the pairing's
+        //       persisted baseUrl. The pairing is what proves
+        //       authorisation; the baseUrl is just routing info.
+        let pairedFallback: (baseUrl: String, peerDeviceId: String)? = await {
             guard let policy = pairingPolicy else { return nil }
+            // (a) pairing + discovered.
             for p in peers {
                 if await policy.getActive(peerDeviceId: p.deviceId) != nil {
-                    return p
+                    return (p.baseUrl, p.deviceId)
+                }
+            }
+            // (b) pairing only — uses the baseUrl captured at
+            // pairing time. `getActive` filters out expired records.
+            for pairing in await policy.listPairings() {
+                if let baseUrl = pairing.baseUrl,
+                   await policy.getActive(peerDeviceId: pairing.peerDeviceId) != nil {
+                    return (baseUrl, pairing.peerDeviceId)
                 }
             }
             return nil
@@ -241,7 +255,7 @@ public actor OffloadProxy {
                 return .offload(baseUrl: best.peer.baseUrl, peerDeviceId: best.peer.deviceId)
             }
             if let fallback = pairedFallback {
-                return .offload(baseUrl: fallback.baseUrl, peerDeviceId: fallback.deviceId)
+                return .offload(baseUrl: fallback.baseUrl, peerDeviceId: fallback.peerDeviceId)
             }
             return .noCapableDevice(
                 json: noCapableDeviceError(localCapability: 0, required: threshold)
@@ -256,7 +270,7 @@ public actor OffloadProxy {
         // have a paired peer, route to it; the alternative is a 503
         // even though offload is fully wired.
         if backendBaseUrl == nil, let fallback = pairedFallback {
-            return .offload(baseUrl: fallback.baseUrl, peerDeviceId: fallback.deviceId)
+            return .offload(baseUrl: fallback.baseUrl, peerDeviceId: fallback.peerDeviceId)
         }
         if backendBaseUrl != nil { return .local }
         return .noCapableDevice(
@@ -310,10 +324,21 @@ public actor OffloadProxy {
         body: Data,
         headers: HTTPFields
     ) async -> Response {
+        // The incoming `path` always carries the `/v1/...` prefix the
+        // OpenAI client supplied (e.g. `/v1/chat/completions`).
+        // Discovered peer baseUrls also carry `/v1` (NWBrowserDiscovery
+        // synthesises them as `<scheme>://<host>:<port>/v1`). Naive
+        // concatenation produces `…/v1/v1/chat/completions`, which the
+        // peer 404s. Strip a trailing `/v1` from the baseUrl before
+        // appending the path so we always end up with a single `/v1`.
+        var normalisedBase = stripTrailing(baseUrl, suffix: "/")
+        if normalisedBase.hasSuffix("/v1") {
+            normalisedBase = String(normalisedBase.dropLast("/v1".count))
+        }
         let normalizedPath = path.hasPrefix("/v1")
             ? path
             : "/v1" + (path.hasPrefix("/") ? path : "/" + path)
-        let target = "\(stripTrailing(baseUrl, suffix: "/"))\(normalizedPath)"
+        let target = "\(normalisedBase)\(normalizedPath)"
         return await forward(target: target, method: method, body: body, headers: headers,
                              signRequest: true, peerDeviceId: peerDeviceId)
     }
