@@ -5,11 +5,11 @@ on:
     paths:
       - 'packages/dvai-bridge-flutter/**'
       - '.github/workflows/test-flutter.yml'
+  # Release-tag-only push trigger.
   push:
-    branches:
-      - main
-    paths:
-      - 'packages/dvai-bridge-flutter/**'
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
 
 concurrency:
   group: flutter-${{ github.ref }}

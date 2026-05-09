@@ -9,14 +9,13 @@ on:
       - 'fixtures/**'
       - 'scripts/mac-side-*.sh'
       - '.github/workflows/test-ios-llama.yml'
+  # Release-tag-only push trigger. Routine `git push origin main`
+  # does NOT fire CI; use a PR for pre-merge validation or
+  # workflow_dispatch for an ad-hoc run.
   push:
-    branches:
-      - main
-    paths:
-      - 'packages/dvai-bridge-ios-llama-core/**'
-      - 'packages/dvai-bridge-capacitor-llama/ios/**'
-      - 'packages/dvai-bridge-capacitor/src/**'
-      - 'fixtures/**'
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
 
 concurrency:
   group: ios-llama-${{ github.ref }}

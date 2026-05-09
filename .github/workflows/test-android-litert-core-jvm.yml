@@ -6,12 +6,11 @@ on:
       - 'packages/dvai-bridge-android-litert-core/**'
       - 'packages/dvai-bridge-android-shared-core/**'
       - '.github/workflows/test-android-litert-core-jvm.yml'
+  # Release-tag-only push trigger.
   push:
-    branches:
-      - main
-    paths:
-      - 'packages/dvai-bridge-android-litert-core/**'
-      - 'packages/dvai-bridge-android-shared-core/**'
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
 
 concurrency:
   group: android-litert-core-jvm-${{ github.ref }}

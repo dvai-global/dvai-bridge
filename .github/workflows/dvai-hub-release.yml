@@ -19,9 +19,12 @@ name: DVAI Hub — release binaries
 # launch). Persistent code-signing TODO lives in `TODO.md`.
 
 on:
+  # Match every v3.x.* tag so future patch releases (3.2.x, 3.3.x, …)
+  # automatically build hub binaries. The tag-only filter keeps the
+  # heavy desktop-build jobs from firing on routine pushes.
   push:
     tags:
-      - "v3.1.*"
+      - "v3.*.*"
   workflow_dispatch:
 
 permissions:

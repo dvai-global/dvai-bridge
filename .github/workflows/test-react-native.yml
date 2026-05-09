@@ -5,11 +5,11 @@ on:
     paths:
       - 'packages/dvai-bridge-react-native/**'
       - '.github/workflows/test-react-native.yml'
+  # Release-tag-only push trigger.
   push:
-    branches:
-      - main
-    paths:
-      - 'packages/dvai-bridge-react-native/**'
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
 
 concurrency:
   group: react-native-${{ github.ref }}
