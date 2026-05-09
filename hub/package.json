@@ -1,6 +1,6 @@
 {
   "name": "dvai-hub",
-  "version": "3.1.0",
+  "version": "3.2.1",
   "private": true,
   "description": "DVAI Hub — household-utility flavor of distributed inference. Run on a strong device; pair from any number of dvai-bridge mobile apps.",
   "license": "Custom (See ../LICENSE)",
