@@ -1,0 +1,90 @@
+# XcodeGen spec for the v3.2 offload-dogfood iOS app.
+#
+# This is a real iOS App target (not just a SwiftPM library) so it can
+# be deployed to a physical iPhone via Xcode's signing pane. Run
+# `xcodegen generate` (or just `xcodegen`) in this directory to
+# (re)generate `IOSOffloadDogfood.xcodeproj` from this spec — the
+# generated .xcodeproj is gitignored, this YAML is the source of truth.
+#
+# Why XcodeGen instead of a checked-in .xcodeproj: the pbxproj is huge,
+# fragile, hard to merge, and an absolute pain to maintain by hand
+# after Xcode mutates it. XcodeGen lets us describe the project once,
+# regenerate deterministically, and review changes as readable diffs.
+
+name: IOSOffloadDogfood
+options:
+  # iOS 18.1 matches the dvai-bridge-ios SwiftPM package's floor
+  # (DVAIFoundationCore weak-links FoundationModels which needs 18.1
+  # link-time). Same floor across all four backend cores at v3.2.0.
+  deploymentTarget:
+    iOS: "18.1"
+  bundleIdPrefix: co.deepvoiceai.dvai
+  # Don't generate "Test" / "UITest" boilerplate — this example is
+  # for live dogfooding, not unit tests.
+  createIntermediateGroups: true
+  # Consumers should pick their own team via the Signing & Capabilities
+  # tab. We default to automatic signing; with no DEVELOPMENT_TEAM in
+  # the project file Xcode prompts on first build.
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "18.1"
+    CODE_SIGN_STYLE: Automatic
+    # No DEVELOPMENT_TEAM — user fills it in from Xcode UI on first
+    # build (Personal Team or paid Developer team).
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+
+# Local SwiftPM package + remote MacPaw OpenAI client. Both are
+# resolved by Xcode at first build via the bundled SwiftPM workspace.
+packages:
+  DVAIBridge:
+    path: ../../packages/dvai-bridge-ios
+  OpenAI:
+    url: https://github.com/MacPaw/OpenAI.git
+    from: 0.4.9
+
+targets:
+  IOSOffloadDogfood:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/IOSOffloadDogfoodApp
+    info:
+      path: Resources/Info.plist
+      properties:
+        # Local-network usage description — mDNS scanning needs this
+        # at runtime, otherwise the OS silently drops every browse.
+        NSLocalNetworkUsageDescription: >-
+          Pair with a DVAI Hub on your local network to offload
+          inference to a stronger device.
+        # Bonjour service registration — `_dvai._tcp` is the DVAI
+        # mDNS service type advertised by both the Hub and paired
+        # peers. Without this entry, NWBrowser silently fails to
+        # find any peer (iOS 14+ behaviour change).
+        NSBonjourServices:
+          - _dvai._tcp
+        UILaunchScreen: {}
+        UIRequiredDeviceCapabilities:
+          - arm64
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # Disable App Transport Security ONLY for loopback so the
+        # OpenAI Swift SDK can hit the local DVAI server (proxy +
+        # backend) on http:// without TLS. The offload forward to
+        # the Hub goes through the proxy too — same loopback hop.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"  # iPhone + iPad
+        PRODUCT_BUNDLE_IDENTIFIER: co.deepvoiceai.dvai.offload-dogfood
+        # Personal Team apps re-sign daily on the device; this just
+        # ensures the bundle signature is valid for first install.
+        CODE_SIGN_IDENTITY: "Apple Development"
+    dependencies:
+      - package: DVAIBridge
+        product: DVAIBridge
+      - package: OpenAI
+        product: OpenAI
