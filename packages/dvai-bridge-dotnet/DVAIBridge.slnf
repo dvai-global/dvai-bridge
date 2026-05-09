@@ -1,0 +1,15 @@
+{
+  "solution": {
+    "path": "DVAIBridge.sln",
+    "projects": [
+      "src\\DVAIBridge\\DVAIBridge.csproj",
+      "src\\DVAIBridge.Desktop\\DVAIBridge.Desktop.csproj",
+      "src\\DVAIBridge.OnnxRuntime\\DVAIBridge.OnnxRuntime.csproj",
+      "src\\DVAIBridge.MLNet\\DVAIBridge.MLNet.csproj",
+      "tests\\DVAIBridge.Tests\\DVAIBridge.Tests.csproj",
+      "tests\\DVAIBridge.Desktop.Tests\\DVAIBridge.Desktop.Tests.csproj",
+      "tests\\DVAIBridge.OnnxRuntime.Tests\\DVAIBridge.OnnxRuntime.Tests.csproj",
+      "tests\\DVAIBridge.MLNet.Tests\\DVAIBridge.MLNet.Tests.csproj"
+    ]
+  }
+}

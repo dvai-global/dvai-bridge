@@ -1,5 +1,23 @@
 {
     "yaml.schemas": {
         "https://www.artillery.io/schema.json": []
-    }
+    },
+    // Point VS Code's C# Dev Kit (Roslyn-based language server) at a
+    // solution filter that excludes the `DVAIBridge.iOS` and
+    // `DVAIBridge.Android` binding projects. Those project's TFMs
+    // (`net10.0-ios26.4`, `net10.0-maccatalyst26.4`,
+    // `net10.0-android36`) are workload-bound, and the C# Dev Kit's
+    // design-time MSBuild on Windows can't resolve the
+    // `Microsoft.iOS.Sdk` / `Microsoft.Android.Sdk` reference
+    // assemblies even when the workloads are installed — produces
+    // hundreds of `Foundation` / `NSObject` / `ObjCRuntime` could
+    // not be found errors on every solution open. `dotnet build`
+    // from a terminal works fine because the CLI MSBuild handles
+    // workload resolution correctly; only the language server's
+    // in-process MSBuild trips on this. Filtering them out of
+    // IntelliSense gives a clean editor experience on Windows
+    // without affecting the actual build (CI + local CLI both use
+    // the full `.sln`). On macOS / Linux the filter is harmless —
+    // the same projects load fine if you swap to the full `.sln`.
+    "dotnet.defaultSolution": "packages/dvai-bridge-dotnet/DVAIBridge.slnf"
 }
