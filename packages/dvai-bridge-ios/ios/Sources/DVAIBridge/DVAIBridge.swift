@@ -488,6 +488,24 @@ public actor DVAIBridge {
         }
     }
 
+    /// Stable per-install device ID for THIS device. Generated on
+    /// first call and persisted under
+    /// `<Application Support>/dvai-bridge/device-id`. Used by host
+    /// apps to filter the iPhone's own `_dvai-bridge._tcp`
+    /// advertisement out of `discoveryEvents()` (NWBrowser surfaces
+    /// the local device's own service alongside remote peers — match
+    /// against this id to drop the self-loop).
+    ///
+    /// - Throws if offload isn't enabled / start() hasn't run.
+    @available(iOS 14.0, macOS 11.0, *)
+    public func deviceId() async throws -> String {
+        guard let runtime = self.offloadRuntime as? OffloadRuntime else {
+            throw DVAIBridgeError.configurationInvalid(reason:
+                "deviceId requires offload to be enabled and start() to have been called.")
+        }
+        return try await runtime.deviceIDStore.get()
+    }
+
     /// v3.2.1 — initiate a LAN pairing handshake against a discovered
     /// peer. POSTs `/v1/dvai/handshake` to `peer.baseUrl` with our
     /// device identity in the body; on the peer's approval, persists
@@ -516,7 +534,18 @@ public actor DVAIBridge {
         let selfDeviceId = try await runtime.deviceIDStore.get()
         let selfDeviceName = await Self.resolveSelfName()
 
-        let url = URL(string: peer.baseUrl)!.appendingPathComponent("v1/dvai/handshake")
+        // peer.baseUrl already ends in `/v1` (NWBrowserDiscovery
+        // synthesises it as `<scheme>://<host>:<port>/v1`). Strip
+        // that trailing segment before appending `/v1/dvai/handshake`,
+        // otherwise the URL becomes `…/v1/v1/dvai/handshake` and the
+        // peer 404s.
+        let trimmedBase = peer.baseUrl.hasSuffix("/v1")
+            ? String(peer.baseUrl.dropLast("/v1".count))
+            : peer.baseUrl
+        guard let url = URL(string: trimmedBase + "/v1/dvai/handshake") else {
+            throw DVAIBridgeError.configurationInvalid(reason:
+                "[DVAI/pairing] could not construct handshake URL from baseUrl=\(peer.baseUrl)")
+        }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")

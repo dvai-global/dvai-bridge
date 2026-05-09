@@ -157,7 +157,21 @@ public actor NWBrowserDiscovery {
 
     private func bonjourServiceName(from endpoint: NWEndpoint) -> String? {
         if case .service(let name, _, _, _) = endpoint {
-            return "\(name).local"
+            // Bonjour service-instance names sometimes already carry a
+            // `.local` suffix when the advertiser uses the device's
+            // mDNS hostname (e.g. iPhone advertising as
+            // `Deeps-iPhone.local`). Appending another `.local`
+            // unconditionally produced URLs like
+            // `http://deeps-iphone.local.local:38883` which fail to
+            // resolve. Strip a trailing `.local` (and stray trailing
+            // dot) BEFORE re-appending so the result is always
+            // `<host>.local`.
+            var trimmed = name
+            if trimmed.hasSuffix(".") { trimmed.removeLast() }
+            if trimmed.hasSuffix(".local") {
+                trimmed = String(trimmed.dropLast(".local".count))
+            }
+            return "\(trimmed).local"
         }
         return nil
     }

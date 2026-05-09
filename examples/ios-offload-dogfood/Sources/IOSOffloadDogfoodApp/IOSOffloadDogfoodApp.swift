@@ -49,6 +49,18 @@ final class DogfoodModel: ObservableObject {
     @Published var isStarted = false
     @Published var isStreaming = false
     @Published var isPairing = false
+    /// Manual Hub URL. The DVAI Hub doesn't advertise on mDNS — it
+    /// only listens for inbound handshakes — so the iOS app can't
+    /// auto-discover it via NWBrowser. User pastes the Mac's LAN
+    /// address here, e.g. `http://192.168.1.42:38883`. Used by
+    /// `pairWithManualHub()` to construct a synthetic MDNSPeer for
+    /// `initiatePairing(with:)`.
+    @Published var manualHubUrl: String = ""
+
+    /// Our own deviceId, captured at start() so the discovery filter
+    /// can drop self-advertisements (NWBrowser sees the iPhone's own
+    /// `_dvai-bridge._tcp` advertisement on the loopback).
+    private var selfDeviceId: String? = nil
 
     private var pairingObserverTask: Task<Void, Never>? = nil
     private var discoveryObserverTask: Task<Void, Never>? = nil
@@ -81,7 +93,11 @@ final class DogfoodModel: ObservableObject {
             ))
             self.serverBaseUrl = server.baseUrl
             self.isStarted = true
-            self.status = "Listening on \(server.baseUrl). Pair from the Hub."
+            // Capture our own deviceId so the discovery observer can
+            // filter the local device's self-advertisement out of the
+            // peer list (NWBrowser doesn't suppress it automatically).
+            self.selfDeviceId = try? await DVAIBridge.shared.deviceId()
+            self.status = "Listening on \(server.baseUrl). Discovering peers…"
 
             startObservers()
         } catch {
@@ -112,6 +128,15 @@ final class DogfoodModel: ObservableObject {
                 await MainActor.run {
                     switch event {
                     case .peerUp(let peer):
+                        // Filter out our own advertisement —
+                        // NWBrowser surfaces the local device's
+                        // `_dvai-bridge._tcp` service alongside
+                        // remote peers, which would let the user
+                        // accidentally try to pair the iPhone with
+                        // itself.
+                        if let myId = self.selfDeviceId, peer.deviceId == myId {
+                            return
+                        }
                         // De-dupe by deviceId. NWBrowser fires peerUp
                         // repeatedly when TXT records change, so we
                         // index by stable id and replace.
@@ -164,6 +189,38 @@ final class DogfoodModel: ObservableObject {
             status = "No peers discovered yet."
             return
         }
+        await pair(with: peer)
+    }
+
+    /// Pair with a manually-entered Hub URL (DVAI Hub doesn't
+    /// advertise on mDNS — it only listens — so the user pastes the
+    /// Mac's LAN address). We synthesise an `MDNSPeer` carrying just
+    /// the baseUrl + a placeholder deviceId; the peer's handshake
+    /// response includes its real deviceId which is what gets
+    /// persisted in `PairingStore`.
+    func pairWithManualHub() async {
+        let trimmed = manualHubUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let url = URL(string: trimmed), url.host != nil else {
+            status = "Enter a valid Hub URL like http://192.168.1.42:38883"
+            return
+        }
+        // Normalise: strip trailing slash, ensure /v1 suffix matches
+        // the convention NWBrowserDiscovery uses for advertised peers.
+        var normalised = trimmed
+        if normalised.hasSuffix("/") { normalised.removeLast() }
+        if !normalised.hasSuffix("/v1") { normalised += "/v1" }
+
+        let synthetic = MDNSPeer(
+            deviceId: "manual:\(normalised)",  // placeholder; peer's response carries the real one
+            deviceName: "Hub@\(url.host ?? "manual")",
+            dvaiVersion: "unknown",
+            baseUrl: normalised,
+            via: .static
+        )
+        await pair(with: synthetic)
+    }
+
+    private func pair(with peer: MDNSPeer) async {
         isPairing = true
         defer { isPairing = false }
         status = "Pairing with \(peer.deviceName) at \(peer.baseUrl)…"
@@ -248,14 +305,33 @@ struct DogfoodView: View {
                             Button("Stop") { Task { await model.stop() } }
                                 .buttonStyle(.bordered)
                         }
-                        Button(model.isPairing ? "Pairing…" : "Pair with Hub") {
-                            Task { await model.pairWithFirstPeer() }
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(!model.isStarted || model.isPairing || model.discoveredPeers.isEmpty)
                         Button("Send chat") { Task { await model.sendChat() } }
                             .buttonStyle(.borderedProminent)
                             .disabled(!model.isStarted || model.isStreaming)
+                    }
+
+                    sectionHeader("Hub pairing")
+                    Text("The DVAI Hub doesn't advertise on mDNS — paste its URL.")
+                        .font(.caption).foregroundColor(.secondary)
+                    HStack {
+                        TextField("http://192.168.x.x:38883", text: $model.manualHubUrl)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.caption.monospaced())
+                            .keyboardType(.URL)
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                        Button(model.isPairing ? "…" : "Pair") {
+                            Task { await model.pairWithManualHub() }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!model.isStarted || model.isPairing || model.manualHubUrl.isEmpty)
+                    }
+                    if !model.discoveredPeers.isEmpty {
+                        Button(model.isPairing ? "Pairing…" : "Pair with first discovered peer") {
+                            Task { await model.pairWithFirstPeer() }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!model.isStarted || model.isPairing)
                     }
 
                     sectionHeader("Pairings")
