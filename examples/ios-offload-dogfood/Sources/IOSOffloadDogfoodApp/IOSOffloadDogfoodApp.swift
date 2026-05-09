@@ -18,6 +18,24 @@
 import SwiftUI
 import DVAIBridge
 import OpenAI
+import os.log
+
+/// Subsystem for `os_log` so the auto-loop's events are visible via
+/// `xcrun simctl spawn booted log stream --predicate
+/// 'subsystem == "co.deepvoiceai.dvai.dogfood"'` from the Mac. Means
+/// the SSH-driven test loop can read what the app is doing without
+/// any UI scraping.
+private let dogfoodLog = Logger(subsystem: "co.deepvoiceai.dvai.dogfood", category: "loop")
+
+/// One line in the in-app event log. Mirrors what `os_log` emits.
+struct LogEvent: Identifiable {
+    let id = UUID()
+    let ts: Date
+    let level: Level
+    let message: String
+
+    enum Level { case info, warn, error }
+}
 
 @main
 struct IOSOffloadDogfoodApp: App {
@@ -55,13 +73,32 @@ final class DogfoodModel: ObservableObject {
     /// address here, e.g. `http://192.168.1.42:38883`. Used by
     /// `pairWithManualHub()` to construct a synthetic MDNSPeer for
     /// `initiatePairing(with:)`.
-    @Published var manualHubUrl: String = ""
+    /// Hardcoded fallback for the dogfood — the Mac running the
+    /// DVAI Hub on the test LAN. Auto-mode uses this directly so
+    /// the simulator can run without UI input. Manual entry still
+    /// overrides via the TextField when running on a real device.
+    static let defaultHubUrl = "http://192.168.0.112:38883"
+
+    @Published var manualHubUrl: String = DogfoodModel.defaultHubUrl
     /// Model id sent in the chat-completion request body. Forwarded
     /// verbatim to the Hub which forwards verbatim to its engine
     /// adapter (Ollama / vLLM / etc.). Default matches the model
     /// the v3.2 dogfood Mac has installed (`ollama pull llama3.2`)
     /// — change this if your Hub is talking to a different engine.
     @Published var modelId: String = "llama3.2:latest"
+
+    /// Auto-loop control — when true, the app drives the full
+    /// start → pair → chat cycle on a timer with no user input. Runs
+    /// on simulator launch so a remote operator (e.g. running tests
+    /// over SSH) can iterate without poking the UI. Each iteration
+    /// logs structured events to `eventLog` AND `os_log` (visible via
+    /// `xcrun simctl spawn booted log stream`).
+    @Published var autoMode: Bool = true
+    /// Append-only log of high-level events (start, pair, chat, error).
+    /// Bounded to the most recent 100 entries to keep SwiftUI happy.
+    @Published var eventLog: [LogEvent] = []
+    private var autoLoopTask: Task<Void, Never>? = nil
+    private var autoIteration: Int = 0
 
     /// Our own deviceId, captured at start() so the discovery filter
     /// can drop self-advertisements (NWBrowser sees the iPhone's own
@@ -89,8 +126,20 @@ final class DogfoodModel: ObservableObject {
             // iOS 26+). In offload-only mode the inner backend start
             // is skipped anyway — the only thing the BackendKind feeds
             // is the synthetic `BoundServer.backend` field.
+            //
+            // Bind the OffloadProxy on 38900 instead of the SDK default
+            // 38883. The DVAI Hub also binds 38883 — when the iPhone
+            // simulator runs on the SAME Mac as the Hub, both end up
+            // on the same loopback. The kernel routes packets to the
+            // more-specific `127.0.0.1:38883` listener (the sim's own
+            // proxy) instead of the Hub's `*:38883` wildcard, so
+            // requests targeted at `192.168.0.112:38883` (a local IP)
+            // get intercepted by the sim's own proxy via lo0 and
+            // never reach the Hub. Using a separate port avoids the
+            // conflict regardless of how the OS routes local-IP
+            // connections.
             let server = try await DVAIBridge.shared.start(StartOptions(
-                config: DVAIBridgeConfig(backend: .llama),
+                config: DVAIBridgeConfig(backend: .llama, httpBasePort: 38900),
                 offload: OffloadConfig(
                     enabled: true,
                     discoverLAN: true,
@@ -185,6 +234,89 @@ final class DogfoodModel: ObservableObject {
         pendingPairing?.respond(approved: false)
         pendingPairing = nil
         status = "Pairing denied."
+    }
+
+    /// Append to both the in-app log + os_log. The UI log ring is
+    /// bounded to 100 lines so the SwiftUI list doesn't grow without
+    /// bound during long auto-loop runs.
+    func log(_ msg: String, _ level: LogEvent.Level = .info) {
+        let ev = LogEvent(ts: Date(), level: level, message: msg)
+        eventLog.append(ev)
+        if eventLog.count > 100 { eventLog.removeFirst(eventLog.count - 100) }
+        switch level {
+        case .info: dogfoodLog.info("\(msg, privacy: .public)")
+        case .warn: dogfoodLog.warning("\(msg, privacy: .public)")
+        case .error: dogfoodLog.error("\(msg, privacy: .public)")
+        }
+    }
+
+    /// Auto-mode driver. Idempotent: if the bridge is already running
+    /// AND a pairing for the configured Hub already exists, skip the
+    /// preamble and go straight to chat. Loops indefinitely with a
+    /// 12-second cooldown between iterations so a remote operator
+    /// can watch behaviour evolve via logs.
+    func startAutoLoop() {
+        guard autoLoopTask == nil else { return }
+        log("auto-loop start: hub=\(manualHubUrl) model=\(modelId)")
+        autoLoopTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                await self.runAutoIteration()
+                try? await Task.sleep(nanoseconds: 12 * 1_000_000_000)
+            }
+        }
+    }
+
+    func stopAutoLoop() {
+        autoLoopTask?.cancel()
+        autoLoopTask = nil
+        log("auto-loop stopped")
+    }
+
+    private func runAutoIteration() async {
+        autoIteration += 1
+        let n = autoIteration
+        log("─── iteration \(n) ───")
+
+        // 1. Bring up the bridge if needed.
+        if !isStarted {
+            log("step1: starting bridge in offload-only mode")
+            await start()
+            if !isStarted {
+                log("step1 FAILED: \(status)", .error)
+                return
+            }
+            // Give discovery + advertise a moment to settle.
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+        } else {
+            log("step1: bridge already running")
+        }
+
+        // 2. Pair if needed.
+        if pairings.isEmpty {
+            log("step2: pairing with \(manualHubUrl)")
+            await pairWithManualHub()
+            if pairings.isEmpty {
+                log("step2 FAILED: \(status)", .error)
+                return
+            }
+        } else {
+            log("step2: already paired (\(pairings.count) entries)")
+        }
+
+        // 3. Send a chat completion + log timing/chunks.
+        log("step3: sending chat to model=\(modelId)")
+        let t0 = Date()
+        await sendChat()
+        let elapsed = Int(Date().timeIntervalSince(t0) * 1000)
+        if let first = chunks.first, let last = chunks.last {
+            // ttfb = time to FIRST chunk; ttlb = time to LAST chunk.
+            // For real streaming, ttfb << ttlb; for buffered transport,
+            // ttfb ≈ ttlb (every chunk lands at the same moment).
+            log("step3 OK: \(chunks.count) chunks, total \(elapsed) ms, ttfb=\(first.elapsedMs) ms, ttlb=\(last.elapsedMs) ms")
+        } else {
+            log("step3 FAILED: no chunks. status=\(status)", .error)
+        }
     }
 
     /// Initiate a LAN handshake against the first discovered peer.
@@ -299,6 +431,30 @@ struct DogfoodView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    // Auto-mode toggle + log panel (top so they're
+                    // visible in screenshots taken by automation).
+                    HStack {
+                        Toggle("Auto-loop", isOn: $model.autoMode)
+                            .toggleStyle(.switch)
+                            .onChange(of: model.autoMode) { _, newVal in
+                                if newVal { model.startAutoLoop() } else { model.stopAutoLoop() }
+                            }
+                        Spacer()
+                    }
+                    if !model.eventLog.isEmpty {
+                        VStack(alignment: .leading, spacing: 1) {
+                            ForEach(model.eventLog.suffix(20)) { ev in
+                                Text(formatEvent(ev))
+                                    .font(.caption2.monospaced())
+                                    .foregroundColor(eventColor(ev.level))
+                                    .lineLimit(1)
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.black.opacity(0.05))
+                        .cornerRadius(6)
+                    }
+
                     Group {
                         Text("DVAI offload dogfood")
                             .font(.title2).bold()
@@ -410,6 +566,14 @@ struct DogfoodView: View {
                 .padding()
             }
             .navigationTitle("DVAI dogfood")
+            .onAppear {
+                // Kick off the auto-loop on first appearance. The
+                // loop is idempotent — if the bridge already runs,
+                // it skips start and goes straight to chat.
+                if model.autoMode {
+                    model.startAutoLoop()
+                }
+            }
             .alert(
                 item: Binding<PairingAlert?>(
                     get: {
@@ -434,6 +598,26 @@ struct DogfoodView: View {
         Text(title)
             .font(.headline)
             .padding(.top, 8)
+    }
+
+    private func formatEvent(_ ev: LogEvent) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss.SSS"
+        let prefix: String
+        switch ev.level {
+        case .info: prefix = " "
+        case .warn: prefix = "!"
+        case .error: prefix = "✗"
+        }
+        return "\(f.string(from: ev.ts)) \(prefix) \(ev.message)"
+    }
+
+    private func eventColor(_ level: LogEvent.Level) -> Color {
+        switch level {
+        case .info: return .primary
+        case .warn: return .orange
+        case .error: return .red
+        }
     }
 }
 

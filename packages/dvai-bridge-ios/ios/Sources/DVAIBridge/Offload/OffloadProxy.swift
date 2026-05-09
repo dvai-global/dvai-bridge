@@ -369,19 +369,38 @@ public actor OffloadProxy {
 
         if signRequest, let peerDeviceId, let policy = pairingPolicy {
             if let pairing = await policy.getActive(peerDeviceId: peerDeviceId) {
-                let nonce = newNonce()
-                let signature = signCanonical(
+                let nonce = PairingHandshake.generateNonce()
+                // v3.2.1 — route through the canonical PairingHandshake
+                // helpers instead of the local `signCanonical`. The
+                // local one had THREE protocol bugs vs the TS Hub's
+                // verifier (Hub returned 401 every time):
+                //   - canonical msg order: TS uses
+                //       `nonce\nMETHOD\npath\nsha256hex(body)`;
+                //     local used `METHOD\npath\nnonce\nbody-bytes`.
+                //   - pairingKey encoding: TS decodes base64-url;
+                //     local used raw UTF-8 bytes.
+                //   - signature encoding: TS produces base64-url;
+                //     local emitted hex.
+                // PairingHandshake.composeSignedMessage + signHmac
+                // already match the TS reference byte-for-byte;
+                // they were just unused by the proxy.
+                let bodyString = body.isEmpty ? nil : String(data: body, encoding: .utf8) ?? ""
+                let canonical = PairingHandshake.composeSignedMessage(
+                    nonce: nonce,
                     method: method.rawValue,
                     path: url.path,
-                    body: body,
-                    nonce: nonce,
-                    pairingKey: pairing.pairingKey
+                    body: bodyString
                 )
-                urlRequest.setValue(selfDeviceId, forHTTPHeaderField: "X-DVAI-Peer-Device-Id")
-                urlRequest.setValue(appId, forHTTPHeaderField: "X-DVAI-App-Id")
-                urlRequest.setValue(nonce, forHTTPHeaderField: "X-DVAI-Nonce")
-                urlRequest.setValue(signature, forHTTPHeaderField: "X-DVAI-Signature")
-                urlRequest.setValue("1", forHTTPHeaderField: "X-DVAI-Forwarded")
+                if let signature = try? PairingHandshake.signHmac(
+                    pairingKey: pairing.pairingKey,
+                    message: canonical
+                ) {
+                    urlRequest.setValue(selfDeviceId, forHTTPHeaderField: "X-DVAI-Peer-Device-Id")
+                    urlRequest.setValue(appId, forHTTPHeaderField: "X-DVAI-App-Id")
+                    urlRequest.setValue(nonce, forHTTPHeaderField: "X-DVAI-Nonce")
+                    urlRequest.setValue(signature, forHTTPHeaderField: "X-DVAI-Signature")
+                    urlRequest.setValue("1", forHTTPHeaderField: "X-DVAI-Forwarded")
+                }
             }
         }
 
@@ -443,34 +462,12 @@ public actor OffloadProxy {
      * HMAC                                                               *
      * ================================================================== */
 
-    private func signCanonical(
-        method: String,
-        path: String,
-        body: Data,
-        nonce: String,
-        pairingKey: String
-    ) -> String {
-        var msg = Data()
-        msg.append(method.uppercased().data(using: .utf8) ?? Data())
-        msg.append(0x0A)
-        msg.append(path.data(using: .utf8) ?? Data())
-        msg.append(0x0A)
-        msg.append(nonce.data(using: .utf8) ?? Data())
-        msg.append(0x0A)
-        msg.append(body)
-        let key = SymmetricKey(data: pairingKey.data(using: .utf8) ?? Data())
-        let mac = HMAC<SHA256>.authenticationCode(for: msg, using: key)
-        return mac.map { String(format: "%02x", $0) }.joined()
-    }
-
-    private func newNonce() -> String {
-        var bytes = [UInt8](repeating: 0, count: 16)
-        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-        if status != errSecSuccess {
-            for i in bytes.indices { bytes[i] = UInt8.random(in: 0...255) }
-        }
-        return bytes.map { String(format: "%02x", $0) }.joined()
-    }
+    // v3.2.1 — `signCanonical` and `newNonce` deleted. The signing
+    // path now goes through `PairingHandshake.composeSignedMessage`
+    // + `signHmac` + `generateNonce` which match the TS reference
+    // byte-for-byte. Keeping a parallel implementation here is what
+    // caused the v3.2.0 401 bug — the two drifted (wrong canonical
+    // order, wrong key encoding, wrong sig encoding).
 
     /* ================================================================== *
      * Helpers                                                            *
