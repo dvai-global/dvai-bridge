@@ -101,6 +101,7 @@ import {
   verifyHmac,
 } from "@dvai-bridge/core";
 import { PeerMode } from "./PeerMode.js";
+import { MdnsAdvertiserDarwin } from "./MdnsAdvertiserDarwin.js";
 import { parseModelName } from "./ModelParser.js";
 import { OllamaAdapter } from "./adapters/OllamaAdapter.js";
 import { LMStudioAdapter } from "./adapters/LMStudioAdapter.js";
@@ -671,6 +672,16 @@ function awaitPairingApproval(request: PairingRequest): Promise<boolean> {
 /* Method dispatch                                                            */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * macOS-native mDNS advertiser. Constructed lazily so the Hub starts
+ * cleanly on Linux / Windows where this is a no-op (the JS-core's
+ * `multicast-dns` advertise path actually works there). On macOS we
+ * spawn `dns-sd -R` after `peer.start()` resolves so the advertised
+ * port is the real bound port (not the configured one — port-fallback
+ * may have shifted it).
+ */
+let darwinMdns: MdnsAdvertiserDarwin | null = null;
+
 const handlers: Record<string, (params: Record<string, unknown>) => Promise<unknown>> = {
   start: async () => {
     const status = await peer.start();
@@ -685,9 +696,51 @@ const handlers: Record<string, (params: Record<string, unknown>) => Promise<unkn
         engineModelId: HUB_TRANSFORMERS_MODEL,
       },
     ]);
+    // v3.2.1 — macOS dns-sd advertiser. The npm `multicast-dns`
+    // library can't actually advertise on macOS (mDNSResponder owns
+    // port 5353), so paired iOS clients couldn't auto-discover the
+    // Hub. Spawning the system `dns-sd -R` CLI delegates to
+    // mDNSResponder properly. No-op on Linux / Windows where the
+    // JS-core's multicast-dns path works.
+    if (
+      MdnsAdvertiserDarwin.isSupported() &&
+      darwinMdns === null &&
+      typeof status === "object" &&
+      status !== null &&
+      "port" in status &&
+      typeof (status as { port?: unknown }).port === "number" &&
+      (status as { port: number }).port > 0
+    ) {
+      const boundPort = (status as { port: number }).port;
+      darwinMdns = new MdnsAdvertiserDarwin({
+        deviceName: process.env.DVAI_DEVICE_NAME ?? "DVAI Hub",
+        serviceType: "_dvai-bridge._tcp",
+        port: boundPort,
+        txt: {
+          dvaiVersion: "3.2.1",
+          deviceId:
+            process.env.DVAI_DEVICE_ID ??
+            "hub-" + String(boundPort), // best-effort fallback id
+          // Hub doesn't pre-enumerate models in the TXT — the
+          // substitution policy resolves them per-request anyway.
+          // Keeping `models` empty matches what the JS-core
+          // advertise path does too.
+          models: "",
+          port: String(boundPort),
+          secure: "0",
+        },
+        log: (level, msg) =>
+          notify("log", { level, msg }),
+      });
+      darwinMdns.start();
+    }
     return status;
   },
   stop: async () => {
+    if (darwinMdns) {
+      darwinMdns.stop();
+      darwinMdns = null;
+    }
     await peer.stop();
     return { ok: true };
   },
