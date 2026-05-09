@@ -9,15 +9,11 @@ on:
       - 'packages/dvai-bridge-android-mediapipe-core/**'
       - 'packages/dvai-bridge-android-litert-core/**'
       - '.github/workflows/test-android-umbrella-jvm.yml'
+  # Release-tag-only push trigger.
   push:
-    branches:
-      - main
-    paths:
-      - 'packages/dvai-bridge-android/**'
-      - 'packages/dvai-bridge-android-shared-core/**'
-      - 'packages/dvai-bridge-android-llama-core/**'
-      - 'packages/dvai-bridge-android-mediapipe-core/**'
-      - 'packages/dvai-bridge-android-litert-core/**'
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
 
 concurrency:
   group: android-umbrella-jvm-${{ github.ref }}

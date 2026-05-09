@@ -9,15 +9,11 @@ on:
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'fixtures/**'
       - '.github/workflows/test-android-llama-jvm.yml'
+  # Release-tag-only push trigger.
   push:
-    branches:
-      - main
-    paths:
-      - 'packages/dvai-bridge-android-llama-core/**'
-      - 'packages/dvai-bridge-android-shared-core/**'
-      - 'packages/dvai-bridge-capacitor-llama/android/**'
-      - 'packages/dvai-bridge-capacitor/src/**'
-      - 'fixtures/**'
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
 
 concurrency:
   group: android-llama-jvm-${{ github.ref }}

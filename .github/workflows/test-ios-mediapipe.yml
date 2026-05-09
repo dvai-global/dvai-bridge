@@ -12,12 +12,13 @@ on:
       - 'packages/dvai-bridge-capacitor/src/**'
       - 'scripts/mac-side-*.sh'
       - '.github/workflows/test-ios-mediapipe.yml'
+  # Release-tag-only push trigger. Routine `git push origin main`
+  # does NOT fire CI; use a PR for pre-merge validation or
+  # workflow_dispatch for an ad-hoc run.
   push:
-    branches:
-      - main
-    paths:
-      - 'packages/dvai-bridge-capacitor-mediapipe/ios/**'
-      - 'packages/dvai-bridge-capacitor/src/**'
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
 
 concurrency:
   group: ios-mediapipe-${{ github.ref }}

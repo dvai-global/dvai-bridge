@@ -4,21 +4,22 @@ on:
   pull_request:
     paths:
       - 'packages/dvai-bridge-ios/**'
+      - 'packages/dvai-bridge-ios-shared-core/**'
       - 'packages/dvai-bridge-ios-llama-core/**'
       - 'packages/dvai-bridge-ios-foundation-core/**'
+      - 'packages/dvai-bridge-ios-mlx-core/**'
       - 'packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/**'
       - 'fixtures/**'
       - 'scripts/mac-side-*.sh'
       - '.github/workflows/test-ios-bridge.yml'
+  # Run on release tags (v3.2.0, v3.2.1, …) so the publish-time
+  # validation gate fires. Routine pushes to main do NOT trigger CI —
+  # use a PR if you want pre-merge validation, or `workflow_dispatch`
+  # to fire a one-off run from the Actions UI.
   push:
-    branches:
-      - main
-    paths:
-      - 'packages/dvai-bridge-ios/**'
-      - 'packages/dvai-bridge-ios-llama-core/**'
-      - 'packages/dvai-bridge-ios-foundation-core/**'
-      - 'packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/**'
-      - 'fixtures/**'
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
 
 concurrency:
   group: ios-bridge-${{ github.ref }}
