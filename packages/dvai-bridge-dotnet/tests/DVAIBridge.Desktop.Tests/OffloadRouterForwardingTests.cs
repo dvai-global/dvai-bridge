@@ -32,7 +32,12 @@ namespace DVAIBridge.Tests;
 /// </summary>
 public class OffloadRouterForwardingTests : IAsyncLifetime
 {
-    private const string PairingKey = "test-pairing-key-very-long-and-random-32+";
+    // Base64-url-encoded 256-bit pairing key (matches the v3.2.1 wire
+    // format — `PairingHandshake.SignHmac` decodes the key as
+    // base64-url before HMAC-keying). Generated once with
+    // `[byte[]] new byte[32] |% { Base64UrlEncode($_) }`; constant
+    // string here keeps the test deterministic.
+    private const string PairingKey = "vGzn8h_FNHkqL5Q1tN-rTu3pYWB7K0vGzn8h_FNHkqI";
     private const string PeerDeviceId = "peer-1";
     private const string SelfDeviceId = "self-1";
     private const string AppId = "test.app";
@@ -249,24 +254,53 @@ public class OffloadRouterForwardingTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Mirror of <c>OffloadRouter.SignCanonical</c> — used as an
-    /// independent oracle so the test catches any drift in the
-    /// production canonicalisation rules.
+    /// Independent oracle for the v3.2.1 canonical signing format —
+    /// matches the TS reference (packages/dvai-bridge-core/src/pairing/
+    /// handshake.ts) byte-for-byte. The test catches drift in the
+    /// production canonicalisation by computing the expected signature
+    /// here from primitives, NOT by calling the production
+    /// <c>PairingHandshake</c> helpers (otherwise the test would
+    /// tautologically pass against itself).
+    ///
+    /// Format: <c>{nonce}\n{METHOD}\n{path}\n{sha256hex(body)}</c>;
+    /// pairingKey is base64-url decoded; signature is base64-url
+    /// encoded.
     /// </summary>
     private static string ComputeSignature(string method, string path, byte[] body, string nonce, string key)
     {
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(key));
-        using var ms = new MemoryStream();
-        var lf = new[] { (byte)0x0A };
-        ms.Write(Encoding.UTF8.GetBytes(method.ToUpperInvariant()));
-        ms.Write(lf);
-        ms.Write(Encoding.UTF8.GetBytes(path));
-        ms.Write(lf);
-        ms.Write(Encoding.UTF8.GetBytes(nonce));
-        ms.Write(lf);
-        ms.Write(body);
-        var hash = hmac.ComputeHash(ms.ToArray());
-        return Convert.ToHexString(hash).ToLowerInvariant();
+        // sha256(body) → lowercase hex, OR all-zeros for empty body.
+        string bodyHash;
+        if (body.Length == 0)
+        {
+            bodyHash = new string('0', 64);
+        }
+        else
+        {
+            using var sha = SHA256.Create();
+            bodyHash = Convert.ToHexString(sha.ComputeHash(body)).ToLowerInvariant();
+        }
+        var canonical = $"{nonce}\n{method.ToUpperInvariant()}\n{path}\n{bodyHash}";
+
+        // Pairing key: base64-url decode (NOT raw UTF-8 bytes).
+        var keyBytes = Base64UrlDecode(key);
+        using var hmac = new HMACSHA256(keyBytes);
+        var sig = hmac.ComputeHash(Encoding.UTF8.GetBytes(canonical));
+        return Base64UrlEncode(sig);
+    }
+
+    private static string Base64UrlEncode(byte[] bytes)
+    {
+        return Convert.ToBase64String(bytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+
+    private static byte[] Base64UrlDecode(string s)
+    {
+        var b64 = s.Replace('-', '+').Replace('_', '/');
+        var pad = (4 - (b64.Length % 4)) % 4;
+        return Convert.FromBase64String(b64 + new string('=', pad));
     }
 
     private static int GetFreeLoopbackPort()
