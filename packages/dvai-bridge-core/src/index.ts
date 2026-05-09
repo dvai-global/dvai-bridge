@@ -663,8 +663,23 @@ export class DVAI {
 			// CLI) opts in here. Port defaults to the bound DVAI server
 			// port; `models` is empty until the Hub feeds enumeration
 			// in (loadedModels via setLoadedModels at runtime).
+			//
+			// On macOS, the Hub's wrapper (`hub/peer-mode/server.ts`)
+			// uses a `dns-sd -R` subprocess that goes through the
+			// system mDNSResponder daemon — that's the canonical path
+			// and Bonjour clients see a properly-named service
+			// (`<DVAI Hub>` vs the generic `<hostname>.local`
+			// `multicast-dns` produces). To avoid emitting duplicate
+			// `_dvai-bridge._tcp` records, the JS-core's advertise
+			// silently no-ops on Darwin — leave the macOS path to the
+			// dns-sd subprocess. On Linux / Windows the npm lib's
+			// advertise actually works (no system-daemon conflict),
+			// so we keep it there.
+			const skipAdvertiseOnDarwin =
+				typeof globalThis.process !== "undefined" &&
+				globalThis.process.platform === "darwin";
 			const advertise: import("./discovery/mdns-node.js").AdvertisedTxt | undefined =
-				this.offload?.advertiseLAN
+				this.offload?.advertiseLAN && !skipAdvertiseOnDarwin
 					? {
 							deviceId: this.deviceId,
 							deviceName:
