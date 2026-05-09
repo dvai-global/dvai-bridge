@@ -24,6 +24,19 @@ export interface OffloadConfig {
   enabled: boolean;
   /** Run mDNS to discover LAN peers. */
   discoverLAN: boolean;
+  /**
+   * v3.2.1 — advertise this DVAI instance on `_dvai-bridge._tcp` so
+   * other LAN peers can discover it. Default false to preserve v3.1
+   * behaviour where mobile SDKs owned the advertise side and the
+   * desktop Hub didn't advertise. Set this to `true` on the Hub so
+   * mobile peers can auto-discover it without manual URL entry.
+   */
+  advertiseLAN?: boolean;
+  /**
+   * Optional override of the port we advertise. Default: pulled from
+   * the running DVAI server's bound port.
+   */
+  advertisePort?: number;
   /** Below this tok/s, look for a peer. Default 10. */
   minLocalCapability: number;
   /**

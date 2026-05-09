@@ -56,6 +56,12 @@ final class DogfoodModel: ObservableObject {
     /// `pairWithManualHub()` to construct a synthetic MDNSPeer for
     /// `initiatePairing(with:)`.
     @Published var manualHubUrl: String = ""
+    /// Model id sent in the chat-completion request body. Forwarded
+    /// verbatim to the Hub which forwards verbatim to its engine
+    /// adapter (Ollama / vLLM / etc.). Default matches the model
+    /// the v3.2 dogfood Mac has installed (`ollama pull llama3.2`)
+    /// — change this if your Hub is talking to a different engine.
+    @Published var modelId: String = "llama3.2:latest"
 
     /// Our own deviceId, captured at start() so the discovery filter
     /// can drop self-advertisements (NWBrowser sees the iPhone's own
@@ -258,7 +264,7 @@ final class DogfoodModel: ObservableObject {
         do {
             for try await chunk in openAI.chatsStream(query: .init(
                 messages: [.user(.init(content: .string(defaultPrompt)))],
-                model: "local",
+                model: modelId,
                 maxCompletionTokens: 200,
                 temperature: 0.7
             )) {
@@ -309,6 +315,15 @@ struct DogfoodView: View {
                             .buttonStyle(.borderedProminent)
                             .disabled(!model.isStarted || model.isStreaming)
                     }
+
+                    sectionHeader("Model id")
+                    Text("Forwarded verbatim to the Hub → its engine adapter (Ollama tag, vLLM model, etc.).")
+                        .font(.caption).foregroundColor(.secondary)
+                    TextField("llama3.2:latest", text: $model.modelId)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption.monospaced())
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
 
                     sectionHeader("Hub pairing")
                     Text("The DVAI Hub doesn't advertise on mDNS — paste its URL.")
