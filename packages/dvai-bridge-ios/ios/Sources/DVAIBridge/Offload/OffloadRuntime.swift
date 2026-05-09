@@ -40,8 +40,18 @@ public actor OffloadRuntime {
         started = true
 
         if config.discoverLAN {
-            await discovery.start()
             let deviceId = try deviceIDStore.get()
+            // Configure self-filtering BEFORE starting the browser
+            // so the very first peerUp event from our own
+            // advertisement is dropped (race-free).
+            await discovery.setSelfDeviceId(deviceId)
+            // Defensive: drop any stale self-pairing that an earlier
+            // build may have persisted before the self-filter
+            // existed. A pairing keyed by our own deviceId would
+            // otherwise let `decideRoute`'s paired-peer fallback
+            // route requests back to us in an infinite loop.
+            try? await pairingStore.remove(deviceId)
+            await discovery.start()
             let deviceName = Self.resolveDeviceName()
             try await advertiser.start(
                 NWAdvertiser.Advertisement(

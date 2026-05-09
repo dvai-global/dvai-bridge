@@ -38,6 +38,13 @@ public actor PairingPolicy {
         self.continuation = savedContinuation
     }
 
+    /// Snapshot of every persisted pairing (active or expired).
+    /// Used by the OffloadProxy's paired-peer fallback to consider
+    /// pairings whose peers aren't currently in mDNS discovery.
+    public func listPairings() async -> [Pairing] {
+        await store.list()
+    }
+
     /// Active (non-expired) pairing for this peer, or nil.
     public func getActive(peerDeviceId: String) async -> Pairing? {
         guard let existing = await store.get(peerDeviceId) else { return nil }

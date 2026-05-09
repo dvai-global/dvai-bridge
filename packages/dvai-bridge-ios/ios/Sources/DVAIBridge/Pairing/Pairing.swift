@@ -22,6 +22,13 @@ public struct Pairing: Sendable, Equatable, Codable, Hashable {
     public var lastUsedAt: Int64
     /// Pairing source — informational.
     public let via: Via
+    /// v3.2.1 — last-known peer baseUrl. Captured at pairing time
+    /// so the OffloadProxy can route to a paired peer even when it
+    /// isn't currently in the mDNS discovery list (e.g. the desktop
+    /// Hub on macOS, where Node's `multicast-dns` lib can't
+    /// advertise through mDNSResponder). Optional for back-compat —
+    /// pairings persisted by earlier builds decode with `nil` here.
+    public var baseUrl: String?
 
     public init(
         peerDeviceId: String,
@@ -29,7 +36,8 @@ public struct Pairing: Sendable, Equatable, Codable, Hashable {
         pairingKey: String,
         pairedAt: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
         lastUsedAt: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
-        via: Via = .lanHandshake
+        via: Via = .lanHandshake,
+        baseUrl: String? = nil
     ) {
         self.peerDeviceId = peerDeviceId
         self.peerDeviceName = peerDeviceName
@@ -37,6 +45,7 @@ public struct Pairing: Sendable, Equatable, Codable, Hashable {
         self.pairedAt = pairedAt
         self.lastUsedAt = lastUsedAt
         self.via = via
+        self.baseUrl = baseUrl
     }
 }
 
