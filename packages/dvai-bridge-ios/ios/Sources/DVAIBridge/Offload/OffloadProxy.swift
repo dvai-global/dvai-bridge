@@ -146,6 +146,17 @@ public actor OffloadProxy {
                 body: #"{"error":{"type":"proxy_error","code":502,"message":"\#(escapeJson(error.localizedDescription))"}}"#)
         }
 
+        // v3.2.1 — incoming pairing handshake. The TS-side handler
+        // (packages/dvai-bridge-core/src/handlers/dvai/index.ts:110)
+        // is wire-compatible with this one: same body shape, same
+        // response keys. We special-case the path BEFORE
+        // `decideRoute` so the request never tries to forward to a
+        // peer or the (nil-in-offload-only) local backend — both
+        // would 404/502.
+        if path == "/v1/dvai/handshake" {
+            return await handleHandshakeRequest(method: req.method, body: bodyData)
+        }
+
         // Build a lower-cased header map for decision + forwarding.
         var headerMap: [String: String] = [:]
         for f in req.headers {
@@ -439,6 +450,92 @@ public actor OffloadProxy {
 
     private nonisolated func noCapableDeviceError(localCapability: Double, required: Double) -> String {
         #"{"error":{"type":"no_capable_device","code":503,"message":"No device with capability >= \#(required) tok/s available.","localCapability":\#(localCapability),"requiredAtLeast":\#(required)}}"#
+    }
+
+    /* ================================================================== *
+     * Pairing handshake (incoming)                                       *
+     * ================================================================== */
+
+    /// v3.2.1 — handle an incoming POST /v1/dvai/handshake from a peer
+    /// that wants to pair with us. Wire-compatible with the TS-side
+    /// `handleHandshake` in
+    /// `packages/dvai-bridge-core/src/handlers/dvai/index.ts`:
+    ///
+    ///   request body : `{ peerDeviceId, peerDeviceName, via?, appId? }`
+    ///   response body: `{ paired: true, pairedAt, via, pairingKey, peerDeviceId }`
+    ///
+    /// Calls `pairingPolicy.approveOrFetch(...)` which yields a
+    /// `PairingRequest` to the consumer's `DVAIBridge.shared.pairingRequests()`
+    /// stream and awaits the consumer's `respond(approved:)` decision
+    /// (or times out → deny). On approval, mints a fresh pairing key
+    /// + persists to the iOS PairingStore + echoes the key back so
+    /// the requester can HMAC-sign subsequent offload calls.
+    ///
+    /// Errors:
+    ///   - 405 if method != POST
+    ///   - 503 if pairing isn't configured (offload disabled)
+    ///   - 400 if the body is missing peerDeviceId/peerDeviceName
+    ///   - 403 if the host app denied / timed out
+    private func handleHandshakeRequest(method: HTTPRequest.Method, body: Data) async -> Response {
+        guard method == .post else {
+            return jsonResponse(
+                status: .methodNotAllowed,
+                body: #"{"error":{"type":"method_not_allowed","message":"POST required"}}"#
+            )
+        }
+        guard let policy = pairingPolicy else {
+            return jsonResponse(
+                status: .serviceUnavailable,
+                body: #"{"error":{"type":"pairing_disabled","message":"pairing not configured"}}"#
+            )
+        }
+
+        // Parse the JSON body. Empty / invalid → 400 with a clear
+        // message so the requester can fix their wire format.
+        guard let json = (try? JSONSerialization.jsonObject(with: body, options: [])) as? [String: Any] else {
+            return jsonResponse(
+                status: .badRequest,
+                body: #"{"error":{"type":"malformed_handshake","message":"body must be a JSON object"}}"#
+            )
+        }
+        guard let peerDeviceId = json["peerDeviceId"] as? String, !peerDeviceId.isEmpty,
+              let peerDeviceName = json["peerDeviceName"] as? String, !peerDeviceName.isEmpty else {
+            return jsonResponse(
+                status: .badRequest,
+                body: #"{"error":{"type":"malformed_handshake","message":"missing peerDeviceId / peerDeviceName"}}"#
+            )
+        }
+        let viaRaw = (json["via"] as? String) ?? "lan-handshake"
+        let via = Pairing.Via(rawValue: viaRaw) ?? .lanHandshake
+
+        do {
+            let pairing = try await policy.approveOrFetch(
+                peerDeviceId: peerDeviceId,
+                peerDeviceName: peerDeviceName,
+                via: via
+            )
+            // Wire shape mirrors the TS handler's `paired: true` envelope.
+            // pairingKey crosses the wire here on the LAN-trust model:
+            // the same Wi-Fi the handshake travelled over already saw
+            // every byte; opt-in offload is the consent step.
+            let payload: [String: Any] = [
+                "paired": true,
+                "pairedAt": pairing.pairedAt,
+                "via": pairing.via.rawValue,
+                "pairingKey": pairing.pairingKey,
+                "peerDeviceId": pairing.peerDeviceId,
+            ]
+            let bodyData = (try? JSONSerialization.data(withJSONObject: payload, options: [])) ?? Data()
+            return jsonResponse(
+                status: .ok,
+                body: String(data: bodyData, encoding: .utf8) ?? "{}"
+            )
+        } catch {
+            return jsonResponse(
+                status: .forbidden,
+                body: #"{"error":{"type":"pairing_denied","message":"\#(escapeJson(error.localizedDescription))"}}"#
+            )
+        }
     }
 
     private nonisolated func jsonResponse(status: HTTPResponse.Status, body: String) -> Response {

@@ -59,12 +59,16 @@ targets:
         NSLocalNetworkUsageDescription: >-
           Pair with a DVAI Hub on your local network to offload
           inference to a stronger device.
-        # Bonjour service registration — `_dvai._tcp` is the DVAI
-        # mDNS service type advertised by both the Hub and paired
-        # peers. Without this entry, NWBrowser silently fails to
-        # find any peer (iOS 14+ behaviour change).
+        # Bonjour service registration. Both the iOS SDK
+        # (`DVAIBridgeMDNS.serviceType` in
+        # `Discovery/MDNSPeer.swift`) and the desktop Hub advertise
+        # `_dvai-bridge._tcp` — that EXACT type must appear in this
+        # list, otherwise iOS 14+ rejects every NWBrowser/NWAdvertiser
+        # call with `-65555: NoAuth` even when the user has granted
+        # Local Network permission. The error is silent on the
+        # consent prompt — only NWBrowser surfaces the auth failure.
         NSBonjourServices:
-          - _dvai._tcp
+          - _dvai-bridge._tcp
         UILaunchScreen: {}
         UIRequiredDeviceCapabilities:
           - arm64
