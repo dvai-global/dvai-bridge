@@ -1,3 +1,13 @@
+// v3.2.1 — distributed-inference pattern. Web/browser apps don't have
+// the same hardware-introspection story as native (no NPU detection,
+// no GPU class via `assessHardware()`), so the offload pattern in
+// the browser typically reduces to "always run locally via WebGPU
+// + Transformers.js / WebLLM" or "always offload to a paired Hub
+// over HTTPS via the rendezvous URL". The DVAI core's
+// `OffloadConfig.rendezvousUrl` is the relevant knob; native SDKs'
+// LAN handshake doesn't apply here. See `docs/guide/distributed-
+// inference.md` for the per-platform support matrix.
+
 import { useState } from "react";
 import { DVAI } from "@dvai-bridge/core";
 import { ChatOpenAI } from "@langchain/openai";

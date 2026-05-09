@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using DVAIBridge;
+using DVAIBridge.Capability;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
@@ -9,6 +10,14 @@ namespace DvaiBridgeDesktopLlama;
 public partial class MainWindow : Window
 {
     private BoundServer? _server;
+
+    // v3.2.1 — distributed-inference scaffold. If `AssessHardware`
+    // reports the desktop can't run llama.cpp comfortably (rare on
+    // a desktop, but possible on older laptops with no discrete GPU),
+    // we route the chat through a paired DVAI Hub on the LAN. Set
+    // `HubUrl` to enable the offload path. Leave it null to require
+    // local-only inference.
+    private const string? HubUrl = null;  // e.g. "http://192.168.1.42:38883"
 
     public MainWindow()
     {
@@ -22,6 +31,60 @@ public partial class MainWindow : Window
             StartBtn.IsEnabled = false;
             StatusBlock.Text = "Starting bridge…";
 
+            // v3.2.1 — pre-init capability gate. Decide local-vs-offload
+            // BEFORE we touch a potentially-large GGUF file.
+            var assessment = CapabilityPrecheck.Assess();
+            StatusBlock.Text = $"Hardware: {assessment.Mode} ({assessment.TokPerSec:F1} tok/s est)";
+
+            if (assessment.Mode == PrecheckMode.TooWeak)
+            {
+                StatusBlock.Text = $"Device too weak for inference: {assessment.Reason}";
+                StartBtn.IsEnabled = true;
+                return;
+            }
+
+            if (assessment.Mode == PrecheckMode.OffloadOnly)
+            {
+                if (HubUrl is null)
+                {
+                    StatusBlock.Text =
+                        "Device too slow for local llama.cpp. Set HubUrl to a paired DVAI Hub.";
+                    StartBtn.IsEnabled = true;
+                    return;
+                }
+                // The OffloadRouter is wired up internally by the
+                // Desktop slice when OffloadConfig.Enabled is true;
+                // chat completions arriving at the bound port are
+                // forwarded transparently to the Hub.
+                _server = await DVAIBridge.DVAIBridge.Shared.StartAsync(new StartOptions
+                {
+                    Backend = BackendKind.Llama,
+                    ModelPath = "",  // offload-only — no local model load
+                    Offload = new OffloadConfig
+                    {
+                        Enabled = true,
+                        DiscoverLAN = true,
+                        MinLocalCapability = 999.0,  // force offload-only
+                        KnownPeers = new[]
+                        {
+                            new DVAIBridge.PeerInfo
+                            {
+                                DeviceId = $"manual:{HubUrl}",
+                                DeviceName = "DVAI Hub",
+                                DvaiVersion = "unknown",
+                                BaseUrl = HubUrl!.EndsWith("/v1") ? HubUrl : HubUrl + "/v1",
+                            },
+                        },
+                    },
+                });
+
+                StatusBlock.Text = $"Started in offload-only mode → {HubUrl}.";
+                StopBtn.IsEnabled = true;
+                SendBtn.IsEnabled = true;
+                return;
+            }
+
+            // assessment.Mode == PrecheckMode.Ok — local inference path.
             var modelPath = string.IsNullOrWhiteSpace(ModelPathBox.Text)
                 ? null
                 : ModelPathBox.Text.Trim();

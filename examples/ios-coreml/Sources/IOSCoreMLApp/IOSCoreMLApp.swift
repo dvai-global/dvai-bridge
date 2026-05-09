@@ -36,6 +36,11 @@ struct ContentView: View {
         "https://huggingface.co/finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit/resolve/main/"
     )!
 
+    // v3.2.1 — distributed-inference scaffold. CoreML is iOS 18+,
+    // ANE-bound. On older iOS or weaker devices, route through a
+    // paired DVAI Hub on the LAN. Set `hubUrl` to enable.
+    private static let hubUrl: String? = nil  // e.g. "http://192.168.1.42:38883"
+
     var body: some View {
         VStack(spacing: 16) {
             Text("dvai-bridge · iOS · CoreML / ANE")
@@ -68,35 +73,71 @@ struct ContentView: View {
     }
 
     private func loadAndAsk() async {
-        if #available(iOS 18.0, macOS 15.0, *) {
-            // ok
-        } else {
-            status = "CoreML backend requires iOS 18+ / macOS 15+."
-            return
-        }
         isRunning = true
         defer { isRunning = false }
         output = ""
         do {
-            // 1. Discover the .mlmodelc directory name from the HF API
-            //    and download the model file-by-file into a caches dir.
-            status = "Downloading CoreML model…"
-            let bundle = try await CoreMLModelDownloader.downloadReferenceCheckpoint(
-                repoBase: Self.hfRepoBase,
-                progress: { msg in
-                    Task { @MainActor in self.status = msg }
-                }
-            )
+            // v3.2.1 — pre-init capability gate. CoreML requires
+            // iOS 18+ AND adequate ANE/CPU; precheck → branch.
+            let assessment = DVAIBridge.shared.assessHardware()
+            status = "Hardware: \(assessment.mode.rawValue) (\(String(format: "%.1f", assessment.tokPerSec)) tok/s est)"
+            try? await Task.sleep(nanoseconds: 500_000_000)
 
-            // 2. Boot the bridge with backend: .coreml + modelPath +
-            //    tokenizerPath. modelPath is the .mlmodelc directory;
-            //    tokenizerPath is a directory containing tokenizer.json.
-            status = "Loading CoreML model…"
-            let server = try await DVAIBridge.shared.start(.init(
-                backend: .coreml,
-                modelPath: bundle.modelDir.path,
-                tokenizerPath: bundle.tokenizerDir.path
-            ))
+            let isOldOS: Bool
+            if #available(iOS 18.0, macOS 15.0, *) { isOldOS = false } else { isOldOS = true }
+            let mustOffload = (assessment.mode != .ok) || isOldOS
+
+            let server: BoundServer
+            if mustOffload {
+                if assessment.mode == .tooWeak {
+                    status = "Device too weak for inference: \(assessment.reason)"
+                    return
+                }
+                guard let hubUrl = Self.hubUrl else {
+                    status = isOldOS
+                        ? "iOS 18+ required for CoreML. Set Self.hubUrl to offload to a Hub."
+                        : "Device too slow for local inference. Set Self.hubUrl to a paired DVAI Hub."
+                    return
+                }
+                status = "Starting in offload-only mode → \(hubUrl)…"
+                server = try await DVAIBridge.shared.start(StartOptions(
+                    config: DVAIBridgeConfig(backend: .llama),  // backend is moot in offload-only
+                    offload: OffloadConfig(
+                        enabled: true,
+                        discoverLAN: true,
+                        minLocalCapability: 999.0  // force offload-only
+                    )
+                ))
+                let hubPeer = MDNSPeer(
+                    deviceId: "manual:\(hubUrl)",
+                    deviceName: "DVAI Hub",
+                    dvaiVersion: "unknown",
+                    baseUrl: hubUrl.hasSuffix("/v1") ? hubUrl : hubUrl + "/v1",
+                    via: .static
+                )
+                _ = try await DVAIBridge.shared.initiatePairing(with: hubPeer)
+                status = "Paired with Hub. Streaming…"
+            } else {
+                // 1. Discover the .mlmodelc directory name from the HF API
+                //    and download the model file-by-file into a caches dir.
+                status = "Downloading CoreML model…"
+                let bundle = try await CoreMLModelDownloader.downloadReferenceCheckpoint(
+                    repoBase: Self.hfRepoBase,
+                    progress: { msg in
+                        Task { @MainActor in self.status = msg }
+                    }
+                )
+
+                // 2. Boot the bridge with backend: .coreml + modelPath +
+                //    tokenizerPath. modelPath is the .mlmodelc directory;
+                //    tokenizerPath is a directory containing tokenizer.json.
+                status = "Loading CoreML model…"
+                server = try await DVAIBridge.shared.start(.init(
+                    backend: .coreml,
+                    modelPath: bundle.modelDir.path,
+                    tokenizerPath: bundle.tokenizerDir.path
+                ))
+            }
 
             status = "Streaming…"
             let url = URL(string: server.baseUrl)!
@@ -112,7 +153,7 @@ struct ContentView: View {
 
             for try await chunk in openAI.chatsStream(query: .init(
                 messages: [.user(.init(content: .string("Tell me a one-line joke.")))],
-                model: "local",
+                model: "llama3.2:latest",  // forwarded verbatim to backend / Hub
                 maxCompletionTokens: 64,
                 temperature: 0
             )) {

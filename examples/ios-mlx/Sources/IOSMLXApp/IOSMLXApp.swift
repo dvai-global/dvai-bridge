@@ -33,6 +33,12 @@ struct ContentView: View {
     /// MLX-converted. mlx-swift-lm downloads + caches it on first run.
     private static let mlxModelId = "mlx-community/Llama-3.2-3B-Instruct-4bit"
 
+    // v3.2.1 — distributed-inference scaffold. MLX is Apple Silicon
+    // only. On Intel Macs / iPhone simulator on Intel hosts / non-AS
+    // devices, route through a paired DVAI Hub on the LAN. Set
+    // `hubUrl` to enable.
+    private static let hubUrl: String? = nil  // e.g. "http://192.168.1.42:38883"
+
     var body: some View {
         VStack(spacing: 16) {
             Text("dvai-bridge · iOS · MLX")
@@ -69,14 +75,50 @@ struct ContentView: View {
         defer { isRunning = false }
         output = ""
         do {
-            // 1. Boot the bridge with backend: .mlx + the HF id as
-            //    modelPath. mlx-swift-lm handles the download + cache.
-            status = "Loading MLX checkpoint…"
-            let server = try await DVAIBridge.shared.start(.init(
-                backend: .mlx,
-                modelPath: Self.mlxModelId,
-                contextSize: 1024
-            ))
+            // v3.2.1 — pre-init capability gate. MLX is Apple-Silicon
+            // only at runtime; precheck branches to offload otherwise.
+            let assessment = DVAIBridge.shared.assessHardware()
+            status = "Hardware: \(assessment.mode.rawValue) (\(String(format: "%.1f", assessment.tokPerSec)) tok/s est)"
+            try? await Task.sleep(nanoseconds: 500_000_000)
+
+            let server: BoundServer
+            if assessment.mode != .ok {
+                if assessment.mode == .tooWeak {
+                    status = "Device too weak for inference: \(assessment.reason)"
+                    return
+                }
+                guard let hubUrl = Self.hubUrl else {
+                    status = "Device too slow for local MLX. Set Self.hubUrl to a paired DVAI Hub."
+                    return
+                }
+                status = "Starting in offload-only mode → \(hubUrl)…"
+                server = try await DVAIBridge.shared.start(StartOptions(
+                    config: DVAIBridgeConfig(backend: .llama),  // backend is moot in offload-only
+                    offload: OffloadConfig(
+                        enabled: true,
+                        discoverLAN: true,
+                        minLocalCapability: 999.0  // force offload-only
+                    )
+                ))
+                let hubPeer = MDNSPeer(
+                    deviceId: "manual:\(hubUrl)",
+                    deviceName: "DVAI Hub",
+                    dvaiVersion: "unknown",
+                    baseUrl: hubUrl.hasSuffix("/v1") ? hubUrl : hubUrl + "/v1",
+                    via: .static
+                )
+                _ = try await DVAIBridge.shared.initiatePairing(with: hubPeer)
+                status = "Paired with Hub. Streaming…"
+            } else {
+                // 1. Boot the bridge with backend: .mlx + the HF id as
+                //    modelPath. mlx-swift-lm handles the download + cache.
+                status = "Loading MLX checkpoint…"
+                server = try await DVAIBridge.shared.start(.init(
+                    backend: .mlx,
+                    modelPath: Self.mlxModelId,
+                    contextSize: 1024
+                ))
+            }
 
             status = "Streaming…"
             let url = URL(string: server.baseUrl)!
@@ -92,7 +134,7 @@ struct ContentView: View {
 
             for try await chunk in openAI.chatsStream(query: .init(
                 messages: [.user(.init(content: .string("Tell me a one-line joke.")))],
-                model: "local",
+                model: "llama3.2:latest",  // forwarded verbatim to backend / Hub
                 maxCompletionTokens: 64,
                 temperature: 0
             )) {

@@ -10,6 +10,14 @@ namespace DvaiBridgeMauiSample;
 /// prompt, see the streaming response. The OpenAI-compatible client is
 /// Microsoft.SemanticKernel pointed at the BoundServer.BaseUrl returned
 /// by DVAIBridge.Shared.StartAsync(...).
+///
+/// v3.2.1 — distributed-inference pattern. .NET MAUI shares the
+/// DVAIBridge core API with Desktop, so the same pre-init capability
+/// gate via <c>CapabilityPrecheck.Assess()</c> and paired-Hub offload
+/// via <c>OffloadConfig { Enabled = true, KnownPeers = [...] }</c>
+/// are available. Reference: <c>examples/dotnet-desktop-llama</c> for
+/// the full local-or-offload branch; <c>examples/ios-offload-dogfood</c>
+/// for the cross-platform pairing flow.
 /// </summary>
 public partial class MainPage : ContentPage
 {

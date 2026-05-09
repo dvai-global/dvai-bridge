@@ -55,16 +55,24 @@ import java.util.concurrent.TimeUnit
  *
  * Each request goes out as plain HTTP (no v3.1 identity headers), so
  * Hub logs the audit row under appId="anonymous" (backwards-compat
- * path). Authenticated identity for Android requires the SDK to
- * complete its handshake/HMAC implementation — a v3.1 finalization
- * task that's separate from this E2E.
+ * path).
  *
- * v3.2 — added "Probe device hardware" button at the bottom. Calls
- * the new SDK-side `DVAIBridge.assessHardware()` to demo the
- * pre-init capability gate without needing to actually start a
- * model. The full SDK-routed-offload demo (with mDNS pairing to
- * Hub) is intentionally NOT in this example yet — it requires a
- * pairing UI flow. Tracked as a v3.2.x dogfood example.
+ * v3.2 — "Probe device hardware" button calls the SDK-side
+ * `DVAIBridge.assessHardware()` to demo the pre-init capability gate
+ * without needing to actually start a model.
+ *
+ * v3.2.1 — distributed-inference pattern. The full SDK-routed
+ * offload flow (precheck → if `.ok`, run llama.cpp locally; if
+ * `.offloadOnly`, route through paired Hub via OffloadProxy with
+ * HMAC-signed identity headers; if `.tooWeak`, surface error) is
+ * shipped on Android via `co.deepvoiceai.bridge.DVAIBridge.start(...)`
+ * + `OffloadConfig(enabled = true, ...)` + `initiatePairing(peer)`.
+ * The reference implementation lives in
+ * `examples/ios-offload-dogfood` (Swift); the same SDK shape exists
+ * verbatim in Kotlin. This example deliberately uses raw-HTTP-to-Hub
+ * to demonstrate the simpler "always offload" path used by Android
+ * UIs that don't want to host the local llama.cpp backend at all.
+ * For the local-OR-offload routing pattern, see the iOS dogfood.
  */
 class MainActivity : ComponentActivity() {
 

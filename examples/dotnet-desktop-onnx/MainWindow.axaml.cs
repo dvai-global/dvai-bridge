@@ -6,6 +6,16 @@ using Microsoft.SemanticKernel.Connectors.OpenAI;
 
 namespace DvaiBridgeDesktopOnnx;
 
+/// <summary>
+/// ONNX Runtime GenAI backend example. Shares the DVAIBridge.Shared API
+/// surface with the llama.cpp + ML.NET desktop slices.
+///
+/// v3.2.1 — distributed-inference pattern. Wrap the existing Start
+/// path with <c>CapabilityPrecheck.Assess()</c> + an
+/// <c>OffloadConfig { Enabled = true, KnownPeers = [...] }</c> branch
+/// for offload-only mode. Reference:
+/// <c>examples/dotnet-desktop-llama</c>.
+/// </summary>
 public partial class MainWindow : Window
 {
     private BoundServer? _server;

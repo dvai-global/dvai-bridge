@@ -5,6 +5,15 @@
 // are disabled in the dropdown. After Start succeeds, the prompt is sent
 // as a streaming chat completion through `dart:io`'s `HttpClient`
 // pointed at the local server URL.
+//
+// v3.2.1 — distributed-inference pattern. Flutter delegates to the
+// native iOS / Android SDKs through Pigeon channels, so the same
+// pre-init capability gate + paired-Hub offload pattern is exposed
+// via `DvaiBridge.assessHardware()` +
+// `DvaiBridge.start(StartOptions(offload: ...))` +
+// `DvaiBridge.initiatePairing(peer)`. Reference flow:
+// `examples/ios-offload-dogfood`. Combine the existing backend
+// dropdown with the precheck branch to produce an offload-aware UX.
 
 import 'dart:async';
 import 'dart:convert';

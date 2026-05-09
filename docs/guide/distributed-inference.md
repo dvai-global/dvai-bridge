@@ -368,7 +368,7 @@ its native backend:
 | SDK | LAN discovery (mDNS) | Internet pairing (rendezvous) | Capability probe |
 | --- | --- | --- | --- |
 | Web (browser) | ❌ (browsers can't mDNS) | ✅ source-only (browser is offload source, not target) | ✅ via IndexedDB-cached probe |
-| Web (Node) | ✅ via `multicast-dns` (optional dep) | ✅ | ✅ |
+| Web (Node) | ✅ via `multicast-dns` (Linux/Windows). On macOS, the npm lib's port-5353 bind is shadowed by `mDNSResponder`; the desktop Hub uses a `dns-sd -R` subprocess on Darwin instead (v3.2.1). | ✅ | ✅ |
 | iOS native | ✅ via `NWBrowser` / `NWListener` | ✅ | ✅ |
 | Android native | ✅ via `NsdManager` | ✅ | ✅ |
 | React Native | delegates to native | delegates to native | delegates to native |
@@ -391,6 +391,30 @@ its native backend:
   [self-hosting](./self-hosting-rendezvous.md) — we don't operate
   a rendezvous service for the world.
 
+## v3.2.1 — bug fixes + production-verified offload path
+
+The v3.2.0 release shipped Phase 5 outgoing-offload routing on every
+native SDK, but three protocol-level bugs prevented the path from
+working end-to-end against the desktop Hub (every signed offload
+request returned 401, the Hub didn't auto-discover on macOS, and
+the iOS proxy looped requests back to itself under specific
+port-binding conditions). v3.2.1 fixes all three. See
+[CHANGELOG `[3.2.1]`](https://github.com/Westenets/dvai-bridge/blob/main/CHANGELOG.md)
+for the full breakdown. Verified end-to-end via 59 consecutive
+iPhone-simulator dogfood iterations streaming through a real Hub;
+ttfb ~200 ms, ttlb ~1700-2100 ms (10× ratio confirms incremental
+SSE streaming through Hummingbird's `ResponseBody` writer).
+
+The reference dogfood example
+([`examples/ios-offload-dogfood`](https://github.com/Westenets/dvai-bridge/tree/main/examples/ios-offload-dogfood))
+demonstrates the full local-or-offload flow end-to-end: pre-init
+capability assessment → branch into local backend OR
+offload-only-with-paired-Hub → identical `OpenAI` Swift client call
+that streams chunks the same way regardless of which path served
+the response. The same SDK shape exists verbatim on Android (Kotlin),
+.NET (C#), Flutter (Dart), and React Native (TS via TurboModule),
+so the pattern translates 1:1 across platforms.
+
 ## Limitations + roadmap
 
 - **Browser as offload TARGET** is not supported. Browsers can't
@@ -399,17 +423,15 @@ its native backend:
 - **Rendezvous-WS-tunneled requests** are stubbed in v3.0.0-rc1 (LAN
   path is fully wired; internet path's WS-relay support lights up in
   v3.0.0 final). Track progress via the v3.0 milestone on GitHub.
-- **Outgoing-offload routing in the native SDKs** — the v3.0 SDK
-  packages ship `OffloadConfig` types, mDNS discovery, capability
-  caches, and pairing primitives, but the per-SDK code that actually
-  forwards outgoing `/v1/chat/completions` to a discovered peer
-  isn't wired yet (commit `db5b750` for Android landed
-  configuration + discovery + pairing types only). Until that
-  finishes, host apps that want to test offload against a v3.1 Hub
-  should call the Hub's URL directly with an OpenAI-compatible
-  client (see [`examples/android-llama`](https://github.com/Westenets/dvai-bridge/tree/main/examples/android-llama)
-  for a worked example). v3.1 finalization for each native SDK is
-  tracked separately on GitHub.
+- **Outgoing-offload routing in the native SDKs is GA as of v3.2.1.**
+  All four mobile SDKs (iOS, Android, .NET, RN/Flutter via native
+  bridges) wire `OffloadConfig` through to the per-request decision
+  + HMAC-signed peer forward, with cross-platform-identical canonical
+  message format. v3.2.0 shipped the wiring but with three protocol
+  bugs (HMAC drift, URL doubling, self-discovery). v3.2.1 fixes
+  them — see the CHANGELOG entry. Earlier mixed
+  v3.2.0/v3.2.1 deployments will fail authentication; upgrade both
+  ends together.
 - **Persistent pairing across reconnects** (no re-QR-scan after
   device reboot) is on the v3.1 roadmap.
 - **CLI diagnostics tool** (`dvai-bridge cli peers`, `... probe`,

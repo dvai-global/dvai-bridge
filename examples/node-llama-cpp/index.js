@@ -12,6 +12,13 @@
  * examples/node-llama-cpp/models/ — idempotent, can be invoked separately:
  *
  *     pnpm --filter node-llama-cpp download-model
+ *
+ * v3.2.1 — distributed-inference pattern. Node desktops/servers can
+ * also act as Hubs themselves (advertise via dns-sd on macOS / mDNS
+ * elsewhere). To consume from a Hub instead of running locally, pass
+ * `offload: { enabled: true, ... }` to the DVAI constructor.
+ * Reference: `examples/dotnet-desktop-llama` for the full
+ * local-or-offload branch logic.
  */
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";

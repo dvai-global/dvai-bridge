@@ -50,6 +50,15 @@ import java.io.File
  * 3B in the SDK). Accepts `.task` checkpoints from MediaPipe's LLM
  * Inference task collection. The reference asset for this example is
  * Gemma-2-2B-IT.
+ *
+ * v3.2.1 — distributed-inference pattern: pre-init via
+ * `DVAIBridge.assessHardware()`, then branch into local-mediapipe vs
+ * paired-Hub offload via `OffloadConfig(enabled = true, ...)` +
+ * `DVAIBridge.initiatePairing(peer)`. The full reference flow lives
+ * in `examples/ios-offload-dogfood` (Swift); the same SDK-shape
+ * exists verbatim in Kotlin via `co.deepvoiceai.bridge.DVAIBridge`.
+ * This example demonstrates only the local path; combine it with
+ * the dogfood pattern for offload-aware UX.
  */
 class MainActivity : ComponentActivity() {
 

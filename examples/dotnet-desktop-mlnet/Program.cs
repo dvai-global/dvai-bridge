@@ -17,6 +17,12 @@ namespace DvaiBridgeDesktopMlnet;
 /// generative and discriminative use cases. One client library
 /// (Microsoft.SemanticKernel here, but anything OpenAI-compatible) drives
 /// both.
+///
+/// v3.2.1 — distributed-inference pattern. ML.NET classifiers are
+/// generally cheap enough to run locally on any modern desktop, but
+/// the same <c>CapabilityPrecheck.Assess()</c> + offload pattern is
+/// available if the consumer wants to centralise classification on a
+/// dedicated Hub. Reference: <c>examples/dotnet-desktop-llama</c>.
 /// </summary>
 internal static class Program
 {

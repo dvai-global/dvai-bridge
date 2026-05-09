@@ -8,6 +8,17 @@
  * The selector hides backends that don't run on the current platform —
  * iOS-only options (Foundation / CoreML / MLX) are dimmed on Android,
  * and Android-only options (MediaPipe / LiteRT) are dimmed on iOS.
+ *
+ * v3.2.1 — distributed-inference pattern. RN delegates to the native
+ * iOS / Android SDKs through TurboModule bridges, so the same
+ * pre-init capability gate + paired-Hub offload pattern is available
+ * via `DVAIBridge.assessHardware()` + `DVAIBridge.start({ offload:
+ * { enabled: true, ... } })` + `DVAIBridge.initiatePairing({...})`.
+ * The reference implementation lives in
+ * `examples/ios-offload-dogfood` (Swift) and is shipped end-to-end
+ * verified for iOS; the same RN-level wrapper API exists for both
+ * iOS and Android. Combine the existing backend selector with the
+ * precheck branch to produce an offload-aware UX.
  */
 
 import { useMemo, useState } from 'react';

@@ -11,6 +11,13 @@
 //
 // The build step (scripts/build-www.mjs) bundles `@dvai-bridge/capacitor`
 // + the @capacitor/core init shim into `www/` via esbuild.
+//
+// v3.2.1 — distributed-inference pattern. Capacitor delegates to the
+// native iOS / Android plugins. Use `DVAIBridge.assessHardware()`
+// before `start()` to decide local-vs-offload, and pass
+// `offload: { enabled: true, advertiseLAN: false, ... }` in the
+// start options to enable paired-Hub forwarding. Reference flow in
+// the iOS dogfood (`examples/ios-offload-dogfood`).
 
 import { DVAIBridge } from "@dvai-bridge/capacitor";
 

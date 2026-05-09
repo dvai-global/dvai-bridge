@@ -54,6 +54,12 @@ import java.io.File
  * NOTE: LiteRT requires a `tokenizer.json` alongside the model — the
  * SDK ships a pure-Kotlin BPE parser; SentencePiece / Unigram tokenizers
  * are not supported (Gemma users should pick MediaPipe instead).
+ *
+ * v3.2.1 — distributed-inference pattern: pre-init via
+ * `DVAIBridge.assessHardware()`, then branch into local-LiteRT vs
+ * paired-Hub offload via `OffloadConfig(enabled = true, ...)` +
+ * `DVAIBridge.initiatePairing(peer)`. Reference flow:
+ * `examples/ios-offload-dogfood` (Swift); same SDK shape in Kotlin.
  */
 class MainActivity : ComponentActivity() {
 
