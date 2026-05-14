@@ -9,6 +9,8 @@ import 'package:flutter/services.dart' show PlatformException;
 import 'package:meta/meta.dart';
 
 import 'errors.dart';
+import 'license/license_validator.dart';
+import 'license/types.dart';
 import 'messages.g.dart' as wire;
 import 'offload.dart';
 import 'progress.dart';
@@ -88,6 +90,20 @@ class _NeverPairingRequestEventChannel implements PairingRequestEventChannel {
       const Stream<wire.PairingRequestMessage>.empty();
 }
 
+/// Factory for the offline license validator. The default factory in
+/// production code constructs a real [LicenseValidator]; unit tests
+/// inject a fake that returns a deterministic [LicenseStatus] without
+/// hitting the filesystem or asset bundle.
+@visibleForTesting
+typedef LicenseValidatorFactory = LicenseValidator Function(
+  LicenseValidatorOptions opts,
+);
+
+LicenseValidator _defaultLicenseValidatorFactory(
+  LicenseValidatorOptions opts,
+) =>
+    LicenseValidator(opts);
+
 /// Public facade for the DVAIBridge Flutter plugin. Use the
 /// [DVAIBridge.instance] singleton:
 ///
@@ -112,6 +128,7 @@ class DVAIBridge {
     eventChannel: const _PigeonProgressEventChannel(),
     pairingEventChannel: const _PigeonPairingRequestEventChannel(),
     platform: const _DartIoPlatformAdapter(),
+    licenseValidatorFactory: _defaultLicenseValidatorFactory,
   );
 
   DVAIBridge._({
@@ -119,10 +136,12 @@ class DVAIBridge {
     required ProgressEventChannel eventChannel,
     required PairingRequestEventChannel pairingEventChannel,
     required PlatformAdapter platform,
+    required LicenseValidatorFactory licenseValidatorFactory,
   })  : _api = api,
         _eventChannel = eventChannel,
         _pairingEventChannel = pairingEventChannel,
-        _platform = platform;
+        _platform = platform,
+        _licenseValidatorFactory = licenseValidatorFactory;
 
   /// Construct a [DVAIBridge] for unit testing. Pass a mocked
   /// [wire.DVAIBridgeHostApi] and a fake [ProgressEventChannel] /
@@ -134,6 +153,7 @@ class DVAIBridge {
     required ProgressEventChannel eventChannel,
     required PlatformAdapter platform,
     PairingRequestEventChannel? pairingEventChannel,
+    LicenseValidatorFactory? licenseValidatorFactory,
   }) {
     return DVAIBridge._(
       api: api,
@@ -141,6 +161,8 @@ class DVAIBridge {
       pairingEventChannel:
           pairingEventChannel ?? const _NeverPairingRequestEventChannel(),
       platform: platform,
+      licenseValidatorFactory:
+          licenseValidatorFactory ?? _defaultLicenseValidatorFactory,
     );
   }
 
@@ -148,6 +170,7 @@ class DVAIBridge {
   final ProgressEventChannel _eventChannel;
   final PairingRequestEventChannel _pairingEventChannel;
   final PlatformAdapter _platform;
+  final LicenseValidatorFactory _licenseValidatorFactory;
   Stream<PairingRequest>? _pairingRequestsStream;
 
   // Lazy progress / state plumbing.
@@ -156,15 +179,37 @@ class DVAIBridge {
   StreamSubscription<ProgressEvent>? _progressSubscription;
   DVAIBridgeState _latestState = DVAIBridgeState.idle;
 
-  /// Boot the embedded HTTP server with the chosen backend. Resolves with
-  /// a [BoundServer] once the server is listening; throws a
-  /// [DVAIBridgeError] otherwise.
+  /// Boot the embedded HTTP server with the chosen backend. Resolves
+  /// with a [BoundServer] once the server is listening.
+  ///
+  /// Before the native call, runs the offline JWT license check (see
+  /// [LicenseValidator.validateAndAssert]) — in production builds with
+  /// no valid commercial or trial license, this throws a
+  /// [LicenseRequiredException] before the bridge starts. Debug /
+  /// profile builds and `DVAI_FORCE_DEV=1` environments bypass the
+  /// check entirely.
+  ///
+  /// On a successful start, the resolved [LicenseStatus] is attached
+  /// to [BoundServer.licenseStatus] so host-app dashboards can surface
+  /// the licensee / expiry.
+  ///
+  /// Throws [DVAIBridgeError] for native-side failures and
+  /// [LicenseRequiredException] for license failures.
   Future<BoundServer> start(StartOptions opts) async {
     _assertBackendAvailable(opts.backend);
+
+    final LicenseValidator validator = _licenseValidatorFactory(
+      LicenseValidatorOptions(
+        token: opts.licenseToken,
+        path: opts.licenseKeyPath,
+      ),
+    );
+    final LicenseStatus licenseStatus = await validator.validateAndAssert();
+
     try {
       final wire.BoundServerMessage msg =
           await _api.startBridge(opts.toMessage());
-      return BoundServer.fromMessage(msg);
+      return BoundServer.fromMessage(msg, licenseStatus: licenseStatus);
     } on PlatformException catch (err) {
       throw DVAIBridgeError.fromPlatform(
         code: err.code,

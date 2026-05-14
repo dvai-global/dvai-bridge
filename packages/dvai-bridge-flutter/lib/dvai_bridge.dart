@@ -19,6 +19,23 @@ export 'src/errors.dart'
         DownloadFailedError,
         ModelLoadFailedError,
         NotStartedError;
+export 'src/license/audience.dart' show DevModeDetection;
+export 'src/license/license_validator.dart'
+    show LicenseValidator, LicenseValidatorOptions;
+export 'src/license/public_keys.dart'
+    show DvaiPublicKey, placeholderKid, publicKeys;
+export 'src/license/types.dart'
+    show
+        Commercial,
+        DvaiLicensePayload,
+        DvaiPlatform,
+        FreeDev,
+        FreeExpired,
+        FreeProd,
+        LicenseRequiredException,
+        LicenseStatus,
+        Trial,
+        isPaidTier;
 export 'src/offload.dart'
     show OffloadConfig, PairingRequest, Peer, PeerVia;
 export 'src/progress.dart'
