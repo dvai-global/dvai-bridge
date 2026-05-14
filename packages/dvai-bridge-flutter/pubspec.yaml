@@ -17,6 +17,18 @@ dependencies:
   flutter:
     sdk: flutter
   meta: ^1.16.0
+  # Offline JWT license validation. ES256 only; private key never
+  # ships with the SDK. See lib/src/license/license_validator.dart.
+  dart_jsonwebtoken: ^3.4.1
+  # Runtime audience detection — reads the application id / bundle
+  # identifier as the license `aud` binding.
+  package_info_plus: ^10.1.0
+  # Documents-directory discovery for `dvai-license.jwt`.
+  path_provider: ^2.1.5
+  # pointycastle is a transitive dep of dart_jsonwebtoken — pinned
+  # explicitly so the test suite can use ECKeyGenerator directly to
+  # mint a deterministic keypair for license-validator tests.
+  pointycastle: ^4.0.0
 
 dev_dependencies:
   flutter_test:
