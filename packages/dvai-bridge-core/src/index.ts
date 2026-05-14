@@ -1,4 +1,5 @@
-import { LicenseValidator } from "./LicenseValidator.js";
+import { LicenseValidator } from "./license/index.js";
+import type { LicenseStatus } from "./license/index.js";
 import { type HandlerContext } from "./handlers/index.js";
 
 // Re-export types from backends
@@ -120,8 +121,41 @@ export interface DVAIConfig {
 	 */
 	nativeEmbeddingMode?: boolean;
 
-	/** License key for production use. */
-	licenseKey?: string;
+	/**
+	 * Path (or fetchable URL) to your DVAI-Bridge license JWT file.
+	 *
+	 * Default behaviour when this is unset: the SDK looks for
+	 * `dvai-license.jwt` at platform-conventional locations:
+	 *   - Node: `process.cwd()/dvai-license.jwt` (and one level up for
+	 *     monorepos)
+	 *   - Browser / Capacitor: same-origin `/dvai-license.jwt`
+	 *
+	 * Override mechanisms in priority order:
+	 *   1. `licenseToken` (below) — inline JWT string, highest priority
+	 *   2. `licenseKeyPath` (this field) — explicit path or URL
+	 *   3. `DVAI_LICENSE_PATH` env var
+	 *   4. `DVAI_LICENSE_TOKEN` env var — inline JWT
+	 *   5. Auto-discovery
+	 *
+	 * If no license is found OR validation fails, the SDK falls back to
+	 * the free tier (with the "Powered by DVAI Bridge" attribution
+	 * badge in browser/Capacitor contexts). The SDK never refuses to
+	 * start because of a license problem — license issues surface as a
+	 * `licenseStatus` value with `kind: "free-prod"` and a
+	 * human-readable `reason`.
+	 */
+	licenseKeyPath?: string;
+
+	/**
+	 * Inline DVAI-Bridge license JWT (the full token string). Use this
+	 * when you'd rather inject the license via env var / config than
+	 * ship a file — typical in serverless / containerised deployments
+	 * where filesystem state is awkward.
+	 *
+	 * If both `licenseToken` and `licenseKeyPath` are set, `licenseToken`
+	 * wins.
+	 */
+	licenseToken?: string;
 	/** Auto-initialize on creation (React/Vanilla). Default: true */
 	autoInit?: boolean;
 
@@ -224,7 +258,14 @@ export class DVAI {
 	public modelId: string;
 	public mockUrl: string;
 	public serviceWorkerUrl: string;
-	public licenseKey?: string;
+	public licenseKeyPath?: string;
+	public licenseToken?: string;
+	/**
+	 * Result of the most recent license validation. Populated by
+	 * `initialize()`; consult before promoting paid-tier UI affordances
+	 * (e.g. hiding the attribution badge). Null before initialization.
+	 */
+	public licenseStatus: LicenseStatus | null = null;
 	public backend: BackendType;
 	public transformersModelId: string;
 	public pipelineTask: string;
@@ -332,8 +373,12 @@ export class DVAI {
 		this.mockUrl =
 			config.mockUrl ?? "https://api.openai.local/v1/chat/completions";
 		this.serviceWorkerUrl = config.serviceWorkerUrl ?? "/mockServiceWorker.js";
-		this.licenseKey = config.licenseKey;
-		this.validator = new LicenseValidator({ licenseKey: this.licenseKey });
+		this.licenseKeyPath = config.licenseKeyPath;
+		this.licenseToken = config.licenseToken;
+		this.validator = new LicenseValidator({
+			...(this.licenseKeyPath !== undefined ? { path: this.licenseKeyPath } : {}),
+			...(this.licenseToken !== undefined ? { token: this.licenseToken } : {}),
+		});
 
 		// Native backend options
 		this.nativeModelPath = config.nativeModelPath || "";
@@ -415,8 +460,28 @@ export class DVAI {
 		// Resolve "auto" backend
 		this.resolvedBackend = this.resolveBackend();
 
-		// 0. Validate License for Commercial/Production use
-		await this.validator.validate();
+		// 0. Validate license (offline JWT verification). Never throws —
+		//    a missing or invalid license collapses to free-tier rather
+		//    than blocking startup. The returned `LicenseStatus` is the
+		//    discriminated value the rest of the SDK reads to decide
+		//    whether to inject the "Powered by DVAI Bridge" attribution
+		//    badge. Surfaced through `this.licenseStatus` for host apps
+		//    (dashboards / dev tools) that want to display the licensee
+		//    name, expiry, or fallback reason.
+		this.licenseStatus = await this.validator.validate();
+		if (this.licenseStatus.kind === "free-prod") {
+			// eslint-disable-next-line no-console
+			console.warn(
+				`[DVAI-Bridge] Running in free-prod tier: ${this.licenseStatus.reason}`,
+			);
+		} else if (this.licenseStatus.kind === "free-expired") {
+			// eslint-disable-next-line no-console
+			console.warn(
+				`[DVAI-Bridge] License for "${this.licenseStatus.licensee}" ` +
+				`expired at ${new Date(this.licenseStatus.expiredAt * 1000).toISOString()}; ` +
+				`falling back to free tier`,
+			);
+		}
 
 		// Detect Web Worker context — MSW (service workers) are unavailable inside Web Workers.
 		const isWorkerContext =
