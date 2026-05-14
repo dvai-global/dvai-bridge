@@ -124,6 +124,20 @@ public actor DVAIBridge {
     public func start(_ options: StartOptions) async throws -> BoundServer {
         offloadOnlyMode = false
 
+        // v3.2.2 — License gate. Run BEFORE any backend init / port
+        // binding / model load: there's no point spending the resources
+        // if the SDK is going to refuse to operate.
+        //
+        //   - DEBUG / simulator / DVAI_FORCE_DEV=1 → free-dev, proceed.
+        //   - commercial / trial → proceed, attach to BoundServer.
+        //   - free-prod / free-expired (production w/o license) → throws
+        //     `LicenseRequiredError` (BSL 1.1 enforcement point).
+        let validator = LicenseValidator(options: LicenseValidatorOptions(
+            token: options.licenseToken,
+            path: options.licenseKeyPath
+        ))
+        let licenseStatus = try await validator.validateAndAssert()
+
         let isOffloadEnabled = options.offload?.enabled == true
         if isOffloadEnabled {
             let assessment = assessHardware(
@@ -192,7 +206,8 @@ public actor DVAIBridge {
                     baseUrl: "http://127.0.0.1:\(boundProxyPort)",
                     port: boundProxyPort,
                     backend: resolvedBackend,
-                    modelId: backendServer?.modelId ?? ""
+                    modelId: backendServer?.modelId ?? "",
+                    licenseStatus: licenseStatus
                 )
                 self.activeBaseUrl = proxyServer.baseUrl
                 if active == nil {
@@ -202,9 +217,16 @@ public actor DVAIBridge {
             }
         }
 
-        return backendServer!
+        return backendServer!.with(licenseStatus: licenseStatus)
     }
 
+    /// Legacy v2.x entry point — takes a bare `DVAIBridgeConfig` with no
+    /// offload / license knobs. Internally called by the
+    /// `start(_ options:)` overload AFTER the license gate has already
+    /// run, so this method does NOT re-run validation. Callers that
+    /// hand-call `start(_ config:)` directly (no `StartOptions`) are
+    /// responsible for invoking `LicenseValidator().validateAndAssert()`
+    /// themselves if they need BSL 1.1 enforcement.
     public func start(_ config: DVAIBridgeConfig) async throws -> BoundServer {
         if let activeBaseUrl, let activeKind {
             throw DVAIBridgeError.alreadyStarted(currentBackend: activeKind, baseUrl: activeBaseUrl)
