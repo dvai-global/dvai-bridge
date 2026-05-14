@@ -265,6 +265,137 @@ describe("DVAIBridge offload + pairing surface (v3.0)", () => {
   });
 });
 
+describe("DVAIBridge license fields (v3.2.2)", () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it("forwards opts.licenseKeyPath through to the native plugin's start()", async () => {
+    const startSpy = vi.fn(async () => ({
+      baseUrl: "http://127.0.0.1:38883/v1",
+      port: 38883,
+      backend: "llama" as const,
+      modelId: "test",
+    }));
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: vi.fn(() => ({
+        start: startSpy,
+        stop: vi.fn(async () => undefined),
+        status: vi.fn(async () => ({ running: true })),
+      })),
+      Capacitor: { getPlatform: () => "ios" },
+    }));
+    const { DVAIBridge } = await import("../index");
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+
+    await DVAIBridge.start({
+      backend: "llama",
+      modelPath: "/m.gguf",
+      licenseKeyPath: "/var/mobile/Containers/.../dvai-license.jwt",
+    });
+
+    expect(startSpy).toHaveBeenCalledTimes(1);
+    const callArgs = ((startSpy.mock.calls as unknown[][])[0]?.[0] ?? {}) as Record<string, unknown>;
+    expect(callArgs.licenseKeyPath).toBe(
+      "/var/mobile/Containers/.../dvai-license.jwt",
+    );
+  });
+
+  it("forwards opts.licenseToken through to the native plugin's start()", async () => {
+    const startSpy = vi.fn(async () => ({
+      baseUrl: "http://127.0.0.1:38883/v1",
+      port: 38883,
+      backend: "llama" as const,
+      modelId: "test",
+    }));
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: vi.fn(() => ({
+        start: startSpy,
+        stop: vi.fn(async () => undefined),
+        status: vi.fn(async () => ({ running: true })),
+      })),
+      Capacitor: { getPlatform: () => "ios" },
+    }));
+    const { DVAIBridge } = await import("../index");
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+
+    const fakeJwt =
+      "eyJhbGciOiJFUzI1NiIsImtpZCI6InRlc3Qta2V5In0." +
+      "eyJpc3MiOiJEVkFJLUJyaWRnZSJ9." +
+      "sig";
+
+    await DVAIBridge.start({
+      backend: "llama",
+      modelPath: "/m.gguf",
+      licenseToken: fakeJwt,
+    });
+
+    expect(startSpy).toHaveBeenCalledTimes(1);
+    const callArgs = ((startSpy.mock.calls as unknown[][])[0]?.[0] ?? {}) as Record<string, unknown>;
+    expect(callArgs.licenseToken).toBe(fakeJwt);
+  });
+
+  it("forwards both license fields together — native picks the priority", async () => {
+    const startSpy = vi.fn(async () => ({
+      baseUrl: "http://127.0.0.1:38883/v1",
+      port: 38883,
+      backend: "llama" as const,
+      modelId: "test",
+    }));
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: vi.fn(() => ({
+        start: startSpy,
+        stop: vi.fn(async () => undefined),
+        status: vi.fn(async () => ({ running: true })),
+      })),
+      Capacitor: { getPlatform: () => "ios" },
+    }));
+    const { DVAIBridge } = await import("../index");
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+
+    await DVAIBridge.start({
+      backend: "llama",
+      modelPath: "/m.gguf",
+      licenseKeyPath: "/path/to/dvai-license.jwt",
+      licenseToken: "eyJ.fake.jwt",
+    });
+
+    const callArgs = ((startSpy.mock.calls as unknown[][])[0]?.[0] ?? {}) as Record<string, unknown>;
+    expect(callArgs.licenseKeyPath).toBe("/path/to/dvai-license.jwt");
+    expect(callArgs.licenseToken).toBe("eyJ.fake.jwt");
+  });
+
+  it("does not require license fields — start() works without them", async () => {
+    const startSpy = vi.fn(async () => ({
+      baseUrl: "http://127.0.0.1:38883/v1",
+      port: 38883,
+      backend: "llama" as const,
+      modelId: "test",
+    }));
+    vi.doMock("@capacitor/core", () => ({
+      registerPlugin: vi.fn(() => ({
+        start: startSpy,
+        stop: vi.fn(async () => undefined),
+        status: vi.fn(async () => ({ running: true })),
+      })),
+      Capacitor: { getPlatform: () => "ios" },
+    }));
+    const { DVAIBridge } = await import("../index");
+    const { dispatch } = await import("../dispatch");
+    dispatch.__reset();
+
+    await DVAIBridge.start({ backend: "llama", modelPath: "/m.gguf" });
+
+    const callArgs = ((startSpy.mock.calls as unknown[][])[0]?.[0] ?? {}) as Record<string, unknown>;
+    expect(callArgs.licenseKeyPath).toBeUndefined();
+    expect(callArgs.licenseToken).toBeUndefined();
+  });
+});
+
 describe("Android + foundation backend", () => {
   it("rejects with a clear iOS-only message before touching the native plugin", async () => {
     vi.resetModules();
