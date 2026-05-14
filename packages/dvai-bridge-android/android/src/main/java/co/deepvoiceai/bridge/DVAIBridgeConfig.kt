@@ -73,6 +73,35 @@ data class StartOptions(
      * for the host UI. Default null = behave exactly like v2.x.
      */
     val offload: OffloadConfig? = null,
+    /**
+     * v3.3 — offline JWT license validator config. When non-null, the
+     * SDK loads the JWT from this filesystem path and verifies it at
+     * startup. Auto-discovery (assets/, res/raw/, filesDir/) runs when
+     * BOTH this AND [licenseToken] are null.
+     *
+     * Production Android builds without a valid license throw
+     * [co.deepvoiceai.bridge.license.LicenseRequiredError] from
+     * [DVAIBridge.start]. Debug builds (`hostBuildConfigDebug = true`
+     * or `ApplicationInfo.FLAG_DEBUGGABLE`) skip validation entirely.
+     */
+    val licenseKeyPath: String? = null,
+    /**
+     * v3.3 — inline JWT license token. Overrides every other discovery
+     * source. Useful for CI / test contexts where reading a file isn't
+     * practical and operators inject via env var or build config.
+     */
+    val licenseToken: String? = null,
+    /**
+     * v3.3 — the host app's `BuildConfig.DEBUG` value, passed through to
+     * the license validator's dev-mode bypass. When true the validator
+     * returns `FreeDev` without trying to verify anything; when false (or
+     * null) the validator falls back to `ApplicationInfo.FLAG_DEBUGGABLE`.
+     *
+     * Pass `BuildConfig.DEBUG` from your app module here — the validator
+     * lives in this library module whose own `BuildConfig.DEBUG` never
+     * reflects the host app's state.
+     */
+    val hostBuildConfigDebug: Boolean? = null,
 )
 
 /** Options for [DVAIBridge.downloadModel]. */

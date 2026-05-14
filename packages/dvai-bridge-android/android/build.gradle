@@ -110,6 +110,12 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion"
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
 
+    // v3.3 — offline JWT license validator. nimbus-jose-jwt is the
+    // widely-vetted JOSE implementation for the JVM; we use ES256 only
+    // (refuse alg=none / HS256, classic algorithm-confusion defense).
+    // See android/src/main/java/co/deepvoiceai/bridge/license/.
+    implementation 'com.nimbusds:nimbus-jose-jwt:10.5'
+
     // Phase 5 (v3.2) — outgoing-offload pre-routing proxy. The proxy
     // binds the public port; the underlying native backend binds an
     // internal loopback port. Per-request the proxy decides local-vs-
