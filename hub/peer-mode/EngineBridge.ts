@@ -73,6 +73,8 @@ export interface EngineSummary {
   detected: boolean;
   /** Number of models the adapter currently exposes (cached count). */
   modelCount: number;
+  /** True if this engine is currently the active one for routing. */
+  enabled: boolean;
   /** Last-enumerated unix-ms timestamp (0 if never). */
   lastEnumeratedAt: number;
 }
@@ -90,6 +92,7 @@ interface CacheEntry {
   models: BackendDescriptor[];
   enumeratedAt: number;
   detected: boolean;
+  enabled: boolean;
 }
 
 const DEFAULT_TTL_MS = 5 * 60 * 1000;
@@ -101,10 +104,50 @@ export class EngineBridge {
   private readonly cache = new Map<string, CacheEntry>();
   private started = false;
 
+  /**
+   * Per-adapter mutex chain. Concurrent writes to the same adapter's
+   * cache entry (a Rescan button click while `routeRequest` is also
+   * calling `enumerateAvailable`) used to race: whichever `detect()`
+   * returned last would clobber the other's fresher result. The user-
+   * visible symptom was "click Rescan, engine flips to offline even
+   * though it's running" and "last scan time blanks". We serialise
+   * cache writes per-adapter through a Promise chain.
+   *
+   * The mutex is per-adapter (not bridge-global) so that one slow
+   * adapter (an unreachable engine timing out at 1.5s) doesn't block
+   * scans on other adapters. The Map grows monotonically with the
+   * adapter set, never shrinks (cleanup at stop() is fine — adapters
+   * are stable across the bridge's lifetime).
+   */
+  private readonly cacheLocks = new Map<string, Promise<void>>();
+
   constructor(opts: EngineBridgeOptions) {
     this.enabled = opts.enabled;
     this.adapters = opts.adapters;
     this.ttlMs = opts.cacheTtlMs ?? DEFAULT_TTL_MS;
+  }
+
+  /**
+   * Serialise cache writes for `adapter.name`. Returns the result of
+   * `fn()`. Any error in fn() is propagated to the caller but does NOT
+   * poison the mutex chain — subsequent calls observe a clean lock.
+   */
+  private async withAdapterLock<T>(
+    adapterName: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const prev = this.cacheLocks.get(adapterName) ?? Promise.resolve();
+    let release: () => void = () => undefined;
+    const next = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.cacheLocks.set(adapterName, prev.then(() => next));
+    try {
+      await prev;
+      return await fn();
+    } finally {
+      release();
+    }
   }
 
   /**
@@ -118,21 +161,46 @@ export class EngineBridge {
       return;
     }
     await Promise.all(
-      this.adapters.map(async (adapter) => {
-        const detected = await safeDetect(adapter);
-        if (!detected) {
-          this.cache.set(adapter.name, { models: [], enumeratedAt: 0, detected: false });
-          return;
-        }
-        const models = await safeEnumerate(adapter);
-        this.cache.set(adapter.name, {
-          models,
-          enumeratedAt: Date.now(),
-          detected: true,
-        });
-      }),
+      this.adapters.map((adapter) =>
+        this.withAdapterLock(adapter.name, () => this.probeAdapter(adapter, /* initial */ true)),
+      ),
     );
     this.started = true;
+  }
+
+  /**
+   * Detect-then-enumerate an adapter and write the cache entry. Called
+   * from `start()`, `rescanAdapter()`, and the stale-cache branch of
+   * `enumerateAvailable()`. Always invoked under `withAdapterLock` so
+   * concurrent callers observe consistent results.
+   *
+   * `initial` distinguishes the bridge-startup path (sets
+   * `enumeratedAt=0` when detection fails, so the next stale check
+   * forces a real probe) from the rescan/refresh path (which uses the
+   * current time to suppress immediate re-probes).
+   */
+  private async probeAdapter(
+    adapter: EngineAdapter,
+    initial: boolean,
+  ): Promise<void> {
+    const detected = await safeDetect(adapter);
+    const existing = this.cache.get(adapter.name);
+    if (!detected) {
+      this.cache.set(adapter.name, {
+        models: [],
+        enumeratedAt: initial ? 0 : Date.now(),
+        detected: false,
+        enabled: existing?.enabled ?? false,
+      });
+      return;
+    }
+    const models = await safeEnumerate(adapter);
+    this.cache.set(adapter.name, {
+      models,
+      enumeratedAt: Date.now(),
+      detected: true,
+      enabled: existing?.enabled ?? false,
+    });
   }
 
   async stop(): Promise<void> {
@@ -148,6 +216,7 @@ export class EngineBridge {
       return {
         name: adapter.name,
         detected: entry?.detected ?? false,
+        enabled: entry?.enabled ?? false,
         modelCount: entry?.models.length ?? 0,
         lastEnumeratedAt: entry?.enumeratedAt ?? 0,
       };
@@ -168,18 +237,13 @@ export class EngineBridge {
       const entry = this.cache.get(adapter.name);
       const stale = !entry || Date.now() - entry.enumeratedAt >= this.ttlMs;
       if (stale) {
-        const detected = await safeDetect(adapter);
-        if (!detected) {
-          this.cache.set(adapter.name, { models: [], enumeratedAt: Date.now(), detected: false });
-          continue;
-        }
-        const models = await safeEnumerate(adapter);
-        this.cache.set(adapter.name, {
-          models,
-          enumeratedAt: Date.now(),
-          detected: true,
-        });
-        out.push(...models);
+        // Re-probe under the per-adapter lock so a concurrent rescan
+        // request can't clobber our fresh result (or vice versa).
+        await this.withAdapterLock(adapter.name, () =>
+          this.probeAdapter(adapter, /* initial */ false),
+        );
+        const fresh = this.cache.get(adapter.name);
+        if (fresh?.detected) out.push(...fresh.models);
       } else if (entry.detected) {
         out.push(...entry.models);
       }
@@ -190,10 +254,56 @@ export class EngineBridge {
   /** Force re-enumeration of one adapter on next access (or all, if no name). */
   async invalidateCache(adapterName?: string): Promise<void> {
     if (adapterName === undefined) {
-      this.cache.clear();
+      for (const adapter of this.adapters) {
+        await this.rescanAdapter(adapter);
+      }
       return;
     }
-    this.cache.delete(adapterName);
+
+    // Use case-insensitive find
+    const adapter = this.adapters.find(
+      (a) => a.name.toLowerCase() === adapterName.toLowerCase()
+    );
+    if (adapter) {
+      await this.rescanAdapter(adapter);
+      return;
+    }
+
+    // Handle internal engine name matching
+    const isInternal =
+      adapterName.toLowerCase().includes("transformers") ||
+      adapterName.toLowerCase().includes("llama.cpp") ||
+      adapterName.toLowerCase().includes("internal");
+
+    if (isInternal) {
+      // For internal engine, "rescan" is mostly a no-op as status is tracked in PeerMode,
+      // but we update PeerMode internal status if needed (though start() handles it).
+    }
+  }
+
+  /** Force set the enabled state for an adapter. Exclusivity managed by PeerMode. */
+  setEnabled(adapterName: string, enabled: boolean): void {
+    const entry = this.cache.get(adapterName);
+    if (entry) {
+      entry.enabled = enabled;
+    } else {
+      // If no entry exists, create a stub so the state persists
+      this.cache.set(adapterName, {
+        models: [],
+        enumeratedAt: 0,
+        detected: false,
+        enabled,
+      });
+    }
+  }
+
+  private async rescanAdapter(adapter: EngineAdapter): Promise<void> {
+    // Serialised against any concurrent `enumerateAvailable` so the
+    // rescan's fresh detect+enumerate result cannot be clobbered by a
+    // stale-cache refresh landing slightly later.
+    await this.withAdapterLock(adapter.name, () =>
+      this.probeAdapter(adapter, /* initial */ false),
+    );
   }
 
   /** Look up the adapter that owns a backend descriptor (by engine name). */

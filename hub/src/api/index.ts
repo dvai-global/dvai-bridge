@@ -34,6 +34,7 @@ export interface Pairing {
 export interface EngineSummary {
   name: string;
   detected: boolean;
+  enabled: boolean;
   modelCount: number;
   lastEnumeratedAt: number;
 }

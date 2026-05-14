@@ -103,6 +103,10 @@ import {
 import { PeerMode } from "./PeerMode.js";
 import { MdnsAdvertiserDarwin } from "./MdnsAdvertiserDarwin.js";
 import { parseModelName } from "./ModelParser.js";
+import {
+  buildNoCapableDeviceResponse,
+  buildEngineAdapterNotFoundResponse,
+} from "./responses.js";
 import { OllamaAdapter } from "./adapters/OllamaAdapter.js";
 import { LMStudioAdapter } from "./adapters/LMStudioAdapter.js";
 import { LlamaServerAdapter } from "./adapters/LlamaServerAdapter.js";
@@ -112,6 +116,7 @@ import type {
   DvaiPeerLike,
   DvaiServerLike,
   EngineBridgeAdapter,
+  InternalEngineConfig,
   PeerModeOptions,
 } from "./PeerMode.js";
 import type {
@@ -181,6 +186,33 @@ const HUB_DEVICE = (process.env.DVAI_HUB_DEVICE ?? "cpu") as
   | "webgpu";
 // Quantization for Transformers.js. Default "q4" — small + fast on CPU.
 const HUB_DTYPE = process.env.DVAI_HUB_DTYPE ?? "q4";
+
+const SETTINGS_DIR = process.env.LOCALAPPDATA
+  ? path.join(process.env.LOCALAPPDATA, "dvai-hub")
+  : path.join(homedir(), ".dvai-hub");
+const SETTINGS_FILE = path.join(SETTINGS_DIR, "settings.json");
+
+interface HubSettings {
+  enabledEngine?: string | undefined;
+}
+
+async function loadSettings(): Promise<HubSettings> {
+  try {
+    const raw = await fs.readFile(SETTINGS_FILE, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+async function saveSettings(settings: HubSettings): Promise<void> {
+  try {
+    await fs.mkdir(SETTINGS_DIR, { recursive: true });
+    await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+  } catch (err) {
+    console.error(`Failed to save settings: ${err}`);
+  }
+}
 
 /**
  * Per-pairing-request approval state. The Rust shell forwards the
@@ -470,16 +502,10 @@ async function chatCompletionInterceptor(
       reason: decision.reason,
       durationMs: Date.now() - startTs,
     });
-    return Response.json(
-      {
-        error: {
-          type: "no_capable_device",
-          code: 503,
-          message: `No backend can serve "${requestedModel}". Reason: ${decision.reason}.`,
-          ...(decision.detail ? { detail: decision.detail } : {}),
-        },
-      },
-      { status: 503 },
+    return buildNoCapableDeviceResponse(
+      requestedModel,
+      decision.reason,
+      decision.detail,
     );
   }
 
@@ -515,16 +541,7 @@ async function chatCompletionInterceptor(
       reason: "engine_adapter_not_found",
       durationMs: Date.now() - startTs,
     });
-    return Response.json(
-      {
-        error: {
-          type: "engine_adapter_not_found",
-          code: 503,
-          message: `Adapter for engine "${backend.engine}" is not available.`,
-        },
-      },
-      { status: 503 },
-    );
+    return buildEngineAdapterNotFoundResponse(backend.engine);
   }
 
   // Forward the request, but rewrite `model` to the engine's own id
@@ -575,15 +592,21 @@ async function chatCompletionInterceptor(
  * DVAI factory — constructs the embedded HTTP server with offload
  * enabled and forces the v3.0 onPairingRequest callback to flow
  * through PeerMode's MultiTenantPairing layer.
+ *
+ * `backend` is supplied by PeerMode at construction time, sourced from
+ * the user-selected `InternalEngineConfig.backend`. Toggling between
+ * internal engines in the UI triggers PeerMode to call this factory
+ * again with the new backend (after tearing down the previous DVAI).
  */
 const dvaiFactory: NonNullable<PeerModeOptions["dvaiFactory"]> = (
+  backend,
   onPairingRequest,
 ): DvaiServerLike => {
   // Build a DVAIConfig that's typed as the union of all backends but
   // populated only with the fields the chosen backend needs. The cast
   // to DvaiServerLike keeps PeerMode's structural decoupling intact.
   const cfg = {
-    backend: HUB_BACKEND,
+    backend,
     transformersModelId: HUB_TRANSFORMERS_MODEL,
     device: HUB_DEVICE,
     dtype: HUB_DTYPE,
@@ -635,10 +658,47 @@ const dvaiFactory: NonNullable<PeerModeOptions["dvaiFactory"]> = (
   return dvai as unknown as DvaiServerLike;
 };
 
+/**
+ * Catalog of internal backends this Hub build can run.
+ *
+ * Each entry surfaces as a separate "Internal Runtimes" engine card in
+ * the dashboard. The user picks one at a time via the toggle (mutual
+ * exclusivity); toggling rebuilds the DVAI server with the new backend.
+ *
+ * `detected: true` here means "the host has the runtime code path
+ * compiled in" — for transformers that's always true (pure JS); for
+ * node-llama-cpp it depends on whether the native binary loads on the
+ * current platform. We default both to true and let any actual load
+ * failure surface as a `dvai.initialize()` rejection caught by the
+ * setEngineEnabled handler below.
+ *
+ * `modelId` is the model that gets registered in `localBackends` when
+ * this engine becomes active — drawn from env vars so operators can
+ * override per deployment.
+ */
+const INTERNAL_ENGINES: InternalEngineConfig[] = [
+  {
+    name: "Transformers.js (Internal)",
+    backend: "transformers",
+    modelId: HUB_TRANSFORMERS_MODEL,
+    detected: true,
+  },
+  {
+    name: "node-llama-cpp (Internal)",
+    backend: "native",
+    // If the operator hasn't configured a GGUF path, the entry still
+    // appears in the UI but selecting it will fail-loud at initialize()
+    // time — better than silently hiding the option.
+    modelId: HUB_NATIVE_MODEL_PATH ?? "llama.cpp (configure DVAI_HUB_NATIVE_MODEL_PATH)",
+    detected: HUB_NATIVE_MODEL_PATH !== undefined,
+  },
+];
+
 const peerOptions: PeerModeOptions = {
   storeDir: STORE_DIR,
   externalEnginesEnabled: EXTERNAL_ENGINES_ENABLED,
   engineAdapters: adapters,
+  internalEngines: INTERNAL_ENGINES,
   onPairingRequest: (request) => awaitPairingApproval(request),
   onOffloadServed: (audit) => {
     pendingAudit.push(audit);
@@ -685,17 +745,35 @@ let darwinMdns: MdnsAdvertiserDarwin | null = null;
 const handlers: Record<string, (params: Record<string, unknown>) => Promise<unknown>> = {
   start: async () => {
     const status = await peer.start();
-    // Populate the Hub's local-backend descriptor so the substitution
-    // policy can reason about it. The Hub's local DVAI server only
-    // serves the one model configured at boot; that model name parses
-    // through the same vocabulary the engine bridge uses.
-    peer.setLocalBackends([
-      {
-        descriptor: parseModelName(HUB_TRANSFORMERS_MODEL),
-        engine: "builtin",
-        engineModelId: HUB_TRANSFORMERS_MODEL,
-      },
-    ]);
+
+    // Decide which engine to activate:
+    //   - If a previous user choice is persisted, restore it.
+    //   - Otherwise (first start), Option β: auto-enable the first
+    //     internal engine whose `detected: true`. Falls back to the
+    //     first external adapter if no internal engine is available.
+    const settings = await loadSettings();
+    let target = settings.enabledEngine;
+    if (!target) {
+      const engines = peer.getDetectedEngines();
+      target = engines.find((e) => e.detected)?.name;
+    }
+    if (target) {
+      try {
+        await peer.setEngineEnabled(target, true);
+        // Persist the choice if this was the auto-pick (first start).
+        if (!settings.enabledEngine) {
+          await saveSettings({ enabledEngine: target });
+        }
+      } catch (err) {
+        // Engine selection failed — most commonly because
+        // `dvai.initialize()` rejected (e.g. node-llama-cpp configured
+        // without a model path). Surface the error to the dashboard
+        // but keep the sidecar running so the user can pick a
+        // different engine.
+        const msg = err instanceof Error ? err.message : String(err);
+        notify("log", { level: "error", msg: `Failed to enable engine "${target}": ${msg}` });
+      }
+    }
     // v3.2.1 — macOS dns-sd advertiser. The npm `multicast-dns`
     // library can't actually advertise on macOS (mDNSResponder owns
     // port 5353), so paired iOS clients couldn't auto-discover the
@@ -754,10 +832,25 @@ const handlers: Record<string, (params: Record<string, unknown>) => Promise<unkn
     return { ok: true };
   },
   get_engines: async () => peer.getDetectedEngines(),
-  set_engine_enabled: async (_params) => {
-    // Wired in Task 7d — for v3.1 rc1 this only invalidates the cache so
-    // a future detect() takes effect. The full toggle plumbs in Task 9.
-    await peer.invalidateEngineCache();
+  set_engine_enabled: async (params) => {
+    const name = String(params.name ?? "");
+    const enabled = Boolean(params.enabled);
+    if (!name) throw new Error("engine name required");
+
+    // PeerMode handles the DVAI rebuild for internal engines + the
+    // localBackends registration + mutual exclusivity across the
+    // internal/external boundary. No need to duplicate that logic here.
+    await peer.setEngineEnabled(name, enabled);
+
+    // Persist to settings.json so the choice survives a sidecar restart.
+    const settings = await loadSettings();
+    if (enabled) {
+      settings.enabledEngine = name;
+    } else if (settings.enabledEngine === name) {
+      settings.enabledEngine = undefined;
+    }
+    await saveSettings(settings);
+
     return { ok: true };
   },
   invalidate_engine_cache: async (params) => {

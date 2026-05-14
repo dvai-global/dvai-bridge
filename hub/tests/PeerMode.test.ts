@@ -58,7 +58,7 @@ describe("PeerMode — lifecycle", () => {
     expect(peer.getStatus().running).toBe(false);
   });
 
-  it("dvaiFactory wires HTTP server: surfaces baseUrl + port from the factory", async () => {
+  it("dvaiFactory wires HTTP server: surfaces baseUrl + port after setEngineEnabled", async () => {
     const fakeDvai = {
       baseUrl: "http://127.0.0.1:38883",
       port: 38883,
@@ -68,14 +68,34 @@ describe("PeerMode — lifecycle", () => {
     const peer = new PeerMode({
       storeDir: tmpDir,
       externalEnginesEnabled: false,
+      // v3.2.x: internal engines are first-class; the host declares
+      // the catalog at construction and the user (or auto-enable on
+      // first start) flips one on via setEngineEnabled.
+      internalEngines: [
+        {
+          name: "Transformers.js (Internal)",
+          backend: "transformers",
+          modelId: "test-model",
+          detected: true,
+        },
+      ],
       onPairingRequest: async () => true,
-      dvaiFactory: () => fakeDvai,
+      // dvaiFactory now takes (backend, onPairingRequest) — backend is
+      // the value the user-selected InternalEngineConfig declared.
+      dvaiFactory: (_backend, _cb) => fakeDvai,
     });
     const status = await peer.start();
-    expect(fakeDvai.initialize).toHaveBeenCalledTimes(1);
+    // start() no longer eagerly constructs DVAI — that happens on the
+    // first setEngineEnabled call (or via the host's Option-β
+    // auto-enable path, which we exercise manually here).
     expect(status.running).toBe(true);
-    expect(status.baseUrl).toBe("http://127.0.0.1:38883");
-    expect(status.port).toBe(38883);
+    expect(fakeDvai.initialize).not.toHaveBeenCalled();
+
+    await peer.setEngineEnabled("Transformers.js (Internal)", true);
+    expect(fakeDvai.initialize).toHaveBeenCalledTimes(1);
+    expect(peer.getStatus().baseUrl).toBe("http://127.0.0.1:38883");
+    expect(peer.getStatus().port).toBe(38883);
+
     await peer.stop();
     expect(fakeDvai.unload).toHaveBeenCalledTimes(1);
     expect(peer.getStatus().baseUrl).toBeNull();
@@ -88,11 +108,19 @@ describe("PeerMode — lifecycle", () => {
     const peer = new PeerMode({
       storeDir: tmpDir,
       externalEnginesEnabled: false,
+      internalEngines: [
+        {
+          name: "Test Internal",
+          backend: "transformers",
+          modelId: "test-model",
+          detected: true,
+        },
+      ],
       onPairingRequest: async () => {
         approvalCalled++;
         return true;
       },
-      dvaiFactory: (cb) => {
+      dvaiFactory: (_backend, cb) => {
         dvaiCallback = cb;
         return {
           baseUrl: "http://x",
@@ -103,6 +131,9 @@ describe("PeerMode — lifecycle", () => {
       },
     });
     await peer.start();
+    // DVAI is constructed lazily on enable, not at start. Flip the
+    // engine on to capture the pairing callback.
+    await peer.setEngineEnabled("Test Internal", true);
     expect(dvaiCallback).toBeDefined();
     // Simulate a v3.0 Peer arriving at the handshake.
     const result = await dvaiCallback!({
@@ -133,8 +164,16 @@ describe("PeerMode — lifecycle", () => {
     const peer = new PeerMode({
       storeDir: tmpDir,
       externalEnginesEnabled: false,
+      internalEngines: [
+        {
+          name: "Test Internal",
+          backend: "transformers",
+          modelId: "test-model",
+          detected: true,
+        },
+      ],
       onPairingRequest: async () => false,  // user denies
-      dvaiFactory: (cb) => {
+      dvaiFactory: (_backend, cb) => {
         dvaiCallback = cb;
         return {
           baseUrl: "http://x",
@@ -145,6 +184,7 @@ describe("PeerMode — lifecycle", () => {
       },
     });
     await peer.start();
+    await peer.setEngineEnabled("Test Internal", true);
     const result = await dvaiCallback!({
       deviceId: "denied-phone",
       deviceName: "Phone",
@@ -161,9 +201,17 @@ describe("PeerMode — lifecycle", () => {
     const peer = new PeerMode({
       storeDir: tmpDir,
       externalEnginesEnabled: false,
+      internalEngines: [
+        {
+          name: "Test Internal",
+          backend: "transformers",
+          modelId: "test-model",
+          detected: true,
+        },
+      ],
       multiTenant: { allowedAppIds: ["only-this-device"] },
       onPairingRequest: async () => true,
-      dvaiFactory: (cb) => {
+      dvaiFactory: (_backend, cb) => {
         dvaiCallback = cb;
         return {
           baseUrl: "http://x",
@@ -174,6 +222,7 @@ describe("PeerMode — lifecycle", () => {
       },
     });
     await peer.start();
+    await peer.setEngineEnabled("Test Internal", true);
     const result = await dvaiCallback!({
       deviceId: "different-device",  // not in allowedAppIds
       deviceName: "Phone",
@@ -409,14 +458,26 @@ describe("PeerMode — audit surface + dashboard status", () => {
       storeDir: tmpDir,
       externalEnginesEnabled: true,
       engineAdapters: [fakeOllama(["llama3.2:1b", "gemma:2b"])],
+      // Multi-engine API: the test now declares its internal engine
+      // catalog explicitly. getDetectedEngines() returns internal
+      // entries first, in declared order, followed by external ones.
+      internalEngines: [
+        {
+          name: "Test Internal",
+          backend: "transformers",
+          modelId: "test-model",
+          detected: true,
+        },
+      ],
       onPairingRequest: async () => true,
     });
     await peer.start();
     const summary = peer.getDetectedEngines();
-    expect(summary.length).toBe(1);
-    expect(summary[0]?.name).toBe("ollama");
-    expect(summary[0]?.detected).toBe(true);
-    expect(summary[0]?.modelCount).toBe(2);
+    expect(summary.length).toBe(2); // Internal + Ollama
+    expect(summary[0]?.name).toBe("Test Internal");
+    expect(summary[1]?.name).toBe("ollama");
+    expect(summary[1]?.detected).toBe(true);
+    expect(summary[1]?.modelCount).toBe(2);
   });
 
   it("findEngineAdapter forwards from the bridge", async () => {

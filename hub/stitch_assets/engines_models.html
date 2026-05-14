@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+                  "tertiary-fixed": "#e1e0ff",
+                  "on-tertiary": "#1000a9",
+                  "on-error-container": "#ffdad6",
+                  "surface-container-highest": "#353534",
+                  "on-secondary-fixed-variant": "#005236",
+                  "surface-container-low": "#1c1b1b",
+                  "surface-container-high": "#2a2a2a",
+                  "primary-fixed": "#c9e6ff",
+                  "tertiary": "#c0c1ff",
+                  "surface-dim": "#131313",
+                  "on-surface": "#e5e2e1",
+                  "secondary-fixed-dim": "#4edea3",
+                  "on-tertiary-container": "#1407ad",
+                  "tertiary-container": "#8d90ff",
+                  "inverse-primary": "#006591",
+                  "on-error": "#690005",
+                  "error": "#ffb4ab",
+                  "surface-tint": "#89ceff",
+                  "primary": "#89ceff",
+                  "surface-bright": "#393939",
+                  "outline": "#88929b",
+                  "inverse-on-surface": "#313030",
+                  "on-secondary-container": "#00311f",
+                  "on-secondary": "#003824",
+                  "on-primary-fixed": "#001e2f",
+                  "primary-fixed-dim": "#89ceff",
+                  "background": "#131313",
+                  "tertiary-fixed-dim": "#c0c1ff",
+                  "secondary-container": "#00a572",
+                  "on-surface-variant": "#bec8d2",
+                  "on-primary": "#00344d",
+                  "outline-variant": "#3e4850",
+                  "surface-variant": "#353534",
+                  "surface": "#131313",
+                  "error-container": "#93000a",
+                  "surface-container-lowest": "#0e0e0e",
+                  "on-tertiary-fixed": "#07006c",
+                  "on-primary-container": "#003751",
+                  "on-primary-fixed-variant": "#004c6e",
+                  "primary-container": "#0ea5e9",
+                  "inverse-surface": "#e5e2e1",
+                  "on-secondary-fixed": "#002113",
+                  "on-tertiary-fixed-variant": "#2f2ebe",
+                  "on-background": "#e5e2e1",
+                  "surface-container": "#201f1f",
+                  "secondary": "#4edea3",
+                  "secondary-fixed": "#6ffbbe"
+          },
+          "borderRadius": {
+                  "DEFAULT": "0.25rem",
+                  "lg": "0.5rem",
+                  "xl": "0.75rem",
+                  "full": "9999px"
+          },
+          "spacing": {
+                  "sm": "12px",
+                  "lg": "24px",
+                  "container-padding": "20px",
+                  "base": "4px",
+                  "xl": "32px",
+                  "md": "16px",
+                  "xs": "8px"
+          },
+          "fontFamily": {
+                  "h1": ["Inter"],
+                  "body-lg": ["Inter"],
+                  "label-caps": ["Inter"],
+                  "mono-data": ["Inter"],
+                  "body-md": ["Inter"],
+                  "h2": ["Inter"],
+                  "display": ["Inter"]
+          },
+          "fontSize": {
+                  "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                  "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                  "label-caps": ["12px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                  "mono-data": ["14px", {"lineHeight": "1.0", "letterSpacing": "-0.01em", "fontWeight": "500"}],
+                  "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                  "h2": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                  "display": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "700"}]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+    }
+    .glass-card {
+      backdrop-filter: blur(12px);
+      background: rgba(32, 31, 31, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .glow-primary {
+      box-shadow: 0 0 20px rgba(137, 206, 255, 0.15);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background min-h-screen font-body-md overflow-x-hidden">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-screen w-64 flex flex-col bg-surface/60 dark:bg-surface/60 backdrop-blur-[12px] border-r border-white/10 dark:border-white/15 shadow-xl shadow-primary/5 z-50 py-xl px-md gap-xs">
+<div class="mb-xl px-sm">
+<h1 class="font-h2 text-h2 font-bold text-primary dark:text-primary tracking-tighter">DVAI Hub</h1>
+<p class="font-body-md text-body-md font-medium tracking-tight text-on-surface-variant/60">Distributed Utility</p>
+</div>
+<nav class="flex flex-col gap-xs flex-1">
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 hover:bg-white/5 active:scale-[0.98] text-on-surface-variant/80 hover:text-on-surface font-body-md text-body-md font-medium tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Status</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 hover:bg-white/5 active:scale-[0.98] text-on-surface-variant/80 hover:text-on-surface font-body-md text-body-md font-medium tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="apps">apps</span>
+<span>Paired Apps</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 hover:bg-white/5 active:scale-[0.98] text-primary font-bold bg-primary/10 rounded-lg font-body-md text-body-md tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="memory">memory</span>
+<span>Models</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 hover:bg-white/5 active:scale-[0.98] text-on-surface-variant/80 hover:text-on-surface font-body-md text-body-md font-medium tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span>Logs</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 hover:bg-white/5 active:scale-[0.98] text-on-surface-variant/80 hover:text-on-surface font-body-md text-body-md font-medium tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="mt-auto px-md py-md glass-card rounded-xl flex items-center gap-sm">
+<img alt="User Profile Avatar" class="w-10 h-10 rounded-full border border-white/10" data-alt="A professional headshot of a user against a neutral, softly blurred studio background. The lighting is crisp and modern, matching a high-end tech interface aesthetic. The image uses a clean, monochromatic palette with subtle warm skin tones and high-fidelity detail." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYoxVjnsaV7-2zqgd833fPrtv0iqr_VQARVdU7yUQENq9dU4j0IVLWNAkXVe73NQgL2Zs4e38OGfzpF68lsWweOr0Gx5Gjv6Qt6tK6fX4cpQCnkiIJ-WHRVlRKQ2R1_kuHwuJfv9Vo1reYKtZv-fL79AqeMnh37SeIVjg2Qm82EXf-4IseeMkCPg0YVx1W06yRQNQDBLyfW0XUbRWMCdvk5bRBxP_1kjGtxtd45WklzR36psBqPHHKJwQ1RgJ_lD6TUWigdwZ3lus"/>
+<div class="overflow-hidden">
+<p class="font-label-caps text-label-caps text-on-surface truncate">Admin Node</p>
+<p class="text-[10px] text-primary">Connected</p>
+</div>
+</div>
+</aside>
+<!-- TopAppBar -->
+<header class="sticky top-0 w-full h-16 ml-64 bg-background/40 dark:bg-background/40 backdrop-blur-[12px] border-b border-white/10 dark:border-white/15 z-40 flex justify-between items-center px-lg h-full max-w-[calc(100vw-256px)]">
+<div class="flex items-center gap-md">
+<h2 class="font-h2 text-h2 tracking-tight text-primary">Engines &amp; Models</h2>
+</div>
+<div class="flex items-center gap-md">
+<button class="material-symbols-outlined text-on-surface-variant hover:opacity-80 transition-opacity" data-icon="notifications">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:opacity-80 transition-opacity" data-icon="account_circle">account_circle</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 p-lg max-w-[1400px]">
+<!-- Stats Bar -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-lg mb-xl">
+<div class="glass-card p-lg rounded-xl glow-primary">
+<div class="flex justify-between items-end mb-sm">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-xs">CLUSTER CAPACITY</p>
+<h3 class="font-h1 text-h1 text-primary">148.2B</h3>
+</div>
+<div class="text-right">
+<p class="font-mono-data text-mono-data text-on-surface">Total Parameters</p>
+</div>
+</div>
+<div class="h-1 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary to-secondary w-[65%] shadow-[0_0_8px_rgba(137,206,255,0.5)]"></div>
+</div>
+</div>
+<div class="glass-card p-lg rounded-xl">
+<div class="flex justify-between items-end mb-sm">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-xs">ACTIVE INFERENCE</p>
+<h3 class="font-h1 text-h1 text-secondary">8 Engines</h3>
+</div>
+<div class="text-right">
+<p class="font-mono-data text-mono-data text-on-surface">Distributed Active</p>
+</div>
+</div>
+<div class="flex gap-xs">
+<div class="h-1 flex-1 bg-secondary rounded-full"></div>
+<div class="h-1 flex-1 bg-secondary rounded-full"></div>
+<div class="h-1 flex-1 bg-secondary rounded-full"></div>
+<div class="h-1 flex-1 bg-secondary/30 rounded-full"></div>
+<div class="h-1 flex-1 bg-secondary/10 rounded-full"></div>
+</div>
+</div>
+</section>
+<!-- Engines Grid -->
+<section class="mb-xl">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant mb-md px-base">ENGINE CONNECTIVITY</h4>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md">
+<!-- Ollama -->
+<div class="glass-card p-md rounded-xl border-l-4 border-l-secondary flex flex-col gap-sm">
+<div class="flex justify-between items-start">
+<div class="p-xs bg-surface-container-high rounded-lg">
+<span class="material-symbols-outlined text-secondary" data-icon="terminal">terminal</span>
+</div>
+<span class="font-label-caps text-[10px] text-secondary bg-secondary/10 px-xs py-[2px] rounded">DETECTED</span>
+</div>
+<div>
+<p class="font-h2 text-body-lg font-bold text-on-surface">Ollama</p>
+<p class="text-on-surface-variant text-[12px]">v0.1.32 • Localhost:11434</p>
+</div>
+</div>
+<!-- LM Studio -->
+<div class="glass-card p-md rounded-xl border-l-4 border-l-secondary flex flex-col gap-sm">
+<div class="flex justify-between items-start">
+<div class="p-xs bg-surface-container-high rounded-lg">
+<span class="material-symbols-outlined text-secondary" data-icon="laptop_mac">laptop_mac</span>
+</div>
+<span class="font-label-caps text-[10px] text-secondary bg-secondary/10 px-xs py-[2px] rounded">DETECTED</span>
+</div>
+<div>
+<p class="font-h2 text-body-lg font-bold text-on-surface">LM Studio</p>
+<p class="text-on-surface-variant text-[12px]">Active Server • Port 1234</p>
+</div>
+</div>
+<!-- LocalAI -->
+<div class="glass-card p-md rounded-xl border-l-4 border-l-outline-variant/30 flex flex-col gap-sm opacity-60">
+<div class="flex justify-between items-start">
+<div class="p-xs bg-surface-container-high rounded-lg">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="cloud_off">cloud_off</span>
+</div>
+<span class="font-label-caps text-[10px] text-on-surface-variant bg-surface-variant px-xs py-[2px] rounded">NOT FOUND</span>
+</div>
+<div>
+<p class="font-h2 text-body-lg font-bold text-on-surface-variant">LocalAI</p>
+<p class="text-on-surface-variant text-[12px]">Service unreachable</p>
+</div>
+</div>
+<!-- oobabooga -->
+<div class="glass-card p-md rounded-xl border-l-4 border-l-outline-variant/30 flex flex-col gap-sm opacity-60">
+<div class="flex justify-between items-start">
+<div class="p-xs bg-surface-container-high rounded-lg">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="settings_input_component">settings_input_component</span>
+</div>
+<span class="font-label-caps text-[10px] text-on-surface-variant bg-surface-variant px-xs py-[2px] rounded">NOT FOUND</span>
+</div>
+<div>
+<p class="font-h2 text-body-lg font-bold text-on-surface-variant">oobabooga</p>
+<p class="text-on-surface-variant text-[12px]">WebUI not detected</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Active Models List -->
+<section class="mb-xl">
+<div class="flex justify-between items-center mb-md px-base">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant">ACTIVE MODELS</h4>
+<button class="text-primary text-[12px] font-bold hover:underline">View All Repository</button>
+</div>
+<div class="glass-card rounded-xl overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low">
+<tr class="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-widest">
+<th class="px-lg py-md">Model Identity</th>
+<th class="px-lg py-md">Engine</th>
+<th class="px-lg py-md">Parameters</th>
+<th class="px-lg py-md">Status</th>
+<th class="px-lg py-md text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/5">
+<tr class="hover:bg-white/5 transition-colors">
+<td class="px-lg py-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary text-[20px]" data-icon="smart_toy">smart_toy</span>
+<div>
+<p class="text-on-surface font-bold">Llama-3-70B-Instruct</p>
+<p class="text-[12px] text-on-surface-variant">Meta AI • GGUF Q4_K_M</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-md font-mono-data text-on-surface-variant">Ollama</td>
+<td class="px-lg py-md font-mono-data text-on-surface">70.6B</td>
+<td class="px-lg py-md">
+<div class="flex items-center gap-xs text-secondary text-[12px] font-bold">
+<span class="status-dot bg-secondary shadow-[0_0_8px_rgba(78,222,163,0.5)]"></span>
+                  Ready
+                </div>
+</td>
+<td class="px-lg py-md text-right">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" data-icon="more_vert">more_vert</button>
+</td>
+</tr>
+<tr class="hover:bg-white/5 transition-colors">
+<td class="px-lg py-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary text-[20px]" data-icon="model_training">model_training</span>
+<div>
+<p class="text-on-surface font-bold">Mistral-7B-v0.3</p>
+<p class="text-[12px] text-on-surface-variant">Mistral AI • FP16</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-md font-mono-data text-on-surface-variant">LM Studio</td>
+<td class="px-lg py-md font-mono-data text-on-surface">7.2B</td>
+<td class="px-lg py-md">
+<div class="flex items-center gap-xs text-secondary text-[12px] font-bold">
+<span class="status-dot bg-secondary shadow-[0_0_8px_rgba(78,222,163,0.5)]"></span>
+                  Ready
+                </div>
+</td>
+<td class="px-lg py-md text-right">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" data-icon="more_vert">more_vert</button>
+</td>
+</tr>
+<tr class="hover:bg-white/5 transition-colors">
+<td class="px-lg py-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary text-[20px]" data-icon="psychology">psychology</span>
+<div>
+<p class="text-on-surface font-bold">Phi-3-Medium</p>
+<p class="text-[12px] text-on-surface-variant">Microsoft • 128k Context</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-md font-mono-data text-on-surface-variant">Ollama</td>
+<td class="px-lg py-md font-mono-data text-on-surface">14.0B</td>
+<td class="px-lg py-md">
+<div class="flex items-center gap-xs text-primary-container text-[12px] font-bold">
+<span class="status-dot bg-primary-container animate-pulse"></span>
+                  Loading...
+                </div>
+</td>
+<td class="px-lg py-md text-right">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" data-icon="more_vert">more_vert</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Hardware Acceleration Banner -->
+<section>
+<div class="relative overflow-hidden rounded-2xl p-xl glass-card flex flex-col md:flex-row items-center justify-between gap-lg">
+<!-- Background decorative elements -->
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary/10 blur-[80px] -z-10 rounded-full"></div>
+<div class="absolute bottom-0 left-0 w-96 h-96 bg-secondary/5 blur-[100px] -z-10 rounded-full"></div>
+<div class="flex items-center gap-xl">
+<div class="w-16 h-16 rounded-full bg-surface-container-high border border-primary/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-h1" data-icon="memory">memory</span>
+</div>
+<div>
+<h5 class="font-h2 text-h2 text-on-surface mb-xs">Hardware Acceleration</h5>
+<p class="text-on-surface-variant">Parallel Processing Cluster Enabled</p>
+</div>
+</div>
+<div class="flex flex-col items-center md:items-end">
+<div class="flex items-center gap-sm bg-primary/20 border border-primary/30 px-lg py-sm rounded-full mb-xs">
+<span class="material-symbols-outlined text-primary" data-icon="bolt" data-weight="fill">bolt</span>
+<span class="font-h2 text-body-lg font-bold text-primary">Dual RTX 4090 Active</span>
+</div>
+<p class="font-mono-data text-on-surface-variant text-[12px]">VRAM Total: 48GB GDDR6X • Bus: PCIe 4.0 x16</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Contextual FAB (Hidden on this screen as per instructions, but ready for global use) -->
+<div class="fixed bottom-lg right-lg hidden">
+<button class="bg-primary text-on-primary-fixed p-lg rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[32px]" data-icon="add">add</span>
+</button>
+</div>
+</body></html>

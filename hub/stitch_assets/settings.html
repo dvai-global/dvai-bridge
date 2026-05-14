@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed": "#e1e0ff",
+                    "on-tertiary": "#1000a9",
+                    "on-error-container": "#ffdad6",
+                    "surface-container-highest": "#353534",
+                    "on-secondary-fixed-variant": "#005236",
+                    "surface-container-low": "#1c1b1b",
+                    "surface-container-high": "#2a2a2a",
+                    "primary-fixed": "#c9e6ff",
+                    "tertiary": "#c0c1ff",
+                    "surface-dim": "#131313",
+                    "on-surface": "#e5e2e1",
+                    "secondary-fixed-dim": "#4edea3",
+                    "on-tertiary-container": "#1407ad",
+                    "tertiary-container": "#8d90ff",
+                    "inverse-primary": "#006591",
+                    "on-error": "#690005",
+                    "error": "#ffb4ab",
+                    "surface-tint": "#89ceff",
+                    "primary": "#89ceff",
+                    "surface-bright": "#393939",
+                    "outline": "#88929b",
+                    "inverse-on-surface": "#313030",
+                    "on-secondary-container": "#00311f",
+                    "on-secondary": "#003824",
+                    "on-primary-fixed": "#001e2f",
+                    "primary-fixed-dim": "#89ceff",
+                    "background": "#131313",
+                    "tertiary-fixed-dim": "#c0c1ff",
+                    "secondary-container": "#00a572",
+                    "on-surface-variant": "#bec8d2",
+                    "on-primary": "#00344d",
+                    "outline-variant": "#3e4850",
+                    "surface-variant": "#353534",
+                    "surface": "#131313",
+                    "error-container": "#93000a",
+                    "surface-container-lowest": "#0e0e0e",
+                    "on-tertiary-fixed": "#07006c",
+                    "on-primary-container": "#003751",
+                    "on-primary-fixed-variant": "#004c6e",
+                    "primary-container": "#0ea5e9",
+                    "inverse-surface": "#e5e2e1",
+                    "on-secondary-fixed": "#002113",
+                    "on-tertiary-fixed-variant": "#2f2ebe",
+                    "on-background": "#e5e2e1",
+                    "surface-container": "#201f1f",
+                    "secondary": "#4edea3",
+                    "secondary-fixed": "#6ffbbe"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "sm": "12px",
+                    "lg": "24px",
+                    "container-padding": "20px",
+                    "base": "4px",
+                    "xl": "32px",
+                    "md": "16px",
+                    "xs": "8px"
+            },
+            "fontFamily": {
+                    "h1": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "label-caps": ["Inter"],
+                    "mono-data": ["Inter"],
+                    "body-md": ["Inter"],
+                    "h2": ["Inter"],
+                    "display": ["Inter"]
+            },
+            "fontSize": {
+                    "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "mono-data": ["14px", {"lineHeight": "1.0", "letterSpacing": "-0.01em", "fontWeight": "500"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "h2": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "display": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="dark overflow-hidden">
+<!-- Shared SideNavBar -->
+<aside class="fixed left-0 top-0 h-screen w-64 flex flex-col bg-surface/60 dark:bg-surface/60 backdrop-blur-[12px] border-r border-white/10 dark:border-white/15 shadow-xl shadow-primary/5 py-xl px-md gap-xs z-50">
+<div class="mb-xl px-xs">
+<h2 class="font-h2 text-h2 font-bold text-primary dark:text-primary tracking-tighter">DVAI Hub</h2>
+<p class="font-body-md text-body-md font-medium tracking-tight text-on-surface-variant/60">Distributed Utility</p>
+</div>
+<nav class="flex flex-col gap-xs flex-grow">
+<a class="flex items-center gap-md p-sm text-on-surface-variant/80 hover:text-on-surface hover:bg-white/5 transition-all duration-200 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md font-medium tracking-tight">Status</span>
+</a>
+<a class="flex items-center gap-md p-sm text-on-surface-variant/80 hover:text-on-surface hover:bg-white/5 transition-all duration-200 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">apps</span>
+<span class="font-body-md text-body-md font-medium tracking-tight">Paired Apps</span>
+</a>
+<a class="flex items-center gap-md p-sm text-on-surface-variant/80 hover:text-on-surface hover:bg-white/5 transition-all duration-200 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">memory</span>
+<span class="font-body-md text-body-md font-medium tracking-tight">Models</span>
+</a>
+<a class="flex items-center gap-md p-sm text-on-surface-variant/80 hover:text-on-surface hover:bg-white/5 transition-all duration-200 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-body-md text-body-md font-medium tracking-tight">Logs</span>
+</a>
+<a class="flex items-center gap-md p-sm text-primary font-bold bg-primary/10 rounded-lg transition-all duration-200 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md text-body-md font-medium tracking-tight">Settings</span>
+</a>
+</nav>
+<div class="mt-auto p-sm flex items-center gap-md glass-panel rounded-xl">
+<img alt="User Profile Avatar" class="w-10 h-10 rounded-full border border-white/10" data-alt="A close-up, high-quality 3D rendered profile avatar representing a user in a futuristic setting. The character has a sleek, minimalist visor and is illuminated by cool blue neon lights against a dark, tech-focused background. The overall aesthetic is clean, professional, and integrates seamlessly with a high-end dark mode UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuASkrPYWVKqUnA2Vs3J4-Vw8-WmEA_r06ayUp6pyxk6KWlplRAxFFGvjrweJ3haxXSpNJtKbc9pgOC5yDq9JOgZ8vnqrgSaRccHbvYV0_xAg25GzCPKAcAwIQgWebzXKL4ne9I1yKa8aHV5l6jgISNRc32TTLk4h8EiZ3rZnFuUhfgIR0YKio3V7kQZUSVpBKKwr_e0rT2ukwkFd7q2mUlz3vcB7WA4FQrfhV5e8abnWqfVa8moWMLYxOe5Vsu8eYr0qFPEJBKeMN8"/>
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-on-surface">CORE_OPERATOR</span>
+<span class="font-mono-data text-[10px] text-primary">NODE_01_ACTIVE</span>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 min-h-screen flex flex-col bg-background">
+<!-- Shared TopAppBar -->
+<header class="sticky top-0 w-full h-16 bg-background/40 dark:bg-background/40 backdrop-blur-[12px] border-b border-white/10 dark:border-white/15 flex justify-between items-center px-lg z-40">
+<div class="flex items-center gap-md">
+<h1 class="font-h1 text-h1 font-bold text-primary dark:text-primary">Settings</h1>
+</div>
+<div class="flex items-center gap-md">
+<button class="p-sm text-on-surface-variant hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-sm text-on-surface-variant hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Content Area -->
+<div class="flex-grow p-xl max-w-4xl mx-auto w-full space-y-xl pb-32">
+<!-- Appearance Section -->
+<section class="space-y-md">
+<div class="flex flex-col gap-base">
+<h2 class="font-h2 text-h2 text-on-surface">Appearance</h2>
+<p class="font-body-md text-on-surface-variant/70">Customize how the DVAI Hub interface looks on your display.</p>
+</div>
+<div class="grid grid-cols-3 gap-md">
+<!-- Light Mode -->
+<button class="glass-panel p-lg rounded-xl flex flex-col items-center gap-sm hover:border-primary/50 transition-colors group">
+<div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-on-surface-variant group-hover:text-primary">
+<span class="material-symbols-outlined text-3xl">light_mode</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface">Lite</span>
+</button>
+<!-- Dark Mode (Active) -->
+<button class="glass-panel p-lg rounded-xl flex flex-col items-center gap-sm border-primary/60 bg-primary/5 transition-colors">
+<div class="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">dark_mode</span>
+</div>
+<span class="font-label-caps text-label-caps text-primary">Dark</span>
+</button>
+<!-- System Mode -->
+<button class="glass-panel p-lg rounded-xl flex flex-col items-center gap-sm hover:border-primary/50 transition-colors group">
+<div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-on-surface-variant group-hover:text-primary">
+<span class="material-symbols-outlined text-3xl">settings_brightness</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface">System</span>
+</button>
+</div>
+</section>
+<!-- System Behavior Section -->
+<section class="space-y-md">
+<div class="flex flex-col gap-base">
+<h2 class="font-h2 text-h2 text-on-surface">System Behavior</h2>
+<p class="font-body-md text-on-surface-variant/70">Manage how the Hub interacts with your local environment.</p>
+</div>
+<div class="glass-panel rounded-xl divide-y divide-white/10">
+<!-- Toggle Row 1 -->
+<div class="p-lg flex items-center justify-between">
+<div class="space-y-base">
+<p class="font-body-md font-medium text-on-surface">Auto-start Hub</p>
+<p class="font-mono-data text-xs text-on-surface-variant/60">Launch background service on system login</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<!-- Toggle Row 2 -->
+<div class="p-lg flex items-center justify-between">
+<div class="space-y-base">
+<p class="font-body-md font-medium text-on-surface">External Engines</p>
+<p class="font-mono-data text-xs text-on-surface-variant/60">Allow connection to third-party inference nodes</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</section>
+<!-- Account Section -->
+<section class="space-y-md">
+<div class="flex flex-col gap-base">
+<h2 class="font-h2 text-h2 text-on-surface">Account</h2>
+<p class="font-body-md text-on-surface-variant/70">Identity and security credentials for global distributed access.</p>
+</div>
+<div class="grid grid-cols-1 gap-lg">
+<div class="flex flex-col gap-xs">
+<label class="font-label-caps text-label-caps text-on-surface-variant px-base">Hub Name</label>
+<input class="w-full bg-surface-container-low border border-white/10 rounded-lg px-md py-sm font-body-md text-on-surface focus:outline-none focus:border-primary/50 transition-colors" placeholder="DVAI-HUB-ALPHA" type="text"/>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-caps text-label-caps text-on-surface-variant px-base">API Access Key</label>
+<div class="relative w-full">
+<input class="w-full bg-surface-container-low border border-white/10 rounded-lg px-md py-sm font-body-md text-on-surface focus:outline-none focus:border-primary/50 transition-colors pr-12" type="password" value="••••••••••••••••••••••••"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Danger Zone -->
+<section class="pt-xl border-t border-white/10">
+<button class="w-full p-lg rounded-xl glass-panel border-error/20 hover:bg-error/5 group transition-all flex items-center justify-between">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-error">delete_forever</span>
+<div class="text-left">
+<p class="font-body-md font-bold text-error">Purge All Node Data</p>
+<p class="font-mono-data text-xs text-on-surface-variant/60">This action is irreversible and clears all local inference history.</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</button>
+</section>
+</div>
+</main>
+</body></html>

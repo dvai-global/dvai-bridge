@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 // Tauri 2 dev workflow:
 //   - tauri runs `pnpm dev:vite` to bring up the dev server
@@ -7,7 +8,7 @@ import react from "@vitejs/plugin-react";
 //   - on `pnpm build:vite`, output lands in `dist-frontend/`
 //     which is the `frontendDist` configured in `tauri.conf.json`.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   clearScreen: false,
   server: {
     port: 5173,

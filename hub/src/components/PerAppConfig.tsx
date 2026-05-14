@@ -1,45 +1,19 @@
-// v3.1.x scaffold — per-app config panel.
-//
-// Renders a row of controls per paired-app group on the Paired Apps
-// tab. Three knobs:
-//
-//   1. Pairing mode — always-allow / require-approval / always-deny.
-//      Persisted at `~/.dvai-hub/apps/<appId>/config.json` (sidecar
-//      handles the FS round-trip).
-//   2. Rate limit (requests / minute) — a number input. `null` (the
-//      default) means unlimited. Reserved for v3.2+; the input is
-//      live but the sidecar doesn't enforce yet.
-//   3. Revoke all — drops every pairing under this appId in one shot.
-//
-// The component is a controlled-form scaffold. Submission is debounced
-// in the parent caller; this component does not auto-save on each
-// keystroke (the user can decide later whether to make it auto-save or
-// require an explicit Save button).
-
 import { useEffect, useState } from "react";
 import {
   api,
   type PairingMode,
   type PerAppConfig as PerAppConfigType,
 } from "../api/index.js";
+import { Shield, Timer, Trash2, Loader2, AlertTriangle } from "lucide-react";
 
 export interface PerAppConfigProps {
   appId: string;
-  /** Number of pairings under this appId — used to label the
-   *  "Revoke all" button so the user knows what's being dropped. */
   pairingCount: number;
-  /** Called after `setAppConfig` succeeds so the parent can refresh. */
   onConfigChanged?: (config: PerAppConfigType) => void;
-  /** Called after `revokeAllPairings` succeeds so the parent can refresh. */
   onRevokedAll?: () => void;
 }
 
-const DEFAULT_CONFIG: Omit<PerAppConfigType, "appId" | "updatedAt"> = {
-  pairingMode: "require-approval",
-  rateLimit: { requestsPerMinute: null },
-};
-
-export function PerAppConfig(props: PerAppConfigProps): JSX.Element {
+export function PerAppConfig(props: PerAppConfigProps): React.JSX.Element {
   const { appId, pairingCount, onConfigChanged, onRevokedAll } = props;
   const [config, setConfig] = useState<PerAppConfigType | null>(null);
   const [busy, setBusy] = useState<"idle" | "loading" | "saving" | "revoking">("loading");
@@ -122,52 +96,81 @@ export function PerAppConfig(props: PerAppConfigProps): JSX.Element {
   };
 
   if (busy === "loading" || !config) {
-    return <div className="per-app-config loading">Loading config…</div>;
+    return (
+      <div className="flex items-center gap-2 text-xs text-on-surface-variant/40 animate-pulse">
+        <Loader2 size={12} className="animate-spin" />
+        Configuring security policy...
+      </div>
+    );
   }
 
   return (
-    <div className="per-app-config">
-      <div className="per-app-config-row">
-        <label className="per-app-config-label">Pairing mode</label>
-        <select
-          value={config.pairingMode}
-          disabled={busy !== "idle"}
-          onChange={(e) => handleModeChange(e.target.value as PairingMode)}
-        >
-          <option value="always-allow">Always allow</option>
-          <option value="require-approval">Require approval</option>
-          <option value="always-deny">Always deny</option>
-        </select>
+    <div className="flex flex-wrap items-center gap-6 py-4 px-5 rounded-xl bg-white/5 border border-white/5">
+      <div className="flex items-center gap-3">
+        <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+          <Shield size={14} />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/50">Pairing Mode</span>
+          <select
+            className="glass-select py-1 text-xs"
+            value={config.pairingMode}
+            disabled={busy !== "idle"}
+            onChange={(e) => handleModeChange(e.target.value as PairingMode)}
+            aria-label="Pairing Mode"
+            title="Pairing Mode"
+          >
+            <option value="always-allow">Always Allow</option>
+            <option value="require-approval">Manual Approval</option>
+            <option value="always-deny">Deny All</option>
+          </select>
+        </div>
       </div>
 
-      <div className="per-app-config-row">
-        <label className="per-app-config-label">
-          Rate limit
-          <span className="per-app-config-hint"> (req/min — empty = unlimited)</span>
-        </label>
-        <input
-          type="number"
-          min={0}
-          step={1}
-          value={config.rateLimit.requestsPerMinute ?? ""}
-          disabled={busy !== "idle"}
-          onChange={(e) => handleRateLimitChange(e.target.value)}
-        />
+      <div className="h-8 w-px bg-white/10 hidden sm:block"></div>
+
+      <div className="flex items-center gap-3">
+        <div className="p-1.5 rounded-lg bg-secondary/10 text-secondary">
+          <Timer size={14} />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/50">Rate Limit</span>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              className="bg-transparent text-xs font-bold text-on-surface focus:outline-none w-12 border-b border-white/10 hover:border-white/30 transition-colors"
+              min={0}
+              step={1}
+              placeholder="∞"
+              value={config.rateLimit.requestsPerMinute ?? ""}
+              disabled={busy !== "idle"}
+              onChange={(e) => handleRateLimitChange(e.target.value)}
+            />
+            <span className="text-[10px] text-on-surface-variant/40 font-medium">req/min</span>
+          </div>
+        </div>
       </div>
 
-      <div className="per-app-config-row">
+      <div className="ml-auto flex items-center gap-3">
+        {error && (
+          <div className="flex items-center gap-1.5 text-[10px] text-error font-bold bg-error/10 px-2 py-1 rounded">
+            <AlertTriangle size={10} />
+            {error}
+          </div>
+        )}
         <button
-          className="danger"
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+            pairingCount === 0 
+              ? "opacity-30 cursor-not-allowed bg-white/5 text-on-surface-variant" 
+              : "bg-error/10 text-error hover:bg-error/20 active:scale-95"
+          }`}
           disabled={busy !== "idle" || pairingCount === 0}
           onClick={handleRevokeAll}
         >
-          {busy === "revoking"
-            ? "Revoking…"
-            : `Revoke all ${pairingCount} pairing${pairingCount === 1 ? "" : "s"}`}
+          {busy === "revoking" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+          {busy === "revoking" ? "Revoking..." : `Revoke All ${pairingCount}`}
         </button>
       </div>
-
-      {error && <div className="per-app-config-error">{error}</div>}
     </div>
   );
 }

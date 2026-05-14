@@ -1,23 +1,5 @@
-// v3.1.x scaffold — model-load progress bar.
-//
-// Listens to the `model-load-progress` Tauri event the sidecar emits when
-// either the Transformers.js or llama.cpp backend is in a warming-up phase
-// (downloading from the network, hydrating from cache, etc.). Renders a
-// progress bar on the Status tab while at least one load is in flight,
-// and disappears when every tracked load reaches `phase: "ready"` or
-// stays idle for `STALE_AFTER_MS`.
-//
-// The component tracks loads by `modelId` so several concurrent loads
-// (rare but possible: Transformers.js text + a vision-language model
-// being warmed up at the same time) each get their own bar.
-//
-// Polish opportunities deliberately left for the user:
-//   - styling / colours / animation
-//   - friendly model-name rendering (currently shows the raw modelId)
-//   - per-phase iconography
-//   - long-tail error UX (currently surfaces the message inline)
-
-import { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Loader2, CheckCircle2, AlertCircle, Download, Cpu } from "lucide-react";
 import { onModelLoadProgress, type ModelLoadProgress } from "../api/index.js";
 
 const STALE_AFTER_MS = 30_000;
@@ -26,7 +8,7 @@ interface TrackedLoad extends ModelLoadProgress {
   receivedAt: number;
 }
 
-export function ModelLoadProgressBar(): JSX.Element | null {
+export function ModelLoadProgressBar(): React.JSX.Element | null {
   const [loads, setLoads] = useState<Record<string, TrackedLoad>>({});
 
   useEffect(() => {
@@ -35,7 +17,6 @@ export function ModelLoadProgressBar(): JSX.Element | null {
       setLoads((prev) => {
         const next = { ...prev };
         if (event.phase === "ready") {
-          // Brief tail so the user sees "Done" before it disappears.
           next[event.modelId] = {
             ...event,
             receivedAt: Date.now(),
@@ -46,7 +27,7 @@ export function ModelLoadProgressBar(): JSX.Element | null {
               const { [event.modelId]: _drop, ...rest } = p;
               return rest;
             });
-          }, 1500);
+          }, 2500);
         } else {
           next[event.modelId] = { ...event, receivedAt: Date.now() };
         }
@@ -60,8 +41,6 @@ export function ModelLoadProgressBar(): JSX.Element | null {
     };
   }, []);
 
-  // Drop loads that haven't progressed in STALE_AFTER_MS — guards against
-  // a backend that crashed mid-load and never reported a terminal event.
   useEffect(() => {
     const t = window.setInterval(() => {
       setLoads((prev) => {
@@ -80,7 +59,7 @@ export function ModelLoadProgressBar(): JSX.Element | null {
   if (entries.length === 0) return null;
 
   return (
-    <div className="model-load-progress">
+    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
       {entries.map((load) => (
         <ModelLoadRow key={load.modelId} load={load} />
       ))}
@@ -88,24 +67,63 @@ export function ModelLoadProgressBar(): JSX.Element | null {
   );
 }
 
-function ModelLoadRow({ load }: { load: TrackedLoad }): JSX.Element {
+function ModelLoadRow({ load }: { load: TrackedLoad }): React.JSX.Element {
   const pct = Math.max(0, Math.min(1, load.progress));
   const pctLabel = (pct * 100).toFixed(1);
-  const elapsedLabel = formatElapsed(load.timeElapsedMs);
+  
+  const isError = load.phase === "error";
+  const isReady = load.phase === "ready";
 
+  const barRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (barRef.current) {
+      barRef.current.style.width = `${pct * 100}%`;
+    }
+  }, [pct]);
+  
   return (
-    <div className={`model-load-row phase-${load.phase}`}>
-      <div className="model-load-meta">
-        <code className="model-load-id">{load.modelId}</code>
-        <span className="model-load-phase">{phaseLabel(load.phase)}</span>
-        <span className="model-load-elapsed">{elapsedLabel}</span>
+    <div className={`glass-card p-4 rounded-xl border-l-4 transition-all duration-300 ${
+      isError ? "border-l-error" : isReady ? "border-l-secondary" : "border-l-primary"
+    }`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`p-2 rounded-lg ${
+            isError ? "bg-error/10 text-error" : isReady ? "bg-secondary/10 text-secondary" : "bg-primary/10 text-primary"
+          }`}>
+            {load.phase === "downloading" ? <Download size={18} /> : 
+             load.phase === "loading" ? <Cpu size={18} /> :
+             isReady ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-bold text-on-surface truncate tracking-tight">{load.modelId}</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60">
+              {phaseLabel(load.phase)} • {formatElapsed(load.timeElapsedMs)}
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-col items-end">
+          <span className={`text-lg font-bold tabular-nums ${
+            isError ? "text-error" : isReady ? "text-secondary" : "text-primary"
+          }`}>
+            {pctLabel}%
+          </span>
+        </div>
       </div>
-      <div className="model-load-bar" role="progressbar" aria-valuenow={pct * 100} aria-valuemin={0} aria-valuemax={100}>
-        <div className="model-load-bar-fill" style={{ width: `${pct * 100}%` }} />
+      
+      <div className="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+        <div 
+          ref={barRef}
+          className={`absolute top-0 left-0 h-full transition-all duration-500 ease-out rounded-full ${
+            isError ? "bg-error" : isReady ? "bg-secondary" : "bg-primary shadow-[0_0_10px_rgba(137,206,255,0.5)]"
+          }`}
+        />
       </div>
-      <div className="model-load-pct">{pctLabel}%</div>
-      {load.message && load.phase === "error" && (
-        <div className="model-load-error">{load.message}</div>
+
+      {load.message && isError && (
+        <div className="mt-3 p-2 rounded bg-error/5 border border-error/20 text-[11px] text-error leading-snug">
+          {load.message}
+        </div>
       )}
     </div>
   );
@@ -114,9 +132,9 @@ function ModelLoadRow({ load }: { load: TrackedLoad }): JSX.Element {
 function phaseLabel(phase: ModelLoadProgress["phase"]): string {
   switch (phase) {
     case "downloading": return "Downloading";
-    case "loading": return "Loading from cache";
-    case "ready": return "Ready";
-    case "error": return "Failed";
+    case "loading": return "Loading Runtime";
+    case "ready": return "System Ready";
+    case "error": return "Loading Failed";
   }
 }
 

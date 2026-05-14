@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "tertiary-fixed": "#e1e0ff",
+            "on-tertiary": "#1000a9",
+            "on-error-container": "#ffdad6",
+            "surface-container-highest": "#353534",
+            "on-secondary-fixed-variant": "#005236",
+            "surface-container-low": "#1c1b1b",
+            "surface-container-high": "#2a2a2a",
+            "primary-fixed": "#c9e6ff",
+            "tertiary": "#c0c1ff",
+            "surface-dim": "#131313",
+            "on-surface": "#e5e2e1",
+            "secondary-fixed-dim": "#4edea3",
+            "on-tertiary-container": "#1407ad",
+            "tertiary-container": "#8d90ff",
+            "inverse-primary": "#006591",
+            "on-error": "#690005",
+            "error": "#ffb4ab",
+            "surface-tint": "#89ceff",
+            "primary": "#89ceff",
+            "surface-bright": "#393939",
+            "outline": "#88929b",
+            "inverse-on-surface": "#313030",
+            "on-secondary-container": "#00311f",
+            "on-secondary": "#003824",
+            "on-primary-fixed": "#001e2f",
+            "primary-fixed-dim": "#89ceff",
+            "background": "#131313",
+            "tertiary-fixed-dim": "#c0c1ff",
+            "secondary-container": "#00a572",
+            "on-surface-variant": "#bec8d2",
+            "on-primary": "#00344d",
+            "outline-variant": "#3e4850",
+            "surface-variant": "#353534",
+            "surface": "#131313",
+            "error-container": "#93000a",
+            "surface-container-lowest": "#0e0e0e",
+            "on-tertiary-fixed": "#07006c",
+            "on-primary-container": "#003751",
+            "on-primary-fixed-variant": "#004c6e",
+            "primary-container": "#0ea5e9",
+            "inverse-surface": "#e5e2e1",
+            "on-secondary-fixed": "#002113",
+            "on-tertiary-fixed-variant": "#2f2ebe",
+            "on-background": "#e5e2e1",
+            "surface-container": "#201f1f",
+            "secondary": "#4edea3",
+            "secondary-fixed": "#6ffbbe"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "sm": "12px",
+            "lg": "24px",
+            "container-padding": "20px",
+            "base": "4px",
+            "xl": "32px",
+            "md": "16px",
+            "xs": "8px"
+          },
+          "fontFamily": {
+            "h1": ["Inter"],
+            "body-lg": ["Inter"],
+            "label-caps": ["Inter"],
+            "mono-data": ["Inter"],
+            "body-md": ["Inter"],
+            "h2": ["Inter"],
+            "display": ["Inter"]
+          },
+          "fontSize": {
+            "h1": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+            "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+            "label-caps": ["12px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "600"}],
+            "mono-data": ["14px", {"lineHeight": "1.0", "letterSpacing": "-0.01em", "fontWeight": "500"}],
+            "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+            "h2": ["24px", {"lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+            "display": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "700"}]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background font-body-md overflow-x-hidden">
+<!-- Side Navigation Shell -->
+<aside class="fixed left-0 top-0 h-screen w-64 flex flex-col bg-surface/60 dark:bg-surface/60 backdrop-blur-[12px] border-r border-white/10 dark:border-white/15 shadow-xl shadow-primary/5 py-xl px-md gap-xs z-50">
+<div class="mb-xl px-sm">
+<h2 class="font-h2 text-h2 font-bold text-primary dark:text-primary tracking-tighter">DVAI Hub</h2>
+<p class="font-body-md text-label-caps text-on-surface-variant/60 uppercase">Distributed Utility</p>
+</div>
+<nav class="flex flex-col gap-xs flex-grow">
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 text-on-surface-variant/80 hover:text-on-surface hover:bg-white/5 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md font-medium tracking-tight">Status</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 text-primary font-bold bg-primary/10 rounded-lg active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">apps</span>
+<span class="font-body-md font-medium tracking-tight">Paired Apps</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 text-on-surface-variant/80 hover:text-on-surface hover:bg-white/5 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">memory</span>
+<span class="font-body-md font-medium tracking-tight">Models</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 text-on-surface-variant/80 hover:text-on-surface hover:bg-white/5 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-body-md font-medium tracking-tight">Logs</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm transition-all duration-200 text-on-surface-variant/80 hover:text-on-surface hover:bg-white/5 active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md font-medium tracking-tight">Settings</span>
+</a>
+</nav>
+<div class="mt-auto px-sm pt-md border-t border-white/5 flex items-center gap-sm">
+<img alt="User Profile Avatar" class="w-8 h-8 rounded-full border border-white/10" data-alt="Close up portrait of a modern digital profile avatar icon with a minimalist, geometric representation of a human head in cool greys and electric blue accents, matching the high-tech aesthetic of the DVAI interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCj2WaDjWz-FSTgDw--bAQbyXzYkMK_whIaaYMo8WzECOAbmR47z7Q0TMY3mFmgsrS2-Z3TS2Dhww7wVm3hTBamnqZvcQS2yf5sbqsKdvW7AvjI1O5XOMNJs_hGhh_h8Wfw_XneQYMbfU2Z-62vdIjkOV2EV2pUJys7dyIZ-XcTcFijK7qJanW7YtE4B2c4NhEMQ8-kSpA8k-_wpjvoJYhEa1rvGxopSon_Hu5DN4hk9biJEwRbgkL78n54B58rSOw0za-eT1ZXTc0"/>
+<div class="flex flex-col">
+<span class="text-label-caps font-bold">Admin Node</span>
+<span class="text-[10px] text-on-surface-variant/60">node_7721_alpha</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- Top AppBar -->
+<header class="sticky top-0 w-full h-16 bg-background/40 dark:bg-background/40 backdrop-blur-[12px] border-b border-white/10 dark:border-white/15 flex justify-between items-center px-lg z-40">
+<h1 class="font-h2 text-h2 tracking-tight text-primary">Apps</h1>
+<div class="flex items-center gap-md">
+<button class="material-symbols-outlined text-on-surface-variant hover:opacity-80 transition-opacity">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:opacity-80 transition-opacity">account_circle</button>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="p-xl max-w-7xl mx-auto w-full">
+<!-- Header Section -->
+<section class="mb-xl">
+<p class="font-body-lg text-on-surface-variant mb-lg max-w-2xl">
+          Manage devices authorized to access your private inference cloud.
+        </p>
+<!-- Search and Filter Bar -->
+<div class="flex flex-col md:flex-row gap-md items-center w-full mb-xl">
+<div class="relative w-full md:max-w-md">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-on-surface-variant/60">search</span>
+<input class="w-full bg-surface-container-low border border-white/10 rounded-xl pl-11 pr-md py-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all" placeholder="Search devices..." type="text"/>
+</div>
+<button class="flex items-center gap-xs px-md py-sm rounded-xl glass-card text-on-surface-variant hover:text-on-surface transition-all">
+<span class="material-symbols-outlined text-[20px]">filter_list</span>
+<span class="font-label-caps">Filters</span>
+</button>
+</div>
+</section>
+<!-- Grid of Devices -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-lg">
+<!-- Card 1: iPhone -->
+<div class="glass-card rounded-xl p-lg flex flex-col gap-lg group hover:border-primary/40 transition-colors">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[32px]">smartphone</span>
+</div>
+<div>
+<h3 class="font-h2 text-body-md font-bold">User's iPhone 15</h3>
+<div class="flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="text-label-caps text-secondary uppercase">Online</span>
+</div>
+</div>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant/40 hover:text-on-surface">more_vert</button>
+</div>
+<div class="space-y-sm">
+<div class="flex justify-between items-center border-b border-white/5 pb-xs">
+<span class="text-label-caps text-on-surface-variant">Last Seen</span>
+<span class="font-mono-data text-on-surface">Active now</span>
+</div>
+<div class="flex justify-between items-center border-b border-white/5 pb-xs">
+<span class="text-label-caps text-on-surface-variant">App ID</span>
+<span class="font-mono-data text-on-surface">DVAI-MBL-829</span>
+</div>
+<div class="flex justify-between items-start border-b border-white/5 pb-xs">
+<span class="text-label-caps text-on-surface-variant">Permissions</span>
+<div class="flex flex-wrap gap-xs justify-end max-w-[180px]">
+<span class="px-xs py-[2px] bg-white/5 rounded text-[10px] text-on-surface-variant">Inference</span>
+<span class="px-xs py-[2px] bg-white/5 rounded text-[10px] text-on-surface-variant">Storage</span>
+<span class="px-xs py-[2px] bg-white/5 rounded text-[10px] text-on-surface-variant">Logs</span>
+</div>
+</div>
+</div>
+<button class="w-full mt-auto py-sm rounded-lg border border-error/30 text-error hover:bg-error/10 transition-all font-label-caps uppercase tracking-widest active:scale-[0.98]">
+            Revoke Access
+          </button>
+</div>
+<!-- Card 2: MacBook -->
+<div class="glass-card rounded-xl p-lg flex flex-col gap-lg group hover:border-primary/40 transition-colors">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[32px]">laptop_mac</span>
+</div>
+<div>
+<h3 class="font-h2 text-body-md font-bold">MacBook Pro</h3>
+<div class="flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-outline"></span>
+<span class="text-label-caps text-on-surface-variant uppercase">Idle</span>
+</div>
+</div>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant/40 hover:text-on-surface">more_vert</button>
+</div>
+<div class="space-y-sm">
+<div class="flex justify-between items-center border-b border-white/5 pb-xs">
+<span class="text-label-caps text-on-surface-variant">Last Seen</span>
+<span class="font-mono-data text-on-surface">14 mins ago</span>
+</div>
+<div class="flex justify-between items-center border-b border-white/5 pb-xs">
+<span class="text-label-caps text-on-surface-variant">App ID</span>
+<span class="font-mono-data text-on-surface">DVAI-DSK-114</span>
+</div>
+<div class="flex justify-between items-start border-b border-white/5 pb-xs">
+<span class="text-label-caps text-on-surface-variant">Permissions</span>
+<div class="flex flex-wrap gap-xs justify-end max-w-[180px]">
+<span class="px-xs py-[2px] bg-white/5 rounded text-[10px] text-on-surface-variant">Full Admin</span>
+</div>
+</div>
+</div>
+<button class="w-full mt-auto py-sm rounded-lg border border-error/30 text-error hover:bg-error/10 transition-all font-label-caps uppercase tracking-widest active:scale-[0.98]">
+            Revoke Access
+          </button>
+</div>
+<!-- Card 3: Tablet -->
+<div class="glass-card rounded-xl p-lg flex flex-col gap-lg group hover:border-primary/40 transition-colors">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-surface-variant/40">
+<span class="material-symbols-outlined text-[32px]">tablet_android</span>
+</div>
+<div>
+<h3 class="font-h2 text-body-md font-bold opacity-60">Pixel Tablet</h3>
+<div class="flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<span class="text-label-caps text-error uppercase">Disconnected</span>
+</div>
+</div>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant/40 hover:text-on-surface">more_vert</button>
+</div>
+<div class="space-y-sm opacity-60">
+<div class="flex justify-between items-center border-b border-white/5 pb-xs">
+<span class="text-label-caps text-on-surface-variant">Last Seen</span>
+<span class="font-mono-data text-on-surface">3 days ago</span>
+</div>
+<div class="flex justify-between items-center border-b border-white/5 pb-xs">
+<span class="text-label-caps text-on-surface-variant">App ID</span>
+<span class="font-mono-data text-on-surface">DVAI-TAB-009</span>
+</div>
+<div class="flex justify-between items-start border-b border-white/5 pb-xs">
+<span class="text-label-caps text-on-surface-variant">Permissions</span>
+<div class="flex flex-wrap gap-xs justify-end max-w-[180px]">
+<span class="px-xs py-[2px] bg-white/5 rounded text-[10px] text-on-surface-variant">View Only</span>
+</div>
+</div>
+</div>
+<button class="w-full mt-auto py-sm rounded-lg border border-error/30 text-error hover:bg-error/10 transition-all font-label-caps uppercase tracking-widest active:scale-[0.98]">
+            Revoke Access
+          </button>
+</div>
+<!-- Pair New Device Card -->
+<div class="rounded-xl border-2 border-dashed border-white/10 hover:border-primary/40 flex flex-col items-center justify-center p-xl gap-md cursor-pointer transition-all group bg-white/[0.01] hover:bg-white/[0.03]">
+<div class="w-16 h-16 rounded-full bg-primary/5 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[40px]">add</span>
+</div>
+<div class="text-center">
+<h3 class="font-h2 text-body-md font-bold mb-xs">Pair New Device</h3>
+<p class="text-label-caps text-on-surface-variant/60">Generate a unique authorization token</p>
+</div>
+</div>
+</div>
+<!-- Informational Footer Section -->
+<footer class="mt-32 p-lg border-t border-white/10 flex flex-col md:flex-row justify-between gap-lg items-start">
+<div class="max-w-md">
+<h4 class="font-label-caps text-primary mb-sm uppercase">Security Audit</h4>
+<p class="text-label-caps text-on-surface-variant">
+            All paired devices use end-to-end encrypted tunnels for inference requests. Revoking access will immediately terminate any active computation streams for that device.
+          </p>
+</div>
+<div class="flex gap-xl">
+<div class="flex flex-col gap-xs">
+<span class="text-label-caps text-on-surface-variant/40 uppercase">Total Devices</span>
+<span class="font-h1 text-h1 text-on-surface">03</span>
+</div>
+<div class="flex flex-col gap-xs">
+<span class="text-label-caps text-on-surface-variant/40 uppercase">Active Streams</span>
+<span class="font-h1 text-h1 text-secondary">01</span>
+</div>
+</div>
+</footer>
+</div>
+</main>
+<!-- Background Decorative Element -->
+<div class="fixed top-0 right-0 -z-10 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+<div class="fixed bottom-0 left-0 -z-10 w-[600px] h-[600px] bg-secondary/5 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/4 pointer-events-none"></div>
+</body></html>
