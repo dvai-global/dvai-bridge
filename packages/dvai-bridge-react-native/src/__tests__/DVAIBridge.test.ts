@@ -168,6 +168,116 @@ describe("DVAIBridge.start — offload config", () => {
   });
 });
 
+describe("DVAIBridge.start — license fields (v3.2.2)", () => {
+  it("forwards licenseKeyPath through to the TurboModule untouched", async () => {
+    RN.Platform.OS = "ios";
+    RN.__mockNativeModule.startBridge.mockResolvedValueOnce({
+      baseUrl: "http://127.0.0.1:38883/v1",
+      port: 38883,
+      backend: "llama",
+      modelId: "Llama-3.2-1B-Instruct.Q4_K_M",
+    });
+
+    await DVAIBridge.start({
+      backend: BackendKind.Llama,
+      modelPath: "/tmp/model.gguf",
+      licenseKeyPath: "/var/mobile/Containers/.../dvai-license.jwt",
+    });
+
+    expect(RN.__mockNativeModule.startBridge).toHaveBeenCalledTimes(1);
+    const callArgs = RN.__mockNativeModule.startBridge.mock.calls[0][0];
+    expect(callArgs.licenseKeyPath).toBe(
+      "/var/mobile/Containers/.../dvai-license.jwt",
+    );
+  });
+
+  it("forwards licenseToken through to the TurboModule untouched", async () => {
+    RN.Platform.OS = "android";
+    RN.__mockNativeModule.startBridge.mockResolvedValueOnce({
+      baseUrl: "http://127.0.0.1:38883/v1",
+      port: 38883,
+      backend: "litert",
+      modelId: "Gemma-2-2B-IT",
+    });
+
+    const fakeJwt =
+      "eyJhbGciOiJFUzI1NiIsImtpZCI6InRlc3Qta2V5In0." +
+      "eyJpc3MiOiJEVkFJLUJyaWRnZSJ9." +
+      "sig";
+
+    await DVAIBridge.start({
+      backend: BackendKind.LiteRT,
+      modelPath: "/data/data/com.example/files/model.litertlm",
+      licenseToken: fakeJwt,
+    });
+
+    expect(RN.__mockNativeModule.startBridge).toHaveBeenCalledTimes(1);
+    const callArgs = RN.__mockNativeModule.startBridge.mock.calls[0][0];
+    expect(callArgs.licenseToken).toBe(fakeJwt);
+  });
+
+  it("forwards both license fields together — native picks the priority", async () => {
+    RN.Platform.OS = "ios";
+    RN.__mockNativeModule.startBridge.mockResolvedValueOnce({
+      baseUrl: "http://127.0.0.1:38883/v1",
+      port: 38883,
+      backend: "llama",
+      modelId: "m",
+    });
+
+    await DVAIBridge.start({
+      backend: BackendKind.Llama,
+      modelPath: "/tmp/m.gguf",
+      licenseKeyPath: "/path/to/dvai-license.jwt",
+      licenseToken: "eyJ.fake.jwt",
+    });
+
+    const callArgs = RN.__mockNativeModule.startBridge.mock.calls[0][0];
+    expect(callArgs.licenseKeyPath).toBe("/path/to/dvai-license.jwt");
+    expect(callArgs.licenseToken).toBe("eyJ.fake.jwt");
+  });
+
+  it("omitted license fields are not silently added by the JS facade", async () => {
+    RN.Platform.OS = "ios";
+    RN.__mockNativeModule.startBridge.mockResolvedValueOnce({
+      baseUrl: "http://127.0.0.1:38883/v1",
+      port: 38883,
+      backend: "llama",
+      modelId: "m",
+    });
+
+    await DVAIBridge.start({
+      backend: BackendKind.Llama,
+      modelPath: "/tmp/m.gguf",
+    });
+
+    const callArgs = RN.__mockNativeModule.startBridge.mock.calls[0][0];
+    expect(callArgs.licenseKeyPath).toBeUndefined();
+    expect(callArgs.licenseToken).toBeUndefined();
+  });
+
+  it("native license-validation errors surface as DVAIBridgeError", async () => {
+    RN.Platform.OS = "ios";
+    const nativeErr = Object.assign(
+      new Error(
+        "license token signature did not verify against kid \"prod-2026-01\"",
+      ),
+      { code: "configurationInvalid" },
+    );
+    RN.__mockNativeModule.startBridge.mockRejectedValueOnce(nativeErr);
+
+    await expect(
+      DVAIBridge.start({
+        backend: BackendKind.Llama,
+        modelPath: "/tmp/m.gguf",
+        licenseToken: "tampered.jwt.token",
+      }),
+    ).rejects.toMatchObject({
+      kind: "configurationInvalid",
+    });
+  });
+});
+
 describe("DVAIBridge.addListener('pairingRequest')", () => {
   it("registers a listener for inbound pairing requests and returns a removable subscription", () => {
     const requests: unknown[] = [];
