@@ -14,8 +14,19 @@ namespace DVAIBridge;
 /// Identifier surfaced via <c>/v1/models</c>. Defaults to the model filename
 /// when <see cref="StartOptions.ModelId"/> was not supplied.
 /// </param>
+/// <param name="LicenseStatus">
+/// The license validation outcome produced at startup, or <c>null</c>
+/// when license validation was not run (legacy code paths / test
+/// fakes that bypass the facade's validator step).
+/// <c>Commercial</c> / <c>Trial</c> = paid; <c>FreeDev</c> = developer
+/// bypass; <c>FreeProd</c> / <c>FreeExpired</c> never reach here in
+/// production because the facade's strict
+/// <see cref="License.LicenseValidator.ValidateAndAssertAsync(System.Threading.CancellationToken)"/>
+/// throws before <c>StartAsync</c> returns.
+/// </param>
 public sealed record BoundServer(
     string BaseUrl,
     int Port,
     BackendKind Backend,
-    string ModelId);
+    string ModelId,
+    License.LicenseStatus? LicenseStatus = null);

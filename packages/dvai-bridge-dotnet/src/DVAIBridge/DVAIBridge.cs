@@ -201,6 +201,17 @@ public sealed class DVAIBridge : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(opts);
         ValidatePlatform(opts.Backend);
+
+        // BSL 1.1 license enforcement — validate BEFORE bringing the
+        // backend up. ValidateAndAssertAsync throws LicenseRequiredException
+        // for FreeProd / FreeExpired in production; dev-mode auto-bypasses.
+        var validator = new License.LicenseValidator(new License.LicenseValidatorOptions
+        {
+            Token = opts.LicenseToken,
+            Path = opts.LicenseKeyPath,
+        });
+        var licenseStatus = await validator.ValidateAndAssertAsync(ct).ConfigureAwait(false);
+
         try
         {
             var server = await _bridge.StartAsync(opts, ct).ConfigureAwait(false);
@@ -210,7 +221,7 @@ public sealed class DVAIBridge : IAsyncDisposable
                 var factory = PlatformBridgeFactory.ResolveDiscoveryFactory();
                 _offload = await OffloadSession.StartAsync(offloadConfig, factory, ct).ConfigureAwait(false);
             }
-            return server;
+            return server with { LicenseStatus = licenseStatus };
         }
         catch (DVAIBridgeException ex)
         {

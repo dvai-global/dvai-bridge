@@ -88,4 +88,22 @@ public sealed record StartOptions
     /// opt-in at v3.0.
     /// </summary>
     public OffloadConfig? Offload { get; init; }
+
+    /// <summary>
+    /// Optional path to a DVAI-Bridge offline license file (signed JWT).
+    /// When unset, the validator falls back to <c>DVAI_LICENSE_PATH</c>,
+    /// <c>DVAI_LICENSE_TOKEN</c>, <c>AppContext.BaseDirectory/dvai-license.jwt</c>,
+    /// and <c>%LOCALAPPDATA%/dvai-bridge/dvai-license.jwt</c> in turn.
+    /// See <see cref="License.LicenseValidator"/>.
+    /// </summary>
+    public string? LicenseKeyPath { get; init; }
+
+    /// <summary>
+    /// Optional inline license token (signed JWT string). Wins over
+    /// <see cref="LicenseKeyPath"/> and every env-var / auto-discovery
+    /// source. Useful for serverless / container deployments that inject
+    /// the license via secret rather than file.
+    /// See <see cref="License.LicenseValidator"/>.
+    /// </summary>
+    public string? LicenseToken { get; init; }
 }
