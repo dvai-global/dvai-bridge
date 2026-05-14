@@ -37,5 +37,8 @@
 
     <!-- mDNS / DNS-SD for desktop LAN peer discovery (Task 8e — Phase 3 distributed inference) -->
     <PackageVersion Include="Makaretu.Dns.Multicast" Version="0.27.0" />
+
+    <!-- Offline JWT license validator (ES256 verification) — used by DVAIBridge.License. -->
+    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.18.0" />
   </ItemGroup>
 </Project>

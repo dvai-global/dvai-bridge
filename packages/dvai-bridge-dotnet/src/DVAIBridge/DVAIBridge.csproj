@@ -47,6 +47,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    <!--
+      Offline JWT license validator (ES256 verification). Used by
+      DVAIBridge.License.LicenseValidator. Modern replacement for the
+      legacy System.IdentityModel.Tokens.Jwt — see Microsoft's docs:
+      https://aka.ms/IdentityModel/jwthandlers.
+    -->
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
   </ItemGroup>
 
 </Project>
