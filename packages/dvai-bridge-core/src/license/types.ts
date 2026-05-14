@@ -108,3 +108,38 @@ export type LicenseStatus =
 export function isPaidTier(status: LicenseStatus): boolean {
   return status.kind === "commercial" || status.kind === "trial";
 }
+
+/**
+ * Thrown by `LicenseValidator.validateAndAssert()` (and propagated from
+ * `DVAI.initialize()`) when an SDK consumer attempts to run the library
+ * in a production / release context without a valid commercial or trial
+ * license.
+ *
+ * The error message is intentionally verbose: it tells the developer
+ * exactly which check failed (missing file, expired, audience mismatch,
+ * etc.), how to resolve it, and where to put the license file once
+ * they have one. This is the front line of the BSL 1.1 commercial
+ * enforcement story — surface it clearly enough that a developer can
+ * unblock themselves without a support ticket.
+ *
+ * The `status` field carries the underlying `LicenseStatus` so
+ * programmatic callers can dispatch on `err.status.kind` if they
+ * want to handle "expired" differently from "missing".
+ */
+export class LicenseRequiredError extends Error {
+  /** Stable name set so `err.name === "LicenseRequiredError"` works
+   *  across module-boundary serialisation (e.g. Vite SSR). */
+  override readonly name = "LicenseRequiredError";
+
+  constructor(
+    message: string,
+    /** The underlying validator status that triggered the throw. */
+    public readonly status: LicenseStatus,
+  ) {
+    super(message);
+    // Restore the prototype chain for native-builtin Error in environments
+    // (older transpiled CJS targets, some sandboxed iframes) where it
+    // gets clobbered. Cheap insurance against `instanceof` surprises.
+    Object.setPrototypeOf(this, LicenseRequiredError.prototype);
+  }
+}

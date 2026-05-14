@@ -460,28 +460,15 @@ export class DVAI {
 		// Resolve "auto" backend
 		this.resolvedBackend = this.resolveBackend();
 
-		// 0. Validate license (offline JWT verification). Never throws —
-		//    a missing or invalid license collapses to free-tier rather
-		//    than blocking startup. The returned `LicenseStatus` is the
-		//    discriminated value the rest of the SDK reads to decide
-		//    whether to inject the "Powered by DVAI Bridge" attribution
-		//    badge. Surfaced through `this.licenseStatus` for host apps
-		//    (dashboards / dev tools) that want to display the licensee
-		//    name, expiry, or fallback reason.
-		this.licenseStatus = await this.validator.validate();
-		if (this.licenseStatus.kind === "free-prod") {
-			// eslint-disable-next-line no-console
-			console.warn(
-				`[DVAI-Bridge] Running in free-prod tier: ${this.licenseStatus.reason}`,
-			);
-		} else if (this.licenseStatus.kind === "free-expired") {
-			// eslint-disable-next-line no-console
-			console.warn(
-				`[DVAI-Bridge] License for "${this.licenseStatus.licensee}" ` +
-				`expired at ${new Date(this.licenseStatus.expiredAt * 1000).toISOString()}; ` +
-				`falling back to free tier`,
-			);
-		}
+		// 0. Validate license (offline JWT verification). THROWS
+		//    `LicenseRequiredError` in production / release contexts
+		//    when no valid commercial/trial license is found — that's
+		//    the BSL 1.1 enforcement point. Dev-mode environments
+		//    (localhost, NODE_ENV=test, DVAI_FORCE_DEV=1, etc.) bypass
+		//    the assert and return a `free-dev` status so developers
+		//    can iterate without a key. Surface the resolved status
+		//    through `this.licenseStatus` for host-app dashboards.
+		this.licenseStatus = await this.validator.validateAndAssert();
 
 		// Detect Web Worker context — MSW (service workers) are unavailable inside Web Workers.
 		const isWorkerContext =

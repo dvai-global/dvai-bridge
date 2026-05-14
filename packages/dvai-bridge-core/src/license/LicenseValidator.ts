@@ -41,10 +41,11 @@ import {
   discoverLicenseToken,
   type LicenseDiscoveryOptions,
 } from "./discovery.js";
-import type {
-  DvaiLicensePayload,
-  DvaiPlatform,
-  LicenseStatus,
+import {
+  LicenseRequiredError,
+  type DvaiLicensePayload,
+  type DvaiPlatform,
+  type LicenseStatus,
 } from "./types.js";
 
 export interface LicenseValidatorOptions extends LicenseDiscoveryOptions {
@@ -77,7 +78,20 @@ export class LicenseValidator {
     this.opts = opts;
   }
 
-  /** Run the full validation flow. Idempotent; safe to call multiple times. */
+  /**
+   * Validate WITHOUT throwing. Returns a `LicenseStatus` describing what
+   * the validator determined; never throws on missing / invalid /
+   * expired licenses. Useful for host-app dashboards that want to
+   * display the licensee / expiry / fallback reason without halting
+   * SDK startup, and for tests.
+   *
+   * The SDK's `initialize()` calls `validateAndAssert()` instead — that
+   * throws `LicenseRequiredError` for `free-prod` / `free-expired`,
+   * which is how the BSL 1.1 commercial-only-in-production policy is
+   * actually enforced at runtime.
+   *
+   * Idempotent; safe to call multiple times.
+   */
   async validate(): Promise<LicenseStatus> {
     // 1. Dev-mode bypass — license required only in production.
     const dev = detectDevMode();
@@ -106,6 +120,31 @@ export class LicenseValidator {
     const platform = detectPlatform();
     const audience = detectAudience();
     return await this.verifyToken(discovered.token, platform, audience);
+  }
+
+  /**
+   * Strict validation entry point used by the SDK at startup. Returns
+   * `LicenseStatus` on success (`commercial`, `trial`, `free-dev`) and
+   * THROWS `LicenseRequiredError` on `free-prod` / `free-expired`.
+   *
+   * This is the BSL 1.1 enforcement point: in production / release
+   * builds (any non-dev-mode environment), the SDK refuses to operate
+   * without a valid commercial or trial license. Developers running on
+   * localhost / debug builds / explicit DVAI_FORCE_DEV are unaffected
+   * — those return a `free-dev` status and the SDK proceeds normally.
+   *
+   * Use `validate()` instead when you want to inspect the status
+   * without halting startup (host-app dashboards, test fixtures).
+   */
+  async validateAndAssert(): Promise<LicenseStatus> {
+    const status = await this.validate();
+    if (status.kind === "free-prod") {
+      throw new LicenseRequiredError(buildRequiredErrorMessage(status), status);
+    }
+    if (status.kind === "free-expired") {
+      throw new LicenseRequiredError(buildRequiredErrorMessage(status), status);
+    }
+    return status;
   }
 
   private async verifyToken(
@@ -297,4 +336,52 @@ function base64UrlDecodeUtf8(s: string): string {
 
 function asMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Build the developer-facing error message for `LicenseRequiredError`.
+ * Intentionally verbose: it tells the developer exactly what failed,
+ * how to resolve it, where to put the license file, and how to bypass
+ * for local development. This message will be printed to a terminal /
+ * a browser console / a crash log somewhere — make it readable in all
+ * three contexts.
+ */
+function buildRequiredErrorMessage(status: LicenseStatus): string {
+  const header =
+    "\n" +
+    "DVAI-Bridge Commercial License Required\n" +
+    "=======================================\n";
+
+  const reason =
+    status.kind === "free-expired"
+      ? `License for "${status.licensee}" expired at ${new Date(
+          status.expiredAt * 1000,
+        ).toISOString()}.`
+      : status.kind === "free-prod"
+        ? status.reason
+        : "(unknown status)";
+
+  const remediation =
+    "\n" +
+    "This SDK is licensed under BSL 1.1 and requires a valid commercial\n" +
+    "or trial license to run in production / release builds.\n" +
+    "\n" +
+    "To resolve:\n" +
+    "  1. Obtain a license at https://deepvoiceai.com/dvai-bridge/license\n" +
+    "  2. Place the file at one of these locations (any will work):\n" +
+    "       - <project-root>/dvai-license.jwt  (auto-discovered)\n" +
+    "       - the path you pass as DVAIConfig.licenseKeyPath\n" +
+    "       - the path in $DVAI_LICENSE_PATH\n" +
+    "       - inline JWT in DVAIConfig.licenseToken or $DVAI_LICENSE_TOKEN\n" +
+    "  3. Re-run.\n" +
+    "\n" +
+    "Developing locally? The SDK auto-detects dev mode on:\n" +
+    "  - localhost / 127.0.0.1 / *.local hostnames in the browser\n" +
+    "  - NODE_ENV=test or NODE_ENV=development in Node\n" +
+    "  - DVAI_FORCE_DEV=1 environment variable (explicit override)\n" +
+    "  - Capacitor.DEBUG=true on hybrid mobile builds\n" +
+    "Any of these silences this error and lets the SDK run without a\n" +
+    "license.\n";
+
+  return header + "\n" + reason + "\n" + remediation;
 }

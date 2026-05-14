@@ -8,6 +8,7 @@ export { LicenseValidator } from "./LicenseValidator.js";
 export type { LicenseValidatorOptions } from "./LicenseValidator.js";
 export {
   isPaidTier,
+  LicenseRequiredError,
   type DvaiLicensePayload,
   type DvaiPlatform,
   type LicenseStatus,

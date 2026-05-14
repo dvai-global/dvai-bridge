@@ -1,12 +1,19 @@
 /**
  * Tests for the JWT-based license validator.
  *
- * The validator never throws on validation failure — it returns a
- * `LicenseStatus` with `kind: "free-prod"` (or `"free-expired"`) and
- * a human-readable `reason`. These tests assert both the happy path
- * (commercial / trial tokens accepted with the right runtime context)
- * and every documented failure mode (tampered signature, wrong kid,
- * expired, audience mismatch, platform mismatch, etc.).
+ * Two APIs are tested:
+ *   - `validate()`           — never throws; returns `LicenseStatus` with
+ *                              `kind: "free-prod" | "free-expired"` for
+ *                              failure cases. Used by host-app dashboards
+ *                              that want to inspect status without halting.
+ *   - `validateAndAssert()`  — throws `LicenseRequiredError` for the
+ *                              same failure cases. Used by `DVAI.initialize()`
+ *                              to enforce the BSL 1.1 commercial-only-in-
+ *                              production policy.
+ *
+ * Both happy paths and every documented failure mode (tampered signature,
+ * wrong kid, expired, audience mismatch, platform mismatch, missing
+ * file, alg confusion) are covered against both APIs.
  *
  * All tests use a freshly-generated test keypair so they don't depend
  * on the placeholder key in `publicKeys.ts`. The injected `publicKeys`
@@ -20,7 +27,7 @@ import * as os from "node:os";
 import { generateKeyPair, exportJWK, SignJWT } from "jose";
 import { LicenseValidator } from "../license/LicenseValidator.js";
 import type { DvaiPublicKeyJwk } from "../license/publicKeys.js";
-import type { DvaiPlatform } from "../license/types.js";
+import { LicenseRequiredError, type DvaiPlatform } from "../license/types.js";
 
 // Test fixture state. Generated once per file in beforeAll so the tests
 // run fast without re-deriving keys on every case. The private-key type
@@ -399,5 +406,108 @@ describe("LicenseValidator — token discovery", () => {
     if (status.kind === "commercial") {
       expect(status.licensee).toBe("Inline Co");
     }
+  });
+});
+
+describe("LicenseValidator — validateAndAssert (BSL 1.1 enforcement)", () => {
+  it("returns the status (without throwing) for commercial licenses", async () => {
+    process.env.DVAI_FORCE_PROD = "1";
+    process.env.DVAI_AUDIENCE = "acme.com";
+    const token = await mintLicense({ aud: ["acme.com"], platforms: ["node"] });
+    const status = await new LicenseValidator({ token, publicKeys }).validateAndAssert();
+    expect(status.kind).toBe("commercial");
+  });
+
+  it("returns the status (without throwing) for trial licenses", async () => {
+    process.env.DVAI_FORCE_PROD = "1";
+    process.env.DVAI_AUDIENCE = "acme.com";
+    const token = await mintLicense({
+      aud: ["acme.com"],
+      platforms: ["node"],
+      tier: "trial",
+    });
+    const status = await new LicenseValidator({ token, publicKeys }).validateAndAssert();
+    expect(status.kind).toBe("trial");
+  });
+
+  it("returns the status (without throwing) for free-dev (localhost/debug)", async () => {
+    process.env.DVAI_FORCE_DEV = "1";
+    const status = await new LicenseValidator({ publicKeys }).validateAndAssert();
+    expect(status.kind).toBe("free-dev");
+  });
+
+  it("THROWS LicenseRequiredError when no license is found in production", async () => {
+    process.env.DVAI_FORCE_PROD = "1";
+    const v = new LicenseValidator({ publicKeys });
+    await expect(v.validateAndAssert()).rejects.toThrow(LicenseRequiredError);
+  });
+
+  it("THROWS LicenseRequiredError with status=free-prod for missing license", async () => {
+    process.env.DVAI_FORCE_PROD = "1";
+    const v = new LicenseValidator({ publicKeys });
+    try {
+      await v.validateAndAssert();
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(LicenseRequiredError);
+      const lre = err as LicenseRequiredError;
+      expect(lre.status.kind).toBe("free-prod");
+      expect(lre.name).toBe("LicenseRequiredError");
+      // Error message should mention how to resolve.
+      expect(lre.message).toContain("Commercial License Required");
+      expect(lre.message).toContain("dvai-license.jwt");
+      expect(lre.message).toContain("DVAI_LICENSE_PATH");
+    }
+  });
+
+  it("THROWS LicenseRequiredError with status=free-expired for expired tokens", async () => {
+    process.env.DVAI_FORCE_PROD = "1";
+    process.env.DVAI_AUDIENCE = "acme.com";
+    const pastSeconds = Math.floor(Date.now() / 1000) - 3600;
+    const token = await mintLicense({
+      aud: ["acme.com"],
+      platforms: ["node"],
+      licensee: "Expired Co",
+      exp: pastSeconds,
+    });
+    const v = new LicenseValidator({ token, publicKeys });
+    try {
+      await v.validateAndAssert();
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(LicenseRequiredError);
+      const lre = err as LicenseRequiredError;
+      expect(lre.status.kind).toBe("free-expired");
+      // Error message should mention the licensee + expiry time.
+      expect(lre.message).toContain("Expired Co");
+    }
+  });
+
+  it("THROWS for tampered tokens in production", async () => {
+    process.env.DVAI_FORCE_PROD = "1";
+    process.env.DVAI_AUDIENCE = "acme.com";
+    const token = await mintLicense({ aud: ["acme.com"], platforms: ["node"] });
+    const parts = token.split(".");
+    if (!parts[1]) throw new Error("malformed test token");
+    const corrupted = `${parts[0]}.${parts[1].slice(0, -2)}XX.${parts[2]}`;
+    const v = new LicenseValidator({ token: corrupted, publicKeys });
+    await expect(v.validateAndAssert()).rejects.toThrow(LicenseRequiredError);
+  });
+
+  it("THROWS for audience-mismatched tokens in production", async () => {
+    process.env.DVAI_FORCE_PROD = "1";
+    process.env.DVAI_AUDIENCE = "widget.io";
+    const token = await mintLicense({ aud: ["acme.com"], platforms: ["node"] });
+    const v = new LicenseValidator({ token, publicKeys });
+    await expect(v.validateAndAssert()).rejects.toThrow(LicenseRequiredError);
+  });
+
+  it("does NOT throw in dev mode even when license is invalid", async () => {
+    // The dev-mode bypass short-circuits BEFORE any token verification,
+    // so a developer running on localhost never sees a license error.
+    process.env.DVAI_FORCE_DEV = "1";
+    const v = new LicenseValidator({ token: "not-even-a-jwt", publicKeys });
+    const status = await v.validateAndAssert();
+    expect(status.kind).toBe("free-dev");
   });
 });
