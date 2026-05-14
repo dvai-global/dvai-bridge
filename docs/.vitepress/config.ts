@@ -28,7 +28,16 @@ export default defineConfig({
 	],
 	cleanUrls: true,
 	vite: {
-		plugins: [llmstxt()],
+		// We ship our own hand-curated `docs/llms.txt` + `docs/llms-full.txt`
+		// (see `docs/guide/ai-agents.md` for why). The plugin's per-page
+		// `.md` mirroring is still useful, but the auto-generated index +
+		// concatenated files would clobber ours, so they're disabled here.
+		plugins: [
+			llmstxt({
+				generateLLMsTxt: false,
+				generateLLMsFullTxt: false,
+			}),
+		],
 	},
 	markdown: {
 		linkify: false,
@@ -68,7 +77,24 @@ export default defineConfig({
 					{ text: "Self-Hosting Rendezvous (v3.0)", link: "/guide/self-hosting-rendezvous" },
 					{ text: "DVAI Hub (v3.1)", link: "/guide/dvai-hub" },
 					{ text: "DVAI Hub — Developer Fork (v3.1)", link: "/guide/dvai-hub-developer-fork" },
+					{ text: "Example apps", link: "/guide/examples" },
+					{ text: "Vibe-coding with DVAI-Bridge", link: "/guide/ai-agents" },
 					{ text: "vs. Other Tools", link: "/guide/comparison" },
+				],
+			},
+			{
+				text: "License setup",
+				collapsed: false,
+				items: [
+					{ text: "Overview", link: "/guide/license/" },
+					{ text: "Web", link: "/guide/license/web" },
+					{ text: "Node", link: "/guide/license/node" },
+					{ text: "iOS", link: "/guide/license/ios" },
+					{ text: "Android", link: "/guide/license/android" },
+					{ text: ".NET", link: "/guide/license/dotnet" },
+					{ text: "Flutter", link: "/guide/license/flutter" },
+					{ text: "React Native", link: "/guide/license/react-native" },
+					{ text: "Capacitor", link: "/guide/license/capacitor" },
 				],
 			},
 			{

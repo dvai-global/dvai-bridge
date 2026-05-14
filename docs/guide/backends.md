@@ -1,8 +1,35 @@
 # Backends
 
-DVAI-Bridge supports multiple backend engines for local AI inference. You can choose the one that best fits your model format and performance requirements.
+## What does this do?
 
-## WebLLM (Default)
+A "backend" is the inference engine that actually runs the model.
+DVAI-Bridge picks one for you when you set `backend: "auto"`:
+WebLLM in browsers, llama.cpp on mobile + desktop, the platform-native
+runtime (Foundation, CoreML, MLX, MediaPipe, LiteRT) when you opt
+in. You usually don't think about this.
+
+If you just want to ship:
+
+```ts
+const dvai = new DVAI({ backend: "auto", modelId: "Llama-3.2-3B-Instruct-Q4_K_M" });
+await dvai.initialize();
+```
+
+The rest of this page is for when `auto` doesn't pick what you want
+— e.g. you specifically need WebLLM's MLC compilation, you're loading
+an exotic multimodal model that needs the declarative loader, or
+you're writing the custom-pipeline-factory escape hatch.
+
+::: tip Quick picker
+- Browser, just need text generation? → `backend: "webllm"` (or
+  `auto`).
+- Browser, need Hugging Face ONNX models or multimodal? → `backend:
+  "transformers"`.
+- Node / Electron / desktop? → `backend: "native"` (llama.cpp).
+- iOS / Android native? → use the native SDK's `BackendKind` enum.
+:::
+
+## WebLLM (default for browser)
 
 The **WebLLM** backend uses `@mlc-ai/web-llm` to run high-performance, MLC-compiled models via WebGPU.
 

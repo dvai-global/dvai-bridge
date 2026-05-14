@@ -1,12 +1,36 @@
 # Introduction
 
-**DVAI-Bridge** is a library that embeds a local OpenAI-compatible HTTP
-server inside your application — in any major client-development
-language, on any major client platform. You import it, call
-`initialize()` (or `start()` on native SDKs), and your app exposes the
-same OpenAI REST API on loopback that your code would have called in
-the cloud. No Ollama install, no backend, no API keys, no cloud
-dependency.
+## What does this do?
+
+You're shipping an app. You want it to call an LLM. You don't want to
+pay for OpenAI per token, you don't want to run a server, and you
+don't want your users to install Ollama. DVAI-Bridge embeds a local
+OpenAI-compatible server right inside your app — so the same agent
+code you wrote for OpenAI keeps working, just locally.
+
+```ts
+import { DVAI } from "@dvai-bridge/core";
+import OpenAI from "openai";
+
+const dvai = new DVAI({ backend: "auto" });
+await dvai.initialize();
+
+const openai = new OpenAI({ baseURL: dvai.baseUrl, apiKey: "ignored" });
+const r = await openai.chat.completions.create({
+  model: "any",
+  messages: [{ role: "user", content: "Hello!" }],
+});
+```
+
+That's the whole point. Read the rest of this page if you want the
+architectural story — but the snippet above is the contract.
+
+If you just want to ship:
+
+- Pick your SDK from the [License setup](./license/) index and follow
+  the per-platform walkthrough.
+- Set `backend: "auto"` and trust the defaults.
+- Point your existing OpenAI client at `dvai.baseUrl`.
 
 ## The MOAT
 

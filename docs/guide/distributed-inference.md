@@ -1,8 +1,40 @@
 # Distributed inference (v3.0+)
 
-A v3.0 dvai-bridge instance can offload its inference to another
-dvai-bridge instance running on a stronger device when the local
-device's hardware can't serve the model fast enough. Two paths:
+## What does this do?
+
+If the phone in someone's pocket is too slow to run a model, their
+laptop on the same Wi-Fi probably isn't. DVAI-Bridge can spot that
+mid-request and route the inference to the laptop, all while the
+caller still sees a regular OpenAI HTTP response. They never know.
+
+If you just want to turn it on:
+
+```ts
+import { DVAI } from "@dvai-bridge/core";
+
+const dvai = new DVAI({
+  backend: "auto",
+  modelId: "Llama-3.2-3B-Instruct-Q4_K_M",
+  offload: {
+    enabled: true,
+    discoverLAN: true,
+    onPairingRequest: async (peer) => myAppConfirm(peer.deviceName),
+  },
+});
+await dvai.initialize();
+// Your existing OpenAI code keeps working. No request-side changes.
+```
+
+That's enough for the LAN path. The rest of this page covers:
+
+- The opt-in **internet** path via a self-hosted rendezvous server.
+- All `OffloadConfig` fields with defaults and edge cases.
+- The HMAC identity headers added in v3.1 for cross-process trust.
+- The architecture diagrams.
+
+Skip to the section that matches what you're building.
+
+## The two paths
 
 1. **LAN**: zero setup. Devices on the same Wi-Fi auto-discover each
    other via mDNS / Bonjour and offload directly.
@@ -15,8 +47,7 @@ The OpenAI HTTP wire surface stays unchanged. Your consumer code
 points at `dvai.baseUrl` and writes plain OpenAI requests; the
 library decides per-request whether to run locally or proxy to a peer.
 
-This page is the consumer-facing config + behaviour. The
-[API reference](/reference/api#offloadconfig-v30) lists every
+The [API reference](/reference/api#offloadconfig-v30) lists every
 `OffloadConfig` field with default values; the
 [wire-protocol section](#wire-protocol-additions-in-v3-1) below
 covers the v3.1 handshake + HMAC-signed identity headers; the

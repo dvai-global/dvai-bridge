@@ -1,0 +1,131 @@
+# DVAI-Bridge
+
+> One local OpenAI-compatible HTTP server, embedded in your Web, Node,
+> iOS, Android, React Native, Flutter, .NET, or Capacitor app. Seven
+> SDKs, nine backends, one HTTP surface. Zero cloud cost, zero install
+> for your users. BSL 1.1 licensed; commercial licenses required in
+> production.
+
+Point any OpenAI-compatible client at `dvai.baseUrl` (or the equivalent
+on each native SDK) and it talks to a local model. Library, not
+product: imported into the host app, runs inside the app process, no
+sidecar / Ollama / Docker. Auto-recovery on backend failure, port
+fallback on HTTP collisions, MSW or real HTTP transport selected per
+runtime.
+
+## Guide
+
+- [Introduction](https://docs.dvai-bridge.com/guide/introduction): What
+  DVAI-Bridge is, the problem it solves, the seven supported SDKs, and
+  the backend matrix.
+- [Getting started](https://docs.dvai-bridge.com/guide/getting-started):
+  Install, init, first chat completion in Web + Node + React.
+- [Backends](https://docs.dvai-bridge.com/guide/backends): WebLLM,
+  Transformers.js v4 (incl. declarative multimodal loader + custom
+  pipeline factory), llama.cpp, MLX, MediaPipe, LiteRT, ONNX Runtime
+  GenAI, ML.NET.
+- [Transports](https://docs.dvai-bridge.com/guide/transports): MSW vs.
+  HTTP vs. Capacitor — how the OpenAI surface is exposed per runtime.
+- [Native LLM (Capacitor)](https://docs.dvai-bridge.com/guide/native-backend):
+  Capacitor hybrid app integration.
+- [Capacitor quickstart](https://docs.dvai-bridge.com/guide/quickstart-capacitor):
+  Step-by-step Capacitor + llama.cpp boot.
+- [iOS Native SDK](https://docs.dvai-bridge.com/guide/ios-native-sdk):
+  Swift apps via the `DVAIBridge` package; backends, model loading,
+  HTTP server lifecycle.
+- [Android Native SDK](https://docs.dvai-bridge.com/guide/android-native-sdk):
+  Kotlin apps via `co.deepvoiceai:dvai-bridge`.
+- [React Native SDK](https://docs.dvai-bridge.com/guide/react-native-sdk):
+  TurboModule on RN ≥ 0.77 (Bridgeless).
+- [Flutter SDK](https://docs.dvai-bridge.com/guide/flutter-sdk): Dart
+  via `dvai_bridge`, Pigeon-typed bindings.
+- [.NET SDK](https://docs.dvai-bridge.com/guide/dotnet-sdk): MAUI,
+  Avalonia, WinUI, console; the `DVAIBridge` NuGet family.
+- [MLX backend](https://docs.dvai-bridge.com/guide/mlx-backend):
+  Apple-Silicon Mac / iPhone / iPad optimised path.
+- [Model distribution](https://docs.dvai-bridge.com/guide/model-distribution):
+  Hosting + verifying GGUF / ONNX / .task / .tflite checkpoints.
+- [Multimodal](https://docs.dvai-bridge.com/guide/multimodal): Text +
+  image + audio models (Gemma 4, LLaVA, Whisper, etc.) via the
+  declarative loader.
+- [Tested models](https://docs.dvai-bridge.com/guide/tested-models):
+  Per-backend list of validated checkpoints.
+- [Auto-recovery & robustness](https://docs.dvai-bridge.com/guide/auto-recovery):
+  Blank-chunk detection, timeout, bounded reload loop on fatal errors.
+- [Distributed inference (v3.0+)](https://docs.dvai-bridge.com/guide/distributed-inference):
+  Phone-to-laptop offload via mDNS or self-hosted rendezvous.
+- [Self-hosting rendezvous (v3.0)](https://docs.dvai-bridge.com/guide/self-hosting-rendezvous):
+  Cross-network pairing without a public service.
+- [DVAI Hub (v3.1)](https://docs.dvai-bridge.com/guide/dvai-hub): The
+  brand-neutral installable utility that packages the strong-peer side.
+- [DVAI Hub — developer fork (v3.1)](https://docs.dvai-bridge.com/guide/dvai-hub-developer-fork):
+  Self-build / private-distribute the Hub.
+- [vs. other tools](https://docs.dvai-bridge.com/guide/comparison):
+  How DVAI-Bridge maps onto Ollama, LM Studio, MLX, llama.cpp, WebLLM.
+
+## License setup
+
+- [Index](https://docs.dvai-bridge.com/guide/license/): Per-platform
+  index. Pick yours.
+- [Web](https://docs.dvai-bridge.com/guide/license/web): Drop
+  `dvai-license.jwt` in `public/`; SDK fetches `/dvai-license.jwt`.
+- [Node](https://docs.dvai-bridge.com/guide/license/node): Project-root
+  `dvai-license.jwt` or `DVAI_LICENSE_PATH` env var.
+- [iOS](https://docs.dvai-bridge.com/guide/license/ios): Bundle resource
+  in the Xcode project; loaded via `Bundle.main`.
+- [Android](https://docs.dvai-bridge.com/guide/license/android):
+  `src/main/assets/dvai-license.jwt`.
+- [.NET](https://docs.dvai-bridge.com/guide/license/dotnet): `.csproj`
+  `<None>` content + MAUI asset for mobile.
+- [Flutter](https://docs.dvai-bridge.com/guide/license/flutter): `assets/`
+  + `pubspec.yaml` entry; `rootBundle` discovery.
+- [React Native](https://docs.dvai-bridge.com/guide/license/react-native):
+  iOS Resources + Android `assets/`.
+- [Capacitor](https://docs.dvai-bridge.com/guide/license/capacitor):
+  Webview `public/` folder; bundled by `cap sync`.
+
+## AI agents
+
+- [Vibe-coding with DVAI-Bridge](https://docs.dvai-bridge.com/guide/ai-agents):
+  How to point Cursor / Claude Code / Copilot at the docs, plus a
+  copy-pasteable system-prompt context block.
+- [`llms-full.txt`](https://docs.dvai-bridge.com/llms-full.txt): Every
+  doc concatenated for one-shot context loading.
+
+## Reference
+
+- [Core options](https://docs.dvai-bridge.com/reference/api): Every
+  `DVAIConfig` field (JS/TS) with defaults.
+- [React hooks](https://docs.dvai-bridge.com/reference/react):
+  `DVAIProvider`, `useDVAI`, `useChatCompletion`.
+- [Vanilla JS](https://docs.dvai-bridge.com/reference/vanilla): The
+  framework-agnostic `VanillaDVAI` API.
+
+## Examples (in-repo)
+
+- [Examples index + matrix](https://docs.dvai-bridge.com/guide/examples):
+  Build + run instructions for all 18 example apps.
+- Source: [`examples/`](https://github.com/Westenets/dvai-bridge/tree/main/examples).
+
+## Migration guides
+
+- [v3.0 → v3.1](https://docs.dvai-bridge.com/migration/v3.0-to-v3.1)
+- [v2.4 → v3.0](https://docs.dvai-bridge.com/migration/v2.4-to-v3.0)
+- [v2.3 → v2.4](https://docs.dvai-bridge.com/migration/v2.3-to-v2.4)
+- [v2.2 → v2.3](https://docs.dvai-bridge.com/migration/v2.2-to-v2.3)
+- [v2.1 → v2.2](https://docs.dvai-bridge.com/migration/v2.1-to-v2.2)
+- [v2.0 → v2.1](https://docs.dvai-bridge.com/migration/v2.0-to-v2.1)
+- [v1.6 → v2.0](https://docs.dvai-bridge.com/migration/v1.6-to-v2.0)
+- [v1.5 → v1.6](https://docs.dvai-bridge.com/migration/v1.5-to-v1.6)
+
+## Optional
+
+- [Contributing — iOS](https://docs.dvai-bridge.com/development/contributing-ios)
+- [Contributing — Android](https://docs.dvai-bridge.com/development/contributing-android)
+- [Contributing — React Native](https://docs.dvai-bridge.com/development/contributing-react-native)
+- [Contributing — Flutter](https://docs.dvai-bridge.com/development/contributing-flutter)
+- [Contributing — .NET](https://docs.dvai-bridge.com/development/contributing-dotnet)
+- [Testing](https://docs.dvai-bridge.com/development/testing)
+- [Handler parity](https://docs.dvai-bridge.com/development/handler-parity)
+- [Mac remote builds](https://docs.dvai-bridge.com/development/mac-remote-builds)
+- [Distributed inference testing](https://docs.dvai-bridge.com/development/distributed-inference-testing)

@@ -1,10 +1,29 @@
 # Transports
 
-`dvai-bridge` exposes a single OpenAI-compatible HTTP surface on every
-platform it supports — browser, Node, Electron, Capacitor mobile, native
-Android (AAR), native iOS (Swift Package), and .NET desktop (NuGet). The
-transport underneath is selected automatically based on the runtime
-environment, so the same host-app code works everywhere.
+## What does this do?
+
+The same call — `dvai.initialize()` — has to expose an OpenAI HTTP API
+in a browser tab, a Node process, an Android APK, and an iOS app
+bundle. None of those allow exactly the same thing. The "transport"
+layer is the glue that picks the right approach per runtime.
+
+If you just want to ship: you don't have to touch this. The default
+(`transport: "auto"`) does the right thing — browsers get MSW, every
+other runtime gets a real HTTP server on `127.0.0.1:38883`, and you
+just read `dvai.baseUrl`. The rest of the page is for when you need to
+override (forcing MSW in tests, picking a different port, dealing with
+CORS / Private Network Access).
+
+```ts
+// Default — picks MSW or HTTP automatically.
+const dvai = new DVAI({});
+
+// Force MSW (browser only — fails elsewhere):
+new DVAI({ transport: "msw" });
+
+// Force HTTP (Node only — fails in the browser):
+new DVAI({ transport: "http", httpBasePort: 40000 });
+```
 
 ## How selection works
 

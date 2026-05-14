@@ -1,6 +1,43 @@
-# Getting Started
+# Getting started
 
-Follow these steps to integrate DVAI-Bridge into your project.
+## What does this do?
+
+DVAI-Bridge runs an OpenAI-compatible local server inside your app.
+You call `initialize()`, you read `dvai.baseUrl`, you point any OpenAI
+SDK at it. No cloud calls, no install for your users.
+
+If you just want to ship:
+
+```bash
+pnpm add @dvai-bridge/core @dvai-bridge/react @huggingface/transformers
+```
+
+```tsx
+import { DVAIProvider, useDVAI } from "@dvai-bridge/react";
+
+function App() {
+  return (
+    <DVAIProvider config={{ backend: "auto" }}>
+      <Chat />
+    </DVAIProvider>
+  );
+}
+
+function Chat() {
+  const { isReady, baseUrl } = useDVAI();
+  // Point any OpenAI SDK at `baseUrl` and you're done.
+  return <div>AI is {isReady ? "Ready" : "Loading…"}</div>;
+}
+```
+
+That's the whole library, end to end. The rest of this page covers
+the longer-form options (Vanilla JS, Node, custom models, embeddings)
+in case the React snippet above doesn't match your stack.
+
+::: tip Ready to ship to production?
+You'll need a license JWT before the SDK runs outside `localhost`.
+See [License setup](./license/) for the per-platform walkthrough.
+:::
 
 ## Installation
 
