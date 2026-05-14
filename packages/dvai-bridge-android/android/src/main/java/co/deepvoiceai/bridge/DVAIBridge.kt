@@ -2,6 +2,8 @@ package co.deepvoiceai.bridge
 
 import android.content.Context
 import android.os.Build
+import co.deepvoiceai.bridge.license.LicenseStatus
+import co.deepvoiceai.bridge.license.LicenseValidator
 import co.deepvoiceai.bridge.llama.core.ModelDownloader
 import co.deepvoiceai.bridge.shared.core.CorsConfig
 import co.deepvoiceai.bridge.shared.core.capability.CapabilityCache
@@ -178,6 +180,42 @@ object DVAIBridge {
         broadcaster.emit(ProgressEvent.Started(phase = "start"))
 
         // ---------------------------------------------------------------
+        // v3.3 — offline JWT license validation.
+        //
+        // BSL 1.1 enforcement: in production (non-DEBUG) Android builds
+        // the SDK refuses to start without a valid commercial / trial
+        // license. Debug builds (BuildConfig.DEBUG=true, FLAG_DEBUGGABLE,
+        // or DVAI_FORCE_DEV=1) skip enforcement entirely.
+        //
+        // Runs BEFORE backend init so failed validation aborts cleanly
+        // without downloading a model or binding a port.
+        // ---------------------------------------------------------------
+        val ctxForLicense = applicationContext
+            ?: throw DVAIBridgeError.ConfigurationInvalid(
+                "DVAIBridge.init(context) must be called before start().",
+            )
+        val licenseStatus: LicenseStatus = try {
+            LicenseValidator(
+                context = ctxForLicense,
+                token = opts.licenseToken,
+                path = opts.licenseKeyPath,
+                hostBuildConfigDebug = opts.hostBuildConfigDebug,
+            ).validateAndAssert()
+        } catch (e: co.deepvoiceai.bridge.license.LicenseRequiredError) {
+            // Surface the license failure on the progress stream so host UIs
+            // can render the error inline; wrap as BackendError because the
+            // progress sealed class' Failed.error is DVAIBridgeError-typed.
+            // The original LicenseRequiredError is rethrown unchanged.
+            broadcaster.emit(
+                ProgressEvent.Failed(
+                    phase = "license",
+                    error = DVAIBridgeError.BackendError(e),
+                ),
+            )
+            throw e
+        }
+
+        // ---------------------------------------------------------------
         // v3.2 Phase 5 — pre-init capability gate.
         //
         // Runs the heuristic (no model required) and decides:
@@ -259,7 +297,7 @@ object DVAIBridge {
         }
 
         // ---- Public-facing server: backend (no offload) OR proxy (offload) ----
-        val server: BoundServer = if (proxyEnabled) {
+        val rawServer: BoundServer = if (proxyEnabled) {
             // Bring up offload services (discovery + pairing) BEFORE proxy
             // start so the proxy can read the live peer list on first request.
             try {
@@ -298,6 +336,10 @@ object DVAIBridge {
         } else {
             backendServer!!
         }
+
+        // Attach the license status so host apps can inspect the
+        // licensee / expiry without re-running the validator.
+        val server: BoundServer = rawServer.copy(licenseStatus = licenseStatus)
 
         activeServer = server
         activeBackend = resolved
