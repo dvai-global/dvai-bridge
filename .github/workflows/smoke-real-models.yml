@@ -1,14 +1,21 @@
 name: Smoke — real models
 
-# Nightly + on-demand smoke test using a small public GGUF model.
+# On-demand + release-gate smoke test using a small public GGUF model.
 # Verifies mechanics (load → respond → free) only, not output quality.
 # iOS uses the self-hosted ARM64 macOS runner; Android uses an
-# emulated runner.
+# emulated runner — both expensive, so we don't fire on every PR.
+#
+# Trigger model (matches the transformers.js / llama.cpp posture on
+# expensive jobs):
+#   - workflow_dispatch: ad-hoc, with optional model overrides.
+#   - release: types: [published]: final gate after you click
+#     "Publish release" in the GitHub UI, before consumers pull
+#     the new version from npm / Maven / NuGet / pub.dev.
+# No cron — nightly smokes without a watch rotation are noise.
 
 on:
-  schedule:
-    # 03:17 UTC daily — off-peak for both NA and EU runners.
-    - cron: '17 3 * * *'
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       model_url:

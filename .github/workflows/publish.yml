@@ -1,14 +1,28 @@
 name: Publish Packages
 
-# on:
-#   push:
-#     branches:
-#       - main
-#     tags:
-#       - 'v*'
+# CD pipeline for the npm/GitHub-Packages publish. Fires when either:
+#   - A GitHub Release is published via the UI (release: published), or
+#   - A v*.*.* tag is pushed (push: tags) — covers tag-first flows
+#     where you cut the tag from the CLI before adding release notes.
+#   - workflow_dispatch as a break-glass for republishes / dry runs.
+#
+# Concurrency: keyed on github.ref so a release-published + tag-push
+# pair for the same version queues rather than running in parallel.
+# The npm registry rejects duplicate-version publishes with 403, so
+# at most one of the two will actually push artefacts; the other
+# fails-fast and is harmless.
 
 on:
-  workflow_dispatch: # Enable manual trigger only
+  release:
+    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-and-publish:
