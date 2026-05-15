@@ -95,9 +95,20 @@ class DvaiPublicKey {
 /// };
 /// ```
 const Map<String, DvaiPublicKey> publicKeys = <String, DvaiPublicKey>{
-  // PLACEHOLDER — replace with the output of
-  // scripts/license/generate-keypair.mjs before issuing any real
-  // licenses. See [DvaiPublicKey] for the full rotation procedure.
+  // Production key, kid `2026-05`. Generated 2026-05-15 by
+  // scripts/license/generate-keypair.mjs. The matching private key
+  // lives in the operator's secrets manager.
+  '2026-05': DvaiPublicKey(
+    x: '2Y8TuhnlE4tiVDtliozYTgc1TAqi4_TBTI6FHe1p_Vw',
+    y: 'pyxMJHj10HPe2hnpJvMpnZ4AzpYZRfqGEMhpBr1-Oto',
+    kid: '2026-05',
+  ),
+  // PLACEHOLDER — used by the SDK's own unit tests and by the sample
+  // license printed by `generate-keypair.mjs`. The validator REFUSES
+  // to accept tokens signed under this kid unless
+  // `allowPlaceholderKey: true` is passed to the [LicenseValidator]
+  // constructor (test-only escape hatch). Safe to keep in production
+  // builds; remove only if you want test fixtures to stop working.
   'placeholder-do-not-ship': DvaiPublicKey(
     x: 'MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4',
     y: '4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM',

@@ -51,9 +51,24 @@ export interface DvaiPublicKeyJwk {
  *   };
  */
 export const DVAI_PUBLIC_KEYS: Record<string, DvaiPublicKeyJwk> = {
-  // PLACEHOLDER — replace with the output of scripts/license/generate-keypair.mjs
-  // before issuing any real licenses. See DvaiPublicKeyJwk JSDoc above for the
-  // full rotation procedure.
+  // Production key, kid `2026-05`. Generated 2026-05-15 by
+  // scripts/license/generate-keypair.mjs. The matching private key
+  // lives in the operator's secrets manager.
+  "2026-05": {
+    kty: "EC",
+    crv: "P-256",
+    x: "2Y8TuhnlE4tiVDtliozYTgc1TAqi4_TBTI6FHe1p_Vw",
+    y: "pyxMJHj10HPe2hnpJvMpnZ4AzpYZRfqGEMhpBr1-Oto",
+    alg: "ES256",
+    use: "sig",
+    kid: "2026-05",
+  },
+  // PLACEHOLDER — used by the SDK's own unit tests and by the sample
+  // license printed by `generate-keypair.mjs`. The validator REFUSES to
+  // accept tokens signed under this kid unless allowPlaceholderKey is
+  // explicitly set (DVAI_LICENSE_ALLOW_PLACEHOLDER=1 env var, or the
+  // allowPlaceholderKey constructor option). Safe to keep in production
+  // builds; remove only if you want test fixtures to stop working.
   "placeholder-do-not-ship": {
     kty: "EC",
     crv: "P-256",

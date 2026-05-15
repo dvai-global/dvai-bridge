@@ -70,10 +70,24 @@ public static class PublicKeys
     public static readonly IReadOnlyDictionary<string, DvaiPublicKey> Default =
         new Dictionary<string, DvaiPublicKey>
         {
-            // PLACEHOLDER — replace with the output of
-            // scripts/license/generate-keypair.mjs before issuing any real
-            // licenses. See DvaiPublicKey above for the full rotation
-            // procedure.
+            // Production key, kid `2026-05`. Generated 2026-05-15 by
+            // scripts/license/generate-keypair.mjs. The matching private
+            // key lives in the operator's secrets manager.
+            ["2026-05"] = new DvaiPublicKey(
+                Kty: "EC",
+                Crv: "P-256",
+                X: "2Y8TuhnlE4tiVDtliozYTgc1TAqi4_TBTI6FHe1p_Vw",
+                Y: "pyxMJHj10HPe2hnpJvMpnZ4AzpYZRfqGEMhpBr1-Oto",
+                Alg: "ES256",
+                Use: "sig",
+                Kid: "2026-05"),
+            // PLACEHOLDER — used by the SDK's own unit tests and by the
+            // sample license printed by scripts/license/generate-keypair.mjs.
+            // The validator REFUSES to accept tokens signed under this
+            // kid unless AllowPlaceholderKey = true is passed to the
+            // validator constructor (test-only escape hatch). Safe to
+            // keep in production builds; remove only if you want test
+            // fixtures to stop working.
             [PlaceholderKid] = new DvaiPublicKey(
                 Kty: "EC",
                 Crv: "P-256",
