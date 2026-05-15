@@ -29,8 +29,8 @@ about commercial support.
    [Security → Report a vulnerability](https://github.com/dvai-global/dvai-bridge/security/advisories/new).
    This routes the report privately to the maintainers and creates a
    tracked advisory thread.
-2. **Email** — `security@deepvoiceai.co` with "DVAI-Bridge security"
-   in the subject.
+2. **Email** — `info@deepvoiceai.co` with "DVAI-Bridge security"
+   in the subject so it routes correctly.
 
 Encrypted email is welcome but not required — reach out before
 sending encrypted payloads so we can exchange keys.
