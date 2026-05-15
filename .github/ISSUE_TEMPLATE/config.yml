@@ -7,5 +7,5 @@ contact_links:
     url: https://github.com/dvai-global/dvai-bridge/security/advisories/new
     about: Do NOT file security issues publicly. Use a private security advisory instead. See SECURITY.md for the full process.
   - name: Commercial license inquiry
-    url: mailto:licenses@deepvoiceai.co
-    about: Trial or commercial license requests, custom-licensing terms, OEM / distribution licensing.
+    url: mailto:info@deepvoiceai.co?subject=DVAI-Bridge%20license%20inquiry
+    about: Trial or commercial license requests, custom-licensing terms, OEM / distribution licensing. Use the prefilled subject so it routes correctly.
