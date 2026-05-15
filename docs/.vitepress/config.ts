@@ -155,7 +155,7 @@ export default defineConfig({
 		footer: {
 			message: "Released under Custom License.",
 			copyright:
-				'Copyright © 2024-present <a href="https://deepvoiceai.co" target="_blank" rel="noopener">Deep Voice AI Limited</a>',
+				'Copyright © 2026 <a href="https://deepvoiceai.co" target="_blank" rel="noopener">Deep Voice AI Limited</a>',
 		},
 	},
 });
