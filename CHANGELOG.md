@@ -87,6 +87,32 @@ audience binding, etc. without re-parsing the JWT. Discriminants:
 `commercial`, `trial`, `free-dev`. (`free-prod` and `free-expired`
 are throw conditions, never returned.)
 
+### Added — `LicenseValidator` on every SDK's public surface
+
+The `LicenseValidator` class is now publicly accessible on every SDK
+so host apps can run validation standalone, without paying the full
+`DVAI.initialize()` / `DVAIBridge.start()` cost (which boots the
+backend, loads models, starts the embedded HTTP server). Useful for
+license-status pills in app chrome, settings screens, setup wizards,
+and CI smoke scripts. Same API shape across SDKs:
+
+- TypeScript (`@dvai-bridge/core`): explicit re-export added to
+  `src/index.ts` — `import { LicenseValidator } from "@dvai-bridge/core"`.
+- Swift (`DVAIBridge`): all license symbols `public`; `License/`
+  files auto-included in the SwiftPM target.
+- Kotlin (`co.deepvoiceai.bridge.license`): default-public; Gradle
+  source set picks up the `license` sub-package automatically.
+- C# (`DVAIBridge.License`): all types `public`; SDK-style .csproj
+  glob includes the `License/` folder.
+- Dart (`package:dvai_bridge`): explicit re-export in
+  `lib/dvai_bridge.dart`.
+
+React Native and Capacitor consumers who want JS-side inspection
+install `@dvai-bridge/core` as a separate dep — the wrappers defer
+validation to the native iOS / Android validators at start time.
+Full walkthrough at
+[`docs/guide/license/pre-init-inspection.md`](docs/guide/license/pre-init-inspection.md).
+
 ### Added — keypair generation script
 
 `scripts/license/generate-keypair.mjs`. Self-contained Node script

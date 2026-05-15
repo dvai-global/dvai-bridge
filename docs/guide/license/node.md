@@ -149,5 +149,8 @@ Common Node-specific failures:
 ## See also
 
 - [License setup index](./index)
+- [Pre-init inspection](./pre-init-inspection) — run `LicenseValidator`
+  standalone in a script / CLI / health endpoint without booting the
+  backend.
 - [Web](./web) — browser-side flow.
 - [Reference: DVAIConfig.licenseKeyPath / licenseToken](/reference/api).

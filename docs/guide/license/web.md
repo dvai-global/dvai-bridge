@@ -142,5 +142,8 @@ the SDK throws.
 ## See also
 
 - [License setup index](./index) — cross-platform summary.
+- [Pre-init inspection](./pre-init-inspection) — run `LicenseValidator`
+  standalone (no `DVAI.initialize()` cost) for a license-status pill in
+  your app's chrome.
 - [Node](./node) — server-side validation flow.
 - [Reference: DVAIConfig.licenseKeyPath / licenseToken](/reference/api).

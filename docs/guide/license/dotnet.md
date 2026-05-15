@@ -160,4 +160,7 @@ value of the `DVAI_AUDIENCE` env var if set. Most licenses include a
 ## See also
 
 - [License setup index](./index)
+- [Pre-init inspection](./pre-init-inspection) — run `LicenseValidator`
+  standalone for a license-status badge in a MAUI / WPF dashboard
+  without `StartAsync()`.
 - [.NET SDK](/guide/dotnet-sdk) — full SDK reference.

@@ -121,6 +121,9 @@ native-side validators — see the iOS / Android pages.)
 ## See also
 
 - [License setup index](./index)
+- [Pre-init inspection](./pre-init-inspection) — run
+  `LicenseValidator` from `@dvai-bridge/core` in the webview before
+  the native plugin boots, useful for setup wizards.
 - [Web](./web) — the JS-side discovery rules apply identically.
 - [Native LLM (Capacitor)](/guide/native-backend) — the broader
   Capacitor quickstart.

@@ -131,6 +131,8 @@ templates typically include both your bundle id (e.g.
 ## See also
 
 - [License setup index](./index)
+- [Pre-init inspection](./pre-init-inspection) — run `LicenseValidator`
+  standalone for a dashboard / settings UI without booting the SDK.
 - [iOS Native SDK](/guide/ios-native-sdk) — full SDK reference.
 - [Capacitor](./capacitor) — if you ship via Capacitor instead of
   native Swift.

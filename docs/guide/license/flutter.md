@@ -144,4 +144,7 @@ licenses include both plus a `"*"` fallback.
 ## See also
 
 - [License setup index](./index)
+- [Pre-init inspection](./pre-init-inspection) — run `LicenseValidator`
+  standalone for a license-status widget without
+  `DVAIBridge.instance.start()`.
 - [Flutter SDK](/guide/flutter-sdk) — full SDK reference.

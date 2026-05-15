@@ -94,6 +94,53 @@ Catch it if you want a custom error UI; let it propagate if you want
 the default behaviour ("app fails to start cleanly with an actionable
 console message").
 
+### Added — `LicenseValidator` on every SDK's public surface
+
+Host apps that want to inspect license status *without* paying the
+full cost of `DVAI.initialize()` / `DVAIBridge.start()` (which loads
+models, starts the embedded HTTP server, runs the backend init) can
+now run the validator standalone. Same API shape across every SDK:
+
+```ts
+// TypeScript / Node / browser / Capacitor JS layer
+import { LicenseValidator } from "@dvai-bridge/core";
+const status = await new LicenseValidator().validate();
+```
+
+```swift
+// iOS / macOS / Mac Catalyst
+import DVAIBridge
+let status = await LicenseValidator().validate()
+```
+
+```kotlin
+// Android (Context needed for packageName + asset discovery)
+import co.deepvoiceai.bridge.license.LicenseValidator
+val status = LicenseValidator(context, hostBuildConfigDebug = BuildConfig.DEBUG).validate()
+```
+
+```csharp
+// .NET MAUI / Avalonia / WinUI / Desktop
+using DVAIBridge.License;
+var status = await new LicenseValidator().ValidateAsync();
+```
+
+```dart
+// Flutter
+import 'package:dvai_bridge/dvai_bridge.dart';
+final status = await LicenseValidator().validate();
+```
+
+Useful for license-status pills in app chrome, settings pages,
+setup wizards, CI smoke scripts, and any other place a full SDK
+boot would be heavyweight. Full per-SDK walkthrough at
+[pre-init license inspection](/guide/license/pre-init-inspection).
+
+React Native and Capacitor consumers who want this from the JS layer
+should install `@dvai-bridge/core` as a regular dependency alongside
+the wrapper package; the wrappers themselves defer license validation
+to the native iOS / Android validators at start time.
+
 ### Changed — dev mode auto-bypass
 
 Unchanged in spirit but now load-bearing for the policy. The SDK runs

@@ -131,6 +131,9 @@ package name and a `"*"` fallback for trials.
 ## See also
 
 - [License setup index](./index)
+- [Pre-init inspection](./pre-init-inspection) — run `LicenseValidator`
+  standalone for a settings-screen license status without
+  `DVAIBridge.start()`.
 - [Android Native SDK](/guide/android-native-sdk) — full SDK reference.
 - [Capacitor](./capacitor) — if you ship via Capacitor instead of
   native Kotlin.

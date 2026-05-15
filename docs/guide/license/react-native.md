@@ -132,6 +132,9 @@ licenses include both, plus a `"*"` fallback.
 ## See also
 
 - [License setup index](./index)
+- [Pre-init inspection](./pre-init-inspection) — pull
+  `@dvai-bridge/core` as a separate dep for JS-side license
+  inspection in an RN settings screen without `DVAIBridge.start()`.
 - [React Native SDK](/guide/react-native-sdk) — full SDK reference.
 - [iOS](./ios) and [Android](./android) — platform-specific
   details that bubble up to the React Native module.

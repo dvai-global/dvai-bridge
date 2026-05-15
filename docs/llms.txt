@@ -83,6 +83,9 @@ runtime.
   iOS Resources + Android `assets/`.
 - [Capacitor](https://bridge.deepvoiceai.co/docs/guide/license/capacitor):
   Webview `public/` folder; bundled by `cap sync`.
+- [Pre-init inspection](https://bridge.deepvoiceai.co/docs/guide/license/pre-init-inspection):
+  Run `LicenseValidator` standalone on any SDK (TS/Swift/Kotlin/C#/Dart)
+  to inspect license status before booting the backend.
 
 ## AI agents
 
