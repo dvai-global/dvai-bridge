@@ -7455,7 +7455,7 @@ In Cursor settings → **Rules for AI**, add:
 When the user is working with DVAI-Bridge (@dvai-bridge/core,
 @dvai-bridge/react, dvai_bridge, DVAIBridge SwiftPM, or
 co.deepvoiceai:dvai-bridge), fetch context from
-https://docs.dvai-bridge.com/llms.txt and follow the linked pages
+https://bridge.deepvoiceai.co/docs/llms.txt and follow the linked pages
 relevant to the task.
 ```
 
@@ -7480,7 +7480,7 @@ Add `docs/llms-full.txt` to your `CLAUDE.md` references section:
 In Copilot Chat, attach this prompt:
 
 ```
-Use the DVAI-Bridge docs at https://docs.dvai-bridge.com/llms.txt
+Use the DVAI-Bridge docs at https://bridge.deepvoiceai.co/docs/llms.txt
 as reference. The library exposes an OpenAI-compatible HTTP server on
 loopback (read via dvai.baseUrl). Always wire OpenAI SDKs through
 baseUrl rather than calling DVAI's internal APIs.
@@ -7622,8 +7622,8 @@ Native examples additionally need the native SDK published locally:
 pwsh scripts/android-publish-local.ps1    # Windows
 bash scripts/android-publish-local.sh     # Mac / Linux
 
-# iOS: build the llama.cpp xcframeworks once
-ssh mac 'cd ~/Developer/dvai-bridge && bash scripts/mac-side-prepare-xcframework.sh'
+# iOS: build the llama.cpp xcframeworks once (on macOS)
+bash scripts/mac-side-prepare-xcframework.sh
 ```
 
 ## Web / JavaScript
@@ -7703,10 +7703,10 @@ the run destination.
 | `ios-coreml/` | CoreML | finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit | `cd examples/ios-coreml && open Package.swift` |
 | `ios-mlx/` | MLX | mlx-community/Llama-3.2-3B-Instruct-4bit | `cd examples/ios-mlx && open Package.swift` |
 
-Build all four headlessly from a Windows / Linux host:
+Build all four headlessly (on macOS):
 
 ```bash
-ssh mac 'cd ~/Developer/dvai-bridge && bash scripts/mac-side-build-examples.sh build'
+bash scripts/mac-side-build-examples.sh build
 ```
 
 Smoke any one in CI:
@@ -7865,12 +7865,13 @@ pnpm --filter capacitor-mobile exec cap add ios           # Mac only
 
 # Sync after every change to www/ or to a workspace plugin:
 pnpm --filter capacitor-mobile exec cap sync android
-ssh mac 'cd ~/Developer/dvai-bridge/examples/capacitor-mobile && \
-  pnpm exec cap sync ios && cd ios/App && pod install'
+# iOS (on macOS):
+pnpm --filter capacitor-mobile exec cap sync ios
+( cd examples/capacitor-mobile/ios/App && pod install )
 
 # Run:
 pnpm --filter capacitor-mobile exec cap run android
-ssh mac '... cap run ios'
+pnpm --filter capacitor-mobile exec cap run ios     # macOS only
 ```
 
 Smoke:

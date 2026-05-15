@@ -25,7 +25,7 @@ In Cursor settings → **Rules for AI**, add:
 When the user is working with DVAI-Bridge (@dvai-bridge/core,
 @dvai-bridge/react, dvai_bridge, DVAIBridge SwiftPM, or
 co.deepvoiceai:dvai-bridge), fetch context from
-https://docs.dvai-bridge.com/llms.txt and follow the linked pages
+https://bridge.deepvoiceai.co/docs/llms.txt and follow the linked pages
 relevant to the task.
 ```
 
@@ -50,7 +50,7 @@ Add `docs/llms-full.txt` to your `CLAUDE.md` references section:
 In Copilot Chat, attach this prompt:
 
 ```
-Use the DVAI-Bridge docs at https://docs.dvai-bridge.com/llms.txt
+Use the DVAI-Bridge docs at https://bridge.deepvoiceai.co/docs/llms.txt
 as reference. The library exposes an OpenAI-compatible HTTP server on
 loopback (read via dvai.baseUrl). Always wire OpenAI SDKs through
 baseUrl rather than calling DVAI's internal APIs.

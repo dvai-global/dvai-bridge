@@ -25,8 +25,8 @@ Native examples additionally need the native SDK published locally:
 pwsh scripts/android-publish-local.ps1    # Windows
 bash scripts/android-publish-local.sh     # Mac / Linux
 
-# iOS: build the llama.cpp xcframeworks once
-ssh mac 'cd ~/Developer/dvai-bridge && bash scripts/mac-side-prepare-xcframework.sh'
+# iOS: build the llama.cpp xcframeworks once (on macOS)
+bash scripts/mac-side-prepare-xcframework.sh
 ```
 
 ## Web / JavaScript
@@ -106,10 +106,10 @@ the run destination.
 | `ios-coreml/` | CoreML | finnvoorhees/coreml-Llama-3.2-1B-Instruct-4bit | `cd examples/ios-coreml && open Package.swift` |
 | `ios-mlx/` | MLX | mlx-community/Llama-3.2-3B-Instruct-4bit | `cd examples/ios-mlx && open Package.swift` |
 
-Build all four headlessly from a Windows / Linux host:
+Build all four headlessly (on macOS):
 
 ```bash
-ssh mac 'cd ~/Developer/dvai-bridge && bash scripts/mac-side-build-examples.sh build'
+bash scripts/mac-side-build-examples.sh build
 ```
 
 Smoke any one in CI:
@@ -268,12 +268,13 @@ pnpm --filter capacitor-mobile exec cap add ios           # Mac only
 
 # Sync after every change to www/ or to a workspace plugin:
 pnpm --filter capacitor-mobile exec cap sync android
-ssh mac 'cd ~/Developer/dvai-bridge/examples/capacitor-mobile && \
-  pnpm exec cap sync ios && cd ios/App && pod install'
+# iOS (on macOS):
+pnpm --filter capacitor-mobile exec cap sync ios
+( cd examples/capacitor-mobile/ios/App && pod install )
 
 # Run:
 pnpm --filter capacitor-mobile exec cap run android
-ssh mac '... cap run ios'
+pnpm --filter capacitor-mobile exec cap run ios     # macOS only
 ```
 
 Smoke:

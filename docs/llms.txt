@@ -15,117 +15,117 @@ runtime.
 
 ## Guide
 
-- [Introduction](https://docs.dvai-bridge.com/guide/introduction): What
+- [Introduction](https://bridge.deepvoiceai.co/docs/guide/introduction): What
   DVAI-Bridge is, the problem it solves, the seven supported SDKs, and
   the backend matrix.
-- [Getting started](https://docs.dvai-bridge.com/guide/getting-started):
+- [Getting started](https://bridge.deepvoiceai.co/docs/guide/getting-started):
   Install, init, first chat completion in Web + Node + React.
-- [Backends](https://docs.dvai-bridge.com/guide/backends): WebLLM,
+- [Backends](https://bridge.deepvoiceai.co/docs/guide/backends): WebLLM,
   Transformers.js v4 (incl. declarative multimodal loader + custom
   pipeline factory), llama.cpp, MLX, MediaPipe, LiteRT, ONNX Runtime
   GenAI, ML.NET.
-- [Transports](https://docs.dvai-bridge.com/guide/transports): MSW vs.
+- [Transports](https://bridge.deepvoiceai.co/docs/guide/transports): MSW vs.
   HTTP vs. Capacitor — how the OpenAI surface is exposed per runtime.
-- [Native LLM (Capacitor)](https://docs.dvai-bridge.com/guide/native-backend):
+- [Native LLM (Capacitor)](https://bridge.deepvoiceai.co/docs/guide/native-backend):
   Capacitor hybrid app integration.
-- [Capacitor quickstart](https://docs.dvai-bridge.com/guide/quickstart-capacitor):
+- [Capacitor quickstart](https://bridge.deepvoiceai.co/docs/guide/quickstart-capacitor):
   Step-by-step Capacitor + llama.cpp boot.
-- [iOS Native SDK](https://docs.dvai-bridge.com/guide/ios-native-sdk):
+- [iOS Native SDK](https://bridge.deepvoiceai.co/docs/guide/ios-native-sdk):
   Swift apps via the `DVAIBridge` package; backends, model loading,
   HTTP server lifecycle.
-- [Android Native SDK](https://docs.dvai-bridge.com/guide/android-native-sdk):
+- [Android Native SDK](https://bridge.deepvoiceai.co/docs/guide/android-native-sdk):
   Kotlin apps via `co.deepvoiceai:dvai-bridge`.
-- [React Native SDK](https://docs.dvai-bridge.com/guide/react-native-sdk):
+- [React Native SDK](https://bridge.deepvoiceai.co/docs/guide/react-native-sdk):
   TurboModule on RN ≥ 0.77 (Bridgeless).
-- [Flutter SDK](https://docs.dvai-bridge.com/guide/flutter-sdk): Dart
+- [Flutter SDK](https://bridge.deepvoiceai.co/docs/guide/flutter-sdk): Dart
   via `dvai_bridge`, Pigeon-typed bindings.
-- [.NET SDK](https://docs.dvai-bridge.com/guide/dotnet-sdk): MAUI,
+- [.NET SDK](https://bridge.deepvoiceai.co/docs/guide/dotnet-sdk): MAUI,
   Avalonia, WinUI, console; the `DVAIBridge` NuGet family.
-- [MLX backend](https://docs.dvai-bridge.com/guide/mlx-backend):
+- [MLX backend](https://bridge.deepvoiceai.co/docs/guide/mlx-backend):
   Apple-Silicon Mac / iPhone / iPad optimised path.
-- [Model distribution](https://docs.dvai-bridge.com/guide/model-distribution):
+- [Model distribution](https://bridge.deepvoiceai.co/docs/guide/model-distribution):
   Hosting + verifying GGUF / ONNX / .task / .tflite checkpoints.
-- [Multimodal](https://docs.dvai-bridge.com/guide/multimodal): Text +
+- [Multimodal](https://bridge.deepvoiceai.co/docs/guide/multimodal): Text +
   image + audio models (Gemma 4, LLaVA, Whisper, etc.) via the
   declarative loader.
-- [Tested models](https://docs.dvai-bridge.com/guide/tested-models):
+- [Tested models](https://bridge.deepvoiceai.co/docs/guide/tested-models):
   Per-backend list of validated checkpoints.
-- [Auto-recovery & robustness](https://docs.dvai-bridge.com/guide/auto-recovery):
+- [Auto-recovery & robustness](https://bridge.deepvoiceai.co/docs/guide/auto-recovery):
   Blank-chunk detection, timeout, bounded reload loop on fatal errors.
-- [Distributed inference (v3.0+)](https://docs.dvai-bridge.com/guide/distributed-inference):
+- [Distributed inference (v3.0+)](https://bridge.deepvoiceai.co/docs/guide/distributed-inference):
   Phone-to-laptop offload via mDNS or self-hosted rendezvous.
-- [Self-hosting rendezvous (v3.0)](https://docs.dvai-bridge.com/guide/self-hosting-rendezvous):
+- [Self-hosting rendezvous (v3.0)](https://bridge.deepvoiceai.co/docs/guide/self-hosting-rendezvous):
   Cross-network pairing without a public service.
-- [DVAI Hub (v3.1)](https://docs.dvai-bridge.com/guide/dvai-hub): The
+- [DVAI Hub (v3.1)](https://bridge.deepvoiceai.co/docs/guide/dvai-hub): The
   brand-neutral installable utility that packages the strong-peer side.
-- [DVAI Hub — developer fork (v3.1)](https://docs.dvai-bridge.com/guide/dvai-hub-developer-fork):
+- [DVAI Hub — developer fork (v3.1)](https://bridge.deepvoiceai.co/docs/guide/dvai-hub-developer-fork):
   Self-build / private-distribute the Hub.
-- [vs. other tools](https://docs.dvai-bridge.com/guide/comparison):
+- [vs. other tools](https://bridge.deepvoiceai.co/docs/guide/comparison):
   How DVAI-Bridge maps onto Ollama, LM Studio, MLX, llama.cpp, WebLLM.
 
 ## License setup
 
-- [Index](https://docs.dvai-bridge.com/guide/license/): Per-platform
+- [Index](https://bridge.deepvoiceai.co/docs/guide/license/): Per-platform
   index. Pick yours.
-- [Web](https://docs.dvai-bridge.com/guide/license/web): Drop
+- [Web](https://bridge.deepvoiceai.co/docs/guide/license/web): Drop
   `dvai-license.jwt` in `public/`; SDK fetches `/dvai-license.jwt`.
-- [Node](https://docs.dvai-bridge.com/guide/license/node): Project-root
+- [Node](https://bridge.deepvoiceai.co/docs/guide/license/node): Project-root
   `dvai-license.jwt` or `DVAI_LICENSE_PATH` env var.
-- [iOS](https://docs.dvai-bridge.com/guide/license/ios): Bundle resource
+- [iOS](https://bridge.deepvoiceai.co/docs/guide/license/ios): Bundle resource
   in the Xcode project; loaded via `Bundle.main`.
-- [Android](https://docs.dvai-bridge.com/guide/license/android):
+- [Android](https://bridge.deepvoiceai.co/docs/guide/license/android):
   `src/main/assets/dvai-license.jwt`.
-- [.NET](https://docs.dvai-bridge.com/guide/license/dotnet): `.csproj`
+- [.NET](https://bridge.deepvoiceai.co/docs/guide/license/dotnet): `.csproj`
   `<None>` content + MAUI asset for mobile.
-- [Flutter](https://docs.dvai-bridge.com/guide/license/flutter): `assets/`
+- [Flutter](https://bridge.deepvoiceai.co/docs/guide/license/flutter): `assets/`
   + `pubspec.yaml` entry; `rootBundle` discovery.
-- [React Native](https://docs.dvai-bridge.com/guide/license/react-native):
+- [React Native](https://bridge.deepvoiceai.co/docs/guide/license/react-native):
   iOS Resources + Android `assets/`.
-- [Capacitor](https://docs.dvai-bridge.com/guide/license/capacitor):
+- [Capacitor](https://bridge.deepvoiceai.co/docs/guide/license/capacitor):
   Webview `public/` folder; bundled by `cap sync`.
 
 ## AI agents
 
-- [Vibe-coding with DVAI-Bridge](https://docs.dvai-bridge.com/guide/ai-agents):
+- [Vibe-coding with DVAI-Bridge](https://bridge.deepvoiceai.co/docs/guide/ai-agents):
   How to point Cursor / Claude Code / Copilot at the docs, plus a
   copy-pasteable system-prompt context block.
-- [`llms-full.txt`](https://docs.dvai-bridge.com/llms-full.txt): Every
+- [`llms-full.txt`](https://bridge.deepvoiceai.co/docs/llms-full.txt): Every
   doc concatenated for one-shot context loading.
 
 ## Reference
 
-- [Core options](https://docs.dvai-bridge.com/reference/api): Every
+- [Core options](https://bridge.deepvoiceai.co/docs/reference/api): Every
   `DVAIConfig` field (JS/TS) with defaults.
-- [React hooks](https://docs.dvai-bridge.com/reference/react):
+- [React hooks](https://bridge.deepvoiceai.co/docs/reference/react):
   `DVAIProvider`, `useDVAI`, `useChatCompletion`.
-- [Vanilla JS](https://docs.dvai-bridge.com/reference/vanilla): The
+- [Vanilla JS](https://bridge.deepvoiceai.co/docs/reference/vanilla): The
   framework-agnostic `VanillaDVAI` API.
 
 ## Examples (in-repo)
 
-- [Examples index + matrix](https://docs.dvai-bridge.com/guide/examples):
+- [Examples index + matrix](https://bridge.deepvoiceai.co/docs/guide/examples):
   Build + run instructions for all 18 example apps.
 - Source: [`examples/`](https://github.com/Westenets/dvai-bridge/tree/main/examples).
 
 ## Migration guides
 
-- [v3.0 → v3.1](https://docs.dvai-bridge.com/migration/v3.0-to-v3.1)
-- [v2.4 → v3.0](https://docs.dvai-bridge.com/migration/v2.4-to-v3.0)
-- [v2.3 → v2.4](https://docs.dvai-bridge.com/migration/v2.3-to-v2.4)
-- [v2.2 → v2.3](https://docs.dvai-bridge.com/migration/v2.2-to-v2.3)
-- [v2.1 → v2.2](https://docs.dvai-bridge.com/migration/v2.1-to-v2.2)
-- [v2.0 → v2.1](https://docs.dvai-bridge.com/migration/v2.0-to-v2.1)
-- [v1.6 → v2.0](https://docs.dvai-bridge.com/migration/v1.6-to-v2.0)
-- [v1.5 → v1.6](https://docs.dvai-bridge.com/migration/v1.5-to-v1.6)
+- [v3.0 → v3.1](https://bridge.deepvoiceai.co/docs/migration/v3.0-to-v3.1)
+- [v2.4 → v3.0](https://bridge.deepvoiceai.co/docs/migration/v2.4-to-v3.0)
+- [v2.3 → v2.4](https://bridge.deepvoiceai.co/docs/migration/v2.3-to-v2.4)
+- [v2.2 → v2.3](https://bridge.deepvoiceai.co/docs/migration/v2.2-to-v2.3)
+- [v2.1 → v2.2](https://bridge.deepvoiceai.co/docs/migration/v2.1-to-v2.2)
+- [v2.0 → v2.1](https://bridge.deepvoiceai.co/docs/migration/v2.0-to-v2.1)
+- [v1.6 → v2.0](https://bridge.deepvoiceai.co/docs/migration/v1.6-to-v2.0)
+- [v1.5 → v1.6](https://bridge.deepvoiceai.co/docs/migration/v1.5-to-v1.6)
 
 ## Optional
 
-- [Contributing — iOS](https://docs.dvai-bridge.com/development/contributing-ios)
-- [Contributing — Android](https://docs.dvai-bridge.com/development/contributing-android)
-- [Contributing — React Native](https://docs.dvai-bridge.com/development/contributing-react-native)
-- [Contributing — Flutter](https://docs.dvai-bridge.com/development/contributing-flutter)
-- [Contributing — .NET](https://docs.dvai-bridge.com/development/contributing-dotnet)
-- [Testing](https://docs.dvai-bridge.com/development/testing)
-- [Handler parity](https://docs.dvai-bridge.com/development/handler-parity)
-- [Mac remote builds](https://docs.dvai-bridge.com/development/mac-remote-builds)
-- [Distributed inference testing](https://docs.dvai-bridge.com/development/distributed-inference-testing)
+- [Contributing — iOS](https://bridge.deepvoiceai.co/docs/development/contributing-ios)
+- [Contributing — Android](https://bridge.deepvoiceai.co/docs/development/contributing-android)
+- [Contributing — React Native](https://bridge.deepvoiceai.co/docs/development/contributing-react-native)
+- [Contributing — Flutter](https://bridge.deepvoiceai.co/docs/development/contributing-flutter)
+- [Contributing — .NET](https://bridge.deepvoiceai.co/docs/development/contributing-dotnet)
+- [Testing](https://bridge.deepvoiceai.co/docs/development/testing)
+- [Handler parity](https://bridge.deepvoiceai.co/docs/development/handler-parity)
+- [Mac remote builds](https://bridge.deepvoiceai.co/docs/development/mac-remote-builds)
+- [Distributed inference testing](https://bridge.deepvoiceai.co/docs/development/distributed-inference-testing)
