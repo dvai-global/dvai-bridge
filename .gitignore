@@ -158,3 +158,9 @@ experiments/mlc-perf-spike/
 /mac-toolchain-install.log
 /hub/tauri-build.log
 /MORNING-REVIEW.md
+
+# License smoke-test artifacts — never commit these. The JWT is signed
+# with the live production private key; the smoke script is a one-off
+# verification helper.
+/dvai-license.jwt
+/smoke-license.mjs

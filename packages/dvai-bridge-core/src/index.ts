@@ -27,6 +27,29 @@ export {
 	generatePairingKey,
 } from "./pairing/handshake.js";
 
+// v4.0 — re-export the license module so host apps (dashboards, dev
+// tools, license-aware UI shells) can run validation independently of
+// the heavy DVAI.initialize() boot sequence. Useful for things like
+// "show a license-status pill in the title bar" without paying the
+// model-load cost of a full init.
+export {
+	LicenseValidator,
+	LicenseRequiredError,
+	isPaidTier,
+	DEFAULT_LICENSE_FILENAME,
+	DVAI_PUBLIC_KEYS,
+	PLACEHOLDER_KID,
+} from "./license/index.js";
+export type {
+	LicenseStatus,
+	LicenseTier,
+	LicenseValidatorOptions,
+	LicenseDiscoveryOptions,
+	DvaiLicensePayload,
+	DvaiPlatform,
+	DvaiPublicKeyJwk,
+} from "./license/index.js";
+
 export type BackendType = "webllm" | "transformers" | "native" | "auto";
 export type DeviceType = "webgpu" | "cpu" | "auto";
 export type {
