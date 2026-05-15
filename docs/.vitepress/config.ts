@@ -4,6 +4,12 @@ import llmstxt from "vitepress-plugin-llms";
 export default defineConfig({
 	title: "DVAI-Bridge",
 	description: "One local OpenAI server, embedded in your Web, iOS, Android, React Native, Flutter, or .NET app. Six SDKs, nine backends, one HTTP surface.",
+	// Site is served at https://bridge.deepvoiceai.co/docs/ — Apache vhost
+	// proxies the root to the Fastify portal and serves /docs/* directly
+	// from /var/www/dvai-bridge-docs/. Without this, VitePress emits
+	// root-relative asset URLs (/assets/...) which 404 because they hit
+	// the Fastify proxy instead of the static-files alias.
+	base: "/docs/",
 	head: [
 		[
 			"script",
@@ -12,7 +18,9 @@ export default defineConfig({
 				src: "https://app.lemonsqueezy.com/js/lemon.js",
 			},
 		],
-		["link", { rel: "icon", href: "/favicon.png", type: "image/x-png" }],
+		// head entries are emitted verbatim — VitePress does NOT apply
+		// `base` to user-supplied href values. Prefix manually.
+		["link", { rel: "icon", href: "/docs/favicon.png", type: "image/x-png" }],
 	],
 	// Ignore dead links that point outside the published docs tree:
 	// - `../../CHANGELOG` from `docs/migration/*.md` resolves to the repo-root
