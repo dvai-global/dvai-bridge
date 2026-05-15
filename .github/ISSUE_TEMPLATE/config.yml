@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or usage help
+    url: https://github.com/dvai-global/dvai-bridge/discussions
+    about: For "how do I use X" or "is Y possible" questions, open a Discussion instead of an issue.
+  - name: Security vulnerability
+    url: https://github.com/dvai-global/dvai-bridge/security/advisories/new
+    about: Do NOT file security issues publicly. Use a private security advisory instead. See SECURITY.md for the full process.
+  - name: Commercial license inquiry
+    url: mailto:licenses@deepvoiceai.co
+    about: Trial or commercial license requests, custom-licensing terms, OEM / distribution licensing.

@@ -1,0 +1,114 @@
+name: Bug report
+description: Report a defect in DVAI-Bridge core, a platform SDK, the embedded server, the license validator, or the Hub app.
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please fill in every field — vague reports get bounced back, costing both of us a round-trip.
+
+        **Before submitting:** search [open issues](https://github.com/dvai-global/dvai-bridge/issues) and the [migration guides](https://bridge.deepvoiceai.co/docs/migration) to confirm this isn't a known behaviour change.
+
+  - type: dropdown
+    id: sdk
+    attributes:
+      label: Which SDK is affected?
+      multiple: true
+      options:
+        - "@dvai-bridge/core (Web / Node / Electron)"
+        - "@dvai-bridge/react (React hooks)"
+        - "@dvai-bridge/vanilla (framework-agnostic JS)"
+        - "@dvai-bridge/ios (Swift)"
+        - "co.deepvoiceai:dvai-bridge (Android Kotlin)"
+        - "@dvai-bridge/react-native"
+        - "dvai_bridge (Flutter)"
+        - "DVAIBridge (.NET / MAUI / Avalonia / WinUI)"
+        - "@dvai-bridge/capacitor + backend plugin"
+        - "DVAI Hub desktop app"
+        - "Rendezvous server"
+        - "Other / unsure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Which backend is in use?
+      options:
+        - "llama.cpp (native)"
+        - "Transformers.js"
+        - "WebLLM"
+        - "MediaPipe"
+        - "MLX"
+        - "LiteRT-LM"
+        - "ONNX Runtime GenAI"
+        - "ML.NET"
+        - "Not backend-specific"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: SDK version
+      description: "Run `npm ls @dvai-bridge/core` (or equivalent). Example: 4.0.0"
+      placeholder: "4.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS / host environment
+      description: "OS + version + runtime. Examples: macOS 15.2 / Node 22.11.0, or iOS 18.2 simulator, or Pixel 8 Android 15."
+      placeholder: "macOS 15.2 / Node 22.11.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: |
+        The smallest code / config that reproduces the bug. If you can't make it small, paste a link to a repo branch or gist.
+
+        Reports without a reproduction will be closed unless the bug is obvious from the stack trace.
+      render: typescript
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include the full error message + stack trace if there is one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / console output
+      description: |
+        Run with `DEBUG=dvai:*` (Node) or set `window.localStorage.DVAI_DEBUG = "true"` (browser) for verbose logging. Paste relevant output.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and didn't find a duplicate.
+          required: true
+        - label: I checked the [migration guides](https://bridge.deepvoiceai.co/docs/migration) — this isn't a documented breaking change.
+          required: true
+        - label: This isn't a security vulnerability (those go via private advisory per SECURITY.md).
+          required: true

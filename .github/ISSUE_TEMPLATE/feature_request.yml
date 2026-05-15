@@ -1,0 +1,75 @@
+name: Feature request
+description: Propose a new SDK feature, backend integration, platform target, or API addition.
+title: "[feature] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a feature. Before filling this out:
+
+        - Search [open issues + Discussions](https://github.com/dvai-global/dvai-bridge/issues) to see if it's already being discussed.
+        - For "how do I do X today?" questions, open a [Discussion](https://github.com/dvai-global/dvai-bridge/discussions) instead.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What can't you do today? Describe the user-facing pain, not the implementation.
+      placeholder: "When I do X on platform Y, I expect Z but instead..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would you want this to work from the consumer's perspective? Include API sketches if you have one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you ruled out, and why. "I haven't thought about alternatives" is a valid answer for small features.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Which SDKs / platforms would this touch?
+      multiple: true
+      options:
+        - "@dvai-bridge/core (TypeScript)"
+        - "@dvai-bridge/react"
+        - "@dvai-bridge/vanilla"
+        - "@dvai-bridge/ios"
+        - "Android (Kotlin)"
+        - "@dvai-bridge/react-native"
+        - "Flutter (dvai_bridge)"
+        - ".NET (DVAIBridge family)"
+        - "Capacitor wrappers"
+        - "DVAI Hub"
+        - "Rendezvous server"
+        - "Docs only"
+        - "Unsure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Links to upstream issues, related work, papers — anything that informs the design.
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Would you be willing to contribute the implementation?
+      options:
+        - "Yes — I'd want maintainer guidance on approach first."
+        - "Yes — independent PR, will follow the spec / design pattern in CONTRIBUTING.md."
+        - "No — I'm requesting only; happy to test once it lands."
+        - "Maybe — depends on complexity."
+    validations:
+      required: true
