@@ -42,12 +42,18 @@ jobs:
           node-version: '22'
           cache: pnpm
 
-      - name: Install root deps
-        run: pnpm install --frozen-lockfile
-
-      - name: Install docs deps
-        working-directory: docs
-        run: pnpm install --frozen-lockfile
+      - name: Install docs deps (workspace-filtered)
+        # `--filter docs` scopes the install to the docs workspace
+        # package only. This skips:
+        #   - Installing the SDK packages' devDeps.
+        #   - The `prepare` hook in @dvai-bridge/core + the 5 capacitor
+        #     wrappers (each does a full tsup build at install time,
+        #     costing 10-30s per package).
+        # Docs imports nothing from packages/, so this is safe.
+        # If a future docs page DOES import a workspace package (e.g.
+        # for a live code example), broaden to `--filter docs...` to
+        # also install its transitive workspace deps.
+        run: pnpm install --frozen-lockfile --filter docs
 
       - name: Build VitePress site
         working-directory: docs
