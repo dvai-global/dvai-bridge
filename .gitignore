@@ -1,8 +1,14 @@
 
-# Personal publication notes — not tracked. Generated via the
-# patentability + publication review on 2026-05-09. See
-# /RESEARCH.md for the public-facing paper.
+# Internal-only docs — kept on disk for the author's reference,
+# excluded from origin. Removed from history on 2026-05-15.
 /PUBLISH-PAPER.md
+/RESEARCH.md
+/TODO.md
+/RELEASE-CHECKLIST.md
+/scripts/build-research-pdf.mjs
+/docs/research/
+/docs/superpowers/
+/dvai-swarm/
 
 # Logs
 logs
