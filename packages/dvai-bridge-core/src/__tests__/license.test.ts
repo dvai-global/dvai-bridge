@@ -311,11 +311,23 @@ describe("LicenseValidator — failure modes (each must collapse to a free-* sta
 
   it("returns free-prod when no token is provided AND no auto-discovery succeeds", async () => {
     process.env.DVAI_FORCE_PROD = "1";
-    // No token, no path — auto-discovery in tmpdir won't find anything.
-    const status = await new LicenseValidator({ publicKeys }).validate();
-    expect(status.kind).toBe("free-prod");
-    if (status.kind === "free-prod") {
-      expect(status.reason).toContain("no license token found");
+    // Auto-discovery walks `process.cwd()/dvai-license.jwt` (and one
+    // level up). Run this test from a fresh tmpdir so an operator-side
+    // smoke-test artifact in the repo root can't poison it — the
+    // operator's `dvai-license.jwt` is gitignored but legitimately
+    // present on developer machines that ran the smoke flow.
+    const origCwd = process.cwd();
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "dvai-license-no-token-"));
+    process.chdir(tmpDir);
+    try {
+      const status = await new LicenseValidator({ publicKeys }).validate();
+      expect(status.kind).toBe("free-prod");
+      if (status.kind === "free-prod") {
+        expect(status.reason).toContain("no license token found");
+      }
+    } finally {
+      process.chdir(origCwd);
+      await fs.rm(tmpDir, { recursive: true, force: true });
     }
   });
 });

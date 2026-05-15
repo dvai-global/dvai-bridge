@@ -68,3 +68,12 @@ The SDK silences license checks when **any** of these are true:
 
 Setting `DVAI_FORCE_PROD=1` overrides all of the above — useful when
 you want to test the production code path locally.
+
+## Inspecting license status without booting the SDK
+
+If your host app wants to display the licensee, expiry, or tier
+without paying the full cost of `DVAI.initialize()` /
+`DVAIBridge.start()`, you can run the validator standalone — the
+`LicenseValidator` class is part of every SDK's public surface.
+
+[Pre-init license inspection →](./pre-init-inspection)

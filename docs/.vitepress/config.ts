@@ -95,6 +95,7 @@ export default defineConfig({
 					{ text: "Flutter", link: "/guide/license/flutter" },
 					{ text: "React Native", link: "/guide/license/react-native" },
 					{ text: "Capacitor", link: "/guide/license/capacitor" },
+					{ text: "Pre-init inspection", link: "/guide/license/pre-init-inspection" },
 				],
 			},
 			{
