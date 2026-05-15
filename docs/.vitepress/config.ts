@@ -108,14 +108,15 @@ export default defineConfig({
 			{
 				text: "Migration Guides",
 				items: [
-					{ text: "v1.5 → v1.6", link: "/migration/v1.5-to-v1.6" },
-					{ text: "v1.6 → v2.0", link: "/migration/v1.6-to-v2.0" },
-					{ text: "v2.0 → v2.1", link: "/migration/v2.0-to-v2.1" },
-					{ text: "v2.1 → v2.2", link: "/migration/v2.1-to-v2.2" },
-					{ text: "v2.2 → v2.3", link: "/migration/v2.2-to-v2.3" },
-					{ text: "v2.3 → v2.4", link: "/migration/v2.3-to-v2.4" },
-					{ text: "v2.4 → v3.0", link: "/migration/v2.4-to-v3.0" },
+					{ text: "v3.x → v4.0", link: "/migration/v3-to-v4" },
 					{ text: "v3.0 → v3.1", link: "/migration/v3.0-to-v3.1" },
+					{ text: "v2.4 → v3.0", link: "/migration/v2.4-to-v3.0" },
+					{ text: "v2.3 → v2.4", link: "/migration/v2.3-to-v2.4" },
+					{ text: "v2.2 → v2.3", link: "/migration/v2.2-to-v2.3" },
+					{ text: "v2.1 → v2.2", link: "/migration/v2.1-to-v2.2" },
+					{ text: "v2.0 → v2.1", link: "/migration/v2.0-to-v2.1" },
+					{ text: "v1.6 → v2.0", link: "/migration/v1.6-to-v2.0" },
+					{ text: "v1.5 → v1.6", link: "/migration/v1.5-to-v1.6" },
 				],
 			},
 			{

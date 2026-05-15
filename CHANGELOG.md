@@ -3,6 +3,169 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.0.0] — 2026-05-15
+
+Major release. Replaces the v3.x plaintext-key license validator with
+offline-verifiable JWT-based license enforcement across all seven
+SDKs, and changes the production-mode policy from "warn and continue
+in a free tier" to "throw and refuse to start." Backed by BSL 1.1
+commercial terms and the just-filed UK patent application
+GB2611312.6 (filed 2026-05-14).
+
+Migration guide: [`docs/migration/v3-to-v4.md`](docs/migration/v3-to-v4.md).
+TL;DR: drop a `dvai-license.jwt` file at the platform default path
+and the SDK picks it up automatically; if you're only running in dev
+mode (localhost / debug builds / `NODE_ENV=test`) no changes are
+required.
+
+### Breaking — `DVAIConfig.licenseKey` removed
+
+The `licenseKey: string` field was retired from every SDK's config /
+StartOptions surface. The plaintext-key checksum design it fed gave
+no real enforcement (anyone could forge a key string locally). v4
+replaces it with offline JWT verification using a signed token.
+
+Two replacement fields on every SDK:
+
+- **`licenseKeyPath`** — file path (or URL in browser contexts) to a
+  `dvai-license.jwt` file. The SDK reads, verifies, and uses the
+  parsed status at startup.
+- **`licenseToken`** — inline JWT string. For CI / serverless / env-
+  var-injected deployments where a file isn't practical.
+
+If neither is set the SDK auto-discovers from platform-conventional
+locations (project root for Node, `public/` for browser, bundle
+resources / app data for native) — see [License setup](docs/guide/license/)
+for the full discovery table.
+
+### Breaking — production deployments without a license now throw
+
+`DVAI.initialize()` / `DVAIBridge.start()` now throw
+`LicenseRequiredError` (`LicenseRequiredException` on .NET; sealed
+classes / equivalent on each native SDK) when both of the following
+are true:
+
+1. The runtime is detected as production / release mode — not a
+   development build, not `localhost`, not `NODE_ENV=test`, not
+   `DVAI_FORCE_DEV=1`, not Capacitor `DEBUG`, not iOS Simulator.
+2. No valid commercial or trial license is found (missing file,
+   invalid signature, expired, audience mismatch, or platform
+   mismatch).
+
+The error message includes the specific failure reason and the
+operator-resolution steps (where to drop the license, how to bypass
+in dev). Catch it for custom error UI; let it propagate for the
+default behaviour (app fails to start cleanly with an actionable
+console message).
+
+The previous v3 free-prod fallback path (continue running with an
+attribution warning) is removed. This is the BSL 1.1 commercial-
+enforcement point.
+
+### Added — offline JWT license validator on every SDK
+
+ES256 (ECDSA P-256) signature verification with a `kid`-keyed public-
+key registry per SDK. Same `.jwt` wire format works across all seven
+SDKs; one license can authorise multiple SDK identities via the
+`platforms` claim. Zero network calls — the entire validation flow is
+offline.
+
+Public-key registries (one per SDK; production key `kid: "2026-05"`
+already populated):
+
+- `packages/dvai-bridge-core/src/license/publicKeys.ts`
+- `packages/dvai-bridge-ios/ios/Sources/DVAIBridge/License/PublicKeys.swift`
+- `packages/dvai-bridge-android/android/src/main/java/co/deepvoiceai/bridge/license/PublicKeys.kt`
+- `packages/dvai-bridge-dotnet/src/DVAIBridge/License/PublicKeys.cs`
+- `packages/dvai-bridge-flutter/lib/src/license/public_keys.dart`
+
+### Added — `LicenseStatus` discriminated value on every SDK
+
+Surfaced via `DVAI.licenseStatus` (TS) / `BoundServer.licenseStatus`
+(native). Host apps can read this to display licensee name, expiry,
+audience binding, etc. without re-parsing the JWT. Discriminants:
+`commercial`, `trial`, `free-dev`. (`free-prod` and `free-expired`
+are throw conditions, never returned.)
+
+### Added — keypair generation script
+
+`scripts/license/generate-keypair.mjs`. Self-contained Node script
+using `node:crypto` (no deps). Generates an ES256 keypair, prints
+the public key in JWK form for pasting into the SDK registries,
+prints the private key separately for storing in secrets management,
+and emits a sample signed JWT for round-trip testing.
+
+### Added — license generator MVP (separate project)
+
+Sibling repo path: `dvai-license-generator/`. Self-contained Node +
+Fastify service for issuing license JWTs from a form or CLI. Uses
+SQLite for an audit log. Local-only by design; no auth, no rate
+limiting, no email delivery (MVP scope). See its README for the
+production-deployment-checklist items it does NOT address (HSM
+backing, hosted form, etc.).
+
+### Added — license documentation
+
+New per-platform license setup guides under `docs/guide/license/`:
+overview + Web + Node + iOS + Android + .NET + Flutter + React Native
++ Capacitor (9 pages). Each page is novice-friendly: the file path,
+the code sample, the error message, the dev-mode bypass, in under
+200 lines.
+
+### Added — AI-agent-friendly docs surface
+
+- `docs/llms.txt` — llms.txt-spec index for AI assistants
+- `docs/llms-full.txt` — single-fetch concatenation of every published
+  doc for one-shot context loading
+- `docs/guide/ai-agents.md` — "vibe-coding with DVAI-Bridge" page with
+  a copy-pasteable agent context block
+
+### Added — example app build + test guide
+
+`docs/guide/examples.md` covers all 18 example apps (build, run, smoke
+verify, adapt) grouped by SDK family.
+
+### Changed — multi-internal-engine selection in the Hub
+
+The Hub's Engines tab is now a first-class catalog. Multiple internal
+engines (`Transformers.js`, `node-llama-cpp`) surface as separate
+cards; the user picks one via the toggle. Selection rebuilds the
+embedded DVAI server without restarting the sidecar. Mutual
+exclusivity enforced across internal + external. Per-engine brand
+icons replace the prior generic glyph.
+
+### Fixed — Hub `EngineBridge` cache race
+
+Concurrent `routeRequest` enumerations could clobber a fresh `Rescan`
+result, surfacing as "click Rescan → engine flips to offline; Last
+Scan time blanks" in the dashboard. Now serialised through a per-
+adapter mutex.
+
+### Fixed — Hub 503 responses missing `Retry-After`
+
+The Hub's `no_capable_device` and `engine_adapter_not_found` 503
+paths now emit `Retry-After: 30`, matching the rendezvous-side core
+lib + UK patent claim 18.
+
+### Patent
+
+Patent pending — UK patent application **GB2611312.6** filed
+2026-05-14. The applied-for claims cover transport-agnostic handler
+architecture, embedded loopback HTTP in mobile applications, probe-
+based capability assessment with mDNS device offload, rendezvous-
+mediated paired-device offload, and multi-tenant pairing hub with
+structured model substitution.
+
+### Verification
+
+- `@dvai-bridge/core` (vitest): 185 / 185 passing
+- `DVAIBridge.dotnet` (.slnf): 149 / 149 passing
+- `co.deepvoiceai.bridge.android` (Gradle): 67 / 67 passing
+- `dvai_bridge` (flutter test): 83 / 83 passing
+- `DVAIBridge` (swift test on macOS): 108 / 108 passing
+- Total: 592 SDK tests passing, 0 failures, 0 regressions on the
+  pre-existing test surface.
+
 ## [3.2.1] — 2026-05-09
 
 Critical patch release. v3.2.0's outgoing-offload path was

@@ -9,7 +9,8 @@
 > **The local OpenAI server you embed inside your app.**
 > One library. One HTTP wire. Every platform. Zero install for your users.
 
-**Docs:** [dvai-bridge.deepvoiceai.co](https://dvai-bridge.deepvoiceai.co)
+**Docs:** [dvai-bridge.deepvoiceai.co](https://dvai-bridge.deepvoiceai.co)  
+**Patent pending —** UK patent application **GB2611312.6** filed 14 May 2026.
 
 ```ts
 import { DVAI } from "@dvai-bridge/core";

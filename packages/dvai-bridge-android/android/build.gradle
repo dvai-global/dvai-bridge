@@ -147,7 +147,7 @@ afterEvaluate {
             release(MavenPublication) {
                 groupId = 'co.deepvoiceai'
                 artifactId = 'dvai-bridge'
-                version = (project.findProperty('dvaiBridgeVersion') ?: '3.2.1').toString()
+                version = (project.findProperty('dvaiBridgeVersion') ?: '4.0.0').toString()
                 from components.release
             }
         }

@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/ios-foundation-core",
-  "version": "3.2.1",
+  "version": "4.0.0",
   "description": "DVAI-Bridge iOS Foundation Models core — pure Swift embedded HTTP server + handlers wrapping Apple's LanguageModelSession. Capacitor-free. Requires iOS 26.0+ at runtime; iOS 18.1+ at link-time.",
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",

@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/android-shared-core",
-  "version": "3.2.1",
+  "version": "4.0.0",
   "description": "DVAI-Bridge Android shared core — Ktor HTTP server + handler dispatch + CORS config shared by every Android backend module (llama / mediapipe / litert).",
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",
