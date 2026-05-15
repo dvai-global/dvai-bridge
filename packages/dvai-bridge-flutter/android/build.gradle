@@ -71,7 +71,7 @@ repositories {
         // GitHub Packages Maven for the Phase 3D umbrella AAR. Consumer
         // apps must export `gpr.user` / `gpr.key` (or the equivalent env
         // vars) — see docs/guide/flutter-sdk.md for the snippet.
-        url = uri("https://maven.pkg.github.com/Westenets/dvai-bridge")
+        url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge")
         credentials {
             username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
             password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")

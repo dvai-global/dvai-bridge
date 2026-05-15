@@ -6,14 +6,14 @@ manifest (`package.json`, `Package.swift`, `build.gradle.kts`,
 `pubspec.yaml`, `.csproj`) and a `smoke.sh` that boots a wiring-only
 test you can run on CI.
 
-Source: [`examples/`](https://github.com/Westenets/dvai-bridge/tree/main/examples)
+Source: [`examples/`](https://github.com/dvai-global/dvai-bridge/tree/main/examples)
 in the monorepo. Group-by-SDK below.
 
 ## Prerequisites (all examples)
 
 ```bash
 # One-time, from the repo root:
-git clone https://github.com/Westenets/dvai-bridge.git
+git clone https://github.com/dvai-global/dvai-bridge.git
 cd dvai-bridge
 pnpm install --ignore-scripts
 ```
@@ -310,7 +310,7 @@ done
 ```
 
 The full per-(SDK × backend) matrix with host requirements is in
-[`examples/MATRIX.md`](https://github.com/Westenets/dvai-bridge/blob/main/examples/MATRIX.md).
+[`examples/MATRIX.md`](https://github.com/dvai-global/dvai-bridge/blob/main/examples/MATRIX.md).
 
 ## See also
 

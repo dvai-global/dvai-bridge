@@ -34,7 +34,7 @@ with whatever's already running.
 
 ```bash
 # In your app's repo:
-git remote add dvai-bridge https://github.com/Westenets/dvai-bridge
+git remote add dvai-bridge https://github.com/dvai-global/dvai-bridge
 git fetch dvai-bridge main
 git read-tree --prefix=hub/ -u dvai-bridge/main:hub
 ```
@@ -171,6 +171,6 @@ build and you should rename it accordingly.
 ## Questions?
 
 Open a discussion at
-[github.com/Westenets/dvai-bridge/discussions](https://github.com/Westenets/dvai-bridge/discussions)
+[github.com/dvai-global/dvai-bridge/discussions](https://github.com/dvai-global/dvai-bridge/discussions)
 or file an issue tagged `[hub-fork]` — we're glad to hear from
 downstream forks and to clean up rough edges this guide misses.

@@ -153,9 +153,9 @@ its existing OpenAI knowledge applies.
 
 ## See also
 
-- [`/llms.txt`](https://github.com/Westenets/dvai-bridge/blob/main/docs/llms.txt)
+- [`/llms.txt`](https://github.com/dvai-global/dvai-bridge/blob/main/docs/llms.txt)
   — the docs index.
-- [`/llms-full.txt`](https://github.com/Westenets/dvai-bridge/blob/main/docs/llms-full.txt)
+- [`/llms-full.txt`](https://github.com/dvai-global/dvai-bridge/blob/main/docs/llms-full.txt)
   — every doc in one file.
 - [Getting started](./getting-started) — the human-readable quickstart.
 - [License setup](./license/) — production licensing per platform.

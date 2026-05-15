@@ -12,7 +12,7 @@ native Android apps.
 ## Install
 
 The SDK is published to **GitHub Packages Maven** at
-`https://maven.pkg.github.com/Westenets/dvai-bridge`.
+`https://maven.pkg.github.com/dvai-global/dvai-bridge`.
 
 ### 1. Add the GitHub Packages repo
 
@@ -24,7 +24,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven {
-            url = uri("https://maven.pkg.github.com/Westenets/dvai-bridge")
+            url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge")
             credentials {
                 username = providers.gradleProperty("gpr.user").orNull
                     ?: System.getenv("GITHUB_ACTOR")
@@ -207,7 +207,7 @@ the most-recent event.
 
 ## Errors
 
-Every public method that can fail throws a [`DVAIBridgeError`](https://github.com/Westenets/dvai-bridge/blob/main/packages/dvai-bridge-android/android/src/main/java/co/deepvoiceai/bridge/DVAIBridgeError.kt) (sealed Exception hierarchy):
+Every public method that can fail throws a [`DVAIBridgeError`](https://github.com/dvai-global/dvai-bridge/blob/main/packages/dvai-bridge-android/android/src/main/java/co/deepvoiceai/bridge/DVAIBridgeError.kt) (sealed Exception hierarchy):
 
 | Error | When |
 |---|---|

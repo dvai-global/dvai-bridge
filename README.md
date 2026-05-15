@@ -2,7 +2,7 @@
 
 # DVAI-Bridge
 
-<!-- [![Smoke — real models](https://github.com/Westenets/dvai-bridge/actions/workflows/smoke-real-models.yml/badge.svg?branch=main)](https://github.com/Westenets/dvai-bridge/actions/workflows/smoke-real-models.yml) -->
+<!-- [![Smoke — real models](https://github.com/dvai-global/dvai-bridge/actions/workflows/smoke-real-models.yml/badge.svg?branch=main)](https://github.com/dvai-global/dvai-bridge/actions/workflows/smoke-real-models.yml) -->
 
 [![License](https://img.shields.io/badge/License-Commercial-blue.svg)](LICENSE) ![Node.js](https://img.shields.io/badge/Node.js-22+-green?logo=node.js) ![TypeScript](https://img.shields.io/badge/TypeScript-5.6+-blue?logo=typescript) ![Swift](https://img.shields.io/badge/Swift-5.9+-F05138?logo=swift) ![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7F52FF?logo=kotlin) ![Flutter](https://img.shields.io/badge/Flutter-3.39+-02569B?logo=flutter) ![.NET](https://img.shields.io/badge/.NET-10.0_LTS-512BD4?logo=dotnet)
 

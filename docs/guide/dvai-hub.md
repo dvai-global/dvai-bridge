@@ -34,7 +34,7 @@ brew install deepvoiceai/dvai-hub/dvai-hub
 ```
 
 …or download the universal `.dmg` from
-[GitHub Releases](https://github.com/Westenets/dvai-bridge/releases/latest).
+[GitHub Releases](https://github.com/dvai-global/dvai-bridge/releases/latest).
 
 ### Windows
 
@@ -43,12 +43,12 @@ winget install DeepVoiceAI.DVAIHub
 ```
 
 …or download the `.msi` from
-[GitHub Releases](https://github.com/Westenets/dvai-bridge/releases/latest).
+[GitHub Releases](https://github.com/dvai-global/dvai-bridge/releases/latest).
 
 ### Linux
 
 Download `.AppImage`, `.deb`, or `.rpm` from
-[GitHub Releases](https://github.com/Westenets/dvai-bridge/releases/latest).
+[GitHub Releases](https://github.com/dvai-global/dvai-bridge/releases/latest).
 
 ```sh
 # AppImage

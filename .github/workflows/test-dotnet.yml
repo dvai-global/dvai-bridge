@@ -201,7 +201,7 @@ jobs:
         run: |
           mkdir -p packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native
           curl -L -u "${GITHUB_USER}:${GITHUB_TOKEN}" \
-            "https://maven.pkg.github.com/Westenets/dvai-bridge/co/deepvoiceai/dvai-bridge/2.4.0/dvai-bridge-2.4.0.aar" \
+            "https://maven.pkg.github.com/dvai-global/dvai-bridge/co/deepvoiceai/dvai-bridge/2.4.0/dvai-bridge-2.4.0.aar" \
             -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/dvai-bridge-2.4.0.aar
 
       - name: Restore Android binding
@@ -256,7 +256,7 @@ jobs:
         run: |
           mkdir -p packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native
           curl -L -u "${GITHUB_USER}:${GITHUB_TOKEN}" \
-            "https://maven.pkg.github.com/Westenets/dvai-bridge/co/deepvoiceai/dvai-bridge/2.4.0/dvai-bridge-2.4.0.aar" \
+            "https://maven.pkg.github.com/dvai-global/dvai-bridge/co/deepvoiceai/dvai-bridge/2.4.0/dvai-bridge-2.4.0.aar" \
             -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/dvai-bridge-2.4.0.aar
 
       - name: Restore solution

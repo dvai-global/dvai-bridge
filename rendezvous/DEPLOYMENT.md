@@ -7,7 +7,7 @@ deploys, custom domains, scaling, and security hardening.
 
 ## Prerequisites
 
-- The `rendezvous/` directory of the dvai-bridge repository (`git clone https://github.com/Westenets/dvai-bridge.git`).
+- The `rendezvous/` directory of the dvai-bridge repository (`git clone https://github.com/dvai-global/dvai-bridge.git`).
 - Or the same directory copied to a standalone repo (it has no
   workspace-package dependencies; it's fully self-contained).
 

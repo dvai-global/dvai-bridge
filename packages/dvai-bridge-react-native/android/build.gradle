@@ -10,7 +10,7 @@
 //
 //   1. `mavenCentral()` and `google()` repositories (default RN template).
 //   2. A GitHub Packages Maven entry pointing at
-//      `https://maven.pkg.github.com/Westenets/dvai-bridge` plus a
+//      `https://maven.pkg.github.com/dvai-global/dvai-bridge` plus a
 //      `gpr.user` / `gpr.key` pair in `~/.gradle/gradle.properties` (or
 //      `GITHUB_ACTOR` / `GITHUB_TOKEN` env vars in CI). See the
 //      docs/guide/react-native-sdk.md guide for the snippet.
@@ -108,7 +108,7 @@ repositories {
         // Production GitHub Packages Maven for the umbrella + cores. Picked up
         // automatically when the consumer app exports `gpr.user` / `gpr.key`
         // (or sets the matching env vars in CI).
-        url = uri("https://maven.pkg.github.com/Westenets/dvai-bridge")
+        url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge")
         credentials {
             username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
             password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")

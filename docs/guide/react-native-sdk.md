@@ -90,7 +90,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven {
-            url = uri("https://maven.pkg.github.com/Westenets/dvai-bridge")
+            url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge")
             credentials {
                 username = providers.gradleProperty("gpr.user").orNull
                     ?: System.getenv("GITHUB_ACTOR")

@@ -8,7 +8,7 @@ under the contribution model below.
 
 ```bash
 # Clone + install (pnpm monorepo for the JS family)
-git clone https://github.com/Westenets/dvai-bridge.git
+git clone https://github.com/dvai-global/dvai-bridge.git
 cd dvai-bridge
 pnpm install
 

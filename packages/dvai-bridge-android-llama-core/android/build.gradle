@@ -28,7 +28,7 @@ allprojects {
         mavenCentral()
         // Phase 3D: shared-core lives here in dev (after `publishToMavenLocal`).
         // Production publishes resolve from GitHub Packages; consumers add the
-        // `maven { url = uri("https://maven.pkg.github.com/Westenets/dvai-bridge") }`
+        // `maven { url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge") }`
         // entry to their settings.gradle as documented in the consumer guide.
         mavenLocal()
     }
@@ -144,7 +144,7 @@ afterEvaluate {
         repositories {
             maven {
                 name = 'GitHubPackages'
-                url = uri('https://maven.pkg.github.com/Westenets/dvai-bridge')
+                url = uri('https://maven.pkg.github.com/dvai-global/dvai-bridge')
                 credentials {
                     username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')
                     password = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')

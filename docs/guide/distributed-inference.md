@@ -51,7 +51,7 @@ The [API reference](/reference/api#offloadconfig-v30) lists every
 `OffloadConfig` field with default values; the
 [wire-protocol section](#wire-protocol-additions-in-v3-1) below
 covers the v3.1 handshake + HMAC-signed identity headers; the
-[v3.0 design rationale lives in `RESEARCH.md` §7](https://github.com/Westenets/dvai-bridge/blob/main/RESEARCH.md)
+[v3.0 design rationale lives in `RESEARCH.md` §7](https://github.com/dvai-global/dvai-bridge/blob/main/RESEARCH.md)
 on the public repo.
 
 ## Quick start
@@ -430,14 +430,14 @@ working end-to-end against the desktop Hub (every signed offload
 request returned 401, the Hub didn't auto-discover on macOS, and
 the iOS proxy looped requests back to itself under specific
 port-binding conditions). v3.2.1 fixes all three. See
-[CHANGELOG `[3.2.1]`](https://github.com/Westenets/dvai-bridge/blob/main/CHANGELOG.md)
+[CHANGELOG `[3.2.1]`](https://github.com/dvai-global/dvai-bridge/blob/main/CHANGELOG.md)
 for the full breakdown. Verified end-to-end via 59 consecutive
 iPhone-simulator dogfood iterations streaming through a real Hub;
 ttfb ~200 ms, ttlb ~1700-2100 ms (10× ratio confirms incremental
 SSE streaming through Hummingbird's `ResponseBody` writer).
 
 The reference dogfood example
-([`examples/ios-offload-dogfood`](https://github.com/Westenets/dvai-bridge/tree/main/examples/ios-offload-dogfood))
+([`examples/ios-offload-dogfood`](https://github.com/dvai-global/dvai-bridge/tree/main/examples/ios-offload-dogfood))
 demonstrates the full local-or-offload flow end-to-end: pre-init
 capability assessment → branch into local backend OR
 offload-only-with-paired-Hub → identical `OpenAI` Swift client call
@@ -476,4 +476,4 @@ so the pattern translates 1:1 across platforms.
 
 - [Self-hosting the rendezvous server](./self-hosting-rendezvous.md) — operational walkthrough for the optional internet-path infrastructure.
 - [Migration: v2.4 → v3.0](../migration/v2.4-to-v3.0) — what to update when upgrading.
-- [RESEARCH.md §11](https://github.com/Westenets/dvai-bridge/blob/main/RESEARCH.md) — the design rationale (LAN-first, app-supplied vs rendezvous internet, why we don't ship a hosted service).
+- [RESEARCH.md §11](https://github.com/dvai-global/dvai-bridge/blob/main/RESEARCH.md) — the design rationale (LAN-first, app-supplied vs rendezvous internet, why we don't ship a hosted service).

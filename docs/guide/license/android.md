@@ -77,7 +77,7 @@ In v3.2.x, the Android SDK ships without `licenseToken` /
 the JS validator automatically; pure-native Kotlin apps in v3.2 ship
 under a "dev preview" allowance. Native Android validation arrives
 in v3.3 — track
-[the milestone](https://github.com/Westenets/dvai-bridge) for the
+[the milestone](https://github.com/dvai-global/dvai-bridge) for the
 release date and pin to v3.3+ to enforce on Android.
 :::
 

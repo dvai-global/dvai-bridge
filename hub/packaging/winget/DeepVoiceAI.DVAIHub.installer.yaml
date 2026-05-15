@@ -13,7 +13,7 @@ InstallerSwitches:
   SilentWithProgress: /passive
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/Westenets/dvai-bridge/releases/download/v3.1.0/DVAI-Hub_3.1.0_x64_en-US.msi
+    InstallerUrl: https://github.com/dvai-global/dvai-bridge/releases/download/v3.1.0/DVAI-Hub_3.1.0_x64_en-US.msi
     InstallerSha256: REPLACED_BY_RELEASE_WORKFLOW
     ProductCode: '{REPLACED_BY_RELEASE_WORKFLOW}'
 ReleaseDate: 2026-05-07

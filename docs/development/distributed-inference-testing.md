@@ -36,7 +36,7 @@ inference, easiest to run on both Windows and Mac):
 
 ```bash
 # On both devices:
-git clone https://github.com/Westenets/dvai-bridge.git
+git clone https://github.com/dvai-global/dvai-bridge.git
 cd dvai-bridge
 pnpm install --ignore-scripts
 pnpm --filter @dvai-bridge/core run build
@@ -283,7 +283,7 @@ When filing a v3.0 bug, please include:
    request (with `console.log` instrumentation around the offload
    callbacks).
 
-File at <https://github.com/Westenets/dvai-bridge/issues> with
+File at <https://github.com/dvai-global/dvai-bridge/issues> with
 `[v3.0]` in the title.
 
 ---

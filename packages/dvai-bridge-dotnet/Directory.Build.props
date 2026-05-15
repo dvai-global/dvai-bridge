@@ -9,8 +9,8 @@
     <Authors>Deep Voice AI</Authors>
     <Company>Deep Voice AI</Company>
     <Copyright>Copyright (c) 2026 Deep Voice AI</Copyright>
-    <PackageProjectUrl>https://github.com/Westenets/dvai-bridge</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/Westenets/dvai-bridge.git</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/dvai-global/dvai-bridge</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/dvai-global/dvai-bridge.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <LangVersion>latest</LangVersion>

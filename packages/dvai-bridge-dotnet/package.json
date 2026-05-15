@@ -30,7 +30,7 @@
   "license": "Custom (See LICENSE)",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Westenets/dvai-bridge.git",
+    "url": "https://github.com/dvai-global/dvai-bridge.git",
     "directory": "packages/dvai-bridge-dotnet"
   },
   "engines": {

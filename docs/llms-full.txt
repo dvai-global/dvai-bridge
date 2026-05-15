@@ -28,7 +28,7 @@ hero:
       link: /guide/getting-started
     - theme: alt
       text: View on GitHub
-      link: https://github.com/Westenets/dvai-bridge
+      link: https://github.com/dvai-global/dvai-bridge
 
 features:
   - title: 📱 Six SDKs, one API
@@ -1512,7 +1512,7 @@ Add the package to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Westenets/dvai-bridge.git", from: "3.2.0"),
+    .package(url: "https://github.com/dvai-global/dvai-bridge.git", from: "3.2.0"),
 ],
 targets: [
     .target(
@@ -1566,7 +1566,7 @@ order; consumers wiring their own backends should mirror it.
 Add to your `Podfile`:
 
 ```ruby
-pod 'DVAIBridge', :git => 'https://github.com/Westenets/dvai-bridge.git', :tag => 'v1.8.0'
+pod 'DVAIBridge', :git => 'https://github.com/dvai-global/dvai-bridge.git', :tag => 'v1.8.0'
 ```
 
 Then `pod install`.
@@ -1952,7 +1952,7 @@ native Android apps.
 ## Install
 
 The SDK is published to **GitHub Packages Maven** at
-`https://maven.pkg.github.com/Westenets/dvai-bridge`.
+`https://maven.pkg.github.com/dvai-global/dvai-bridge`.
 
 ### 1. Add the GitHub Packages repo
 
@@ -1964,7 +1964,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven {
-            url = uri("https://maven.pkg.github.com/Westenets/dvai-bridge")
+            url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge")
             credentials {
                 username = providers.gradleProperty("gpr.user").orNull
                     ?: System.getenv("GITHUB_ACTOR")
@@ -2147,7 +2147,7 @@ the most-recent event.
 
 ## Errors
 
-Every public method that can fail throws a [`DVAIBridgeError`](https://github.com/Westenets/dvai-bridge/blob/main/packages/dvai-bridge-android/android/src/main/java/co/deepvoiceai/bridge/DVAIBridgeError.kt) (sealed Exception hierarchy):
+Every public method that can fail throws a [`DVAIBridgeError`](https://github.com/dvai-global/dvai-bridge/blob/main/packages/dvai-bridge-android/android/src/main/java/co/deepvoiceai/bridge/DVAIBridgeError.kt) (sealed Exception hierarchy):
 
 | Error | When |
 |---|---|
@@ -2444,7 +2444,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven {
-            url = uri("https://maven.pkg.github.com/Westenets/dvai-bridge")
+            url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge")
             credentials {
                 username = providers.gradleProperty("gpr.user").orNull
                     ?: System.getenv("GITHUB_ACTOR")
@@ -2870,7 +2870,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven {
-            url = uri("https://maven.pkg.github.com/Westenets/dvai-bridge")
+            url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge")
             credentials {
                 username = providers.gradleProperty("gpr.user").orNull
                     ?: System.getenv("GITHUB_ACTOR")
@@ -3315,7 +3315,7 @@ csproj needs the Maven repo entry and a personal access token with
   <AndroidMavenLibrary
     Include="co.deepvoiceai:dvai-bridge"
     Version="3.2.0"
-    Repository="https://maven.pkg.github.com/Westenets/dvai-bridge" />
+    Repository="https://maven.pkg.github.com/dvai-global/dvai-bridge" />
 </ItemGroup>
 ```
 
@@ -3326,7 +3326,7 @@ Plus a repo-local or user-global `nuget.config` with credentials:
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <packageSources>
-    <add key="github-dvai" value="https://maven.pkg.github.com/Westenets/dvai-bridge" />
+    <add key="github-dvai" value="https://maven.pkg.github.com/dvai-global/dvai-bridge" />
   </packageSources>
   <packageSourceCredentials>
     <github-dvai>
@@ -4738,7 +4738,7 @@ The [API reference](/reference/api#offloadconfig-v30) lists every
 `OffloadConfig` field with default values; the
 [wire-protocol section](#wire-protocol-additions-in-v3-1) below
 covers the v3.1 handshake + HMAC-signed identity headers; the
-[v3.0 design rationale lives in `RESEARCH.md` §7](https://github.com/Westenets/dvai-bridge/blob/main/RESEARCH.md)
+[v3.0 design rationale lives in `RESEARCH.md` §7](https://github.com/dvai-global/dvai-bridge/blob/main/RESEARCH.md)
 on the public repo.
 
 ## Quick start
@@ -5117,14 +5117,14 @@ working end-to-end against the desktop Hub (every signed offload
 request returned 401, the Hub didn't auto-discover on macOS, and
 the iOS proxy looped requests back to itself under specific
 port-binding conditions). v3.2.1 fixes all three. See
-[CHANGELOG `[3.2.1]`](https://github.com/Westenets/dvai-bridge/blob/main/CHANGELOG.md)
+[CHANGELOG `[3.2.1]`](https://github.com/dvai-global/dvai-bridge/blob/main/CHANGELOG.md)
 for the full breakdown. Verified end-to-end via 59 consecutive
 iPhone-simulator dogfood iterations streaming through a real Hub;
 ttfb ~200 ms, ttlb ~1700-2100 ms (10× ratio confirms incremental
 SSE streaming through Hummingbird's `ResponseBody` writer).
 
 The reference dogfood example
-([`examples/ios-offload-dogfood`](https://github.com/Westenets/dvai-bridge/tree/main/examples/ios-offload-dogfood))
+([`examples/ios-offload-dogfood`](https://github.com/dvai-global/dvai-bridge/tree/main/examples/ios-offload-dogfood))
 demonstrates the full local-or-offload flow end-to-end: pre-init
 capability assessment → branch into local backend OR
 offload-only-with-paired-Hub → identical `OpenAI` Swift client call
@@ -5163,7 +5163,7 @@ so the pattern translates 1:1 across platforms.
 
 - [Self-hosting the rendezvous server](./self-hosting-rendezvous.md) — operational walkthrough for the optional internet-path infrastructure.
 - [Migration: v2.4 → v3.0](../migration/v2.4-to-v3.0) — what to update when upgrading.
-- [RESEARCH.md §11](https://github.com/Westenets/dvai-bridge/blob/main/RESEARCH.md) — the design rationale (LAN-first, app-supplied vs rendezvous internet, why we don't ship a hosted service).
+- [RESEARCH.md §11](https://github.com/dvai-global/dvai-bridge/blob/main/RESEARCH.md) — the design rationale (LAN-first, app-supplied vs rendezvous internet, why we don't ship a hosted service).
 
 
 ---
@@ -5233,7 +5233,7 @@ help fund dvai-bridge maintenance:
 | Platform | Click to deploy | Cost (typical) |
 |---|---|---|
 | **Railway** | [![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/template/{{RAILWAY_TEMPLATE_ID}}?referralCode={{RAILWAY_REFERRAL_CODE}}) | $5/mo Hobby |
-| **DigitalOcean** | [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/Westenets/dvai-bridge/tree/main/rendezvous&refcode={{DIGITALOCEAN_REFERRAL_CODE}}) | $5/mo basic-xxs |
+| **DigitalOcean** | [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/dvai-global/dvai-bridge/tree/main/rendezvous&refcode={{DIGITALOCEAN_REFERRAL_CODE}}) | $5/mo basic-xxs |
 
 After deploy:
 
@@ -5264,7 +5264,7 @@ Cloudflare Workers (with WebSocket support), Google Cloud Run, AWS
 App Runner, or any Linux VM with Docker. The platform-by-platform
 walkthrough below covers every supported host. (The same content
 ships in the repo at
-[`rendezvous/DEPLOYMENT.md`](https://github.com/Westenets/dvai-bridge/blob/main/rendezvous/DEPLOYMENT.md)
+[`rendezvous/DEPLOYMENT.md`](https://github.com/dvai-global/dvai-bridge/blob/main/rendezvous/DEPLOYMENT.md)
 for people who land on the source first.)
 
 ### Fly.io
@@ -5505,9 +5505,9 @@ version and accept both old and new for a deprecation window.
 
 ## Contributing changes to the server
 
-The server lives at [`rendezvous/`](https://github.com/Westenets/dvai-bridge/tree/main/rendezvous)
+The server lives at [`rendezvous/`](https://github.com/dvai-global/dvai-bridge/tree/main/rendezvous)
 in the dvai-bridge monorepo. PRs welcome — see
-[CONTRIBUTING.md](https://github.com/Westenets/dvai-bridge/blob/main/CONTRIBUTING.md).
+[CONTRIBUTING.md](https://github.com/dvai-global/dvai-bridge/blob/main/CONTRIBUTING.md).
 The server has its own test suite (`npm test` from `rendezvous/`)
 and is deliberately small enough to read end-to-end in a sitting.
 
@@ -5552,7 +5552,7 @@ brew install deepvoiceai/dvai-hub/dvai-hub
 ```
 
 …or download the universal `.dmg` from
-[GitHub Releases](https://github.com/Westenets/dvai-bridge/releases/latest).
+[GitHub Releases](https://github.com/dvai-global/dvai-bridge/releases/latest).
 
 ### Windows
 
@@ -5561,12 +5561,12 @@ winget install DeepVoiceAI.DVAIHub
 ```
 
 …or download the `.msi` from
-[GitHub Releases](https://github.com/Westenets/dvai-bridge/releases/latest).
+[GitHub Releases](https://github.com/dvai-global/dvai-bridge/releases/latest).
 
 ### Linux
 
 Download `.AppImage`, `.deb`, or `.rpm` from
-[GitHub Releases](https://github.com/Westenets/dvai-bridge/releases/latest).
+[GitHub Releases](https://github.com/dvai-global/dvai-bridge/releases/latest).
 
 ```sh
 # AppImage
@@ -5764,7 +5764,7 @@ DVAI Hub ships in two flavors:
 
 This guide is the user-facing summary of Flavor 2. The full
 step-by-step lives next to the source at
-[`hub/DEVELOPER-FORK.md`](https://github.com/Westenets/dvai-bridge/blob/main/hub/DEVELOPER-FORK.md).
+[`hub/DEVELOPER-FORK.md`](https://github.com/dvai-global/dvai-bridge/blob/main/hub/DEVELOPER-FORK.md).
 
 ---
 
@@ -5840,13 +5840,13 @@ Your responsibility — typically:
 - Apple Developer ID + macOS notarization for the `.dmg`.
 - Windows code-signing cert for the `.msi`.
 - Your own GitHub Releases workflow (the upstream
-  [`dvai-hub-release.yml`](https://github.com/Westenets/dvai-bridge/blob/main/.github/workflows/dvai-hub-release.yml)
+  [`dvai-hub-release.yml`](https://github.com/dvai-global/dvai-bridge/blob/main/.github/workflows/dvai-hub-release.yml)
   is a template).
 - Optional: your own Homebrew tap; a separate winget manifest
   submission.
 
 The upstream packaging templates in
-[`hub/packaging/`](https://github.com/Westenets/dvai-bridge/tree/main/hub/packaging)
+[`hub/packaging/`](https://github.com/dvai-global/dvai-bridge/tree/main/hub/packaging)
 work as starting points — replace identifier, URL, and brand fields.
 
 ---
@@ -5870,7 +5870,7 @@ strings centralized so these conflicts are small and predictable.
 
 ## See also
 
-- [Full step-by-step at `hub/DEVELOPER-FORK.md`](https://github.com/Westenets/dvai-bridge/blob/main/hub/DEVELOPER-FORK.md)
+- [Full step-by-step at `hub/DEVELOPER-FORK.md`](https://github.com/dvai-global/dvai-bridge/blob/main/hub/DEVELOPER-FORK.md)
 - [DVAI Hub user guide](/guide/dvai-hub)
 - [Migration v3.0 → v3.1](/migration/v3.0-to-v3.1)
 
@@ -6629,7 +6629,7 @@ In v3.2.x, the iOS SDK ships without `licenseToken` /
 `licenseKeyPath` on `StartOptions`. The Capacitor-wrapped path runs
 the JS validator automatically; pure-native Swift apps in v3.2 ship
 under a "dev preview" allowance. Native iOS validation arrives in
-v3.3 — track [the milestone](https://github.com/Westenets/dvai-bridge)
+v3.3 — track [the milestone](https://github.com/dvai-global/dvai-bridge)
 for the release date and pin to v3.3+ to enforce on iOS.
 :::
 
@@ -6776,7 +6776,7 @@ In v3.2.x, the Android SDK ships without `licenseToken` /
 the JS validator automatically; pure-native Kotlin apps in v3.2 ship
 under a "dev preview" allowance. Native Android validation arrives
 in v3.3 — track
-[the milestone](https://github.com/Westenets/dvai-bridge) for the
+[the milestone](https://github.com/dvai-global/dvai-bridge) for the
 release date and pin to v3.3+ to enforce on Android.
 :::
 
@@ -7812,9 +7812,9 @@ its existing OpenAI knowledge applies.
 
 ## See also
 
-- [`/llms.txt`](https://github.com/Westenets/dvai-bridge/blob/main/docs/llms.txt)
+- [`/llms.txt`](https://github.com/dvai-global/dvai-bridge/blob/main/docs/llms.txt)
   — the docs index.
-- [`/llms-full.txt`](https://github.com/Westenets/dvai-bridge/blob/main/docs/llms-full.txt)
+- [`/llms-full.txt`](https://github.com/dvai-global/dvai-bridge/blob/main/docs/llms-full.txt)
   — every doc in one file.
 - [Getting started](./getting-started) — the human-readable quickstart.
 - [License setup](./license/) — production licensing per platform.
@@ -7832,14 +7832,14 @@ manifest (`package.json`, `Package.swift`, `build.gradle.kts`,
 `pubspec.yaml`, `.csproj`) and a `smoke.sh` that boots a wiring-only
 test you can run on CI.
 
-Source: [`examples/`](https://github.com/Westenets/dvai-bridge/tree/main/examples)
+Source: [`examples/`](https://github.com/dvai-global/dvai-bridge/tree/main/examples)
 in the monorepo. Group-by-SDK below.
 
 ## Prerequisites (all examples)
 
 ```bash
 # One-time, from the repo root:
-git clone https://github.com/Westenets/dvai-bridge.git
+git clone https://github.com/dvai-global/dvai-bridge.git
 cd dvai-bridge
 pnpm install --ignore-scripts
 ```
@@ -8136,7 +8136,7 @@ done
 ```
 
 The full per-(SDK × backend) matrix with host requirements is in
-[`examples/MATRIX.md`](https://github.com/Westenets/dvai-bridge/blob/main/examples/MATRIX.md).
+[`examples/MATRIX.md`](https://github.com/dvai-global/dvai-bridge/blob/main/examples/MATRIX.md).
 
 ## See also
 
@@ -9431,7 +9431,7 @@ If you're still on v1.6 or earlier, see
 # Migrating from v2.3 to v2.4
 
 v2.4 is a **purely additive** release that introduces the .NET NuGet
-family ([Phase 3G](https://github.com/Westenets/dvai-bridge/milestone/14))
+family ([Phase 3G](https://github.com/dvai-global/dvai-bridge/milestone/14))
 and republishes the Phase 3D Android umbrella AAR at 2.4.0 for build-graph
 alignment.
 
@@ -9973,7 +9973,7 @@ guarantee means upgrading later is also painless — you can hold off.
 The v3.0 line is new. If you hit edge cases (mDNS-blocked enterprise
 networks, captive portals, NAT traversal failures via rendezvous,
 multi-NIC hosts, IPv6 mDNS), file an issue at
-<https://github.com/Westenets/dvai-bridge/issues> with `[v3.0]` in the
+<https://github.com/dvai-global/dvai-bridge/issues> with `[v3.0]` in the
 title. The 2-device LAN/internet test rig in
 `docs/development/distributed-inference-testing.md` is the canonical
 repro template.
@@ -10236,7 +10236,7 @@ not a library upgrade — your v3.0 dependencies are unchanged.
 ## Reporting issues
 
 The Hub line is new in v3.1. File an issue at
-<https://github.com/Westenets/dvai-bridge/issues> with `[hub]` in
+<https://github.com/dvai-global/dvai-bridge/issues> with `[hub]` in
 the title and include:
 
 1. Hub version (Settings tab → About).
@@ -11310,7 +11310,7 @@ inference, easiest to run on both Windows and Mac):
 
 ```bash
 # On both devices:
-git clone https://github.com/Westenets/dvai-bridge.git
+git clone https://github.com/dvai-global/dvai-bridge.git
 cd dvai-bridge
 pnpm install --ignore-scripts
 pnpm --filter @dvai-bridge/core run build
@@ -11557,7 +11557,7 @@ When filing a v3.0 bug, please include:
    request (with `console.log` instrumentation around the offload
    callbacks).
 
-File at <https://github.com/Westenets/dvai-bridge/issues> with
+File at <https://github.com/dvai-global/dvai-bridge/issues> with
 `[v3.0]` in the title.
 
 ---

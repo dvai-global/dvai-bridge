@@ -1,7 +1,7 @@
 # dvai-bridge rendezvous server
 
 A self-hostable WebSocket relay that pairs two devices running
-[dvai-bridge](https://github.com/Westenets/dvai-bridge) across different
+[dvai-bridge](https://github.com/dvai-global/dvai-bridge) across different
 networks via QR-scan, then relays AEAD-encrypted inference traffic
 between them. Stateless beyond per-session memory; no database; no
 auth tokens; no plaintext inference data ever passes through the
@@ -17,7 +17,7 @@ phone on cellular, laptop on home Wi-Fi.
 | Platform | Click to deploy | Notes |
 |---|---|---|
 | **Railway** | [![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/template/{{RAILWAY_TEMPLATE_ID}}?referralCode={{RAILWAY_REFERRAL_CODE}}) | $5/mo Hobby tier handles thousands of sessions; `wss://` works out of the box. |
-| **DigitalOcean** | [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/Westenets/dvai-bridge/tree/main/rendezvous&refcode={{DIGITALOCEAN_REFERRAL_CODE}}) | $5/mo basic-xxs droplet; assigns a `*.ondigitalocean.app` URL. |
+| **DigitalOcean** | [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/dvai-global/dvai-bridge/tree/main/rendezvous&refcode={{DIGITALOCEAN_REFERRAL_CODE}}) | $5/mo basic-xxs droplet; assigns a `*.ondigitalocean.app` URL. |
 
 > **Note:** the buttons above include affiliate referral codes that
 > earn the dvai-bridge maintainers a small commission. If you'd rather
@@ -35,7 +35,7 @@ with a button — but they all work.
 ## Running locally
 
 ```bash
-git clone https://github.com/Westenets/dvai-bridge.git
+git clone https://github.com/dvai-global/dvai-bridge.git
 cd dvai-bridge/rendezvous
 npm install
 npm run build

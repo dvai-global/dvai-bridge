@@ -9,7 +9,7 @@ DVAI Hub ships in two flavors:
 
 This guide is the user-facing summary of Flavor 2. The full
 step-by-step lives next to the source at
-[`hub/DEVELOPER-FORK.md`](https://github.com/Westenets/dvai-bridge/blob/main/hub/DEVELOPER-FORK.md).
+[`hub/DEVELOPER-FORK.md`](https://github.com/dvai-global/dvai-bridge/blob/main/hub/DEVELOPER-FORK.md).
 
 ---
 
@@ -85,13 +85,13 @@ Your responsibility — typically:
 - Apple Developer ID + macOS notarization for the `.dmg`.
 - Windows code-signing cert for the `.msi`.
 - Your own GitHub Releases workflow (the upstream
-  [`dvai-hub-release.yml`](https://github.com/Westenets/dvai-bridge/blob/main/.github/workflows/dvai-hub-release.yml)
+  [`dvai-hub-release.yml`](https://github.com/dvai-global/dvai-bridge/blob/main/.github/workflows/dvai-hub-release.yml)
   is a template).
 - Optional: your own Homebrew tap; a separate winget manifest
   submission.
 
 The upstream packaging templates in
-[`hub/packaging/`](https://github.com/Westenets/dvai-bridge/tree/main/hub/packaging)
+[`hub/packaging/`](https://github.com/dvai-global/dvai-bridge/tree/main/hub/packaging)
 work as starting points — replace identifier, URL, and brand fields.
 
 ---
@@ -115,6 +115,6 @@ strings centralized so these conflicts are small and predictable.
 
 ## See also
 
-- [Full step-by-step at `hub/DEVELOPER-FORK.md`](https://github.com/Westenets/dvai-bridge/blob/main/hub/DEVELOPER-FORK.md)
+- [Full step-by-step at `hub/DEVELOPER-FORK.md`](https://github.com/dvai-global/dvai-bridge/blob/main/hub/DEVELOPER-FORK.md)
 - [DVAI Hub user guide](/guide/dvai-hub)
 - [Migration v3.0 → v3.1](/migration/v3.0-to-v3.1)

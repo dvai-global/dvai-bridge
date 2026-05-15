@@ -22,8 +22,8 @@
     <authors>Deep Voice AI</authors>
     <owners>Deep Voice AI</owners>
     <license type="expression">Apache-2.0</license>
-    <projectUrl>https://github.com/Westenets/dvai-bridge</projectUrl>
-    <repository type="git" url="https://github.com/Westenets/dvai-bridge.git" />
+    <projectUrl>https://github.com/dvai-global/dvai-bridge</projectUrl>
+    <repository type="git" url="https://github.com/dvai-global/dvai-bridge.git" />
     <description>Local-LLM bridge with OpenAI-compatible HTTP server for .NET MAUI, Avalonia, WinUI, and Xamarin (legacy) apps on iOS and Android. Wraps the DVAIBridge iOS + Android native SDKs behind an idiomatic C# API. Reactive progress via IAsyncEnumerable&lt;ProgressEvent&gt;. Backends: llama.cpp, Apple Foundation Models, CoreML/ANE, MLX, MediaPipe, LiteRT.</description>
     <copyright>Copyright (c) 2026 Deep Voice AI</copyright>
     <tags>llm ai openai ios android maui avalonia winui local-inference llama-cpp mediapipe litert mlx coreml foundation-models</tags>

@@ -90,7 +90,7 @@ csproj needs the Maven repo entry and a personal access token with
   <AndroidMavenLibrary
     Include="co.deepvoiceai:dvai-bridge"
     Version="3.2.0"
-    Repository="https://maven.pkg.github.com/Westenets/dvai-bridge" />
+    Repository="https://maven.pkg.github.com/dvai-global/dvai-bridge" />
 </ItemGroup>
 ```
 
@@ -101,7 +101,7 @@ Plus a repo-local or user-global `nuget.config` with credentials:
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <packageSources>
-    <add key="github-dvai" value="https://maven.pkg.github.com/Westenets/dvai-bridge" />
+    <add key="github-dvai" value="https://maven.pkg.github.com/dvai-global/dvai-bridge" />
   </packageSources>
   <packageSourceCredentials>
     <github-dvai>

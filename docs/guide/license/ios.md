@@ -74,7 +74,7 @@ In v3.2.x, the iOS SDK ships without `licenseToken` /
 `licenseKeyPath` on `StartOptions`. The Capacitor-wrapped path runs
 the JS validator automatically; pure-native Swift apps in v3.2 ship
 under a "dev preview" allowance. Native iOS validation arrives in
-v3.3 — track [the milestone](https://github.com/Westenets/dvai-bridge)
+v3.3 — track [the milestone](https://github.com/dvai-global/dvai-bridge)
 for the release date and pin to v3.3+ to enforce on iOS.
 :::
 

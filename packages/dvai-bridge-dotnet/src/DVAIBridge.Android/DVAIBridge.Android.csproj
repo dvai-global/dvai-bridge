@@ -46,7 +46,7 @@
     <!--
       AAR fetched by CI from GitHub Packages Maven before build:
         curl -L -u "$GITHUB_USER:$GITHUB_TOKEN" \
-          "https://maven.pkg.github.com/Westenets/dvai-bridge/co/deepvoiceai/dvai-bridge/$(Version)/dvai-bridge-$(Version).aar" \
+          "https://maven.pkg.github.com/dvai-global/dvai-bridge/co/deepvoiceai/dvai-bridge/$(Version)/dvai-bridge-$(Version).aar" \
           -o native/dvai-bridge-$(Version).aar
       Bind=true tells the binding generator to emit C# wrappers from the
       AAR's classes.jar.

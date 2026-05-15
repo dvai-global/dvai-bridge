@@ -16,7 +16,7 @@ Add the package to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Westenets/dvai-bridge.git", from: "3.2.0"),
+    .package(url: "https://github.com/dvai-global/dvai-bridge.git", from: "3.2.0"),
 ],
 targets: [
     .target(
@@ -70,7 +70,7 @@ order; consumers wiring their own backends should mirror it.
 Add to your `Podfile`:
 
 ```ruby
-pod 'DVAIBridge', :git => 'https://github.com/Westenets/dvai-bridge.git', :tag => 'v1.8.0'
+pod 'DVAIBridge', :git => 'https://github.com/dvai-global/dvai-bridge.git', :tag => 'v1.8.0'
 ```
 
 Then `pod install`.

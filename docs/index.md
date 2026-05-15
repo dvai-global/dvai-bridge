@@ -14,7 +14,7 @@ hero:
       link: /guide/getting-started
     - theme: alt
       text: View on GitHub
-      link: https://github.com/Westenets/dvai-bridge
+      link: https://github.com/dvai-global/dvai-bridge
 
 features:
   - title: 📱 Six SDKs, one API

@@ -42,10 +42,10 @@ Pod::Spec.new do |s|
     plus reactive `Stream<DVAIBridgeState>` and `Stream<ProgressEvent>`
     getters.
   DESC
-  s.homepage         = 'https://github.com/Westenets/dvai-bridge'
+  s.homepage         = 'https://github.com/dvai-global/dvai-bridge'
   s.license          = { :type => 'Custom', :file => '../LICENSE' }
   s.author           = { 'Deep Chakraborty' => 'https://github.com/dk013' }
-  s.source           = { :git => 'https://github.com/Westenets/dvai-bridge.git', :tag => "v#{s.version}" }
+  s.source           = { :git => 'https://github.com/dvai-global/dvai-bridge.git', :tag => "v#{s.version}" }
   s.platform         = :ios, '15.1'
   s.swift_version    = '5.9'
 

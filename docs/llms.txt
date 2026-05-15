@@ -108,7 +108,7 @@ runtime.
 
 - [Examples index + matrix](https://bridge.deepvoiceai.co/docs/guide/examples):
   Build + run instructions for all 18 example apps.
-- Source: [`examples/`](https://github.com/Westenets/dvai-bridge/tree/main/examples).
+- Source: [`examples/`](https://github.com/dvai-global/dvai-bridge/tree/main/examples).
 
 ## Migration guides
 

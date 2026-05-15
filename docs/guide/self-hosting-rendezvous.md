@@ -61,7 +61,7 @@ help fund dvai-bridge maintenance:
 | Platform | Click to deploy | Cost (typical) |
 |---|---|---|
 | **Railway** | [![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/template/{{RAILWAY_TEMPLATE_ID}}?referralCode={{RAILWAY_REFERRAL_CODE}}) | $5/mo Hobby |
-| **DigitalOcean** | [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/Westenets/dvai-bridge/tree/main/rendezvous&refcode={{DIGITALOCEAN_REFERRAL_CODE}}) | $5/mo basic-xxs |
+| **DigitalOcean** | [![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/dvai-global/dvai-bridge/tree/main/rendezvous&refcode={{DIGITALOCEAN_REFERRAL_CODE}}) | $5/mo basic-xxs |
 
 After deploy:
 
@@ -92,7 +92,7 @@ Cloudflare Workers (with WebSocket support), Google Cloud Run, AWS
 App Runner, or any Linux VM with Docker. The platform-by-platform
 walkthrough below covers every supported host. (The same content
 ships in the repo at
-[`rendezvous/DEPLOYMENT.md`](https://github.com/Westenets/dvai-bridge/blob/main/rendezvous/DEPLOYMENT.md)
+[`rendezvous/DEPLOYMENT.md`](https://github.com/dvai-global/dvai-bridge/blob/main/rendezvous/DEPLOYMENT.md)
 for people who land on the source first.)
 
 ### Fly.io
@@ -333,8 +333,8 @@ version and accept both old and new for a deprecation window.
 
 ## Contributing changes to the server
 
-The server lives at [`rendezvous/`](https://github.com/Westenets/dvai-bridge/tree/main/rendezvous)
+The server lives at [`rendezvous/`](https://github.com/dvai-global/dvai-bridge/tree/main/rendezvous)
 in the dvai-bridge monorepo. PRs welcome — see
-[CONTRIBUTING.md](https://github.com/Westenets/dvai-bridge/blob/main/CONTRIBUTING.md).
+[CONTRIBUTING.md](https://github.com/dvai-global/dvai-bridge/blob/main/CONTRIBUTING.md).
 The server has its own test suite (`npm test` from `rendezvous/`)
 and is deliberately small enough to read end-to-end in a sitting.

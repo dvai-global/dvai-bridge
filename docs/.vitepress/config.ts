@@ -51,7 +51,7 @@ export default defineConfig({
 		nav: [
 			{ text: "Guide", link: "/guide/introduction" },
 			{ text: "Reference", link: "/reference/api" },
-			{ text: "GitHub", link: "https://github.com/Westenets/dvai-bridge" },
+			{ text: "GitHub", link: "https://github.com/dvai-global/dvai-bridge" },
 		],
 		sidebar: [
 			{
@@ -142,7 +142,7 @@ export default defineConfig({
 			},
 		],
 		socialLinks: [
-			{ icon: "github", link: "https://github.com/Westenets/dvai-bridge" },
+			{ icon: "github", link: "https://github.com/dvai-global/dvai-bridge" },
 		],
 		footer: {
 			message: "Released under Custom License.",
