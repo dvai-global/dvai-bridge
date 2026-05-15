@@ -1,35 +1,43 @@
-name: Deploy docs to GitHub Pages
+name: Deploy docs to bridge.deepvoiceai.co
+
+# CD pipeline for the VitePress docs site. Fires when:
+#   - release: types: [published] — main trigger; matches the rest of
+#     our CD workflows (publish.yml, smoke-real-models.yml).
+#   - push: tags 'v*.*.*' — covers tag-first flows where the tag is
+#     cut from the CLI before the GitHub Release notes are written.
+#   - workflow_dispatch — manual; use this to push docs-only updates
+#     between releases (typo fixes, new guide pages) without cutting
+#     a new tag.
+#
+# Deploy target: /var/www/dvai-bridge-docs/ on the Apache box.
+# Apache vhost serves /docs/* from that directory directly; every
+# other path proxies to the Fastify portal at 127.0.0.1:3000.
 
 on:
+  release:
+    types: [published]
   push:
-    branches: [main]
-    paths:
-      - 'docs/**'
-      - 'README.md'
-      - 'CHANGELOG.md'
-      - '.github/workflows/deploy-docs.yml'
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
-  group: pages
+  group: deploy-docs
   cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
+    name: Build VitePress and rsync to bridge.deepvoiceai.co
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
-          version: 9
+          version: 10
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: pnpm
@@ -45,21 +53,60 @@ jobs:
         working-directory: docs
         run: pnpm run docs:build
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
+      - name: Verify build output
+        # Fail loud and early if VitePress emitted nothing — guards
+        # against accidentally rsync-ing an empty dist over the live
+        # docs.
+        run: |
+          if [ ! -f docs/.vitepress/dist/index.html ]; then
+            echo "::error::docs/.vitepress/dist/index.html not found — VitePress build did not produce output"
+            exit 1
+          fi
+          echo "Build OK — $(find docs/.vitepress/dist -type f | wc -l) files, $(du -sh docs/.vitepress/dist | cut -f1) total"
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          path: docs/.vitepress/dist
+          ssh-private-key: ${{ secrets.DOCS_DEPLOY_SSH_KEY }}
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Trust deploy host
+        # Avoids the strict-host-key-check prompt on first deploy. If
+        # the host key ever changes (e.g. server rebuild), the deploy
+        # will fail loud — at which point you regenerate this entry
+        # by re-running the workflow.
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -H "${{ secrets.DOCS_DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Rsync docs to server
+        # -a   archive mode (recursive + preserve times, symlinks)
+        # -z   compress in transit
+        # -v   verbose (so CI logs show the file list)
+        # --delete           remove files in the destination that are no
+        #                    longer in source (renamed / deleted pages
+        #                    don't linger as 404 targets)
+        # --human-readable   prettier byte counts in the log
+        # --stats            summary at the end
+        # The trailing slash on the source path is load-bearing: it
+        # copies the *contents* of dist/ into /var/www/dvai-bridge-docs/,
+        # not the dist/ directory itself.
+        #
+        # Server-side note: the destination must be writable by
+        # DOCS_DEPLOY_USER. If you want Apache (www-data) to read the
+        # files and inherit the group, set the setgid bit on the dir:
+        #   chmod g+s /var/www/dvai-bridge-docs
+        #   chown -R <DOCS_DEPLOY_USER>:www-data /var/www/dvai-bridge-docs
+        run: |
+          rsync -avz --delete --human-readable --stats \
+            docs/.vitepress/dist/ \
+            "${{ secrets.DOCS_DEPLOY_USER }}@${{ secrets.DOCS_DEPLOY_HOST }}:/var/www/dvai-bridge-docs/"
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "::notice title=Docs deployed::Published to https://bridge.deepvoiceai.co/docs/"
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Ref:     ${{ github.ref }}"
+          echo "SHA:     ${{ github.sha }}"
