@@ -55,10 +55,25 @@ public struct OffloadConfig: Sendable {
 public struct StartOptions: Sendable {
     public var config: DVAIBridgeConfig
     public var offload: OffloadConfig?
+    /// v3.2.2 — explicit path to the license `.jwt` file. Overrides the
+    /// auto-discovery walk (Bundle resource, Documents, etc). The same
+    /// .jwt format works across iOS / Android / .NET / RN / JS SDKs.
+    public var licenseKeyPath: String?
+    /// v3.2.2 — inline JWT license. Useful when the host app fetches
+    /// the license over the network and wants to inject the result
+    /// without touching disk. Wins over `licenseKeyPath` if both are set.
+    public var licenseToken: String?
 
-    public init(config: DVAIBridgeConfig, offload: OffloadConfig? = nil) {
+    public init(
+        config: DVAIBridgeConfig,
+        offload: OffloadConfig? = nil,
+        licenseKeyPath: String? = nil,
+        licenseToken: String? = nil
+    ) {
         self.config = config
         self.offload = offload
+        self.licenseKeyPath = licenseKeyPath
+        self.licenseToken = licenseToken
     }
 
     /// Convenience initializer that mirrors the documented public
@@ -77,7 +92,9 @@ public struct StartOptions: Sendable {
         corsOrigin: DVAIBridgeConfig.CORSOrigin = .wildcard,
         autoUnloadOnLowMemory: Bool = false,
         logLevel: String = "info",
-        offload: OffloadConfig? = nil
+        offload: OffloadConfig? = nil,
+        licenseKeyPath: String? = nil,
+        licenseToken: String? = nil
     ) {
         self.config = DVAIBridgeConfig(
             backend: backend,
@@ -95,5 +112,7 @@ public struct StartOptions: Sendable {
             logLevel: logLevel
         )
         self.offload = offload
+        self.licenseKeyPath = licenseKeyPath
+        self.licenseToken = licenseToken
     }
 }
