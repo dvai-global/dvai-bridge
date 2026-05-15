@@ -21,6 +21,8 @@ Examples of unacceptable behavior include:
 * The use of sexualized language or imagery, and sexual attention or advances of any kind
 * Trolling, insulting or derogatory comments, and personal or political attacks
 * Public or private harassment
+* Deliberately and consciously changing code so that it operates at or to the detriment of other people inside and outside of this community both those who are users or developers now or may be in the future.
+* Take actions to insert code extracts snippets sections or whole bases which have the effect of creating becoming or inserting any type of malware which includes but is not limited to trojans spears smears worms ransomware rootkit keyloggers and botnets. 
 * Publishing others' private information, such as a physical or email address, without their explicit permission
 * Other conduct which could reasonably be considered inappropriate in a professional setting
 
@@ -67,7 +69,7 @@ Community leaders will follow these Community Impact Guidelines in determining t
 ### 4. Permanent Ban
 
 **Community Impact**: Demonstrating a pattern of violation of community standards, including sustained inappropriate behavior, harassment of an individual, or aggression toward or disparagement of classes of individuals.
-
+**Important distinction**: Some violations will automatically lead to a permanent ban and may also lead to prosecution via legal channels.
 **Consequence**: A permanent ban from any sort of public interaction within the community.
 
 ## Attribution

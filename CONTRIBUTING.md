@@ -21,7 +21,7 @@ DVAI Bridge is **dual-licensed**:
 
 To support this dual-licensing model, **all contributors must sign the DVAI
 Bridge Contributor Licence Agreement (CLA)** before any pull request can be
-merged. The CLA grants Deep Voice AI Limited the licences needed to
+merged. Under this CLA Deep Voice AI Limited issues the licences needed to
 redistribute your contribution under both the Community Licence and the
 Commercial Licence, and to support the automatic conversion of each Released
 Version to Apache 2.0 three years after release. **You retain copyright in
@@ -209,6 +209,7 @@ Deep Voice AI Limited engineering team). Reviews typically include:
 - **Test review** — are the tests appropriate and sufficient?
 - **Design review** — does the change fit the project's architecture and
   direction?
+- **Structure Review** - does the code create dependencies which impact performance or create issues elsewhere in the code base?
 
 Reviewers may request changes, suggest alternative approaches, or approve
 the PR for merging. Merging is at the discretion of the maintainers; not
