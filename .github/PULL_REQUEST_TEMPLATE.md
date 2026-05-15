@@ -46,6 +46,14 @@ Tests are required when:
 - [ ] No new secrets, credentials, or large binaries committed.
 - [ ] If breaking: a `docs/migration/vX-to-vY.md` entry exists.
 
+## Contributor Licence Agreement
+
+- [ ] I have read and agree to the [DVAI Bridge Contributor Licence
+      Agreement](https://bridge.deepvoiceai.co/cla). The CLA Assistant
+      bot will also prompt me to sign before merge; this checkbox is a
+      good-faith acknowledgement, not a substitute for the bot's
+      signature flow.
+
 ## Breaking change notes
 
 <!-- If this is a breaking change, describe:

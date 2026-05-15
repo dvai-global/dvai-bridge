@@ -1,0 +1,16 @@
+{
+  "comment": "Operator-side config for the CLA Assistant bot (https://cla-assistant.io). Reference this from the bot's dashboard when setting up the repo. The bot needs the repository to expose the canonical CLA URL publicly; that's https://bridge.deepvoiceai.co/cla — see public/cla.html in the dvai-license-generator repo for the source.",
+  "name": "DVAI Bridge CLA",
+  "version": "1.0",
+  "url": "https://bridge.deepvoiceai.co/cla",
+  "minFileChanges": 0,
+  "minCodeChanges": 0,
+  "allowListBots": [
+    "dependabot[bot]",
+    "renovate[bot]",
+    "github-actions[bot]"
+  ],
+  "checkLabels": {
+    "ignore": ["dependencies", "documentation"]
+  }
+}

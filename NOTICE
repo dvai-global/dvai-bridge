@@ -1,0 +1,156 @@
+DVAI Bridge
+Copyright 2026 Deep Voice AI Limited (Company No. 16743132)
+
+This product includes software developed at Deep Voice AI Limited
+(https://deepvoiceai.co).
+
+DVAI Bridge is the subject of UK Patent Application GB2611312.6 filed on
+14 May 2026, naming Deep Chakraborty as the sole inventor and Deep Voice AI
+Limited as the applicant.
+
+================================================================================
+LICENSING
+================================================================================
+
+DVAI Bridge is licensed under the DVAI Bridge Community Licence v1.0
+("DVAI-BCL v1.0"). See the LICENSE file in the root of this repository for
+the full licence text, or visit:
+
+    https://deepvoiceai.co/licensing
+
+Each Released Version of DVAI Bridge converts automatically to the Apache
+License, Version 2.0 ("Apache 2.0") three (3) years after its public release
+date. See CHANGE_DATE.md for the current Change Date register.
+
+Commercial Use of DVAI Bridge requires a separate Commercial Licence. For
+commercial licensing enquiries: info@deepvoiceai.co.
+
+================================================================================
+THIRD-PARTY SOFTWARE
+================================================================================
+
+This product incorporates or interoperates with the following third-party
+software components. Each component is subject to the licence terms specified
+in its respective repository or distribution. The authoritative current list
+of third-party software incorporated in any specific release of DVAI Bridge
+is maintained in this NOTICE file, in vendor manifests inside each
+sub-package (package.json, build.gradle, podspec, csproj, pubspec.yaml), and
+in the THIRD_PARTY_LICENSES file where present. When redistributing DVAI
+Bridge, verify the current list against the release you are distributing.
+
+iOS native HTTP server
+----------------------
+Telegraph
+  Source: https://github.com/Building42/Telegraph
+  Licence: MIT
+
+swift-nio
+  Source: https://github.com/apple/swift-nio
+  Copyright: Apple Inc. and the SwiftNIO project authors
+  Licence: Apache 2.0
+
+Android native HTTP server
+--------------------------
+Ktor
+  Source: https://github.com/ktorio/ktor
+  Copyright: JetBrains s.r.o.
+  Licence: Apache 2.0
+
+Browser-runtime request interception
+------------------------------------
+Mock Service Worker (MSW)
+  Source: https://github.com/mswjs/msw
+  Licence: MIT
+
+Inference backends (optional integrations)
+------------------------------------------
+The following machine-learning inference engines may be integrated with DVAI
+Bridge as optional backends. Each is subject to its own licence and end-user
+terms.
+
+llama.cpp
+  Source: https://github.com/ggerganov/llama.cpp
+  Licence: MIT
+
+llamafile (Mozilla)
+  Source: https://github.com/Mozilla-Ocho/llamafile
+  Licence: Apache 2.0
+
+Ollama
+  Source: https://github.com/ollama/ollama
+  Licence: MIT
+
+LM Studio
+  Source: https://lmstudio.ai
+  Licence: proprietary (third-party integration only)
+
+vLLM
+  Source: https://github.com/vllm-project/vllm
+  Licence: Apache 2.0
+
+MediaPipe LLM Inference (Google)
+  Source: https://developers.google.com/mediapipe
+  Licence: Apache 2.0
+
+LiteRT-LM
+  Source: https://ai.google.dev/edge/litert
+  Licence: Apache 2.0
+
+Apple Foundation Models
+  Source: Apple Intelligence framework, included with iOS / macOS
+  Licence: Apple Developer Program licence terms apply
+
+CoreML
+  Source: Apple ML framework, included with iOS / macOS
+  Licence: Apple Developer Program licence terms apply
+
+ONNX Runtime GenAI
+  Source: https://github.com/microsoft/onnxruntime-genai
+  Copyright: Microsoft Corporation
+  Licence: MIT
+
+MLX (Apple)
+  Source: https://github.com/ml-explore/mlx
+  Copyright: Apple Inc.
+  Licence: MIT
+
+MLC LLM
+  Source: https://github.com/mlc-ai/mlc-llm
+  Licence: Apache 2.0
+
+Cross-platform packaging frameworks (optional)
+----------------------------------------------
+DVAI Bridge is distributed in multiple framework wrappers. The host framework
+underlying each wrapper is subject to its own licence:
+
+Capacitor (Ionic)
+  Source: https://github.com/ionic-team/capacitor
+  Licence: MIT
+
+React Native (Meta)
+  Source: https://github.com/facebook/react-native
+  Licence: MIT
+
+Flutter (Google)
+  Source: https://github.com/flutter/flutter
+  Licence: BSD-3-Clause
+
+.NET MAUI (Microsoft)
+  Source: https://github.com/dotnet/maui
+  Licence: MIT
+
+================================================================================
+TRADEMARKS
+================================================================================
+
+"Deep Voice AI", "DVAI", and "DVAI Bridge" are trade marks of Deep Voice AI
+Limited. The DVAI logo and DVAI Bridge logo are trade marks of Deep Voice AI Limited.
+
+Trade marks belonging to third parties referenced in this NOTICE file
+(including "Apple", "Android", "Google", "Microsoft", "Capacitor", "React
+Native", "Flutter", ".NET", "iOS", "macOS", and others) are the property of
+their respective owners.
+
+================================================================================
+END OF NOTICE
+================================================================================
