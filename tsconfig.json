@@ -15,6 +15,7 @@
     // map or migrate to `ignoreDeprecations: "7.0"` once 7 lands.
     "ignoreDeprecations": "6.0",
     "paths": {
+      "@dvai-bridge/capacitor": ["./packages/dvai-bridge-capacitor/src/index.ts"],
       "@dvai-bridge/core": ["./packages/dvai-bridge-core/src/index.ts"],
       "@dvai-bridge/react": ["./packages/dvai-bridge-react/src/index.tsx"],
       "@dvai-bridge/vanilla": ["./packages/dvai-bridge-vanilla/src/index.ts"]

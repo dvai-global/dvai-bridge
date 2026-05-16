@@ -49,6 +49,9 @@
     "@dvai-bridge/capacitor": "workspace:*",
     "@dvai-bridge/ios-foundation-core": "workspace:*"
   },
+  "devDependencies": {
+    "@dvai-bridge/capacitor": "workspace:*"
+  },
   "capacitor": {
     "ios": {
       "src": "ios"

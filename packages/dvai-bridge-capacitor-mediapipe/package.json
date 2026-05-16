@@ -55,6 +55,9 @@
     "@dvai-bridge/android-mediapipe-core": "workspace:*",
     "@dvai-bridge/capacitor": "workspace:*"
   },
+  "devDependencies": {
+    "@dvai-bridge/capacitor": "workspace:*"
+  },
   "capacitor": {
     "ios": {
       "src": "ios"
