@@ -111,10 +111,30 @@ find "$FRAMEWORKS_DIR" -name "llama" -type f | while read -r bin; do check_linka
 find "$FRAMEWORKS_DIR" -name "mtmd" -type f | while read -r bin; do check_linkage "$bin"; done
 
 echo "✅ Forensic preparation complete."
+
+# 5. Package for CocoaPods (Lightweight payload)
+echo "📦 Packaging for CocoaPods..."
+ZIP_NAME="DVAIBridge-v4.0.0.zip"
+rm -f "$ZIP_NAME"
+
+PKG_DIR="cocoapods_temp"
+rm -rf "$PKG_DIR"
+mkdir -p "$PKG_DIR/packages"
+
+# Copy only what is needed for the Pod
+cp -R packages/dvai-bridge-ios "$PKG_DIR/packages/"
+cp -R packages/dvai-bridge-ios-shared-core "$PKG_DIR/packages/"
+cp -R packages/dvai-bridge-ios-llama-core "$PKG_DIR/packages/"
+cp DVAIBridge.podspec "$PKG_DIR/"
+cp LICENSE "$PKG_DIR/"
+cp README.md "$PKG_DIR/"
+
+# Zip it up
+(cd "$PKG_DIR" && zip -r "../$ZIP_NAME" .)
+
+rm -rf "$PKG_DIR"
+echo "✅ Created $ZIP_NAME."
 echo "🚀 Next steps:"
-echo "  1. git add packages/dvai-bridge-ios/Frameworks"
-echo "  2. git commit -m 'chore: forensic cleanup of xcframeworks'"
-echo "  3. git push origin main"
-echo "  4. (I will update the tag)"
-echo "  5. pod cache clean DVAIBridge"
-echo "  6. pod trunk push DVAIBridge.podspec --allow-warnings"
+echo "  1. Upload $ZIP_NAME to GitHub Release v4.0.0"
+echo "  2. I will update the podspec to point to this ZIP"
+echo "  3. pod trunk push DVAIBridge.podspec --allow-warnings"
