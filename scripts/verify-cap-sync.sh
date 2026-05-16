@@ -76,21 +76,30 @@ cd ..
 # iOS verification only on Mac
 if [[ "$(uname)" == "Darwin" ]] && [[ -d ios ]]; then
   echo "[verify-cap-sync] verifying iOS project..."
-  cd ios/App
-  if [[ -f "Podfile" ]]; then
-    echo "[verify-cap-sync] found Podfile, running pod install..."
-    pod install
-  elif [[ -f "Package.swift" ]]; then
-    echo "[verify-cap-sync] found Package.swift (SPM), verifying structure..."
-    # If SPM is used, we just ensure the file exists and is non-empty
-    if [[ ! -s "Package.swift" ]]; then
-      echo "[verify-cap-sync] ERROR: Package.swift is empty!"
-      exit 1
-    fi
-  else
-    echo "[verify-cap-sync] WARNING: Neither Podfile nor Package.swift found in ios/App"
+  
+  # Search for the project files in likely locations
+  PROJECT_PATH=""
+  if [[ -f "ios/App/Podfile" ]] || [[ -f "ios/App/Package.swift" ]]; then
+    PROJECT_PATH="ios/App"
+  elif [[ -f "ios/Podfile" ]] || [[ -f "ios/Package.swift" ]]; then
+    PROJECT_PATH="ios"
   fi
-  cd ../..
+
+  if [[ -n "$PROJECT_PATH" ]]; then
+    cd "$PROJECT_PATH"
+    if [[ -f "Podfile" ]]; then
+      echo "[verify-cap-sync] found Podfile in $PROJECT_PATH, running pod install..."
+      pod install
+    else
+      echo "[verify-cap-sync] found Package.swift (SPM) in $PROJECT_PATH, verifying..."
+      [[ -s "Package.swift" ]] || { echo "ERROR: Package.swift is empty"; exit 1; }
+    fi
+    cd - > /dev/null
+  else
+    echo "[verify-cap-sync] WARNING: Could not find Podfile or Package.swift."
+    echo "[verify-cap-sync] Directory structure of 'ios':"
+    ls -R ios
+  fi
 fi
 
 echo "[verify-cap-sync] OK"
