@@ -420,7 +420,9 @@ public actor HttpServer {
                 
                 switch dvaiResponse! {
                 case .buffered(let status, let headers, let body):
-                    return HTTPResponse(HTTPStatus(code: status), headers: headers, body: body)
+                    var tHeaders = HTTPHeaders()
+                    for (k, v) in headers { tHeaders[HTTPHeaderName(k)] = v }
+                    return HTTPResponse(HTTPStatus(code: status, phrase: ""), headers: tHeaders, body: body)
                 case .streaming(let status, let headers, let stream):
                     // Simplified fallback: buffer the stream
                     let runLoop = RunLoop.current
@@ -435,7 +437,9 @@ public actor HttpServer {
                     while !finished {
                         runLoop.run(until: Date(timeIntervalSinceNow: 0.01))
                     }
-                    return HTTPResponse(HTTPStatus(code: status), headers: headers, body: fullBody)
+                    var tHeaders = HTTPHeaders()
+                    for (k, v) in headers { tHeaders[HTTPHeaderName(k)] = v }
+                    return HTTPResponse(HTTPStatus(code: status, phrase: ""), headers: tHeaders, body: fullBody)
                 }
             }
 
