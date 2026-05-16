@@ -46,20 +46,7 @@ Pod::Spec.new do |s|
   # Prepare command runs from the podspec's directory (now repo root).
   s.prepare_command = <<-SH
     set -e
-    XCF_SRC="packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple"
     IOS_PKG="packages/dvai-bridge-ios"
-    
-    mkdir -p "$IOS_PKG/Frameworks"
-    
-    # Copy frameworks if they exist (built locally or during CI)
-    if [ -d "$XCF_SRC/llama.xcframework" ]; then
-      rm -rf "$IOS_PKG/Frameworks/llama.xcframework"
-      cp -R "$XCF_SRC/llama.xcframework" "$IOS_PKG/Frameworks/llama.xcframework"
-    fi
-    if [ -d "$XCF_SRC/mtmd.xcframework" ]; then
-      rm -rf "$IOS_PKG/Frameworks/mtmd.xcframework"
-      cp -R "$XCF_SRC/mtmd.xcframework" "$IOS_PKG/Frameworks/mtmd.xcframework"
-    fi
     
     # Mirror sibling-package source dirs into Sources/_external/
     rm -rf "$IOS_PKG/Sources/_external"

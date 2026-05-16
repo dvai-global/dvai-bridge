@@ -137,10 +137,9 @@ RENDEZVOUS-REFERRALS.md
 !packages/*/android/src/main/cpp/native/*/build-apple/*.xcframework
 !packages/*/android/src/main/cpp/native/*/build-apple/**/*.xcframework
 
-# Pod-local copy of the xcframeworks — created by DVAIBridge.podspec's
-# prepare_command (and removed on pod cache clean). Source of truth lives
-# under build-apple/ above; this is just a CocoaPods-friendly mirror.
-packages/dvai-bridge-ios/Frameworks/
+# Pod-local copy of the xcframeworks — allowed for CocoaPods release
+!packages/dvai-bridge-ios/Frameworks/*.xcframework
+!packages/dvai-bridge-ios/Frameworks/**/*.xcframework
 
 # Pod-local mirror of sibling *-core source dirs — populated by
 # DVAIBridge.podspec's prepare_command. Source of truth lives in the
