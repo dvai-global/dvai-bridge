@@ -21,4 +21,16 @@ export default defineConfig({
   optimizeDeps: {
     include: ['langchain', '@langchain/core', '@langchain/openai'],
   },
+  build: {
+    rollupOptions: {
+      external: [
+        'node-llama-cpp',
+        '@reflink/reflink',
+        'sharp',
+        'onnxruntime-node',
+        'multicast-dns',
+        'dns-txt',
+      ],
+    },
+  },
 })

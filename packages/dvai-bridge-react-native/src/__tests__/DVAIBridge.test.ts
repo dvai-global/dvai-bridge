@@ -6,11 +6,66 @@
  * methods it needs.
  */
 
+import { vi } from 'vitest';
+vi.mock('react-native', () => {
+  const listeners = new Map();
+  const mockNativeModule = {
+    startBridge: vi.fn(),
+    stopBridge: vi.fn(),
+    status: vi.fn(),
+    downloadModel: vi.fn(),
+    respondToPairing: vi.fn(),
+    addListener: vi.fn(),
+    removeListeners: vi.fn(),
+    assessHardware: vi.fn(),
+  };
+
+  return {
+    Platform: {
+      OS: "ios",
+      select: (specifics: any) => specifics.ios ?? specifics.default,
+    },
+    NativeEventEmitter: class {
+      addListener(eventName: string, listener: any) {
+        const arr = listeners.get(eventName) ?? [];
+        arr.push(listener);
+        listeners.set(eventName, arr);
+        return {
+          remove: () => {
+            const current = listeners.get(eventName) ?? [];
+            listeners.set(
+              eventName,
+              current.filter((fn: any) => fn !== listener),
+            );
+          },
+        };
+      }
+      removeAllListeners(eventName: string) {
+        listeners.delete(eventName);
+      }
+      emit(eventName: string, payload: any) {
+        (listeners.get(eventName) ?? []).forEach((fn: any) => fn(payload));
+      }
+    },
+    NativeModules: {
+      DVAIBridge: mockNativeModule,
+    },
+    TurboModuleRegistry: {
+      getEnforcing: vi.fn(() => mockNativeModule),
+      get: vi.fn(() => mockNativeModule),
+    },
+    __mockNativeModule: mockNativeModule,
+    __emit: (eventName: string, payload: any) => {
+      (listeners.get(eventName) ?? []).forEach((fn: any) => fn(payload));
+    },
+    __resetListeners: () => listeners.clear(),
+  };
+});
+
 import { DVAIBridge } from "../DVAIBridge";
 import { DVAIBridgeError } from "../errors";
 import { BackendKind } from "../types";
-
-const RN = require("react-native");
+import * as RN from "react-native";
 
 beforeEach(() => {
   RN.__resetListeners();

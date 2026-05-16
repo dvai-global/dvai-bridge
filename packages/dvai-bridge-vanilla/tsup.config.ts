@@ -14,4 +14,13 @@ export default defineConfig({
 	// but for ESM/CJS it might be better to keep it external.
 	// For CDN usage, we typically want everything bundled.
 	noExternal: ["@dvai-bridge/core"],
+	esbuildOptions(options) {
+		options.external = [
+			"node-llama-cpp",
+			"@reflink/reflink",
+			"sharp",
+			"onnxruntime-node",
+			"@node-llama-cpp/*",
+		];
+	},
 });

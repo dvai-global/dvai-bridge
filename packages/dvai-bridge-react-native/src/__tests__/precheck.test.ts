@@ -14,15 +14,70 @@
  *   - All three modes (`ok` / `offload-only` / `too-weak`) decode.
  */
 
+import { vi } from 'vitest';
+vi.mock('react-native', () => {
+  const listeners = new Map();
+  const mockNativeModule = {
+    startBridge: vi.fn(),
+    stopBridge: vi.fn(),
+    status: vi.fn(),
+    downloadModel: vi.fn(),
+    respondToPairing: vi.fn(),
+    addListener: vi.fn(),
+    removeListeners: vi.fn(),
+    assessHardware: vi.fn(),
+  };
+
+  return {
+    Platform: {
+      OS: "ios",
+      select: (specifics: any) => specifics.ios ?? specifics.default,
+    },
+    NativeEventEmitter: class {
+      addListener(eventName: string, listener: any) {
+        const arr = listeners.get(eventName) ?? [];
+        arr.push(listener);
+        listeners.set(eventName, arr);
+        return {
+          remove: () => {
+            const current = listeners.get(eventName) ?? [];
+            listeners.set(
+              eventName,
+              current.filter((fn: any) => fn !== listener),
+            );
+          },
+        };
+      }
+      removeAllListeners(eventName: string) {
+        listeners.delete(eventName);
+      }
+      emit(eventName: string, payload: any) {
+        (listeners.get(eventName) ?? []).forEach((fn: any) => fn(payload));
+      }
+    },
+    NativeModules: {
+      DVAIBridge: mockNativeModule,
+    },
+    TurboModuleRegistry: {
+      getEnforcing: vi.fn(() => mockNativeModule),
+      get: vi.fn(() => mockNativeModule),
+    },
+    __mockNativeModule: mockNativeModule,
+    __emit: (eventName: string, payload: any) => {
+      (listeners.get(eventName) ?? []).forEach((fn: any) => fn(payload));
+    },
+    __resetListeners: () => listeners.clear(),
+  };
+});
+
+import * as RN from "react-native";
 import { DVAIBridge } from "../DVAIBridge";
 import { DVAIBridgeError } from "../errors";
-
-const RN = require("react-native");
 
 // jest.setup.js doesn't pre-register `assessHardware` on the mock —
 // add it lazily so we can override per test.
 beforeAll(() => {
-  RN.__mockNativeModule.assessHardware = jest.fn();
+  RN.__mockNativeModule.assessHardware = vi.fn();
 });
 
 beforeEach(() => {
