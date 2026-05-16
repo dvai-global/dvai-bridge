@@ -138,6 +138,7 @@ RENDEZVOUS-REFERRALS.md
 !packages/*/android/src/main/cpp/native/*/build-apple/**/*.xcframework
 
 # Pod-local copy of the xcframeworks — allowed for CocoaPods release
+!packages/dvai-bridge-ios/Frameworks/
 !packages/dvai-bridge-ios/Frameworks/*.xcframework
 !packages/dvai-bridge-ios/Frameworks/**/*.xcframework
 
