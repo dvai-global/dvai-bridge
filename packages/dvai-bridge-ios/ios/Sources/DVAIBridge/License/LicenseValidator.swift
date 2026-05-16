@@ -24,7 +24,9 @@
  * trick us into validating against an unintended key.
  */
 import Foundation
+#if !COCOAPODS
 import JWTKit
+#endif
 
 public struct LicenseValidatorOptions: Sendable {
     /// Pre-loaded JWT string. Skips filesystem lookups.
@@ -146,6 +148,12 @@ public final class LicenseValidator: Sendable {
         platform: DvaiPlatform,
         runtimeAudience: String?
     ) async -> LicenseStatus {
+#if COCOAPODS
+        // CocoaPods fallback — commercial licenses require SwiftPM.
+        // This is documented in PUBLISHING.md.
+        return .freeProd(reason: "Commercial license validation requires SwiftPM (JWTKit). " +
+                         "CocoaPods builds only support community/hobbyist use.")
+#else
         let registry = opts.publicKeys ?? DVAI_PUBLIC_KEYS
 
         // Parse the header ourselves to (a) refuse non-ES256 alg early
@@ -310,6 +318,7 @@ public final class LicenseValidator: Sendable {
             // see that.
             return .freeProd(reason: "internal validator state error")
         }
+#endif
     }
 }
 

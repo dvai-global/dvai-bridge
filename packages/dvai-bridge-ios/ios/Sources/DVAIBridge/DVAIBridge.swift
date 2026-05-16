@@ -654,5 +654,5 @@ public actor DVAIBridge {
 /// Library SemVer constant — keep in sync with the package's published
 /// version. Used by the mDNS advertiser TXT record.
 public enum DVAIBridgeVersion {
-    public static let current = "3.2.1"
+    public static let current = "4.0.0"
 }

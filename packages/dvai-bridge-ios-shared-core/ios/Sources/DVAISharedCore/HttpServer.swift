@@ -1,10 +1,14 @@
 // Internal/HttpServer.swift
 import Foundation
+#if !COCOAPODS
 import Hummingbird
 import HTTPTypes
 import NIOCore
 import NIOPosix
 import ServiceLifecycle
+#else
+import Telegraph
+#endif
 
 /// Wraps a Hummingbird `Application` with port-fallback bind logic.
 ///
@@ -29,6 +33,8 @@ import ServiceLifecycle
 /// Hummingbird requires the router at `Application` construction time,
 /// so `installRoutes` captures the handlers/ctx/cors triple and defers
 /// the actual `Application` build to `tryBind`.
+
+#if !COCOAPODS
 public actor HttpServer {
 
     /// Captured handler triple — populated by `installRoutes`,
@@ -353,3 +359,102 @@ public actor HttpServer {
         }
     }
 }
+#else
+public actor HttpServer {
+    private struct PendingRoutes {
+        let handlers: DVAIHandlers
+        let ctx: HandlerContext
+        let corsConfig: CORSConfig
+    }
+
+    private var server: Server?
+    private var pending: PendingRoutes?
+
+    public var boundPort: Int? { server?.port }
+
+    public init() {}
+
+    public func installRoutes(handlers: DVAIHandlers, ctx: HandlerContext, corsConfig: CORSConfig) {
+        self.pending = PendingRoutes(handlers: handlers, ctx: ctx, corsConfig: corsConfig)
+    }
+
+    public func tryBind(basePort: Int, maxAttempts: Int, host: String) async throws -> Int {
+        guard let pending = self.pending else {
+            throw NSError(domain: "DVAIBridge.HttpServer", code: 1, userInfo: [NSLocalizedDescriptionKey: "tryBind() called before installRoutes()."])
+        }
+
+        for i in 0..<maxAttempts {
+            let port = basePort + i
+            let server = Server()
+            
+            // Map routes to dispatchRoute
+            let handler: (HTTPRequest) -> HTTPResponse = { req in
+                let dvaiRequest = DVAIRequest(
+                    method: DVAIHttpMethod.from(req.method.rawValue),
+                    path: req.uri.path,
+                    headers: req.headers,
+                    body: req.body
+                )
+                
+                // Telegraph doesn't support async handlers natively in the same way,
+                // so we run the async dispatch in a blocking-safe way for the fallback.
+                let semaphore = DispatchSemaphore(value: 0)
+                var dvaiResponse: DVAIResponse?
+                
+                Task {
+                    dvaiResponse = await dispatchRoute(
+                        request: dvaiRequest,
+                        handlers: pending.handlers,
+                        ctx: pending.ctx,
+                        corsConfig: pending.corsConfig
+                    )
+                    semaphore.signal()
+                }
+                
+                semaphore.wait()
+                
+                switch dvaiResponse! {
+                case .buffered(let status, let headers, let body):
+                    return HTTPResponse(HTTPStatus(code: status), headers: headers, body: body)
+                case .streaming(let status, let headers, let stream):
+                    // Simplified fallback: buffer the stream
+                    let runLoop = RunLoop.current
+                    var fullBody = Data()
+                    var finished = false
+                    Task {
+                        for await chunk in stream {
+                            if let data = chunk.data(using: .utf8) { fullBody.append(data) }
+                        }
+                        finished = true
+                    }
+                    while !finished {
+                        runLoop.run(until: Date(timeIntervalSinceNow: 0.01))
+                    }
+                    return HTTPResponse(HTTPStatus(code: status), headers: headers, body: fullBody)
+                }
+            }
+
+            server.route(.post, "/v1/chat/completions", handler)
+            server.route(.post, "/v1/completions", handler)
+            server.route(.post, "/v1/embeddings", handler)
+            server.route(.get, "/v1/models", handler)
+            server.route(.options, "/**", handler)
+
+            do {
+                try server.start(port: port, interface: host)
+                self.server = server
+                return port
+            } catch {
+                continue
+            }
+        }
+
+        throw NSError(domain: "DVAIBridgeLlama", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not bind to any port"])
+    }
+
+    public func stop() async {
+        server?.stop()
+        server = nil
+    }
+}
+#endif

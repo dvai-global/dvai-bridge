@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+#if !COCOAPODS
 import Hummingbird
 import HummingbirdCore
 import NIOCore
@@ -458,21 +459,6 @@ public actor OffloadProxy {
         }
     }
 
-    /* ================================================================== *
-     * HMAC                                                               *
-     * ================================================================== */
-
-    // v3.2.1 — `signCanonical` and `newNonce` deleted. The signing
-    // path now goes through `PairingHandshake.composeSignedMessage`
-    // + `signHmac` + `generateNonce` which match the TS reference
-    // byte-for-byte. Keeping a parallel implementation here is what
-    // caused the v3.2.0 401 bug — the two drifted (wrong canonical
-    // order, wrong key encoding, wrong sig encoding).
-
-    /* ================================================================== *
-     * Helpers                                                            *
-     * ================================================================== */
-
     private func collectBody(_ body: RequestBody) async throws -> Data {
         var out = Data()
         for try await buffer in body {
@@ -502,30 +488,6 @@ public actor OffloadProxy {
         #"{"error":{"type":"no_capable_device","code":503,"message":"No device with capability >= \#(required) tok/s available.","localCapability":\#(localCapability),"requiredAtLeast":\#(required)}}"#
     }
 
-    /* ================================================================== *
-     * Pairing handshake (incoming)                                       *
-     * ================================================================== */
-
-    /// v3.2.1 — handle an incoming POST /v1/dvai/handshake from a peer
-    /// that wants to pair with us. Wire-compatible with the TS-side
-    /// `handleHandshake` in
-    /// `packages/dvai-bridge-core/src/handlers/dvai/index.ts`:
-    ///
-    ///   request body : `{ peerDeviceId, peerDeviceName, via?, appId? }`
-    ///   response body: `{ paired: true, pairedAt, via, pairingKey, peerDeviceId }`
-    ///
-    /// Calls `pairingPolicy.approveOrFetch(...)` which yields a
-    /// `PairingRequest` to the consumer's `DVAIBridge.shared.pairingRequests()`
-    /// stream and awaits the consumer's `respond(approved:)` decision
-    /// (or times out → deny). On approval, mints a fresh pairing key
-    /// + persists to the iOS PairingStore + echoes the key back so
-    /// the requester can HMAC-sign subsequent offload calls.
-    ///
-    /// Errors:
-    ///   - 405 if method != POST
-    ///   - 503 if pairing isn't configured (offload disabled)
-    ///   - 400 if the body is missing peerDeviceId/peerDeviceName
-    ///   - 403 if the host app denied / timed out
     private func handleHandshakeRequest(method: HTTPRequest.Method, body: Data) async -> Response {
         guard method == .post else {
             return jsonResponse(
@@ -540,8 +502,6 @@ public actor OffloadProxy {
             )
         }
 
-        // Parse the JSON body. Empty / invalid → 400 with a clear
-        // message so the requester can fix their wire format.
         guard let json = (try? JSONSerialization.jsonObject(with: body, options: [])) as? [String: Any] else {
             return jsonResponse(
                 status: .badRequest,
@@ -564,10 +524,6 @@ public actor OffloadProxy {
                 peerDeviceName: peerDeviceName,
                 via: via
             )
-            // Wire shape mirrors the TS handler's `paired: true` envelope.
-            // pairingKey crosses the wire here on the LAN-trust model:
-            // the same Wi-Fi the handshake travelled over already saw
-            // every byte; opt-in offload is the consent step.
             let payload: [String: Any] = [
                 "paired": true,
                 "pairedAt": pairing.pairedAt,
@@ -612,3 +568,37 @@ public actor OffloadProxy {
 }
 
 private let MAX_REQUEST_BYTES = 32 * 1024 * 1024
+#else
+public actor OffloadProxy {
+    public let backendBaseUrl: String?
+    public let offloadConfig: OffloadConfig
+    public let pairingPolicy: PairingPolicy?
+    public let peerProvider: @Sendable () async -> [MDNSPeer]
+    public let appId: String
+    public let selfDeviceId: String
+
+    public init(
+        backendBaseUrl: String?,
+        offloadConfig: OffloadConfig,
+        pairingPolicy: PairingPolicy?,
+        peerProvider: @escaping @Sendable () async -> [MDNSPeer],
+        appId: String,
+        selfDeviceId: String
+    ) {
+        self.backendBaseUrl = backendBaseUrl
+        self.offloadConfig = offloadConfig
+        self.pairingPolicy = pairingPolicy
+        self.peerProvider = peerProvider
+        self.appId = appId
+        self.selfDeviceId = selfDeviceId
+    }
+
+    public func start(basePort: Int, maxAttempts: Int = 16, host: String = "127.0.0.1") async throws -> Int {
+        throw NSError(domain: "OffloadProxy", code: 1, userInfo: [NSLocalizedDescriptionKey: "OffloadProxy is not supported in CocoaPods builds. Use SwiftPM for offloading support."])
+    }
+
+    public func stop() async {}
+    public func baseUrl() -> String? { nil }
+    public func currentPort() -> Int { -1 }
+}
+#endif
