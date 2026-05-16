@@ -42,6 +42,9 @@ npx --yes @capacitor/cli@8 init dvai-cap-test com.dvai.captest --web-dir www
 # npm to resolve workspace peerDeps cleanly: install shared cores first,
 # then per-backend cores, then Capacitor wrappers.
 npm install --no-save \
+  "@capacitor/core@8" \
+  "@capacitor/android@8" \
+  "@capacitor/ios@8" \
   "file:${REPO_ROOT}/packages/dvai-bridge-capacitor" \
   "file:${REPO_ROOT}/packages/dvai-bridge-ios-shared-core" \
   "file:${REPO_ROOT}/packages/dvai-bridge-ios-llama-core" \
