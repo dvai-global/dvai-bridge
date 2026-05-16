@@ -1,8 +1,8 @@
 name: DVAI Hub — release binaries
 
-# Triggered when a v3.1.* tag is pushed. Builds Windows .msi, macOS
-# arm64 .dmg, and Linux .AppImage / .deb / .rpm; then attaches the
-# artefacts to the auto-created GitHub Release.
+# Triggered on every semver tag push (v*.*.*). Builds Windows .msi,
+# macOS arm64 .dmg, and Linux .AppImage / .deb / .rpm, then attaches
+# the artefacts to the auto-created GitHub Release.
 #
 # Required secrets (configured in repo settings):
 #   APPLE_SIGNING_IDENTITY            "Developer ID Application: <Org> (<TEAM_ID>)"
@@ -16,15 +16,16 @@ name: DVAI Hub — release binaries
 #
 # All signing steps gate on secret presence — missing secrets produce
 # unsigned artefacts (SmartScreen / Gatekeeper warnings on first
-# launch). Persistent code-signing TODO lives in `TODO.md`.
+# launch). Persistent code-signing TODO is tracked separately.
 
 on:
-  # Match every v3.x.* tag so future patch releases (3.2.x, 3.3.x, …)
-  # automatically build hub binaries. The tag-only filter keeps the
-  # heavy desktop-build jobs from firing on routine pushes.
+  # Match every semver tag (v4.0.0, v4.0.1, v5.x.x, ...). The tag-only
+  # filter keeps the heavy desktop-build jobs from firing on routine
+  # main pushes. Matches the trigger model of the other CD workflows
+  # (publish.yml, deploy-docs.yml).
   push:
     tags:
-      - "v3.*.*"
+      - "v*.*.*"
   workflow_dispatch:
 
 permissions:
