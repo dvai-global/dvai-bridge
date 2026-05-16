@@ -18,7 +18,10 @@ Pod::Spec.new do |s|
   s.license          = { :type => 'Custom', :file => 'LICENSE' }
   s.homepage         = 'https://github.com/dvai-global/dvai-bridge'
   s.author           = package['author']
-  s.source           = { :git => 'https://github.com/dvai-global/dvai-bridge.git', :tag => "v#{s.version}" }
+  s.source           = { 
+    :http => "https://github.com/dvai-global/dvai-bridge/releases/download/v#{s.version}/DVAIBridge-v#{s.version}.zip",
+    :type => "zip"
+  }
   s.platform         = :ios, '18.1'
   s.swift_version    = '5.9'
 
