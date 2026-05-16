@@ -90,7 +90,7 @@ platform.
 | Flutter (≥3.39) | `dvai_bridge` (pub.dev) | All iOS + Android backends (Pigeon channels) |
 | .NET 10 LTS (MAUI / Avalonia / WinUI / Catalyst / desktop) | `co.deepvoiceai.dvai-bridge*` (NuGet) | iOS / Android delegate to native; desktop = llama.cpp + ONNX Runtime GenAI + ML.NET |
 
-Full quickstart per platform: [dvai-bridge.deepvoiceai.co/guide/getting-started](https://dvai-bridge.deepvoiceai.co/guide/getting-started)
+Full quickstart per platform: [bridge.deepvoiceai.co/docs](https://bridge.deepvoiceai.co/docs)
 
 ---
 
