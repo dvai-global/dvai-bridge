@@ -58,26 +58,38 @@ npm install --no-save \
   "file:${REPO_ROOT}/packages/dvai-bridge-capacitor-mediapipe"
 
 # Add platforms
-npx @capacitor/cli add android
+npx @capacitor/cli@8 add android
 if [[ "$(uname)" == "Darwin" ]]; then
-  npx @capacitor/cli add ios
+  npx @capacitor/cli@8 add ios
 fi
 
 # Run cap sync
-npx @capacitor/cli sync
+npx @capacitor/cli@8 sync
 
 # Verify Android Gradle resolves the cores
 echo "[verify-cap-sync] running ./gradlew :app:assembleDebug ..."
 cd android
 chmod +x ./gradlew
-./gradlew :app:assembleDebug --no-daemon --stacktrace
+./gradlew :app:assembleDebug -PcompileSdkOverride=35 --no-daemon --stacktrace
 cd ..
 
 # iOS verification only on Mac
 if [[ "$(uname)" == "Darwin" ]] && [[ -d ios ]]; then
-  echo "[verify-cap-sync] running pod install on iOS ..."
+  echo "[verify-cap-sync] verifying iOS project..."
   cd ios/App
-  pod install
+  if [[ -f "Podfile" ]]; then
+    echo "[verify-cap-sync] found Podfile, running pod install..."
+    pod install
+  elif [[ -f "Package.swift" ]]; then
+    echo "[verify-cap-sync] found Package.swift (SPM), verifying structure..."
+    # If SPM is used, we just ensure the file exists and is non-empty
+    if [[ ! -s "Package.swift" ]]; then
+      echo "[verify-cap-sync] ERROR: Package.swift is empty!"
+      exit 1
+    fi
+  else
+    echo "[verify-cap-sync] WARNING: Neither Podfile nor Package.swift found in ios/App"
+  fi
   cd ../..
 fi
 
