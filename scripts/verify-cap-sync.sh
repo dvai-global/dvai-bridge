@@ -55,13 +55,13 @@ npm install --no-save \
   "file:${REPO_ROOT}/packages/dvai-bridge-capacitor-mediapipe"
 
 # Add platforms
-npx cap add android
+npx @capacitor/cli add android
 if [[ "$(uname)" == "Darwin" ]]; then
-  npx cap add ios
+  npx @capacitor/cli add ios
 fi
 
 # Run cap sync
-npx cap sync
+npx @capacitor/cli sync
 
 # Verify Android Gradle resolves the cores
 echo "[verify-cap-sync] running ./gradlew :app:assembleDebug ..."
