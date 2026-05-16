@@ -74,7 +74,7 @@ public final class DVAIBridgeReactiveState {
     /// consumers usually use `ObservableObject` directly via SwiftUI's
     /// property wrappers, but this publisher remains available as a
     /// non-SwiftUI alternative.
-    public nonisolated var stateChanges: AnyPublisher<Void, Never> {
+    public var stateChanges: AnyPublisher<Void, Never> {
         stateChangesSubject.eraseToAnyPublisher()
     }
 

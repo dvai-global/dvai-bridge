@@ -52,7 +52,7 @@ public actor OffloadRuntime {
             // route requests back to us in an infinite loop.
             try? await pairingStore.remove(deviceId)
             await discovery.start()
-            let deviceName = Self.resolveDeviceName()
+            let deviceName = await Self.resolveDeviceName()
             try await advertiser.start(
                 NWAdvertiser.Advertisement(
                     deviceId: deviceId,
@@ -88,13 +88,9 @@ public actor OffloadRuntime {
         discovery.events
     }
 
-    private static func resolveDeviceName() -> String {
+    private static func resolveDeviceName() async -> String {
         #if canImport(UIKit) && !os(macOS)
-        if Thread.isMainThread {
-            return UIDevice.current.name
-        }
-        // Best-effort: hostname is fine off-main-thread.
-        return ProcessInfo.processInfo.hostName
+        return await MainActor.run { UIDevice.current.name }
         #else
         return ProcessInfo.processInfo.hostName
         #endif

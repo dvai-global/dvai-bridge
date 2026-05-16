@@ -187,7 +187,7 @@ public actor DVAIBridge {
                 self.offloadRuntime = runtime
 
                 // Spin up the OffloadProxy in front of the backend.
-                let deviceId = (try? await runtime.deviceIDStore.get()) ?? "unknown"
+                let deviceId = (try? runtime.deviceIDStore.get()) ?? "unknown"
                 let proxy = OffloadProxy(
                     backendBaseUrl: backendServer?.baseUrl,
                     offloadConfig: offload,
@@ -525,7 +525,7 @@ public actor DVAIBridge {
             throw DVAIBridgeError.configurationInvalid(reason:
                 "deviceId requires offload to be enabled and start() to have been called.")
         }
-        return try await runtime.deviceIDStore.get()
+        return try runtime.deviceIDStore.get()
     }
 
     /// v3.2.1 — initiate a LAN pairing handshake against a discovered
@@ -553,7 +553,7 @@ public actor DVAIBridge {
         // Identity of THIS device — what we send to the peer so it
         // knows who's asking. The peer's UI surfaces these strings
         // in its approval prompt.
-        let selfDeviceId = try await runtime.deviceIDStore.get()
+        let selfDeviceId = try runtime.deviceIDStore.get()
         let selfDeviceName = await Self.resolveSelfName()
 
         // peer.baseUrl already ends in `/v1` (NWBrowserDiscovery

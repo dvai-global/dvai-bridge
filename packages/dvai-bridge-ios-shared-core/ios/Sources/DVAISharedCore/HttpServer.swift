@@ -389,10 +389,15 @@ public actor HttpServer {
             
             // Map routes to dispatchRoute
             let handler: (HTTPRequest) -> HTTPResponse = { req in
+                var headers: [String: String] = [:]
+                for (name, value) in req.headers {
+                    headers[name.description] = value
+                }
+
                 let dvaiRequest = DVAIRequest(
-                    method: DVAIHttpMethod.from(req.method.rawValue),
+                    method: DVAIHttpMethod.from("\(req.method)"),
                     path: req.uri.path,
-                    headers: req.headers,
+                    headers: headers,
                     body: req.body
                 )
                 
@@ -434,11 +439,11 @@ public actor HttpServer {
                 }
             }
 
-            server.route(.post, "/v1/chat/completions", handler)
-            server.route(.post, "/v1/completions", handler)
-            server.route(.post, "/v1/embeddings", handler)
-            server.route(.get, "/v1/models", handler)
-            server.route(.options, "/**", handler)
+            server.route(.POST, "/v1/chat/completions", handler)
+            server.route(.POST, "/v1/completions", handler)
+            server.route(.POST, "/v1/embeddings", handler)
+            server.route(.GET, "/v1/models", handler)
+            server.route(.OPTIONS, "/**", handler)
 
             do {
                 try server.start(port: port, interface: host)
