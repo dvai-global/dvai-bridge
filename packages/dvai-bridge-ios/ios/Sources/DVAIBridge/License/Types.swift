@@ -112,11 +112,7 @@ public enum LicenseStatus: Sendable, Equatable {
 ///
 /// The wire field names use `aud` / `iss` etc. directly so the JSON is
 /// identical to the JS-side payload.
-#if !COCOAPODS
-public struct DvaiLicensePayload: JWTPayload, Equatable {
-#else
 public struct DvaiLicensePayload: Codable, Equatable {
-#endif
     /// Standard JWT issuer. Must equal `"DVAI-Bridge"`.
     public let iss: String
     /// Standard subject — internal license id.
@@ -157,17 +153,19 @@ public struct DvaiLicensePayload: Codable, Equatable {
         self.iat = iat
         self.exp = exp
     }
+}
 
+#if !COCOAPODS
+extension DvaiLicensePayload: JWTPayload {
     /// JWTKit hook — we intentionally do NOT verify exp/aud here, because
     /// the validator wants specific failure reasons per claim. JWTKit's
     /// `verify(_:as:)` will still verify the signature; the claim
     /// verification happens in `LicenseValidator.verifyToken`.
-#if !COCOAPODS
     public func verify(using algorithm: some JWTAlgorithm) async throws {
         // No-op: see comment above.
     }
-#endif
 }
+#endif
 
 /// Thrown by `LicenseValidator.validateAndAssert()` (and propagated from
 /// `DVAIBridge.start(...)`) when an SDK consumer attempts to run the
