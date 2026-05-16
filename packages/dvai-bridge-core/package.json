@@ -2,7 +2,7 @@
   "name": "@dvai-bridge/core",
   "version": "4.0.0",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/"
   },
   "description": "Core orchestration for local AI inference (WebLLM + Transformers.js + MSW)",
   "main": "dist/index.cjs",

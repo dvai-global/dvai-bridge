@@ -2,7 +2,7 @@
   "name": "@dvai-bridge/react-native",
   "version": "4.0.0",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/"
   },
   "description": "React Native TurboModule wrapping the @dvai-bridge/ios + @dvai-bridge/android native SDKs behind a shared TS API.",
   "main": "lib/commonjs/index",

@@ -2,7 +2,7 @@
   "name": "@dvai-bridge/capacitor-llama",
   "version": "4.0.0",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/"
   },
   "description": "DVAI-Bridge Capacitor plugin: llama.cpp on iOS (Metal) + Android (Vulkan/CPU) with embedded HTTP server.",
   "main": "dist/index.cjs",

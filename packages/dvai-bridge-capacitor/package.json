@@ -2,7 +2,7 @@
   "name": "@dvai-bridge/capacitor",
   "version": "4.0.0",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/"
   },
   "description": "JS routing shim for DVAI-Bridge Capacitor backend plugins. Dispatches to capacitor-llama, capacitor-foundation, or capacitor-mediapipe.",
   "main": "dist/index.cjs",

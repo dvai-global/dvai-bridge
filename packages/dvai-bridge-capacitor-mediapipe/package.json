@@ -2,7 +2,7 @@
   "name": "@dvai-bridge/capacitor-mediapipe",
   "version": "4.0.0",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/"
   },
   "description": "DVAI-Bridge Capacitor plugin: Google MediaPipe LLM on Android (Gemma, Phi-3.5, etc.) with embedded HTTP server.",
   "main": "dist/index.cjs",

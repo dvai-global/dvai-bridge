@@ -2,7 +2,7 @@
   "name": "@dvai-bridge/capacitor-foundation",
   "version": "4.0.0",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/"
   },
   "description": "DVAI-Bridge Capacitor plugin: Apple Foundation Models on iOS 26+ at runtime (links on iOS 18.1+), with embedded HTTP server.",
   "main": "dist/index.cjs",

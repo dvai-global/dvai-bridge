@@ -2,7 +2,7 @@
   "name": "@dvai-bridge/capacitor-mlx",
   "version": "4.0.0",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/"
   },
   "description": "DVAI-Bridge Capacitor plugin: MLX (Apple Silicon GPU/Neural Engine) LLM inference via mlx-swift-lm, with embedded HTTP server. iOS 17+ at link time; Apple-Silicon-only at runtime.",
   "main": "dist/index.cjs",

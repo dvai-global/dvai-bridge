@@ -2,7 +2,7 @@
   "name": "@dvai-bridge/react",
   "version": "4.0.0",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/"
   },
   "description": "React wrappers for @dvai-bridge/core",
   "main": "dist/index.cjs",
