@@ -31,7 +31,7 @@ class PairingRequest internal constructor(
 
 /**
  * Pairing decision flow (Kotlin mirror of `PairingPolicy` from
- * `@westenets/dvai-bridge-core/src/pairing/policy.ts`).
+ * `@dvai-bridge/core/src/pairing/policy.ts`).
  *
  * Coordinates the host-app UI (via [requests] `SharedFlow`) with the
  * persistent [PairingStore].

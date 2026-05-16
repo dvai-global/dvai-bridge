@@ -7,7 +7,7 @@ import javax.crypto.spec.SecretKeySpec
 
 /**
  * LAN-pairing handshake helpers (Kotlin mirror of
- * `@westenets/dvai-bridge-core/src/pairing/handshake.ts`).
+ * `@dvai-bridge/core/src/pairing/handshake.ts`).
  *
  * The first time Device A wants to offload to Device B over the LAN,
  * A POSTs `/v1/dvai/handshake` to B with its identity + a nonce. B

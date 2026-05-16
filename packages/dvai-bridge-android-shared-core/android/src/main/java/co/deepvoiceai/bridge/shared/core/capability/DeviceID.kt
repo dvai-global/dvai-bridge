@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
 
 /**
  * Stable per-install device identifier (Kotlin mirror of
- * `@westenets/dvai-bridge-core/src/capability/deviceId.ts`).
+ * `@dvai-bridge/core/src/capability/deviceId.ts`).
  *
  * - Generated once on first call, then persisted under
  *   `applicationContext.cacheDir/dvai-bridge/device.json`.

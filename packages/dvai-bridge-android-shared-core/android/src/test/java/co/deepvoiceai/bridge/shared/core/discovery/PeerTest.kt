@@ -9,7 +9,7 @@ import org.junit.Test
 /**
  * Tests for [Peer] data + TXT-record (de)serialization. Mirrors the
  * shape used by the TS reference at
- * `@westenets/dvai-bridge-core/src/discovery/types.ts`.
+ * `@dvai-bridge/core/src/discovery/types.ts`.
  */
 class PeerTest {
 

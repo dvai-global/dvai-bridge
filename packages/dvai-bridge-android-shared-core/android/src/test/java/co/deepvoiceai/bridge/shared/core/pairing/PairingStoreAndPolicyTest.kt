@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 /**
  * Tests for the JSON-on-disk [PairingStore] + the UI-coordination
  * [PairingPolicy]. Mirrors the policy semantics from
- * `@westenets/dvai-bridge-core/src/pairing/policy.ts`.
+ * `@dvai-bridge/core/src/pairing/policy.ts`.
  */
 @RunWith(RobolectricTestRunner::class)
 class PairingStoreAndPolicyTest {

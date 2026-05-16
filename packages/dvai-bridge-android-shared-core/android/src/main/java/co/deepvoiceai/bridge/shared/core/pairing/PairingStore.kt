@@ -7,7 +7,7 @@ import kotlinx.serialization.json.Json
 
 /**
  * Persistent pairing store (Kotlin mirror of `NodeFsPairingStore`
- * from `@westenets/dvai-bridge-core/src/pairing/store.ts`). Backed by
+ * from `@dvai-bridge/core/src/pairing/store.ts`). Backed by
  * a single JSON file under
  * `applicationContext.cacheDir/dvai-bridge/pairings.json`.
  */

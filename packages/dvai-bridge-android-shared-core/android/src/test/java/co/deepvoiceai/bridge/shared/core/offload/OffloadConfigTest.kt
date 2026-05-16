@@ -12,7 +12,7 @@ import org.junit.Test
 
 /**
  * Smoke-tests for the [OffloadConfig] data class — defaults match the
- * TS reference at `@westenets/dvai-bridge-core/src/offload/types.ts`,
+ * TS reference at `@dvai-bridge/core/src/offload/types.ts`,
  * and Kotlin `copy(...)` produces independent instances.
  */
 class OffloadConfigTest {

@@ -10,7 +10,7 @@ import kotlinx.serialization.json.Json
 /**
  * Persistent capability-score cache backed by a single JSON file under
  * `applicationContext.cacheDir/dvai-bridge/capability.json`. Mirrors
- * the `CapabilityCache` interface from `@westenets/dvai-bridge-core`.
+ * the `CapabilityCache` interface from `@dvai-bridge/core`.
  *
  * Thread-safety: all read/write is synchronized via the instance lock
  * since the file is shared by the whole process. Cross-process

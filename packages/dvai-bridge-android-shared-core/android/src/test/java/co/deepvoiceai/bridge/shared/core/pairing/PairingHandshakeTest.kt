@@ -8,7 +8,7 @@ import org.junit.Test
 
 /**
  * Cross-platform parity tests for the HMAC handshake. The TS impl in
- * `@westenets/dvai-bridge-core/src/pairing/handshake.ts` defines the
+ * `@dvai-bridge/core/src/pairing/handshake.ts` defines the
  * canonical message format + signing convention; this verifies the
  * Kotlin port produces interchangeable signatures.
  *

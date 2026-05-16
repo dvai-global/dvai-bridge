@@ -1,39 +1,40 @@
 {
-  "name": "@dvai-bridge/flutter",
-  "version": "4.0.0",
-  "private": true,
-  "description": "Flutter plugin (Pigeon-driven) wrapping the @dvai-bridge/ios + @dvai-bridge/android native SDKs behind a unified Dart API.",
-  "scripts": {
-    "pigeon": "dart run pigeon --input pigeons/messages.dart",
-    "analyze": "flutter analyze",
-    "test": "flutter test",
-    "build": "flutter pub get && dart run pigeon --input pigeons/messages.dart"
-  },
-  "keywords": [
-    "dvai-bridge",
-    "flutter",
-    "pigeon",
-    "llm",
-    "on-device",
-    "openai-compatible",
-    "llama-cpp",
-    "mediapipe",
-    "litert",
-    "mlx",
-    "coreml",
-    "foundation-models"
-  ],
-  "author": "Deep Chakraborty <https://github.com/dk013>",
-  "license": "Custom (See LICENSE)",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/dvai-global/dvai-bridge.git",
-    "directory": "packages/dvai-bridge-flutter"
-  },
-  "engines": {
-    "node": ">=22"
-  },
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
-  }
+    "name":  "@dvai-bridge/flutter",
+    "version":  "4.0.0",
+    "private":  true,
+    "description":  "Flutter plugin (Pigeon-driven) wrapping the @dvai-bridge/ios + @dvai-bridge/android native SDKs behind a unified Dart API.",
+    "scripts":  {
+                    "pigeon":  "dart run pigeon --input pigeons/messages.dart",
+                    "analyze":  "flutter analyze",
+                    "test":  "flutter test",
+                    "build":  "flutter pub get \u0026\u0026 dart run pigeon --input pigeons/messages.dart"
+                },
+    "keywords":  [
+                     "dvai-bridge",
+                     "flutter",
+                     "pigeon",
+                     "llm",
+                     "on-device",
+                     "openai-compatible",
+                     "llama-cpp",
+                     "mediapipe",
+                     "litert",
+                     "mlx",
+                     "coreml",
+                     "foundation-models"
+                 ],
+    "author":  "Deep Chakraborty \u003chttps://github.com/dk013\u003e",
+    "license":  "Custom (See LICENSE)",
+    "repository":  {
+                       "type":  "git",
+                       "url":  "https://github.com/dvai-global/dvai-bridge.git",
+                       "directory":  "packages/dvai-bridge-flutter"
+                   },
+    "engines":  {
+                    "node":  "\u003e=22"
+                },
+    "publishConfig":  {
+                          "registry":  "https://registry.npmjs.org/",
+                          "access":  "public"
+                      }
 }

@@ -5,7 +5,7 @@ import co.deepvoiceai.bridge.shared.core.discovery.Peer
 /**
  * Configuration for distributed inference / device offload (Kotlin
  * mirror of the TS `OffloadConfig` in
- * `@westenets/dvai-bridge-core/src/offload/types.ts`).
+ * `@dvai-bridge/core/src/offload/types.ts`).
  *
  * Offload is opt-in: pass an `OffloadConfig(enabled = true)` to
  * `StartOptions.offload` to turn it on. Default is null = behave

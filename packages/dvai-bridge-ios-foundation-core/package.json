@@ -1,17 +1,18 @@
 {
-  "name": "@dvai-bridge/ios-foundation-core",
-  "version": "4.0.0",
-  "description": "DVAI-Bridge iOS Foundation Models core — pure Swift embedded HTTP server + handlers wrapping Apple's LanguageModelSession. Capacitor-free. Requires iOS 26.0+ at runtime; iOS 18.1+ at link-time.",
-  "author": "Deep Chakraborty <https://github.com/dk013>",
-  "license": "Custom (See LICENSE)",
-  "main": "Package.swift",
-  "files": [
-    "Package.swift",
-    "ios",
-    "README.md",
-    "LICENSE"
-  ],
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
-  }
+    "name":  "@dvai-bridge/ios-foundation-core",
+    "version":  "4.0.0",
+    "description":  "DVAI-Bridge iOS Foundation Models core — pure Swift embedded HTTP server + handlers wrapping Apple\u0027s LanguageModelSession. Capacitor-free. Requires iOS 26.0+ at runtime; iOS 18.1+ at link-time.",
+    "author":  "Deep Chakraborty \u003chttps://github.com/dk013\u003e",
+    "license":  "Custom (See LICENSE)",
+    "main":  "Package.swift",
+    "files":  [
+                  "ios/Sources",
+                  "ios/Tests",
+                  "README.md",
+                  "LICENSE"
+              ],
+    "publishConfig":  {
+                          "registry":  "https://registry.npmjs.org/",
+                          "access":  "public"
+                      }
 }

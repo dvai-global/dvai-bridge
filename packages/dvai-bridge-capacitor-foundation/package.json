@@ -1,60 +1,61 @@
 {
-  "name": "@dvai-bridge/capacitor-foundation",
-  "version": "4.0.0",
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
-  },
-  "description": "DVAI-Bridge Capacitor plugin: Apple Foundation Models on iOS 26+ at runtime (links on iOS 18.1+), with embedded HTTP server.",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
-  "type": "module",
-  "files": [
-    "dist",
-    "ios/Sources",
-    "ios/Tests",
-    "ios/Package.swift",
-    "DVAICapacitorFoundation.podspec",
-    "README.md",
-    "LICENSE"
-  ],
-  "scripts": {
-    "build": "tsup",
-    "mac:build": "pwsh -File ../../scripts/mac-build.ps1 -Action build -Target capacitor-foundation",
-    "mac:test": "pwsh -File ../../scripts/mac-build.ps1 -Action test -Target capacitor-foundation",
-    "prepare": "pnpm run build"
-  },
-  "keywords": [
-    "dvai-bridge",
-    "capacitor",
-    "apple-foundation-models",
-    "llm",
-    "on-device"
-  ],
-  "author": "Deep Chakraborty <https://github.com/dk013>",
-  "license": "Custom (See LICENSE)",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/westenets/dvai-bridge.git"
-  },
-  "peerDependencies": {
-    "@capacitor/core": "^6.0.0 || ^7.0.0 || ^8.0.0",
-    "@dvai-bridge/capacitor": "workspace:*",
-    "@dvai-bridge/ios-foundation-core": "workspace:*"
-  },
-  "devDependencies": {
-    "@dvai-bridge/capacitor": "workspace:*"
-  },
-  "capacitor": {
-    "ios": {
-      "src": "ios"
-    }
-  }
+    "name":  "@dvai-bridge/capacitor-foundation",
+    "version":  "4.0.0",
+    "publishConfig":  {
+                          "registry":  "https://registry.npmjs.org/",
+                          "access":  "public"
+                      },
+    "description":  "DVAI-Bridge Capacitor plugin: Apple Foundation Models on iOS 26+ at runtime (links on iOS 18.1+), with embedded HTTP server.",
+    "main":  "dist/index.cjs",
+    "module":  "dist/index.js",
+    "types":  "dist/index.d.ts",
+    "exports":  {
+                    ".":  {
+                              "types":  "./dist/index.d.ts",
+                              "import":  "./dist/index.js",
+                              "require":  "./dist/index.cjs"
+                          }
+                },
+    "type":  "module",
+    "files":  [
+                  "dist",
+                  "ios/Sources",
+                  "ios/Tests",
+                  "ios/Package.swift",
+                  "DVAICapacitorFoundation.podspec",
+                  "README.md",
+                  "LICENSE"
+              ],
+    "scripts":  {
+                    "build":  "tsup",
+                    "mac:build":  "pwsh -File ../../scripts/mac-build.ps1 -Action build -Target capacitor-foundation",
+                    "mac:test":  "pwsh -File ../../scripts/mac-build.ps1 -Action test -Target capacitor-foundation",
+                    "prepare":  "pnpm run build"
+                },
+    "keywords":  [
+                     "dvai-bridge",
+                     "capacitor",
+                     "apple-foundation-models",
+                     "llm",
+                     "on-device"
+                 ],
+    "author":  "Deep Chakraborty \u003chttps://github.com/dk013\u003e",
+    "license":  "Custom (See LICENSE)",
+    "repository":  {
+                       "type":  "git",
+                       "url":  "https://github.com/westenets/dvai-bridge.git"
+                   },
+    "peerDependencies":  {
+                             "@capacitor/core":  "^6.0.0 || ^7.0.0 || ^8.0.0",
+                             "@dvai-bridge/capacitor":  "workspace:*",
+                             "@dvai-bridge/ios-foundation-core":  "workspace:*"
+                         },
+    "devDependencies":  {
+                            "@dvai-bridge/capacitor":  "workspace:*"
+                        },
+    "capacitor":  {
+                      "ios":  {
+                                  "src":  "ios"
+                              }
+                  }
 }

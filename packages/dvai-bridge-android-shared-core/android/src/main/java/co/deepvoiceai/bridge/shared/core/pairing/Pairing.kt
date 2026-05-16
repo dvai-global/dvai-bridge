@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 /**
  * Phase 3 — pairing types (Kotlin mirror of `Pairing` /
  * `HandshakeRequest` / `HandshakeResponse` from
- * `@westenets/dvai-bridge-core/src/pairing/types.ts`).
+ * `@dvai-bridge/core/src/pairing/types.ts`).
  *
  * A "pairing" is an authenticated trust relationship between two
  * devices established once via the handshake flow, then reused for

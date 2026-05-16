@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * Phase 3 — capability score (Kotlin mirror of `CapabilityScore` in
- * `@westenets/dvai-bridge-core/src/capability/types.ts`).
+ * `@dvai-bridge/core/src/capability/types.ts`).
  *
  * A "capability score" is an estimate of decode tok/s for a given
  * (model, device) pair on this device. Used by the offload decider

@@ -1,15 +1,19 @@
 {
-  "name": "@dvai-bridge/android-mediapipe-core",
-  "version": "4.0.0",
-  "description": "DVAI-Bridge Android MediaPipe LLM core — pure Kotlin embedded HTTP server + handlers wrapping the MediaPipe LLM Inference API. Capacitor-free.",
-  "author": "Deep Chakraborty <https://github.com/dk013>",
-  "license": "Custom (See LICENSE)",
-  "files": [
-    "android",
-    "README.md",
-    "LICENSE"
-  ],
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
-  }
+    "name":  "@dvai-bridge/android-mediapipe-core",
+    "version":  "4.0.0",
+    "description":  "DVAI-Bridge Android MediaPipe LLM core — pure Kotlin embedded HTTP server + handlers wrapping the MediaPipe LLM Inference API. Capacitor-free.",
+    "author":  "Deep Chakraborty \u003chttps://github.com/dk013\u003e",
+    "license":  "Custom (See LICENSE)",
+    "files":  [
+                  "android/src",
+                  "android/build.gradle",
+                  "android/gradle.properties",
+                  "android/settings.gradle",
+                  "README.md",
+                  "LICENSE"
+              ],
+    "publishConfig":  {
+                          "registry":  "https://registry.npmjs.org/",
+                          "access":  "public"
+                      }
 }

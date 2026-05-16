@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * Phase 3 — peer discovery types (Kotlin mirror of the TS `Peer` shape
- * in `@westenets/dvai-bridge-core/src/discovery/types.ts`).
+ * in `@dvai-bridge/core/src/discovery/types.ts`).
  *
  * A "peer" is another device running dvai-bridge that this device can
  * (potentially) offload inference requests to. Peers are surfaced by

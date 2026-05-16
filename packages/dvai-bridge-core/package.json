@@ -1,75 +1,76 @@
 {
-  "name": "@dvai-bridge/core",
-  "version": "4.0.0",
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
-  },
-  "description": "Core orchestration for local AI inference (WebLLM + Transformers.js + MSW)",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
-  "type": "module",
-  "bin": {
-    "dvai-bridge": "./bin/dvai-bridge.js"
-  },
-  "files": [
-    "dist",
-    "bin",
-    "README.md",
-    "LICENSE"
-  ],
-  "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "pnpm run build"
-  },
-  "keywords": [
-    "ai",
-    "local",
-    "webllm",
-    "transformers",
-    "msw",
-    "edge",
-    "bridge",
-    "webgpu"
-  ],
-  "author": "Deep Chakraborty <https://github.com/dk013>",
-  "license": "Custom (See LICENSE)",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/westenets/dvai-bridge.git"
-  },
-  "dependencies": {
-    "msw": "^2.12.13",
-    "@noble/curves": "^1.6.0",
-    "jose": "^6.1.0"
-  },
-  "peerDependencies": {
-    "@huggingface/transformers": "^4.0.1",
-    "@mlc-ai/web-llm": "^0.2.78",
-    "@dvai-bridge/capacitor": "workspace:*",
-    "node-llama-cpp": "^3.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@mlc-ai/web-llm": {
-      "optional": true
-    },
-    "@huggingface/transformers": {
-      "optional": true
-    },
-    "@dvai-bridge/capacitor": {
-      "optional": true
-    },
-    "node-llama-cpp": {
-      "optional": true
-    }
-  }
+    "name":  "@dvai-bridge/core",
+    "version":  "4.0.0",
+    "publishConfig":  {
+                          "registry":  "https://registry.npmjs.org/",
+                          "access":  "public"
+                      },
+    "description":  "Core orchestration for local AI inference (WebLLM + Transformers.js + MSW)",
+    "main":  "dist/index.cjs",
+    "module":  "dist/index.js",
+    "types":  "dist/index.d.ts",
+    "exports":  {
+                    ".":  {
+                              "types":  "./dist/index.d.ts",
+                              "import":  "./dist/index.js",
+                              "require":  "./dist/index.cjs"
+                          }
+                },
+    "type":  "module",
+    "bin":  {
+                "dvai-bridge":  "./bin/dvai-bridge.js"
+            },
+    "files":  [
+                  "dist",
+                  "bin",
+                  "README.md",
+                  "LICENSE"
+              ],
+    "scripts":  {
+                    "build":  "tsup",
+                    "dev":  "tsup --watch",
+                    "test":  "echo \"Error: no test specified\" \u0026\u0026 exit 1",
+                    "prepare":  "pnpm run build"
+                },
+    "keywords":  [
+                     "ai",
+                     "local",
+                     "webllm",
+                     "transformers",
+                     "msw",
+                     "edge",
+                     "bridge",
+                     "webgpu"
+                 ],
+    "author":  "Deep Chakraborty \u003chttps://github.com/dk013\u003e",
+    "license":  "Custom (See LICENSE)",
+    "repository":  {
+                       "type":  "git",
+                       "url":  "https://github.com/westenets/dvai-bridge.git"
+                   },
+    "dependencies":  {
+                         "msw":  "^2.12.13",
+                         "@noble/curves":  "^1.6.0",
+                         "jose":  "^6.1.0"
+                     },
+    "peerDependencies":  {
+                             "@huggingface/transformers":  "^4.0.1",
+                             "@mlc-ai/web-llm":  "^0.2.78",
+                             "@dvai-bridge/capacitor":  "workspace:*",
+                             "node-llama-cpp":  "^3.0.0"
+                         },
+    "peerDependenciesMeta":  {
+                                 "@mlc-ai/web-llm":  {
+                                                         "optional":  true
+                                                     },
+                                 "@huggingface/transformers":  {
+                                                                   "optional":  true
+                                                               },
+                                 "@dvai-bridge/capacitor":  {
+                                                                "optional":  true
+                                                            },
+                                 "node-llama-cpp":  {
+                                                        "optional":  true
+                                                    }
+                             }
 }
