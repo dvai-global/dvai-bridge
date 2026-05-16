@@ -22,23 +22,6 @@
 		</dict>
 		<dict>
 			<key>BinaryPath</key>
-			<string>mtmd.framework/Versions/A/mtmd</string>
-			<key>DebugSymbolsPath</key>
-			<string>dSYMs</string>
-			<key>LibraryIdentifier</key>
-			<string>macos-arm64_x86_64</string>
-			<key>LibraryPath</key>
-			<string>mtmd.framework</string>
-			<key>SupportedArchitectures</key>
-			<array>
-				<string>arm64</string>
-				<string>x86_64</string>
-			</array>
-			<key>SupportedPlatform</key>
-			<string>macos</string>
-		</dict>
-		<dict>
-			<key>BinaryPath</key>
 			<string>mtmd.framework/mtmd</string>
 			<key>DebugSymbolsPath</key>
 			<string>dSYMs</string>
