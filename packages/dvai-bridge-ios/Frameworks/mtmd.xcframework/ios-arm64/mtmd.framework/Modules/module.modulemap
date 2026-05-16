@@ -1,0 +1,9 @@
+framework module mtmd {
+    use llama
+    header "mtmd.h"
+    header "mtmd-helper.h"
+
+    link "c++"
+
+    export *
+}
