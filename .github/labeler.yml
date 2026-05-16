@@ -1,0 +1,77 @@
+# Configuration for actions/labeler@v5. Auto-tags pull requests based
+# on which files they touch, so reviewers see the platform / area at a
+# glance without opening the diff.
+#
+# Sync with the labels you actually have configured in
+# Settings → Labels. The Dependabot config also uses some of these
+# (dependencies, area:*, platform:*) — keep them in sync.
+
+"platform: web":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'packages/dvai-bridge-core/**'
+          - 'packages/dvai-bridge-react/**'
+          - 'packages/dvai-bridge-vanilla/**'
+
+"platform: ios":
+  - changed-files:
+      - any-glob-to-any-file: 'packages/dvai-bridge-ios*/**'
+
+"platform: android":
+  - changed-files:
+      - any-glob-to-any-file: 'packages/dvai-bridge-android*/**'
+
+"platform: react-native":
+  - changed-files:
+      - any-glob-to-any-file: 'packages/dvai-bridge-react-native/**'
+
+"platform: flutter":
+  - changed-files:
+      - any-glob-to-any-file: 'packages/dvai-bridge-flutter/**'
+
+"platform: dotnet":
+  - changed-files:
+      - any-glob-to-any-file: 'packages/dvai-bridge-dotnet/**'
+
+"platform: capacitor":
+  - changed-files:
+      - any-glob-to-any-file: 'packages/dvai-bridge-capacitor*/**'
+
+"area: docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - 'README.md'
+          - 'CHANGELOG.md'
+          - 'CONTRIBUTING.md'
+
+"area: hub":
+  - changed-files:
+      - any-glob-to-any-file: 'hub/**'
+
+"area: rendezvous":
+  - changed-files:
+      - any-glob-to-any-file: 'rendezvous/**'
+
+"area: license":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/license/**'
+          - 'LICENSE'
+          - 'NOTICE'
+          - 'CHANGE_DATE.md'
+
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/dependabot.yml'
+          - '.github/labeler.yml'
+
+"area: examples":
+  - changed-files:
+      - any-glob-to-any-file: 'examples/**'
+
+"area: scripts":
+  - changed-files:
+      - any-glob-to-any-file: 'scripts/**'

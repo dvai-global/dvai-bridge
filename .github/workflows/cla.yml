@@ -1,0 +1,70 @@
+name: CLA Assistant
+
+# Contributor Licence Agreement gate for pull requests, using
+# contributor-assistant/github-action (the self-hosted variant of CLA
+# Assistant — no SAP-hosted service in the loop). Signatures are stored
+# in this same repo on the `cla-signatures` branch at
+# `signatures/v1/cla.json`; the branch is created automatically on the
+# first sign.
+#
+# How it appears to a contributor opening their first PR:
+#   1. Bot comments on the PR pointing at https://bridge.deepvoiceai.co/cla
+#      and asking them to post the magic phrase below as a comment.
+#   2. They read the page and reply with:
+#        I have read the CLA Document and I hereby sign the CLA
+#   3. Bot updates the PR status check to passing and records the
+#      signature. Future PRs from the same GitHub user skip the prompt.
+#
+# Corporate contributors don't use this flow — they email a signed PDF
+# to info@deepvoiceai.co per the Part B process on the /cla page. After
+# receipt, add their GitHub usernames to signatures/v1/cla.json directly
+# on the cla-signatures branch.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  cla:
+    name: CLA signature check
+    runs-on: ubuntu-latest
+    # Only act on the magic phrases or on PR open/sync — ignore normal
+    # PR comments and other events.
+    if: |
+      (github.event.comment.body == 'recheck' ||
+       github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA') ||
+       github.event_name == 'pull_request_target'
+    steps:
+      - uses: contributor-assistant/github-action@v2.6.1
+        env:
+          # GITHUB_TOKEN is sufficient because signatures are stored in
+          # this same repository; no cross-repo write needed.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path-to-signatures: 'signatures/v1/cla.json'
+          path-to-document: 'https://bridge.deepvoiceai.co/cla'
+          branch: 'cla-signatures'
+          allowlist: 'dependabot[bot],renovate[bot],github-actions[bot]'
+          custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA'
+          custom-notsigned-prcomment: |
+            👋 Thanks for opening a pull request on **DVAI Bridge**!
+
+            Before we can merge, we need you to sign the **[DVAI Bridge Contributor Licence Agreement](https://bridge.deepvoiceai.co/cla)**. It's a short, standard Apache-style CLA — you keep copyright in your contribution; we get the licences needed to keep the project's dual-licensing model working.
+
+            Please:
+
+            1. Read the [CLA](https://bridge.deepvoiceai.co/cla) — focus on **Part A (Individual CLA)** if you're contributing on your own behalf. If you're contributing as part of your employment, see **Part B (Corporate CLA)** and the "Which CLA applies?" table.
+            2. Post the following exact comment below to record your signature:
+
+            > I have read the CLA Document and I hereby sign the CLA
+
+            If you spot something wrong with your signature, comment `recheck` to re-run this check.
+          custom-allsigned-prcomment: '✅ All contributors have signed the CLA. Thank you!'

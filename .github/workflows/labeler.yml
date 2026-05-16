@@ -1,0 +1,26 @@
+name: PR Labeler
+
+# Auto-tags pull requests based on which files they touch.
+# Config: .github/labeler.yml
+#
+# Uses pull_request_target (not pull_request) so the workflow can
+# label PRs from forks safely. The labeler action only reads the file
+# list — it doesn't execute fork code — so this is safe.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    name: Apply path-based labels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          sync-labels: true
