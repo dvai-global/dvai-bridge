@@ -140,29 +140,18 @@ var server = await DVAIBridge.Shared.StartAsync(new StartOptions {
 ```
 
 Multimodal, streaming, embeddings, distributed offload, the Hub —
-everything's at the [docs site](https://dvai-bridge.deepvoiceai.co).
+everything's at the [docs site](https://bridge.deepvoiceai.co).
 
 ---
 
-## What's new in v3.1
+## What's new in v4.0
 
-- **DVAI Hub** — Tauri desktop utility that's the strong-peer side of v3
-  distributed inference. `brew install deepvoiceai/dvai-hub/dvai-hub` (or
-  `winget install DeepVoiceAI.DVAIHub`) → mobile apps on the same Wi-Fi
-  pair with it and offload heavy inference. [Guide →](https://dvai-bridge.deepvoiceai.co/guide/dvai-hub)
-- **External-engine bridge.** Hub surfaces Ollama / LM Studio / vLLM /
-  llama-server / llamafile as additional backend pools so paired apps
-  serve from whatever's already cached. Opt-in per engine.
-- **Strict substitution policy.** Models with mismatched family / version /
-  size / type are refused by default; quant-only mismatches gated behind a
-  per-pairing `preferBetterQuant` flag. No silent mis-routing.
-- **HMAC-signed identity** on `/v1/chat/completions`. Per-app audit logs
-  surface who served what, with structured `(appId, peerDeviceId,
-  engine, requestedModel, servedModel, outcome)` rows.
-- **Library finalization.** `httpBindHost` (LAN bind), `chatCompletionInterceptor`
-  (extension point), HMAC primitives re-exported, `/v1/dvai/*` routes
-  actually dispatched, TransformersBackend Node-mode device fix.
-  [Migration v3.0 → v3.1 →](https://dvai-bridge.deepvoiceai.co/migration/v3.0-to-v3.1)
+- **Full CocoaPods Support** — Streamlined integration for iOS and macOS projects via CocoaPods with robust handling of vendored xcframeworks and strict release sanitization.
+- **Capacitor v8 Ready** — Upgraded compatibility with Capacitor v8 across native tooling and dependency resolution.
+- **Enhanced iOS HTTP Engine** — Modernized Swift HTTP server, refined JWT payload handling, and better dependency management for iOS targets.
+- **Publishing & Dependency Upgrades** — Switched to npm registry for package publishing, added extensive monorepo verification tools, and unified release packaging.
+- **DVAI Hub & Distributed Inference (v3+)** — Tauri desktop utility (`brew install deepvoiceai/dvai-hub/dvai-hub` or `winget install DeepVoiceAI.DVAIHub`) allows mobile apps on the same Wi-Fi to offload heavy inference. [Guide →](https://bridge.deepvoiceai.co/guide/dvai-hub)
+  [Migration v3.0 → v3.1 →](https://bridge.deepvoiceai.co/migration/v3.0-to-v3.1)
 
 ---
 
