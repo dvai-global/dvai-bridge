@@ -1,0 +1,358 @@
+DVAI BRIDGE COMMUNITY LICENCE
+Version 1.0 — "DVAI-BCL v1.0"
+Copyright (c) 2026 Deep Voice AI Limited (Company No. 16743132)
+
+================================================================================
+NOTICE TO USER
+================================================================================
+
+This is the legal text of the DVAI Bridge Community Licence ("DVAI-BCL v1.0",
+or "this Licence"). DVAI Bridge is source-available software developed by Deep
+Voice AI Limited, a company incorporated in England and Wales with registered
+number 16743132 ("Licensor", "we", "us"). Anyone may read, modify, build, and
+redistribute this software under the terms set out below.
+
+You may use DVAI Bridge free of charge for Permitted Uses (defined below).
+Commercial Use of DVAI Bridge requires a separate Commercial Licence from us.
+On the Change Date specified below, each Released Version of DVAI Bridge
+automatically converts to the Apache License, Version 2.0 ("Apache 2.0"). The
+conversion is irrevocable and is the structural commitment by which we
+guarantee the eventual full open-source availability of DVAI Bridge.
+
+This Licence is loosely modelled on the Business Source License 1.1 (BSL 1.1)
+published by MariaDB Corporation Ab, with significant customisations to
+support DVAI's dual-licensing commercial model, defined Permitted Uses, and
+patent grant. It is not a Business Source License and the Licensor License
+Grant in BSL 1.1 has been replaced.
+
+A plain-language summary of this Licence is published at
+https://deepvoiceai.co/licensing. The summary is informational only; this
+file is the legally binding instrument.
+
+================================================================================
+DEFINITIONS
+================================================================================
+
+In this Licence the following definitions apply:
+
+"Apache 2.0" means the Apache License, Version 2.0 published by the Apache
+Software Foundation and available at https://www.apache.org/licenses/LICENSE-2.0,
+together with the corresponding NOTICE-file conventions.
+
+"Change Date" means, in respect of a Released Version, the date that is three
+(3) years after the Public Release Date of that Released Version, as recorded
+in the Change Date Register published in the source repository (file
+CHANGE_DATE.md). On and after the Change Date for a Released Version, that
+Released Version automatically and irrevocably converts to Apache 2.0.
+
+"Commercial Licence" means a separate written commercial licence agreement
+issued by the Licensor authorising Commercial Use, on the commercial terms
+published from time to time at https://deepvoiceai.co/licensing or
+individually negotiated with the Licensor.
+
+"Commercial Use" means any use of DVAI Bridge in or in connection with a
+product, service, or activity that generates revenue, including without
+limitation:
+  (a) integration of DVAI Bridge into a product or service that you sell,
+      license, host, or otherwise make available to third parties for value;
+  (b) provision of inference services, AI services, or hosted offerings to
+      third parties using DVAI Bridge;
+  (c) use of DVAI Bridge by, or for the benefit of, any organisation that
+      generates revenue from any commercial offering in which DVAI Bridge is
+      a component (whether or not DVAI Bridge itself is monetised
+      separately).
+Commercial Use does not include any of the Permitted Uses defined below.
+
+"DVAI Bridge" means the software in the source repository at
+https://github.com/dvai-global/dvai-bridge ("the Repository"), including the
+source code, build outputs, language-binding packages, and any documentation
+distributed alongside it, in each case as published by the Licensor.
+
+"Licence" means this DVAI Bridge Community Licence v1.0 in its entirety,
+together with the NOTICE file in the Repository.
+
+"Permitted Use" means each of the following uses of DVAI Bridge, in each case
+free of charge and free of any obligation to enter into a Commercial Licence:
+  (a) Personal use — use of DVAI Bridge by an individual for personal,
+      non-commercial purposes, including hobby projects, personal-learning
+      builds, and experimentation outside the scope of any commercial
+      activity;
+  (b) Educational use — use of DVAI Bridge in teaching, coursework, training
+      materials, student projects, and other educational activities of an
+      educational institution or a teacher acting in that capacity;
+  (c) Academic research — use of DVAI Bridge in academic research the outputs
+      of which are intended for publication, dissemination, or peer review,
+      where DVAI Bridge is referenced or cited in the resulting outputs;
+  (d) Evaluation — use of DVAI Bridge by an organisation for a period not
+      exceeding ninety (90) consecutive days for the purpose of evaluating
+      whether to enter into a Commercial Licence;
+  (e) Internal-only use — use of DVAI Bridge by an organisation for purely
+      internal purposes, where the capability provided by DVAI Bridge is not
+      distributed to, used by, or made available to any third party outside
+      the organisation, and is not used to generate revenue from any
+      external party;
+  (f) Contribution — use of DVAI Bridge in connection with the preparation,
+      testing, and submission of contributions to the Repository, subject to
+      the Licensor's then-current Contributor Licence Agreement.
+
+"Public Release Date" means, in respect of a Released Version, the date on
+which the Licensor first made that Released Version generally available to the
+public through the Repository (typically the date of the corresponding Git
+tag), as recorded in the Change Date Register (file CHANGE_DATE.md).
+
+"Released Version" means a specific version of DVAI Bridge made publicly
+available by the Licensor through the Repository, identified by a Git tag
+matching the pattern "v<MAJOR>.<MINOR>.<PATCH>" or any successor versioning
+scheme published by the Licensor.
+
+"You" (or "Your") means the natural person or legal entity exercising the
+rights granted by this Licence. For legal entities, "You" includes each
+entity that controls, is controlled by, or is under common control with that
+entity.
+
+================================================================================
+1. GRANT OF LICENCE FOR PERMITTED USE
+================================================================================
+
+1.1 Subject to Your compliance with the terms of this Licence, the Licensor
+hereby grants You a worldwide, non-exclusive, royalty-free, non-transferable,
+non-sublicensable, revocable (only as expressly stated in Sections 7 and 8)
+copyright licence to reproduce, prepare derivative works of, publicly
+display, publicly perform, and distribute DVAI Bridge for Permitted Use.
+
+1.2 The Licence in Section 1.1 includes the right to modify DVAI Bridge and
+to redistribute DVAI Bridge (in original or modified form) provided that:
+  (a) every copy and every derivative work redistributed by You is distributed
+      under, and accompanied by, the unmodified text of this Licence;
+  (b) every copy and every derivative work retains all copyright, attribution,
+      and other proprietary notices appearing in the original;
+  (c) any redistribution is accompanied by the unmodified text of the NOTICE
+      file as published in the Repository at the time of redistribution; and
+  (d) the redistribution itself is for a Permitted Use, or is performed in a
+      manner that does not involve Commercial Use by You.
+
+1.3 The Licence in Section 1.1 does not authorise Commercial Use. If You wish
+to use DVAI Bridge for any Commercial Use, You must first obtain a Commercial
+Licence from the Licensor. Information about how to obtain a Commercial
+Licence is published at https://deepvoiceai.co/licensing and may be requested
+by email to info@deepvoiceai.co.
+
+================================================================================
+2. AUTOMATIC CONVERSION ON THE CHANGE DATE
+================================================================================
+
+2.1 On and after the Change Date for a Released Version, that Released
+Version (including all source code, build outputs, and documentation included
+in that Released Version) automatically and irrevocably converts to Apache 2.0.
+
+2.2 The conversion in Section 2.1 means that, on and after the Change Date,
+the Released Version may be used, copied, modified, distributed, and used for
+any Commercial Use without a Commercial Licence and without obligation to the
+Licensor, subject only to the terms of Apache 2.0.
+
+2.3 The conversion is per Released Version. Released Versions that have not
+yet reached their Change Date remain subject to this Licence. Each subsequent
+Released Version is subject to this Licence for its own three-year period
+before independently converting to Apache 2.0.
+
+2.4 The Change Date for each Released Version is recorded in the Change Date
+Register in the Repository (file CHANGE_DATE.md). The Licensor commits that
+once a Change Date has been recorded in the Change Date Register, the Change
+Date will not be moved backwards (made later) by any subsequent revision of
+this Licence or any other instrument.
+
+2.5 The Bridge Attribution requirements in Section 4 cease to apply to a
+Released Version on and after its Change Date. The standard NOTICE-file
+conventions of Apache 2.0 continue to apply.
+
+================================================================================
+3. GRANT OF PATENT LICENCE
+================================================================================
+
+3.1 Subject to the terms and conditions of this Licence, the Licensor hereby
+grants You a worldwide, non-exclusive, royalty-free, non-transferable,
+non-sublicensable patent licence under the Licensor's Patent Rights to make,
+have made, use, import, sell, offer to sell, and otherwise dispose of DVAI
+Bridge solely for Permitted Use.
+
+3.2 "Patent Rights" means the patent claims owned or controlled by the
+Licensor (including, without limitation, the claims of UK Patent Application
+GB2611312.6 once granted) that, but for this grant, would be infringed by use
+of DVAI Bridge as originally distributed by the Licensor.
+
+3.3 The patent licence in Section 3.1 does not extend to Commercial Use.
+Patent rights for Commercial Use are granted only under a separate Commercial
+Licence.
+
+3.4 If You institute patent litigation (including a cross-claim or
+counterclaim in a lawsuit) against any entity alleging that DVAI Bridge
+constitutes direct or contributory patent infringement, then any patent
+licences granted to You under this Section 3 shall terminate as of the date
+such litigation is filed, without prejudice to any other remedy the Licensor
+may have.
+
+================================================================================
+4. BRIDGE ATTRIBUTION MARK
+================================================================================
+
+4.1 When You exercise the licence in Section 1, You shall:
+  (a) retain in the source code of DVAI Bridge the copyright notice, this
+      Licence text, and the NOTICE file unmodified;
+  (b) where DVAI Bridge is incorporated into a build artefact (including a
+      published package, binary, container image, or installable application),
+      reproduce the substance of the copyright notice and a reference to this
+      Licence in a place reasonably accessible to recipients of that artefact
+      (for example, an About box, a credits file, a licensing page, or
+      documentation distributed with the artefact); and
+  (c) not remove or obscure the "Powered by DVAI Bridge" attribution mark, or
+      its equivalent in any localised form, in any user-visible or developer-
+      visible interface in which it is present in DVAI Bridge as distributed
+      by the Licensor.
+
+4.2 The Bridge Attribution Mark may be removed from a build artefact only by
+a Commercial Licensee under the terms of their Commercial Licence with the
+Licensor. Removal of the Bridge Attribution Mark in the absence of a
+Commercial Licence is a material breach of this Licence.
+
+4.3 The Bridge Attribution Mark requirements cease to apply to a Released
+Version on and after its Change Date.
+
+================================================================================
+5. TRADEMARKS
+================================================================================
+
+5.1 Nothing in this Licence grants You any right to use the trademarks of
+the Licensor or its affiliates, including without limitation "Deep Voice AI",
+"DVAI", "DVAI Bridge", or the corresponding logos and stylisations
+(collectively, "Licensor Marks"), other than:
+  (a) reproduction of the Licensor Marks as part of the unmodified copyright
+      notices, NOTICE file, and Bridge Attribution Mark as required by
+      Section 4;
+  (b) descriptive use of the Licensor Marks in factual references such as
+      "based on DVAI Bridge" or "compatible with DVAI Bridge", provided that
+      such use is accurate, does not suggest endorsement by the Licensor of
+      any third-party product, and does not use the Licensor Marks in a
+      stylised, dominant, or distinctive manner that would create a
+      likelihood of confusion as to source.
+
+5.2 Trademark rights of third parties referenced in DVAI Bridge or in the
+NOTICE file (including without limitation "Apple", "Android", "Google",
+"Microsoft", "Capacitor", "React Native", "Flutter", ".NET", "iOS",
+"macOS") are the property of their respective owners and are reserved.
+
+================================================================================
+6. NO WARRANTY
+================================================================================
+
+DVAI BRIDGE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS, IMPLIED, OR STATUTORY, INCLUDING WITHOUT LIMITATION ANY
+WARRANTIES OR CONDITIONS OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY, OR
+FITNESS FOR A PARTICULAR PURPOSE. THE LICENSOR DOES NOT WARRANT THAT DVAI
+BRIDGE WILL BE ERROR-FREE, UNINTERRUPTED, SECURE, OR THAT IT WILL MEET YOUR
+REQUIREMENTS. ANY USE BY YOU OF DVAI BRIDGE IS AT YOUR OWN RISK.
+
+================================================================================
+7. LIMITATION OF LIABILITY
+================================================================================
+
+7.1 To the maximum extent permitted by applicable law, the Licensor shall
+not be liable for any indirect, incidental, special, consequential, or
+exemplary damages, including without limitation loss of profits, reputation, revenue,
+business, data, or goodwill, arising out of or in connection with this
+Licence or Your use of DVAI Bridge, even if the Licensor has been advised of
+the possibility of such damages.
+
+7.2 To the maximum extent permitted by applicable law, the aggregate
+liability of the Licensor arising out of or in connection with this Licence
+and Your use of DVAI Bridge shall not exceed one hundred pounds sterling
+(GBP 100). For Permitted Use, this Licence is provided to You free of
+charge; this limitation reflects the absence of any consideration paid by
+You to the Licensor for the licence granted here.
+
+7.3 Nothing in this Licence excludes or limits liability for death or
+personal injury caused by negligence, for fraud or fraudulent
+misrepresentation, or for any other liability that cannot be excluded or
+limited as a matter of applicable law.
+
+================================================================================
+8. TERMINATION
+================================================================================
+
+8.1 This Licence terminates automatically and without notice upon any
+material breach by You of its terms, including without limitation:
+  (a) Commercial Use of DVAI Bridge without a Commercial Licence;
+  (b) removal or modification of the copyright notice, this Licence text, the
+      NOTICE file, or the Bridge Attribution Mark contrary to Section 4;
+  (c) institution by You of patent litigation in the circumstances described
+      in Section 3.4.
+
+8.2 On termination under Section 8.1, You shall immediately cease all use of
+DVAI Bridge, delete all copies of DVAI Bridge in Your possession, and procure
+that any third party to whom You have redistributed DVAI Bridge does the
+same.
+
+8.3 If Your breach is curable and is in fact cured within thirty (30) days of
+written notice from the Licensor, the Licensor may at its discretion
+reinstate the Licence as if the breach had not occurred. Reinstatement is at
+the Licensor's sole discretion.
+
+8.4 Sections 3.4, 5, 6, 7, 9, and 10 survive termination of this Licence.
+
+================================================================================
+9. RELATIONSHIP WITH OTHER AGREEMENTS
+================================================================================
+
+9.1 This Licence applies only to Released Versions for the period from the
+Public Release Date to the Change Date. On and after the Change Date for a
+Released Version, that Released Version is governed exclusively by Apache 2.0
+and this Licence has no further application to that Released Version, save
+that the patent termination provisions of Section 3.4 continue to apply to
+the conduct of any party that institutes patent litigation as described in
+that Section.
+
+9.2 A Commercial Licence supersedes this Licence as between the Licensor and
+the Commercial Licensee in respect of the uses authorised by the Commercial
+Licence. This Licence continues to apply to all other uses of DVAI Bridge by
+the Commercial Licensee not authorised by the Commercial Licence.
+
+9.3 Contributors to DVAI Bridge are subject to the Licensor's Contributor
+Licence Agreement ("CLA") in addition to this Licence. The CLA is published
+at https://deepvoiceai.co/cla.
+
+================================================================================
+10. GOVERNING LAW
+================================================================================
+
+10.1 This Licence is governed by and construed in accordance with the law of
+England and Wales.
+
+10.2 The courts of England and Wales have non-exclusive jurisdiction to
+settle any dispute arising out of or in connection with this Licence.
+
+================================================================================
+11. CONTACT
+================================================================================
+
+For all enquiries about this Licence, including Commercial Licence enquiries,
+contact info@deepvoiceai.co.
+
+Deep Voice AI Limited
+71-75 Shelton Street
+Covent Garden
+London WC2H 9JQ
+United Kingdom
+
+Company No. 16743132
+
+================================================================================
+END OF DVAI BRIDGE COMMUNITY LICENCE v1.0
+================================================================================
+
+NOTE ON LEGAL REVIEW
+--------------------
+
+This Licence text has been prepared by the Licensor and is the legally
+binding instrument under which DVAI Bridge is distributed. The Licensor recommends 
+that counsel competent in the law of England and Wales be consulted prior to
+substantive variation of this text or before entering into any Commercial
+Licence based on this Licence's framework.

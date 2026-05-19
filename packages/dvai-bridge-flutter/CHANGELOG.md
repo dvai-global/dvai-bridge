@@ -4,6 +4,31 @@ All notable changes to the `dvai_bridge` Flutter plugin are documented here.
 Version numbers track the parent `dvai-bridge` family: bump in lockstep with
 the iOS / Android / React Native packages.
 
+## [4.0.0] — 2026-05-19
+
+First pub.dev publish. Tracks the v4.0.0 release of the DVAI Bridge family
+(npm `@dvai-bridge/*` at 4.0.0; Maven Central `co.deepvoiceai:dvai-bridge`
+at 4.0.0; CocoaPods `DVAIBridge` at 4.0.0). See the docs site for the full
+[v3 → v4 migration guide](https://bridge.deepvoiceai.co/migration/v3.2-to-v4.0).
+
+### Changed
+
+- Native Android dependency now resolves from **Maven Central** instead of
+  GitHub Packages — no tokens or repo entries required in consumer
+  Android projects.
+- iOS deployment target bumped to **15.1** (matches the iOS umbrella).
+- Pigeon channel surface regenerated against Pigeon 26.3.4 for Dart 3.7
+  compatibility.
+
+### Added
+
+- Distributed-inference primitives reach the Flutter plugin via the
+  updated Pigeon channel — `BackendKind.offload` now honors the offload
+  proxy config introduced in v3.0.
+- DVAI Hub pairing support — Flutter apps on the same Wi-Fi as a Hub
+  install can offload heavy inference. See the
+  [DVAI Hub guide](https://bridge.deepvoiceai.co/guide/dvai-hub).
+
 ## [2.3.0] — 2026-04-27
 
 Initial release of the Flutter plugin. See

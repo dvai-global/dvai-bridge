@@ -70,6 +70,12 @@ packages/*/LICENSE
 # Track these explicitly; the global packages/*/README.md ignore would
 # otherwise hide future edits from `git status`.
 !packages/dvai-bridge-dotnet/README.md
+# Flutter / pub.dev honors .gitignore at publish time, so the global
+# packages/*/LICENSE + README.md ignore was hiding both files from the
+# uploaded archive — `dart pub publish` then refused with "You must have
+# a LICENSE file in the root directory." Track them explicitly.
+!packages/dvai-bridge-flutter/LICENSE
+!packages/dvai-bridge-flutter/README.md
 example/dist/
 example/*/dist/
 .vite/
