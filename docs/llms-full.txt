@@ -1512,7 +1512,7 @@ Add the package to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/dvai-global/dvai-bridge.git", from: "3.2.0"),
+    .package(url: "https://github.com/dvai-global/dvai-bridge.git", from: "4.0.0"),
 ],
 targets: [
     .target(
@@ -1566,24 +1566,25 @@ order; consumers wiring their own backends should mirror it.
 Add to your `Podfile`:
 
 ```ruby
-pod 'DVAIBridge', :git => 'https://github.com/dvai-global/dvai-bridge.git', :tag => 'v1.8.0'
+pod 'DVAIBridge', '~> 4.0'
 ```
 
-Then `pod install`.
+Then `pod install`. The pod is published on the CocoaPods Trunk CDN
+(`https://cdn.cocoapods.org/`), so no custom spec source is required.
 
 The CocoaPods build is **feature-asymmetric** with the SwiftPM build —
 see [CocoaPods asymmetries](#cocoapods-asymmetries) below for what's
 omitted and why. SwiftPM is the primary path; CocoaPods is provided
 for shops that haven't migrated off it.
 
-Before installing, the consumer's machine must have the llama.cpp
-xcframeworks built — run once in the dvai-bridge repo:
+From v4.0.0 onwards the `llama.xcframework` and `mtmd.xcframework`
+binaries are pre-built and bundled inside the published pod's release
+zip, so consumers don't need to build llama.cpp themselves.
 
-```bash
-bash scripts/mac-side-prepare-xcframework.sh
-```
-
-This is a 5–15 minute one-time build per submodule SHA bump.
+(If you're contributing to DVAI Bridge and want to rebuild the
+xcframeworks locally from the vendored llama.cpp submodule, run
+`bash scripts/mac-side-prepare-xcframework.sh` — a 5–15 minute build
+per submodule SHA bump. Consumers do not need this.)
 
 ## Quick start
 
@@ -1997,7 +1998,7 @@ it into your local `gradle.properties`, and you're done.
 
 ```kotlin
 dependencies {
-    implementation("co.deepvoiceai:dvai-bridge:3.2.0")
+    implementation("co.deepvoiceai:dvai-bridge:4.0.0")
 }
 ```
 
@@ -2011,7 +2012,7 @@ declare just the relevant `*-core` artifact instead:
 
 ```kotlin
 dependencies {
-    implementation("co.deepvoiceai:android-litert-core:3.2.0")
+    implementation("co.deepvoiceai:android-litert-core:4.0.0")
     // No `dvai-bridge` umbrella, no llama-core, no mediapipe-core.
 }
 ```
@@ -2432,7 +2433,7 @@ caveat.
 ### Android — Gradle
 
 The package's autolinking config registers the Android module
-automatically. The umbrella AAR (`co.deepvoiceai:dvai-bridge:3.2.0`) is
+automatically. The umbrella AAR (`co.deepvoiceai:dvai-bridge:4.0.0`) is
 hosted on **GitHub Packages Maven**, so consumer apps need three pieces of
 config:
 
@@ -2858,7 +2859,7 @@ FoundationModels imports compiled in). This is the same caveat the
 
 ### Android — Gradle
 
-The plugin's `build.gradle` depends on `co.deepvoiceai:dvai-bridge:3.2.0`,
+The plugin's `build.gradle` depends on `co.deepvoiceai:dvai-bridge:4.0.0`,
 hosted on **GitHub Packages Maven**. The consumer app needs three pieces
 of config:
 
@@ -3273,13 +3274,13 @@ the platform / backend slices are pulled in transitively when needed.
 
 ```bash
 # Most consumers only need this:
-dotnet add package DVAIBridge --version 3.2.0
+dotnet add package DVAIBridge --version 4.0.0
 
 # Optional: cross-platform ONNX Runtime backend (BackendKind.Onnx).
-dotnet add package DVAIBridge.OnnxRuntime --version 3.2.0
+dotnet add package DVAIBridge.OnnxRuntime --version 4.0.0
 
 # Optional: ML.NET backend (BackendKind.MLNet, desktop only).
-dotnet add package DVAIBridge.MLNet --version 3.2.0
+dotnet add package DVAIBridge.MLNet --version 4.0.0
 ```
 
 What `dotnet add package DVAIBridge` pulls in transitively:
@@ -3291,7 +3292,7 @@ What `dotnet add package DVAIBridge` pulls in transitively:
   `DVAIBridgeNetBridge.xcframework` inside the NuGet — **no CocoaPods or
   SwiftPM auth required** for iOS / Catalyst consumers.
 - **`net10.0-android36.0`** → `DVAIBridge.Android`. The Android binding
-  consumes the `co.deepvoiceai:dvai-bridge:3.2.0` AAR at **consumer-build
+  consumes the `co.deepvoiceai:dvai-bridge:4.0.0` AAR at **consumer-build
   time**, so Android consumers still need GitHub Packages Maven configured
   (next section).
 
@@ -3314,7 +3315,7 @@ csproj needs the Maven repo entry and a personal access token with
 <ItemGroup Condition="$(TargetFramework.Contains('android'))">
   <AndroidMavenLibrary
     Include="co.deepvoiceai:dvai-bridge"
-    Version="3.2.0"
+    Version="4.0.0"
     Repository="https://maven.pkg.github.com/dvai-global/dvai-bridge" />
 </ItemGroup>
 ```

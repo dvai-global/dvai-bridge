@@ -16,7 +16,7 @@ Add the package to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/dvai-global/dvai-bridge.git", from: "3.2.0"),
+    .package(url: "https://github.com/dvai-global/dvai-bridge.git", from: "4.0.0"),
 ],
 targets: [
     .target(
@@ -70,24 +70,25 @@ order; consumers wiring their own backends should mirror it.
 Add to your `Podfile`:
 
 ```ruby
-pod 'DVAIBridge', :git => 'https://github.com/dvai-global/dvai-bridge.git', :tag => 'v1.8.0'
+pod 'DVAIBridge', '~> 4.0'
 ```
 
-Then `pod install`.
+Then `pod install`. The pod is published on the CocoaPods Trunk CDN
+(`https://cdn.cocoapods.org/`), so no custom spec source is required.
 
 The CocoaPods build is **feature-asymmetric** with the SwiftPM build —
 see [CocoaPods asymmetries](#cocoapods-asymmetries) below for what's
 omitted and why. SwiftPM is the primary path; CocoaPods is provided
 for shops that haven't migrated off it.
 
-Before installing, the consumer's machine must have the llama.cpp
-xcframeworks built — run once in the dvai-bridge repo:
+From v4.0.0 onwards the `llama.xcframework` and `mtmd.xcframework`
+binaries are pre-built and bundled inside the published pod's release
+zip, so consumers don't need to build llama.cpp themselves.
 
-```bash
-bash scripts/mac-side-prepare-xcframework.sh
-```
-
-This is a 5–15 minute one-time build per submodule SHA bump.
+(If you're contributing to DVAI Bridge and want to rebuild the
+xcframeworks locally from the vendored llama.cpp submodule, run
+`bash scripts/mac-side-prepare-xcframework.sh` — a 5–15 minute build
+per submodule SHA bump. Consumers do not need this.)
 
 ## Quick start
 

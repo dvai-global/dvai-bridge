@@ -48,13 +48,13 @@ the platform / backend slices are pulled in transitively when needed.
 
 ```bash
 # Most consumers only need this:
-dotnet add package DVAIBridge --version 3.2.0
+dotnet add package DVAIBridge --version 4.0.0
 
 # Optional: cross-platform ONNX Runtime backend (BackendKind.Onnx).
-dotnet add package DVAIBridge.OnnxRuntime --version 3.2.0
+dotnet add package DVAIBridge.OnnxRuntime --version 4.0.0
 
 # Optional: ML.NET backend (BackendKind.MLNet, desktop only).
-dotnet add package DVAIBridge.MLNet --version 3.2.0
+dotnet add package DVAIBridge.MLNet --version 4.0.0
 ```
 
 What `dotnet add package DVAIBridge` pulls in transitively:
@@ -66,7 +66,7 @@ What `dotnet add package DVAIBridge` pulls in transitively:
   `DVAIBridgeNetBridge.xcframework` inside the NuGet — **no CocoaPods or
   SwiftPM auth required** for iOS / Catalyst consumers.
 - **`net10.0-android36.0`** → `DVAIBridge.Android`. The Android binding
-  consumes the `co.deepvoiceai:dvai-bridge:3.2.0` AAR at **consumer-build
+  consumes the `co.deepvoiceai:dvai-bridge:4.0.0` AAR at **consumer-build
   time**, so Android consumers still need GitHub Packages Maven configured
   (next section).
 
@@ -89,7 +89,7 @@ csproj needs the Maven repo entry and a personal access token with
 <ItemGroup Condition="$(TargetFramework.Contains('android'))">
   <AndroidMavenLibrary
     Include="co.deepvoiceai:dvai-bridge"
-    Version="3.2.0"
+    Version="4.0.0"
     Repository="https://maven.pkg.github.com/dvai-global/dvai-bridge" />
 </ItemGroup>
 ```

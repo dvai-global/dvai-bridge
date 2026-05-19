@@ -94,7 +94,7 @@ FoundationModels imports compiled in). This is the same caveat the
 
 ### Android — Gradle
 
-The plugin's `build.gradle` depends on `co.deepvoiceai:dvai-bridge:3.2.0`,
+The plugin's `build.gradle` depends on `co.deepvoiceai:dvai-bridge:4.0.0`,
 hosted on **GitHub Packages Maven**. The consumer app needs three pieces
 of config:
 

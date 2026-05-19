@@ -57,7 +57,7 @@ it into your local `gradle.properties`, and you're done.
 
 ```kotlin
 dependencies {
-    implementation("co.deepvoiceai:dvai-bridge:3.2.0")
+    implementation("co.deepvoiceai:dvai-bridge:4.0.0")
 }
 ```
 
@@ -71,7 +71,7 @@ declare just the relevant `*-core` artifact instead:
 
 ```kotlin
 dependencies {
-    implementation("co.deepvoiceai:android-litert-core:3.2.0")
+    implementation("co.deepvoiceai:android-litert-core:4.0.0")
     // No `dvai-bridge` umbrella, no llama-core, no mediapipe-core.
 }
 ```
