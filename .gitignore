@@ -171,3 +171,11 @@ experiments/mlc-perf-spike/
 # verification helper.
 /dvai-license.jwt
 /smoke-license.mjs
+
+# Local-only release artifacts built by scripts/prepare-ios-release.sh.
+# These are uploaded to the GitHub Release manually; never tracked.
+/DVAIBridge-v*.zip
+
+# SwiftPM lockfiles at the package root (the ios/Package.resolved
+# variant is already ignored above).
+packages/*/Package.resolved
