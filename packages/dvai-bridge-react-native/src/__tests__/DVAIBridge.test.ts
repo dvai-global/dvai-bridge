@@ -6,18 +6,17 @@
  * methods it needs.
  */
 
-import { vi } from 'vitest';
-vi.mock('react-native', () => {
+jest.mock('react-native', () => {
   const listeners = new Map();
   const mockNativeModule = {
-    startBridge: vi.fn(),
-    stopBridge: vi.fn(),
-    status: vi.fn(),
-    downloadModel: vi.fn(),
-    respondToPairing: vi.fn(),
-    addListener: vi.fn(),
-    removeListeners: vi.fn(),
-    assessHardware: vi.fn(),
+    startBridge: jest.fn(),
+    stopBridge: jest.fn(),
+    status: jest.fn(),
+    downloadModel: jest.fn(),
+    respondToPairing: jest.fn(),
+    addListener: jest.fn(),
+    removeListeners: jest.fn(),
+    assessHardware: jest.fn(),
   };
 
   return {
@@ -51,8 +50,8 @@ vi.mock('react-native', () => {
       DVAIBridge: mockNativeModule,
     },
     TurboModuleRegistry: {
-      getEnforcing: vi.fn(() => mockNativeModule),
-      get: vi.fn(() => mockNativeModule),
+      getEnforcing: jest.fn(() => mockNativeModule),
+      get: jest.fn(() => mockNativeModule),
     },
     __mockNativeModule: mockNativeModule,
     __emit: (eventName: string, payload: any) => {

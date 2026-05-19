@@ -1,11 +1,11 @@
 // Test-only augmentation for the `react-native` module.
 //
-// Tests use `vi.mock('react-native', () => ({ ..., __mockNativeModule,
+// Tests use `jest.mock('react-native', () => ({ ..., __mockNativeModule,
 // __emit, __resetListeners }))` to replace RN at runtime with a fake
 // that exposes these inspection hooks. Upstream `react-native` types
 // don't declare them, so tsc rejects `RN.__mockNativeModule.*`
 // references with TS2551. Augmenting the module here teaches tsc that
-// these symbols exist at type-check time; at runtime the vi.mock
+// these symbols exist at type-check time; at runtime the jest.mock
 // replacement is what actually provides them.
 //
 // This file is a MODULE (has `export {}` at the bottom), which is what
@@ -13,7 +13,12 @@
 // than as a fresh ambient declaration that would shadow RN's real
 // types. See globals.d.ts for the script-mode sibling that handles
 // react-test-renderer.
-type DVAIMock = import("vitest").Mock;
+//
+// `jest.Mock` comes from @types/jest (which adds it to the ambient
+// `jest` namespace); the `import("@types/jest")` query keeps this file
+// free of side-effecting imports that would change the module/script
+// duality contract this file relies on.
+type DVAIMock = jest.Mock;
 
 interface DVAIMockNativeModule {
   startBridge: DVAIMock;
