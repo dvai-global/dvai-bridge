@@ -12,10 +12,15 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+        gradlePluginPortal()
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:9.2.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+        // Maven Central publishing — wraps maven-publish + signing + the
+        // Central Portal upload API into one config block. See the
+        // mavenPublishing { ... } block below.
+        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.30.0'
     }
 }
 
@@ -37,7 +42,7 @@ allprojects {
 }
 
 apply plugin: 'com.android.library'
-apply plugin: 'maven-publish'
+apply plugin: 'com.vanniktech.maven.publish'
 
 android {
     namespace 'co.deepvoiceai.bridge'
@@ -84,11 +89,12 @@ android {
         unitTests.includeAndroidResources = true
     }
 
-    publishing {
-        singleVariant('release') {
-            withSourcesJar()
-        }
-    }
+    // NB: don't add `publishing { singleVariant('release') { withSourcesJar() } }`
+    // here. The vanniktech.maven.publish plugin auto-configures Android
+    // single-variant publication + sources + javadoc jars on its own; a
+    // manual singleVariant block collides with "Using singleVariant publishing
+    // DSL multiple times to publish variant 'release' to component 'release'
+    // is not allowed."
 }
 
 kotlin {
@@ -139,27 +145,80 @@ dependencies {
     androidTestImplementation 'com.squareup.okhttp3:okhttp:5.3.2'
 }
 
-// Phase 3D Task 4: copy-paste publishing block (see llama-core for the
-// rationale on why each Gradle root has its own copy).
+// Maven Central publishing via Sonatype Central Portal. See the
+// PUBLISHING-MAVEN-CENTRAL.md note at the repo root (gitignored — your
+// operator playbook) for credentials + the per-release sequence.
+//
+// Coordinates and POM metadata live here; the actual publish is driven
+// by `./gradlew publishAndReleaseToMavenCentral` (auto-release on
+// validation passing) or `publishToMavenLocal` for a dry-run that
+// writes the artifacts + signatures to ~/.m2/repository/.
+mavenPublishing {
+    // AGP 9.2.0 bundles a Dokka build whose ASM can't read Kotlin 2.3.21's
+    // sealed-class bytecode (`PermittedSubclasses requires ASM9`) when it
+    // tries to resolve the api jars of the cores during the
+    // `javaDocReleaseGeneration` task. We bypass AGP's Dokka javadoc and
+    // ship an empty javadoc.jar instead — Sonatype Central Portal validates
+    // the artifact's presence, not that it is populated. Re-enable once
+    // AGP upgrades its bundled ASM.
+    configure(new com.vanniktech.maven.publish.AndroidSingleVariantLibrary(
+        /* variant         = */ 'release',
+        /* sourcesJar      = */ true,
+        /* publishJavadoc  = */ false,
+    ))
+
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL, true)
+    signAllPublications()
+
+    coordinates(
+        'co.deepvoiceai',
+        'dvai-bridge',
+        (project.findProperty('dvaiBridgeVersion') ?: '4.0.0').toString(),
+    )
+
+    pom {
+        name = 'DVAI Bridge Android'
+        description = 'DVAI Bridge Android SDK — single 8-method Kotlin API surface ' +
+                'fronting llama.cpp, MediaPipe / LiteRT-LM and bare-LiteRT backends. ' +
+                'Mirrors the iOS DVAIBridge SDK; pulls in the four cores ' +
+                '(android-shared-core / android-llama-core / android-mediapipe-core / ' +
+                'android-litert-core) transitively.'
+        inceptionYear = '2026'
+        url = 'https://github.com/dvai-global/dvai-bridge'
+
+        licenses {
+            license {
+                name = 'DVAI Bridge Community Licence v1.0'
+                url = 'https://bridge.deepvoiceai.co/licensing'
+                distribution = 'repo'
+            }
+        }
+        developers {
+            developer {
+                id = 'deepvoiceai'
+                name = 'Deep Voice AI Limited'
+                email = 'info@deepvoiceai.co'
+                organization = 'Deep Voice AI Limited'
+                organizationUrl = 'https://deepvoiceai.co'
+            }
+        }
+        scm {
+            url = 'https://github.com/dvai-global/dvai-bridge'
+            connection = 'scm:git:git://github.com/dvai-global/dvai-bridge.git'
+            developerConnection = 'scm:git:ssh://github.com:dvai-global/dvai-bridge.git'
+        }
+    }
+}
+
+// Empty javadoc.jar to satisfy Sonatype Central Portal validation while
+// AGP 9.2.0's bundled Dokka is incompatible with our sealed-class bytecode.
+// See the `configure(AndroidSingleVariantLibrary ...)` comment above.
+tasks.register('emptyJavadocJar', Jar) {
+    archiveClassifier.set('javadoc')
+}
+
 afterEvaluate {
-    publishing {
-        publications {
-            release(MavenPublication) {
-                groupId = 'co.deepvoiceai'
-                artifactId = 'dvai-bridge'
-                version = (project.findProperty('dvaiBridgeVersion') ?: '4.0.0').toString()
-                from components.release
-            }
-        }
-        repositories {
-            maven {
-                name = 'GitHubPackages'
-                url = uri('https://maven.pkg.github.com/dvai-global/dvai-bridge')
-                credentials {
-                    username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_ACTOR')
-                    password = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')
-                }
-            }
-        }
+    publishing.publications.withType(MavenPublication).configureEach { pub ->
+        pub.artifact(tasks.named('emptyJavadocJar'))
     }
 }
