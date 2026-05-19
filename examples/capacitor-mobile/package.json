@@ -13,7 +13,7 @@
   "dependencies": {
     "@capacitor/android": "^8.3.1",
     "@capacitor/core": "^8.3.1",
-    "@capacitor/ios": "^8.3.1",
+    "@capacitor/ios": "^8.3.4",
     "@dvai-bridge/capacitor": "workspace:*",
     "@dvai-bridge/capacitor-llama": "workspace:*"
   },
