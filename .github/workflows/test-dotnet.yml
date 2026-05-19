@@ -36,6 +36,14 @@ jobs:
     name: Facade + Desktop/ONNX/MLNet (Ubuntu)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Bypass commercial-license validation in CI test runs — none of the
+      # facade unit tests inject a license token, so without this the tests
+      # that exercise StartAsync throw LicenseRequiredException before the
+      # assertion can compare against the expected DVAIBridgeException type.
+      # Test code paths only — production consumers without a license still
+      # see the LicenseRequiredException.
+      DVAI_FORCE_DEV: '1'
     steps:
       - uses: actions/checkout@v5
 
@@ -123,6 +131,11 @@ jobs:
     name: Desktop + ONNX + MLNet (Windows)
     runs-on: windows-latest
     timeout-minutes: 30
+    env:
+      # Same rationale as facade-and-net-backends — bypass license validation
+      # so the Desktop/ONNX/MLNet test assertions match the expected
+      # DVAIBridgeException type rather than LicenseRequiredException.
+      DVAI_FORCE_DEV: '1'
     steps:
       - uses: actions/checkout@v5
 

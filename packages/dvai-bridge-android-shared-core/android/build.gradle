@@ -129,7 +129,15 @@ dependencies {
 // writes the artifacts + signatures to ~/.m2/repository/.
 mavenPublishing {
     publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL, true)
-    signAllPublications()
+    // Only sign when the PGP key is actually configured — in CI we run
+    // `publishToMavenLocal` to verify the build, and the signing key
+    // isn't available there. The real Sonatype publish is driven from
+    // a host that has `signingInMemoryKey` in ~/.gradle/gradle.properties,
+    // where this branch fires.
+    if (project.findProperty('signingInMemoryKey') ||
+            System.getenv('ORG_GRADLE_PROJECT_signingInMemoryKey')) {
+        signAllPublications()
+    }
 
     coordinates(
         'co.deepvoiceai',

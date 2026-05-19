@@ -30,6 +30,13 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
+        with:
+          # llama-core's CMakeLists.txt references the llama.cpp git
+          # submodule under packages/dvai-bridge-android-llama-core/
+          # android/src/main/cpp/native/llama.cpp; without recursive
+          # checkout, `add_subdirectory` fails with "does not contain
+          # a CMakeLists.txt file" during `configureCMakeDebug`.
+          submodules: recursive
 
       - uses: actions/setup-java@v5
         with:

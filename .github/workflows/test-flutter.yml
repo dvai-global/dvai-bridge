@@ -23,10 +23,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Latest stable + the consumer-facing floor pinned in pubspec.yaml.
-        # Pigeon 26 needs Dart 3.9 to *generate*, but consumers only consume
-        # the generated `.g.dart` (plain Dart 3.7). Floor stays at 3.39.
-        flutter-version: ['3.41.5', '3.39.4']
+        # Latest stable + the lowest existing release that satisfies the
+        # `flutter: ">=3.39.0"` constraint in pubspec.yaml. Google's
+        # release cadence skipped from 3.38 directly to 3.41 (no 3.39
+        # or 3.40 ever shipped), so `>=3.39.0` resolves to 3.41.x as
+        # the actual floor. Pigeon 26 needs Dart 3.9 to *generate*, but
+        # consumers only consume the generated `.g.dart` (plain Dart 3.7).
+        flutter-version: ['3.44.0', '3.41.5']
     steps:
       - uses: actions/checkout@v5
 

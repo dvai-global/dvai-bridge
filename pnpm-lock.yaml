@@ -328,12 +328,13 @@ importers:
       '@capacitor/core':
         specifier: ^6.0.0 || ^7.0.0 || ^8.0.0
         version: 7.6.2
-      '@dvai-bridge/capacitor':
-        specifier: workspace:*
-        version: link:../dvai-bridge-capacitor
       '@dvai-bridge/ios-foundation-core':
         specifier: workspace:*
         version: link:../dvai-bridge-ios-foundation-core
+    devDependencies:
+      '@dvai-bridge/capacitor':
+        specifier: workspace:*
+        version: link:../dvai-bridge-capacitor
 
   packages/dvai-bridge-capacitor-llama:
     dependencies:
@@ -343,12 +344,13 @@ importers:
       '@dvai-bridge/android-llama-core':
         specifier: workspace:*
         version: link:../dvai-bridge-android-llama-core
-      '@dvai-bridge/capacitor':
-        specifier: workspace:*
-        version: link:../dvai-bridge-capacitor
       '@dvai-bridge/ios-llama-core':
         specifier: workspace:*
         version: link:../dvai-bridge-ios-llama-core
+    devDependencies:
+      '@dvai-bridge/capacitor':
+        specifier: workspace:*
+        version: link:../dvai-bridge-capacitor
 
   packages/dvai-bridge-capacitor-mediapipe:
     dependencies:
@@ -358,6 +360,7 @@ importers:
       '@dvai-bridge/android-mediapipe-core':
         specifier: workspace:*
         version: link:../dvai-bridge-android-mediapipe-core
+    devDependencies:
       '@dvai-bridge/capacitor':
         specifier: workspace:*
         version: link:../dvai-bridge-capacitor
@@ -367,12 +370,13 @@ importers:
       '@capacitor/core':
         specifier: ^6.0.0 || ^7.0.0 || ^8.0.0
         version: 7.6.2
-      '@dvai-bridge/capacitor':
-        specifier: workspace:*
-        version: link:../dvai-bridge-capacitor
       '@dvai-bridge/ios-mlx-core':
         specifier: workspace:*
         version: link:../dvai-bridge-ios-mlx-core
+    devDependencies:
+      '@dvai-bridge/capacitor':
+        specifier: workspace:*
+        version: link:../dvai-bridge-capacitor
 
   packages/dvai-bridge-core:
     dependencies:
