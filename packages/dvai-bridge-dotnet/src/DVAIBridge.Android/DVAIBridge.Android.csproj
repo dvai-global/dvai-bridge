@@ -40,6 +40,36 @@
       can override per-build with `dotnet build -p:BindingsGenerated=true`.
     -->
     <DefineConstants Condition="'$(BindingsGenerated)' == 'true'">$(DefineConstants);BINDINGS_GENERATED</DefineConstants>
+    <!--
+      Suppress warnings the Java/Kotlin binding generator emits into the
+      auto-generated wrappers under obj/Release/.../generated/src/. We can't
+      hand-edit those files; the warnings are inherent to how class-parse
+      shapes Kotlin sealed-class hierarchies into C# nested classes that
+      each shadow the parent's static `_members` field. Repo-wide
+      TreatWarningsAsErrors=true would otherwise break the build.
+
+        CS0108  — "_members hides inherited member" on sealed-class nested
+                  subclasses (DVAIBridgeError.AlreadyStarted etc.).
+        BG8401  — "Skipping due to a duplicate nested type name" for
+                  inner Companion classes; suppressed in Transforms/Metadata.xml
+                  via remove-node so this only fires on edge cases.
+        BG8605  — "The Java type X could not be found" for residual
+                  kotlinx.coroutines.flow.SharedFlow / StateFlow getters
+                  we don't surface (only the dvai-bridge Companion-class
+                  references are dropped — none of the suspend-fun methods).
+        BG8606  — "Some types or members could not be bound" summary follow-up
+                  to BG8605; same suppression rationale.
+        BG8A00  — "Metadata.xml element matched no nodes" for defensive
+                  remove-node rules that handle multiple AAR shapes.
+        BG8403  — "Type X has a type name which matches the enclosing
+                  namespace name" — fires on
+                  CO.Deepvoiceai.Bridge.Shared.Core.Pairing.Pairing from
+                  the transitive shared-core AAR; consumers don't see this
+                  type (it's the offload pairing handshake helper). Renaming
+                  it would require a shared-core release with a Metadata.xml
+                  rewrite at the source AAR — out of scope.
+    -->
+    <NoWarn>$(NoWarn);CS0108;BG8401;BG8403;BG8605;BG8606;BG8A00</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -63,6 +93,52 @@
                     Condition="Exists('native\dvai-bridge-$(Version).aar')">
       <Bind>true</Bind>
     </AndroidLibrary>
+    <!--
+      android-shared-core supplies CorsConfig + OffloadConfig (referenced by
+      StartOptions' all-positional constructor). Without it visible to
+      class-parse, the binding generator drops the 22-arg constructor and
+      the SharedFlow getters, leaving us with a no-op no-arg StartOptions
+      that can't have any field set. Bind=false would be ideal (we don't
+      want a duplicate C# surface for shared-core types — they bind through
+      the Maven Central transitive graph at consumer-build time), but
+      Microsoft's .NET 10 binding generator still emits wrappers; CS0108
+      from the resulting nested-class _members shadowing is suppressed via
+      <NoWarn> below.
+    -->
+    <AndroidLibrary Include="native\android-shared-core-$(Version).aar"
+                    Condition="Exists('native\android-shared-core-$(Version).aar')">
+      <Bind>false</Bind>
+      <!--
+        AndroidLibrary's default pack path bundles the AAR at
+        lib/net10.0-android36.0/. Stop the .nuspec packer from ALSO trying
+        to pick it up (NU5118 duplicate-add otherwise — fatal under the
+        repo-wide TreatWarningsAsErrors).
+      -->
+      <Pack>false</Pack>
+    </AndroidLibrary>
+    <!--
+      A trimmed kotlin-coroutines reference jar containing just the four classes
+      class-parse needs to resolve the AAR's `suspend fun` Continuation
+      parameter type: kotlin.coroutines.Continuation, kotlin.coroutines.CoroutineContext,
+      kotlin.coroutines.EmptyCoroutineContext, kotlin.Result (+ Result$Failure /
+      Result$Companion / Unit). Built by stripping the rest out of
+      kotlin-stdlib-2.3.21.jar via `jar` — the full stdlib explodes the binding
+      surface with 600+ types we don't want to expose. Kept as a plain .jar
+      (not .aar) — it contains no Android resources. The corresponding Kotlin
+      runtime types come from the consumer app's kotlin-stdlib dep at
+      runtime via the Maven Central transitive graph.
+    -->
+    <AndroidJavaLibrary Include="native\kotlin-coroutines-min.jar"
+                        Condition="Exists('native\kotlin-coroutines-min.jar')">
+      <Bind>false</Bind>
+      <!--
+        Class-parse reference only — kept out of the NuGet by AndroidJavaLibrary's
+        default Pack=false behaviour (AAR-class .jars are treated as build-time
+        Java refs, not packaged Java libs). The consumer app's kotlin-stdlib
+        dep (transitively from co.deepvoiceai:dvai-bridge:4.0.0) supplies the
+        runtime classes.
+      -->
+    </AndroidJavaLibrary>
     <TransformFile Include="Transforms\Metadata.xml"
                    Condition="Exists('Transforms\Metadata.xml')" />
     <TransformFile Include="Transforms\EnumFields.xml"

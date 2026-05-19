@@ -1,30 +1,48 @@
 // =============================================================================
 // AndroidNativeBridge.cs
 //
-// CONTROLLING-AGENT NOTE — first dotnet-build iteration:
+// Maps the public DVAIBridge facade onto the .NET 10 Android binding of the
+// `co.deepvoiceai:dvai-bridge` AAR. The binding generator (class-parse +
+// XAJavaInterop1) emits C# wrappers under the namespace `CO.Deepvoiceai.Bridge.*`
+// — see `Transforms/Metadata.xml` for the rename of the Kotlin object
+// `co.deepvoiceai.bridge.DVAIBridge` to `NativeDVAIBridge` (avoids colliding
+// with our managed facade's `DVAIBridge` type) and a handful of other transforms.
 //
-// The `Native.*` namespace below refers to the generated C# wrappers around
-// the Phase 3D AAR's Kotlin types. The exact AQNs depend on what the .NET 10
-// Android binding generator emits after applying Transforms/Metadata.xml.
-// The plan (Task 6) explicitly calls for 2-3 dotnet-build cycles to settle
-// this — first run reveals the actual generated names, then we iterate
-// Metadata.xml + this file until the surface is clean.
+// Suspend functions
+// -----------------
+// The Kotlin object `DVAIBridge` exposes three `suspend` methods that we
+// need: `start(opts)`, `stop()`, `downloadModel(opts)`. The JVM signature
+// for a suspend function appends a trailing `Continuation` parameter and
+// returns `Object` (either the result or the `COROUTINE_SUSPENDED` sentinel).
 //
-// Until that iteration runs on a Mac/Linux runner with the AAR fetched,
-// this file references types that don't yet exist in the assembly. We gate
-// the body behind `BINDINGS_GENERATED` so the bare csproj compile (no AAR
-// fetched yet) succeeds with an empty assembly — facade fall-through to
-// UnsupportedPlatformBridge handles the missing-binding case gracefully.
+// Microsoft's .NET 10 binding generator binds these as
+// `Start(opts, IContinuation _completion)` etc. — no automatic Task<T>
+// wrapping (which would require kotlin_metadata-aware codegen we don't
+// have yet). We bridge it manually via <see cref="TaskContinuation{T}"/>,
+// a `Java.Lang.Object` subclass that implements `kotlin.coroutines.Continuation`
+// and flips a `TaskCompletionSource<T>` from inside `resumeWith()`.
 //
-// To enable: pass `-p:DefineConstants=BINDINGS_GENERATED` to dotnet build
-// once the AAR is in place at native/dvai-bridge-$(Version).aar AND the
-// generated wrappers compile cleanly. The CI workflow
-// (.github/workflows/test-dotnet.yml) sets this for the binding-build job.
+// Result unwrapping
+// -----------------
+// Kotlin's `Result<T>` is a `@JvmInline value class` — at the JVM level
+// it's just `Object`. A success carries the raw value (or the
+// `Result.Companion.success` sentinel for null); a failure is a
+// `Result.Failure` wrapper holding the `Throwable`. We inspect the type
+// via reflection in <see cref="TaskContinuation{T}.UnwrapResult"/>.
+//
+// Required reference jars (see DVAIBridge.Android.csproj):
+//   - native/android-shared-core-$(Version).aar         (CorsConfig, OffloadConfig)
+//   - native/kotlin-coroutines-min.jar                  (Continuation, EmptyCoroutineContext, Result)
+// These are class-parse-only references (Bind=false) — the runtime types
+// come from the consumer app's transitive Maven Central dep graph (the
+// `co.deepvoiceai:dvai-bridge:4.0.0` POM already pulls them in).
 // =============================================================================
 
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Android.Runtime;
+using Java.Interop;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("DVAIBridge.Tests")]
 
@@ -32,26 +50,32 @@ namespace DVAIBridge.Android;
 
 #if BINDINGS_GENERATED
 
+// Aliases for the binding-generator-emitted types. Keeps the call sites
+// readable without dragging every CO.Deepvoiceai.Bridge.* into the file's
+// using list (the namespace would otherwise collide with our facade's
+// own `DVAIBridge` type via implicit-using resolution).
+using NativeBridge = global::CO.Deepvoiceai.Bridge.NativeDVAIBridge;
+using NativeStartOptions = global::CO.Deepvoiceai.Bridge.StartOptions;
+using NativeBoundServer = global::CO.Deepvoiceai.Bridge.BoundServer;
+using NativeStatusInfo = global::CO.Deepvoiceai.Bridge.StatusInfo;
+using NativeDownloadOptions = global::CO.Deepvoiceai.Bridge.DownloadOptions;
+using NativeDownloadResult = global::CO.Deepvoiceai.Bridge.DownloadResult;
+using NativeBackendKind = global::CO.Deepvoiceai.Bridge.BackendKind;
+using NativeError = global::CO.Deepvoiceai.Bridge.DVAIBridgeError;
+using NativeProgressEvent = global::CO.Deepvoiceai.Bridge.ProgressEvent;
+using NativeProgressListener = global::CO.Deepvoiceai.Bridge.IProgressListener;
+using NativeContinuation = global::Kotlin.Coroutines.IContinuation;
+using NativeCoroutineContext = global::Kotlin.Coroutines.ICoroutineContext;
+using NativeEmptyContext = global::Kotlin.Coroutines.EmptyCoroutineContext;
+
 /// <summary>
 /// Android-side implementation of <see cref="INativeBridge"/>. Calls the
-/// generated Java/Kotlin bindings under
-/// <c>Co.Deepvoiceai.Bridge.NativeDVAIBridge</c> (renamed from the Kotlin
-/// <c>co.deepvoiceai.bridge.DVAIBridge</c> object via Transforms/Metadata.xml).
+/// generated Java/Kotlin bindings emitted from the
+/// <c>co.deepvoiceai:dvai-bridge:$(Version)</c> AAR.
 /// </summary>
 /// <remarks>
-/// <para>
 /// Resolved at runtime by <c>PlatformBridgeFactory.Create()</c> via
 /// <c>Type.GetType("DVAIBridge.Android.AndroidNativeBridge, DVAIBridge.Android")</c>.
-/// </para>
-/// <para>
-/// The <c>NativeDVAIBridge</c> bound type is referenced via dynamic-via-
-/// reflection lookup until the binding generator settles on the exact AQN
-/// shape; the actual call sites are stubbed below with TODO markers
-/// flagged for the first <c>dotnet build</c> cycle (see Task 6 in the
-/// plan: "expect 2-3 dotnet-build cycles" while iterating Metadata.xml).
-/// The shape of every method is fixed by <see cref="INativeBridge"/>; only
-/// the inner binding-generated call site changes per iteration.
-/// </para>
 /// </remarks>
 internal sealed class AndroidNativeBridge : INativeBridge
 {
@@ -66,34 +90,46 @@ internal sealed class AndroidNativeBridge : INativeBridge
         // documented quickstart in `docs/guide/dotnet-sdk.md`.
     }
 
-    public async Task<BoundServer> StartAsync(StartOptions opts, CancellationToken ct)
+    public Task<BoundServer> StartAsync(StartOptions opts, CancellationToken ct)
     {
         try
         {
-            // The bound NativeDVAIBridge.StartAsync(opts) signature is
-            // generated by the Java binding generator from the Kotlin
-            // `suspend fun start(opts: StartOptions): BoundServer`.
-            // Final shape resolves on the first build cycle once the
-            // Metadata.xml transforms settle.
             var nativeOpts = StartOptionsToNative(opts);
-            var nativeServer = await Native.NativeDVAIBridge.StartAsync(nativeOpts).ConfigureAwait(false);
-            return NativeBoundServerToManaged(nativeServer);
+            var tcs = new TaskCompletionSource<NativeBoundServer?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            ct.Register(() => tcs.TrySetCanceled(ct));
+            var cont = new TaskContinuation<NativeBoundServer?>(tcs);
+            // Suspend may complete synchronously (returns the actual result
+            // instead of COROUTINE_SUSPENDED). Capture either form.
+            var sync = NativeBridge.Instance.Start(nativeOpts, cont);
+            if (sync is not null && !IsCoroutineSuspended(sync))
+            {
+                tcs.TrySetResult(sync as NativeBoundServer);
+            }
+            return WrapAsync(tcs.Task, NativeBoundServerToManaged);
         }
         catch (Java.Lang.Throwable e)
         {
-            throw MapJavaThrowable(e);
+            return Task.FromException<BoundServer>(MapJavaThrowable(e));
         }
     }
 
-    public async Task StopAsync(CancellationToken ct)
+    public Task StopAsync(CancellationToken ct)
     {
         try
         {
-            await Native.NativeDVAIBridge.StopAsync().ConfigureAwait(false);
+            var tcs = new TaskCompletionSource<Java.Lang.Object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            ct.Register(() => tcs.TrySetCanceled(ct));
+            var cont = new TaskContinuation<Java.Lang.Object?>(tcs);
+            var sync = NativeBridge.Instance.Stop(cont);
+            if (sync is not null && !IsCoroutineSuspended(sync))
+            {
+                tcs.TrySetResult(null);
+            }
+            return tcs.Task;
         }
         catch (Java.Lang.Throwable e)
         {
-            throw MapJavaThrowable(e);
+            return Task.FromException(MapJavaThrowable(e));
         }
     }
 
@@ -102,8 +138,8 @@ internal sealed class AndroidNativeBridge : INativeBridge
         try
         {
             // status() is a synchronous (non-suspend) Kotlin function; bound
-            // as a plain C# method by the binding generator.
-            var native = Native.NativeDVAIBridge.Status();
+            // as a plain static C# method by the binding generator.
+            var native = NativeBridge.Status();
             return Task.FromResult(NativeStatusInfoToManaged(native));
         }
         catch (Java.Lang.Throwable e)
@@ -112,17 +148,27 @@ internal sealed class AndroidNativeBridge : INativeBridge
         }
     }
 
-    public async Task<DownloadResult> DownloadModelAsync(DownloadOptions opts, CancellationToken ct)
+    public Task<DownloadResult> DownloadModelAsync(DownloadOptions opts, CancellationToken ct)
     {
         try
         {
-            var nativeOpts = DownloadOptionsToNative(opts);
-            var nativeResult = await Native.NativeDVAIBridge.DownloadModelAsync(nativeOpts).ConfigureAwait(false);
-            return NativeDownloadResultToManaged(nativeResult);
+            var nativeOpts = new NativeDownloadOptions(
+                opts.Url,
+                opts.Sha256,
+                opts.DestFilename ?? string.Empty);
+            var tcs = new TaskCompletionSource<NativeDownloadResult?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            ct.Register(() => tcs.TrySetCanceled(ct));
+            var cont = new TaskContinuation<NativeDownloadResult?>(tcs);
+            var sync = NativeBridge.Instance.DownloadModel(nativeOpts, cont);
+            if (sync is not null && !IsCoroutineSuspended(sync))
+            {
+                tcs.TrySetResult(sync as NativeDownloadResult);
+            }
+            return WrapAsync(tcs.Task, NativeDownloadResultToManaged);
         }
         catch (Java.Lang.Throwable e)
         {
-            throw MapJavaThrowable(e);
+            return Task.FromException<DownloadResult>(MapJavaThrowable(e));
         }
     }
 
@@ -135,123 +181,256 @@ internal sealed class AndroidNativeBridge : INativeBridge
         // wrapper is awkward in C# (the binding generator emits a clunky
         // shape for SharedFlow<T>; see plan Risk #5).
         var listener = new ProgressListenerAdapter(handler);
-        Native.NativeDVAIBridge.AddProgressListener(listener);
+        NativeBridge.AddProgressListener(listener);
         return new ListenerDisposable(listener);
     }
 
     // ------------------------------------------------------------------
-    // Marshalling stubs — bodies finalize on the first dotnet build cycle.
-    // The shape (parameter names + return types) is fixed; the inner
-    // type references resolve once Metadata.xml stabilises the bound surface.
+    // Marshalling helpers.
     // ------------------------------------------------------------------
 
-    private static Native.StartOptions StartOptionsToNative(StartOptions opts)
+    private static async Task<TOut> WrapAsync<TIn, TOut>(Task<TIn?> source, Func<TIn, TOut> map)
+        where TIn : class
     {
-        // The bound StartOptions Kotlin data class has a builder-style
-        // generated C# wrapper. Set every non-null field on the wrapper.
-        var native = new Native.StartOptions();
-        native.Backend = ParseNativeBackend(opts.Backend);
-        if (opts.ModelPath is { } v) native.ModelPath = v;
-        if (opts.TokenizerPath is { } v2) native.TokenizerPath = v2;
-        if (opts.MmprojPath is { } v3) native.MmprojPath = v3;
-        if (opts.ChatTemplate is { } v4) native.ChatTemplate = v4;
-        if (opts.ModelId is { } v5) native.ModelId = v5;
-        if (opts.ContextSize is { } v6) native.ContextSize = v6;
-        if (opts.Threads is { } v7) native.Threads = v7;
-        if (opts.GpuLayers is { } v8) native.GpuLayers = v8;
-        if (opts.HttpBasePort is { } v9) native.HttpBasePort = v9;
-        if (opts.HttpMaxPortAttempts is { } v10) native.HttpMaxPortAttempts = v10;
-        if (opts.CorsOrigin is { } v11) native.CorsOrigin = v11;
-        if (opts.Temperature is { } v12) native.Temperature = (float)v12;
-        if (opts.TopP is { } v13) native.TopP = (float)v13;
-        if (opts.TopK is { } v14) native.TopK = v14;
-        if (opts.MaxNewTokens is { } v15) native.MaxNewTokens = v15;
-        native.EmbeddingMode = opts.EmbeddingMode;
-        native.VisionEnabled = opts.VisionEnabled;
-        return native;
+        var inner = await source.ConfigureAwait(false);
+        return map(inner!);
     }
 
-    private static Native.DownloadOptions DownloadOptionsToNative(DownloadOptions opts)
+    /// <summary>
+    /// Bridges the public managed <see cref="StartOptions"/> record to the
+    /// 22-arg Kotlin data-class constructor. We pass <c>null</c> for the
+    /// optional fields the public C# surface doesn't expose yet
+    /// (CorsConfig, OffloadConfig, etc.). The AAR's Kotlin defaults
+    /// are honoured.
+    /// </summary>
+    private static NativeStartOptions StartOptionsToNative(StartOptions opts)
     {
-        return new Native.DownloadOptions
-        {
-            Url = opts.Url,
-            Sha256 = opts.Sha256,
-            DestFilename = opts.DestFilename ?? string.Empty,
-        };
+        // Kotlin data-class constructor parameter order — keep in lockstep
+        // with `StartOptions.kt` in the AAR source.
+        return new NativeStartOptions(
+            backend: ParseNativeBackend(opts.Backend),
+            modelPath: opts.ModelPath ?? string.Empty,
+            tokenizerPath: opts.TokenizerPath ?? string.Empty,
+            mmprojPath: opts.MmprojPath ?? string.Empty,
+            chatTemplate: opts.ChatTemplate ?? string.Empty,
+            gpuLayers: opts.GpuLayers ?? 0,
+            contextSize: opts.ContextSize ?? 0,
+            threads: opts.Threads ?? 0,
+            embeddingMode: opts.EmbeddingMode,
+            visionEnabled: opts.VisionEnabled,
+            temperature: (float)(opts.Temperature ?? 0.0),
+            topP: (float)(opts.TopP ?? 0.0),
+            topK: opts.TopK ?? 0,
+            maxNewTokens: opts.MaxNewTokens ?? 0,
+            httpBasePort: opts.HttpBasePort ?? 0,
+            httpMaxPortAttempts: opts.HttpMaxPortAttempts ?? 0,
+            corsOrigin: null!,                       // Kotlin default kicks in (Wildcard).
+            modelId: opts.ModelId ?? string.Empty,
+            offload: null!,                          // Kotlin default kicks in (disabled).
+            licenseKeyPath: opts.LicenseKeyPath ?? string.Empty,
+            licenseToken: opts.LicenseToken ?? string.Empty,
+            hostBuildConfigDebug: (Java.Lang.Boolean?)null);
     }
 
-    private static BoundServer NativeBoundServerToManaged(Native.BoundServer native) =>
+    private static BoundServer NativeBoundServerToManaged(NativeBoundServer native) =>
         new(
             BaseUrl: native.BaseUrl,
             Port: native.Port,
             Backend: ParseManagedBackend(native.Backend),
             ModelId: native.ModelId);
 
-    private static StatusInfo NativeStatusInfoToManaged(Native.StatusInfo native) =>
-        new(
+    private static StatusInfo NativeStatusInfoToManaged(NativeStatusInfo native)
+    {
+        // The Kotlin StatusInfo doesn't expose a Port getter — extract from
+        // BaseUrl ("http://127.0.0.1:38883/v1" -> 38883). When BaseUrl is
+        // null (stopped), Port is null too.
+        int? port = null;
+        if (native.BaseUrl is { } url && Uri.TryCreate(url, UriKind.Absolute, out var parsed))
+        {
+            port = parsed.Port;
+        }
+        return new StatusInfo(
             Running: native.Running,
             BaseUrl: native.BaseUrl,
-            Port: native.Port,
+            Port: port,
             Backend: native.Backend is null ? null : ParseManagedBackend(native.Backend),
             ModelId: native.ModelId);
+    }
 
-    private static DownloadResult NativeDownloadResultToManaged(Native.DownloadResult native) =>
+    private static DownloadResult NativeDownloadResultToManaged(NativeDownloadResult native) =>
         new(
             Path: native.Path,
             Sha256: native.Sha256,
             SizeBytes: native.SizeBytes);
 
-    private static Native.BackendKind ParseNativeBackend(BackendKind k) => k switch
+    private static NativeBackendKind ParseNativeBackend(BackendKind k) => k switch
     {
-        BackendKind.Auto => Native.BackendKind.Auto,
-        BackendKind.Llama => Native.BackendKind.Llama,
-        BackendKind.MediaPipe => Native.BackendKind.MediaPipe,
-        BackendKind.LiteRT => Native.BackendKind.LiteRT,
+        BackendKind.Auto => NativeBackendKind.Auto!,
+        BackendKind.Llama => NativeBackendKind.Llama!,
+        BackendKind.MediaPipe => NativeBackendKind.MediaPipe!,
+        BackendKind.LiteRT => NativeBackendKind.LiteRT!,
         // iOS-only backends raised earlier in the facade — defense in depth.
         _ => throw DVAIBridgeException.BackendUnavailable(k, $"{k} is iOS-only and not supported on Android."),
     };
 
-    private static BackendKind ParseManagedBackend(Native.BackendKind k) => k switch
+    private static BackendKind ParseManagedBackend(NativeBackendKind k)
     {
-        Native.BackendKind.Auto => BackendKind.Auto,
-        Native.BackendKind.Llama => BackendKind.Llama,
-        Native.BackendKind.MediaPipe => BackendKind.MediaPipe,
-        Native.BackendKind.LiteRT => BackendKind.LiteRT,
-        _ => BackendKind.Auto,
-    };
+        // The bound Kotlin enum is a reference type; compare via reference
+        // equality against the static instances on NativeBackendKind.
+        if (k.Equals(NativeBackendKind.Auto)) return BackendKind.Auto;
+        if (k.Equals(NativeBackendKind.Llama)) return BackendKind.Llama;
+        if (k.Equals(NativeBackendKind.MediaPipe)) return BackendKind.MediaPipe;
+        if (k.Equals(NativeBackendKind.LiteRT)) return BackendKind.LiteRT;
+        return BackendKind.Auto;
+    }
 
     private static DVAIBridgeException MapJavaThrowable(Java.Lang.Throwable e)
     {
         // The Phase 3D AAR's DVAIBridgeError sealed class binds as a
         // hierarchy of Java throwables. Each subclass carries a JNI-bound
-        // C# wrapper (Co.Deepvoiceai.Bridge.DVAIBridgeError$AlreadyStarted, etc.).
-        // We pattern-match on the wrapper types to map back to the public
-        // DVAIBridgeException factories.
+        // C# wrapper. We pattern-match on the wrapper types to map back to
+        // the public DVAIBridgeException factories.
         return e switch
         {
-            Native.DVAIBridgeError.AlreadyStarted ase =>
+            NativeError.AlreadyStarted ase =>
                 DVAIBridgeException.AlreadyStarted(ParseManagedBackend(ase.CurrentBackend), ase.BaseUrl),
-            Native.DVAIBridgeError.ConfigurationInvalid ci =>
-                DVAIBridgeException.ConfigurationInvalid(ci.Reason ?? string.Empty),
-            Native.DVAIBridgeError.ModelLoadFailed mlf =>
-                DVAIBridgeException.ModelLoadFailed(mlf.Reason ?? string.Empty),
-            Native.DVAIBridgeError.BackendUnavailable bu =>
-                DVAIBridgeException.BackendUnavailable(ParseManagedBackend(bu.Backend), bu.Reason ?? string.Empty),
-            Native.DVAIBridgeError.ChecksumMismatch cm =>
-                DVAIBridgeException.ChecksumMismatch(cm.Expected ?? string.Empty, cm.Got ?? string.Empty),
-            Native.DVAIBridgeError.DownloadFailed df =>
-                DVAIBridgeException.DownloadFailed(df.Reason ?? string.Empty),
-            Native.DVAIBridgeError.BackendError be =>
+            NativeError.ConfigurationInvalid ci =>
+                DVAIBridgeException.ConfigurationInvalid(ci.Message ?? string.Empty),
+            NativeError.ModelLoadFailed mlf =>
+                DVAIBridgeException.ModelLoadFailed(mlf.Message ?? string.Empty),
+            NativeError.BackendUnavailable bu =>
+                DVAIBridgeException.BackendUnavailable(ParseManagedBackend(bu.Backend), bu.Message ?? string.Empty),
+            NativeError.ChecksumMismatch cm =>
+                DVAIBridgeException.ChecksumMismatch(string.Empty, cm.Message ?? string.Empty),
+            NativeError.DownloadFailed df =>
+                DVAIBridgeException.DownloadFailed(df.Message ?? string.Empty),
+            NativeError.BackendError be =>
                 DVAIBridgeException.BackendError(be.Message ?? string.Empty),
             _ => DVAIBridgeException.BackendError(e.Message ?? "Unknown native error"),
         };
     }
 
+    // ------------------------------------------------------------------
+    // Continuation bridge — converts a Kotlin `suspend fun`'s
+    // Continuation-form invocation into a C# `Task<T>`.
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Java sentinel returned by a `suspend fun` invocation when the
+    /// coroutine actually suspended (vs. completing synchronously). Defined
+    /// in `kotlin.coroutines.intrinsics.IntrinsicsKt$COROUTINE_SUSPENDED`
+    /// — at the JVM level it's a singleton instance of `kotlin.coroutines.intrinsics.CoroutineSingletons.COROUTINE_SUSPENDED`.
+    /// We look it up via reflection once and compare by reference.
+    /// </summary>
+    private static readonly Lazy<Java.Lang.Object?> _suspendedSentinel = new(() =>
+    {
+        try
+        {
+            using var enumClass = Java.Lang.Class.ForName("kotlin.coroutines.intrinsics.CoroutineSingletons");
+            // Enum constant named COROUTINE_SUSPENDED.
+            var values = (Java.Lang.Object[]?)enumClass.GetMethod("values").Invoke(null);
+            if (values is null) return null;
+            foreach (var v in values)
+            {
+                if (v?.ToString() == "COROUTINE_SUSPENDED") return v;
+            }
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    });
+
+    private static bool IsCoroutineSuspended(Java.Lang.Object value)
+    {
+        var sentinel = _suspendedSentinel.Value;
+        return sentinel is not null && ReferenceEquals(value, sentinel);
+    }
+
+    /// <summary>
+    /// Java-side <c>kotlin.coroutines.Continuation&lt;T&gt;</c> implementation
+    /// that flips a managed <see cref="TaskCompletionSource{TResult}"/> from
+    /// <c>resumeWith()</c>. Subclasses <see cref="Java.Lang.Object"/> so
+    /// the JNI peer is well-formed; registered against the Kotlin
+    /// interface via the generated invoker.
+    /// </summary>
+    private sealed class TaskContinuation<T> : Java.Lang.Object, NativeContinuation
+        where T : class?
+    {
+        private readonly TaskCompletionSource<T> _tcs;
+
+        public TaskContinuation(TaskCompletionSource<T> tcs)
+        {
+            _tcs = tcs;
+        }
+
+        public NativeCoroutineContext Context => NativeEmptyContext.Instance!;
+
+        public void ResumeWith(Java.Lang.Object? result)
+        {
+            try
+            {
+                var (success, value, failure) = UnwrapResult(result);
+                if (success)
+                {
+                    _tcs.TrySetResult((value as T)!);
+                }
+                else if (failure is not null)
+                {
+                    // failure came back as Java.Lang.Object; JavaCast to the
+                    // Throwable peer for marshalling. NativeError is the
+                    // Kotlin DVAIBridgeError sealed-class hierarchy and
+                    // descends from Java.Lang.Exception → Java.Lang.Throwable.
+                    var thr = global::Android.Runtime.Extensions.JavaCast<Java.Lang.Throwable>(failure);
+                    Exception inner = thr is NativeError ne
+                        ? MapJavaThrowable(ne)
+                        : thr;
+                    _tcs.TrySetException(inner);
+                }
+                else
+                {
+                    _tcs.TrySetException(new InvalidOperationException("Continuation: unexpected null failure."));
+                }
+            }
+            catch (Exception ex)
+            {
+                _tcs.TrySetException(ex);
+            }
+        }
+
+        /// <summary>
+        /// kotlin.Result is `@JvmInline value class` wrapping `Object`. A
+        /// success carries the raw value (with null encoded as a sentinel
+        /// we don't bother with — the AAR's suspend funs never return null);
+        /// a failure is a `Result.Failure` wrapping a `Throwable`. We probe
+        /// the runtime class via reflection.
+        /// </summary>
+        private static (bool success, Java.Lang.Object? value, Java.Lang.Object? failure) UnwrapResult(Java.Lang.Object? raw)
+        {
+            if (raw is null) return (true, null, null);
+            try
+            {
+                using var cls = raw.Class;
+                if (cls.Name == "kotlin.Result$Failure")
+                {
+                    var exField = cls.GetField("exception");
+                    var thr = exField.Get(raw);
+                    return (false, null, thr);
+                }
+            }
+            catch
+            {
+                // Fall through — treat as success.
+            }
+            return (true, raw, null);
+        }
+    }
+
     /// <summary>
     /// Adapts the Java <c>ProgressListener</c> interface to a C# delegate.
     /// </summary>
-    private sealed class ProgressListenerAdapter : Java.Lang.Object, Native.IProgressListener
+    private sealed class ProgressListenerAdapter : Java.Lang.Object, NativeProgressListener
     {
         private readonly Action<ProgressEvent> _handler;
 
@@ -260,26 +439,57 @@ internal sealed class AndroidNativeBridge : INativeBridge
             _handler = handler;
         }
 
-        public void OnProgressEvent(Native.ProgressEvent ev)
+        public void OnProgress(NativeProgressEvent ev)
         {
             _handler(NativeProgressEventToManaged(ev));
         }
 
-        private static ProgressEvent NativeProgressEventToManaged(Native.ProgressEvent ev) =>
-            new(
-                Kind: ParseProgressKind(ev),
-                Phase: ParseProgressPhase(ev.Phase),
-                Percent: ev.Percent >= 0 ? ev.Percent * 100.0 : null,
-                Message: ev.Message,
-                ErrorKind: ev is Native.ProgressEvent.Failed f ? f.Error?.JavaCast<Native.DVAIBridgeError>()?.Class.SimpleName : null,
-                ErrorMessage: (ev as Native.ProgressEvent.Failed)?.Error?.Message);
-
-        private static ProgressKind ParseProgressKind(Native.ProgressEvent ev) => ev switch
+        private static ProgressEvent NativeProgressEventToManaged(NativeProgressEvent ev)
         {
-            Native.ProgressEvent.Started => ProgressKind.Started,
-            Native.ProgressEvent.Progress => ProgressKind.Progress,
-            Native.ProgressEvent.Completed => ProgressKind.Completed,
-            Native.ProgressEvent.Failed => ProgressKind.Failed,
+            string? phase = null;
+            double? percent = null;
+            string? message = null;
+            string? errorKind = null;
+            string? errorMessage = null;
+
+            switch (ev)
+            {
+                case NativeProgressEvent.Started s:
+                    phase = s.Phase;
+                    break;
+                case NativeProgressEvent.Progress p:
+                    phase = p.Phase;
+                    percent = p.Percent >= 0 ? p.Percent * 100.0 : null;
+                    message = p.Message;
+                    break;
+                case NativeProgressEvent.Completed c:
+                    phase = c.Phase;
+                    break;
+                case NativeProgressEvent.Failed f:
+                    phase = f.Phase;
+                    if (f.Error is NativeError err)
+                    {
+                        errorKind = err.Class?.SimpleName ?? "Error";
+                        errorMessage = err.Message;
+                    }
+                    break;
+            }
+
+            return new ProgressEvent(
+                Kind: ParseProgressKind(ev),
+                Phase: ParseProgressPhase(phase ?? string.Empty),
+                Percent: percent,
+                Message: message,
+                ErrorKind: errorKind,
+                ErrorMessage: errorMessage);
+        }
+
+        private static ProgressKind ParseProgressKind(NativeProgressEvent ev) => ev switch
+        {
+            NativeProgressEvent.Started => ProgressKind.Started,
+            NativeProgressEvent.Progress => ProgressKind.Progress,
+            NativeProgressEvent.Completed => ProgressKind.Completed,
+            NativeProgressEvent.Failed => ProgressKind.Failed,
             _ => ProgressKind.Progress,
         };
 
@@ -309,7 +519,7 @@ internal sealed class AndroidNativeBridge : INativeBridge
         {
             if (_listener is { } l)
             {
-                Native.NativeDVAIBridge.RemoveProgressListener(l);
+                NativeBridge.RemoveProgressListener(l);
                 l.Dispose();
                 _listener = null;
             }
@@ -333,7 +543,7 @@ public static class Bootstrap
     /// </summary>
     public static void Init(global::Android.Content.Context applicationContext)
     {
-        Native.NativeDVAIBridge.Init(applicationContext);
+        NativeBridge.Init(applicationContext);
     }
 }
 

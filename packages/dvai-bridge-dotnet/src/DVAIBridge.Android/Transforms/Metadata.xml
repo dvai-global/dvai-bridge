@@ -40,11 +40,23 @@
   -->
 
   <!--
-    Hide the auto-generated `Continuation`-form overloads: the binding
-    generator emits both `start(opts, continuation)` (Kotlin coroutine
-    form) and `startAsync(opts)` (the Task<T> form). We only want the
-    latter visible in C#. Suppress the former.
+    KEEP the auto-generated `Continuation`-form overloads: with kotlin-stdlib-min
+    referenced (csproj's AndroidJavaLibrary block), class-parse can see
+    `kotlin.coroutines.Continuation`, so the binding generator emits the
+    suspend methods as `Start(opts, IContinuation _completion)`. We bridge
+    them to Task<T> manually via TaskContinuation<T> in AndroidNativeBridge.cs
+    — see the file's header comment for the rationale.
   -->
-  <remove-node path="/api/package[@name='co.deepvoiceai.bridge']/class[@name='NativeDVAIBridge']/method[parameter[@type='kotlin.coroutines.Continuation']]" />
+
+  <!--
+    BG8401 "duplicate nested type name" warnings on `OffloadProxy.Companion`
+    and `license.DvaiPlatform.Companion`: these surface because the parent
+    class has a static `Companion` field of that nested type, AND the nested
+    `Companion` class itself uses the same C# identifier — the binding
+    generator skips one to break the clash. We deliberately leave this
+    suppressed (NoWarn=BG8401 in csproj) rather than `remove-node`-ing the
+    nested class, because that would break the parent's auto-generated
+    `Component3()` / `Companion` field bindings (BG8400 cascade).
+  -->
 
 </metadata>

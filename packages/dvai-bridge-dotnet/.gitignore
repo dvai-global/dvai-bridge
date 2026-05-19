@@ -32,5 +32,10 @@ src/DVAIBridge.iOS/native/build/
 src/DVAIBridge.iOS/native/*.xcframework
 src/DVAIBridge.iOS/native/.build/
 
-# Android AAR — fetched by CI from GitHub Packages Maven before bind.
+# Android AAR + class-parse reference jar — fetched by CI from Maven Central
+# before bind (see .github/workflows/test-dotnet.yml's "Fetch DVAI Bridge AAR
+# + shared-core AAR + kotlin-coroutines reference jar" step). The .jar is
+# built CI-side by stripping kotlin-stdlib down to the ~10 Continuation classes
+# class-parse needs.
 src/DVAIBridge.Android/native/*.aar
+src/DVAIBridge.Android/native/*.jar

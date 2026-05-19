@@ -194,12 +194,45 @@ jobs:
           restore-keys: |
             nuget-android-
 
-      - name: Fetch DVAI Bridge AAR from Maven Central
+      - name: Fetch DVAI Bridge AAR + shared-core AAR + kotlin-coroutines reference jar
+        # The binding needs three native artifacts:
+        #   1. dvai-bridge-$(Version).aar          — the AAR we bind (Bind=true).
+        #   2. android-shared-core-$(Version).aar  — class-parse reference for
+        #      CorsConfig + OffloadConfig, which appear in StartOptions' 22-arg
+        #      constructor. Without this the 22-arg ctor is silently dropped
+        #      and StartOptions becomes uneditable from C#.
+        #   3. kotlin-coroutines-min.jar           — class-parse reference for
+        #      kotlin.coroutines.Continuation so the AAR's `suspend fun`
+        #      methods bind as Continuation-form (we wrap them in Task<T>
+        #      via TaskContinuation<T> in AndroidNativeBridge.cs). Trimmed
+        #      from upstream kotlin-stdlib-2.3.21.jar so we only pull the
+        #      ~10 classes class-parse needs — avoids polluting the
+        #      generated C# surface with 600+ kotlin internals.
         run: |
           mkdir -p packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native
           curl -L \
             "https://repo1.maven.org/maven2/co/deepvoiceai/dvai-bridge/4.0.0/dvai-bridge-4.0.0.aar" \
             -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/dvai-bridge-4.0.0.aar
+          curl -L \
+            "https://repo1.maven.org/maven2/co/deepvoiceai/android-shared-core/4.0.0/android-shared-core-4.0.0.aar" \
+            -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/android-shared-core-4.0.0.aar
+          curl -L \
+            "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.jar" \
+            -o /tmp/kotlin-stdlib-2.3.21.jar
+          mkdir -p /tmp/k && cd /tmp/k
+          unzip -q -o /tmp/kotlin-stdlib-2.3.21.jar \
+            'kotlin/coroutines/Continuation.class' \
+            'kotlin/coroutines/CoroutineContext.class' \
+            'kotlin/coroutines/CoroutineContext$*.class' \
+            'kotlin/coroutines/EmptyCoroutineContext.class' \
+            'kotlin/Result.class' \
+            'kotlin/Result$*.class' \
+            'kotlin/jvm/functions/Function1.class' \
+            'kotlin/jvm/functions/Function2.class' \
+            'kotlin/Unit.class'
+          jar cf /tmp/kotlin-coroutines-min.jar kotlin
+          cd -
+          cp /tmp/kotlin-coroutines-min.jar packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/kotlin-coroutines-min.jar
 
       - name: Restore Android binding
         working-directory: packages/dvai-bridge-dotnet
@@ -220,7 +253,14 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 40
     steps:
+      # The llama.cpp git submodule is needed for the
+      # mac-side-prepare-xcframework.sh step below — it builds the llama +
+      # mtmd xcframeworks from llama.cpp source. Only this job uses them;
+      # the other jobs (Ubuntu, Windows) deliberately skip submodules to
+      # keep their checkouts fast.
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - name: Setup .NET ${{ env.DOTNET_VERSION }}
         uses: actions/setup-dotnet@v4
@@ -238,6 +278,15 @@ jobs:
           restore-keys: |
             nuget-macos-
 
+      - name: Prepare llama + mtmd xcframeworks (for the iOS umbrella SwiftPM resolve)
+        # The DVAIBridge.iOS native umbrella's Package.swift declares
+        # binaryTarget entries pointing at
+        # packages/dvai-bridge-android-llama-core/.../build-apple/{llama,mtmd}.xcframework
+        # — built fresh from the llama.cpp submodule by this script.
+        # Required before build-xcframework.sh (next step), which packages
+        # the DVAIBridge.xcframework that links against them.
+        run: bash scripts/mac-side-prepare-xcframework.sh
+
       - name: Build xcframework (iOS + Catalyst slices)
         working-directory: packages/dvai-bridge-dotnet/src/DVAIBridge.iOS/native
         run: bash build-xcframework.sh
@@ -246,12 +295,34 @@ jobs:
         run: bash scripts/mac-side-prepare-llama-desktop.sh
         continue-on-error: true
 
-      - name: Fetch DVAI Bridge AAR from Maven Central (for multi-target facade build)
+      - name: Fetch DVAI Bridge AAR + shared-core AAR + kotlin-coroutines reference jar
+        # Same artifact set as the android-binding job — see that job for
+        # the rationale on each curl + jar build step.
         run: |
           mkdir -p packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native
           curl -L \
             "https://repo1.maven.org/maven2/co/deepvoiceai/dvai-bridge/4.0.0/dvai-bridge-4.0.0.aar" \
             -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/dvai-bridge-4.0.0.aar
+          curl -L \
+            "https://repo1.maven.org/maven2/co/deepvoiceai/android-shared-core/4.0.0/android-shared-core-4.0.0.aar" \
+            -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/android-shared-core-4.0.0.aar
+          curl -L \
+            "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.jar" \
+            -o /tmp/kotlin-stdlib-2.3.21.jar
+          mkdir -p /tmp/k && cd /tmp/k
+          unzip -q -o /tmp/kotlin-stdlib-2.3.21.jar \
+            'kotlin/coroutines/Continuation.class' \
+            'kotlin/coroutines/CoroutineContext.class' \
+            'kotlin/coroutines/CoroutineContext$*.class' \
+            'kotlin/coroutines/EmptyCoroutineContext.class' \
+            'kotlin/Result.class' \
+            'kotlin/Result$*.class' \
+            'kotlin/jvm/functions/Function1.class' \
+            'kotlin/jvm/functions/Function2.class' \
+            'kotlin/Unit.class'
+          jar cf /tmp/kotlin-coroutines-min.jar kotlin
+          cd -
+          cp /tmp/kotlin-coroutines-min.jar packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/kotlin-coroutines-min.jar
 
       - name: Restore solution
         working-directory: packages/dvai-bridge-dotnet
