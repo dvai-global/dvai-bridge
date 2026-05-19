@@ -89,12 +89,15 @@ scripts/*.local.env
 .env.local
 CLAUDE.md
 
-# Xcode + SwiftPM build output — disposable, regenerated on every build
+# Xcode + SwiftPM build output — disposable, regenerated on every build.
+# The bare `.build/` pattern catches SwiftPM caches anywhere in the tree
+# (packages/<x>/.build, packages/<x>/ios/.build, examples/<x>/.build, etc.)
+.build/
 packages/*/ios/build/
-packages/*/ios/.build/
 
-# Swift Package Manager lockfile — for a library, consumers resolve their own
-packages/*/ios/Package.resolved
+# Swift Package Manager lockfile — for a library, consumers resolve their own.
+# Bare pattern catches it at any package or example root.
+Package.resolved
 
 # Android Gradle build output — disposable, regenerated on every build
 packages/*/android/.gradle/
@@ -175,7 +178,3 @@ experiments/mlc-perf-spike/
 # Local-only release artifacts built by scripts/prepare-ios-release.sh.
 # These are uploaded to the GitHub Release manually; never tracked.
 /DVAIBridge-v*.zip
-
-# SwiftPM lockfiles at the package root (the ios/Package.resolved
-# variant is already ignored above).
-packages/*/Package.resolved
