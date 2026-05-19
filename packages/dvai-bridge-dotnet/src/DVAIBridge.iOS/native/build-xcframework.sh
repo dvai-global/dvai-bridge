@@ -41,7 +41,7 @@ xcodebuild archive \
     -derivedDataPath "${ARCHIVE_DIR}/derived-iphoneos" \
     SKIP_INSTALL=NO \
     BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-    IPHONEOS_DEPLOYMENT_TARGET=15.1 \
+    IPHONEOS_DEPLOYMENT_TARGET=18.1 \
     -configuration Release \
     | (xcbeautify --quiet || cat)
 
@@ -53,7 +53,7 @@ xcodebuild archive \
     -derivedDataPath "${ARCHIVE_DIR}/derived-iphonesimulator" \
     SKIP_INSTALL=NO \
     BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-    IPHONEOS_DEPLOYMENT_TARGET=15.1 \
+    IPHONEOS_DEPLOYMENT_TARGET=18.1 \
     -configuration Release \
     | (xcbeautify --quiet || cat)
 
@@ -68,7 +68,7 @@ xcodebuild archive \
     -derivedDataPath "${ARCHIVE_DIR}/derived-maccatalyst" \
     SKIP_INSTALL=NO \
     BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-    IPHONEOS_DEPLOYMENT_TARGET=15.1 \
+    IPHONEOS_DEPLOYMENT_TARGET=18.1 \
     SUPPORTS_MACCATALYST=YES \
     -configuration Release \
     | (xcbeautify --quiet || cat)
