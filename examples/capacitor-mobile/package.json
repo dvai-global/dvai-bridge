@@ -11,7 +11,7 @@
     "smoke": "bash smoke.sh"
   },
   "dependencies": {
-    "@capacitor/android": "^8.3.1",
+    "@capacitor/android": "^8.3.4",
     "@capacitor/core": "^8.3.1",
     "@capacitor/ios": "^8.3.1",
     "@dvai-bridge/capacitor": "workspace:*",
