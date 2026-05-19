@@ -43,6 +43,13 @@
     -->
     <NuspecFile>DVAIBridge.nuspec</NuspecFile>
     <NuspecProperties>version=$(Version)</NuspecProperties>
+    <!--
+      The SDK's separate-.snupkg generation can't build symbols from a
+      hand-written nuspec (NU5005). The nuspec ships .pdb files inside
+      the main .nupkg under each lib\ folder, so SourceLink debugging
+      still works without a separate symbols package.
+    -->
+    <IncludeSymbols>false</IncludeSymbols>
   </PropertyGroup>
 
   <ItemGroup>

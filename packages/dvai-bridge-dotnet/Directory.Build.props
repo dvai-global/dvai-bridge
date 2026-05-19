@@ -12,7 +12,24 @@
     <PackageProjectUrl>https://github.com/dvai-global/dvai-bridge</PackageProjectUrl>
     <RepositoryUrl>https://github.com/dvai-global/dvai-bridge.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <!--
+      Custom license (DVAI Bridge Community Licence v1.0) — NOT an SPDX
+      identifier, so we ship the canonical LICENSE file (repo root)
+      inside every .nupkg via <PackageLicenseFile>. The canonical file
+      lives at the monorepo root so that Maven Central, npm, CocoaPods
+      and NuGet all reference the same license bytes — keep them in sync
+      by editing only `<repo>/LICENSE`.
+    -->
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <!--
+      Shared package-page README. Resolves to packages/dvai-bridge-dotnet/README.md
+      via $(MSBuildThisFileDirectory) so every SDK-packed csproj that
+      inherits this Directory.Build.props uses the same .NET-flavoured
+      README on its NuGet.org page. The hand-written DVAIBridge facade
+      nuspec already has its own `<readme>README.md</readme>` line and
+      file entry — but the path matches, so they stay in sync.
+    -->
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -29,4 +46,19 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <IncludeSymbols>true</IncludeSymbols>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Bundle the canonical repo-root LICENSE at the .nupkg root (where
+      NuGet's license viewer looks for it). Resolved relative to this
+      Directory.Build.props -> ../../LICENSE = repo root.
+    -->
+    <None Include="$(MSBuildThisFileDirectory)..\..\LICENSE" Pack="true" PackagePath="\" />
+    <!--
+      Bundle the .NET-flavoured README at the .nupkg root for the package
+      page on NuGet.org. Referenced via <PackageReadmeFile> above. Lives
+      at packages/dvai-bridge-dotnet/README.md, sibling to this file.
+    -->
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 </Project>

@@ -65,6 +65,11 @@ dist/
 packages/*/dist/
 packages/*/README.md
 packages/*/LICENSE
+# .NET NuGet packages need a real README + LICENSE inside the .nupkg
+# (referenced by <PackageReadmeFile> / <PackageLicenseFile> at pack time).
+# Track these explicitly; the global packages/*/README.md ignore would
+# otherwise hide future edits from `git status`.
+!packages/dvai-bridge-dotnet/README.md
 example/dist/
 example/*/dist/
 .vite/

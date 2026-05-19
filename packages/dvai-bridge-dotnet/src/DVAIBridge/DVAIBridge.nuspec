@@ -21,7 +21,11 @@
     <title>DVAIBridge — local LLM bridge for .NET MAUI / Avalonia / WinUI</title>
     <authors>Deep Voice AI</authors>
     <owners>Deep Voice AI</owners>
-    <license type="expression">Apache-2.0</license>
+    <!--
+      Custom license (DVAI Bridge Community Licence v1.0) — shipped as a
+      file inside the .nupkg, since it's not an SPDX identifier.
+    -->
+    <license type="file">LICENSE</license>
     <projectUrl>https://github.com/dvai-global/dvai-bridge</projectUrl>
     <repository type="git" url="https://github.com/dvai-global/dvai-bridge.git" />
     <description>Local-LLM bridge with OpenAI-compatible HTTP server for .NET MAUI, Avalonia, WinUI, and Xamarin (legacy) apps on iOS and Android. Wraps the DVAIBridge iOS + Android native SDKs behind an idiomatic C# API. Reactive progress via IAsyncEnumerable&lt;ProgressEvent&gt;. Backends: llama.cpp, Apple Foundation Models, CoreML/ANE, MLX, MediaPipe, LiteRT.</description>
@@ -56,8 +60,23 @@
   </metadata>
   <files>
     <file src="..\..\README.md" target="README.md" />
+    <!--
+      Bundled license file (referenced by <license type="file">LICENSE</license>
+      above). Sibling Directory.Build.props can't inject into a hand-written
+      nuspec's <files> block, so we re-declare it here. ..\..\..\..\LICENSE
+      hops up to the monorepo root (src/DVAIBridge/ -> packages/dvai-bridge-dotnet/
+      -> packages/ -> dvai-edge/), so we get the canonical Community Licence.
+    -->
+    <file src="..\..\..\..\LICENSE" target="LICENSE" />
     <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0\" />
     <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0\" />
+    <!--
+      .pdb shipped under each lib\ folder (not a separate .snupkg) because
+      the SDK's snupkg generator can't build a symbols package from a
+      hand-written nuspec — see NU5005. Embedded inside the .nupkg they
+      still feed SourceLink for step-into-source debugging.
+    -->
+    <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0\" />
     <!--
       Same facade DLL re-shipped under the platform TFM folders. NuGet's
       lib-resolver picks the most-specific match (`net10.0-ios26.2` over
@@ -69,9 +88,12 @@
     -->
     <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-ios26.2\" />
     <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-ios26.2\" />
+    <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-ios26.2\" />
     <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-maccatalyst26.2\" />
     <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-maccatalyst26.2\" />
+    <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-maccatalyst26.2\" />
     <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-android36.0\" />
     <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-android36.0\" />
+    <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-android36.0\" />
   </files>
 </package>
