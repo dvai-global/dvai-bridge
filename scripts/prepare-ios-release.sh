@@ -125,12 +125,23 @@ mkdir -p "$PKG_DIR/packages"
 cp -R packages/dvai-bridge-ios "$PKG_DIR/packages/"
 cp -R packages/dvai-bridge-ios-shared-core "$PKG_DIR/packages/"
 cp -R packages/dvai-bridge-ios-llama-core "$PKG_DIR/packages/"
+
+# Pre-stage Sources/_external so the published podspec needs no prepare_command.
+# CocoaPods Trunk has been rejecting specs with prepare_command (500, no body);
+# baking the file layout into the zip side-steps that entirely.
+echo "PRE-STAGE: copying sibling-package sources into Sources/_external/"
+EXT="$PKG_DIR/packages/dvai-bridge-ios/Sources/_external"
+rm -rf "$EXT"
+mkdir -p "$EXT"
+cp -R "$PKG_DIR/packages/dvai-bridge-ios-shared-core/ios/Sources/DVAISharedCore" "$EXT/"
+cp -R "$PKG_DIR/packages/dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCore" "$EXT/"
+cp -R "$PKG_DIR/packages/dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC" "$EXT/"
 cp DVAIBridge.podspec "$PKG_DIR/"
 cp LICENSE "$PKG_DIR/"
 cp README.md "$PKG_DIR/"
 
 # Zip it up
-(cd "$PKG_DIR" && zip -r "../$ZIP_NAME" .)
+(cd "$PKG_DIR" && zip -rq "../$ZIP_NAME" . -x "*/.build/*" -x "*/.swiftpm/*" -x "*/build/*" -x "*/node_modules/*" -x "*/.git/*" -x "*/.gradle/*" -x "*/DerivedData/*" -x "*.DS_Store" -x "*.xcuserstate" -x "*/xcuserdata/*")
 
 rm -rf "$PKG_DIR"
 echo "✅ Created $ZIP_NAME."

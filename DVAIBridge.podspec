@@ -10,6 +10,12 @@ package = JSON.parse(File.read(File.join(__dir__, 'packages/dvai-bridge-ios/pack
 # the upstream swift-transformers / swift-jinja / swift-collections packages
 # through Package.swift; only CocoaPods consumers see the vendored copies
 # under Vendor/swift-transformers/.
+#
+# The Sources/_external/ tree (DVAISharedCore + DVAILlamaCore + DVAILlamaCoreObjC
+# copied from sibling *-core packages) is PRE-STAGED into the release zip by
+# scripts/prepare-ios-release.sh — no `prepare_command` is needed here.
+# CocoaPods Trunk has been rejecting specs with prepare_command (server-side
+# 500), so we bake the layout in at zip-time.
 
 Pod::Spec.new do |s|
   s.name             = 'DVAIBridge'
@@ -17,10 +23,10 @@ Pod::Spec.new do |s|
   s.summary          = package['description']
   s.license          = { :type => 'Custom', :file => 'LICENSE' }
   s.homepage         = 'https://github.com/dvai-global/dvai-bridge'
-  s.author           = package['author']
-  s.source           = { 
+  s.author           = { 'Deep Chakraborty' => 'chakraborty.deep013@gmail.com' }
+  s.source           = {
     :http => "https://github.com/dvai-global/dvai-bridge/releases/download/v#{s.version}/DVAIBridge-v#{s.version}.zip",
-    :type => "zip"
+    :type => 'zip'
   }
   s.platform         = :ios, '18.1'
   s.swift_version    = '5.9'
@@ -31,8 +37,7 @@ Pod::Spec.new do |s|
     # CoreML backend (uses vendored Tokenizers + Hub + Jinja)
     'packages/dvai-bridge-ios/ios/Sources/DVAICoreMLCore/**/*.swift',
     # Shared HTTP-server / handler-dispatch types, plus llama.cpp backend
-    # — copied from sibling *-core packages into Sources/_external/ by
-    # prepare_command.
+    # — pre-staged in the zip from sibling *-core packages.
     'packages/dvai-bridge-ios/Sources/_external/DVAISharedCore/**/*.swift',
     'packages/dvai-bridge-ios/Sources/_external/DVAILlamaCore/**/*.swift',
     'packages/dvai-bridge-ios/Sources/_external/DVAILlamaCoreObjC/**/*.{h,mm}',
@@ -45,20 +50,6 @@ Pod::Spec.new do |s|
   ]
 
   s.resources = ['packages/dvai-bridge-ios/Vendor/swift-transformers/Hub/Resources/*.json']
-
-  # Prepare command runs from the podspec's directory (now repo root).
-  s.prepare_command = <<-SH
-    set -e
-    IOS_PKG="packages/dvai-bridge-ios"
-    
-    # Mirror sibling-package source dirs into Sources/_external/
-    rm -rf "$IOS_PKG/Sources/_external"
-    mkdir -p "$IOS_PKG/Sources/_external"
-    
-    cp -R packages/dvai-bridge-ios-shared-core/ios/Sources/DVAISharedCore "$IOS_PKG/Sources/_external/"
-    cp -R packages/dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCore "$IOS_PKG/Sources/_external/"
-    cp -R packages/dvai-bridge-ios-llama-core/ios/Sources/DVAILlamaCoreObjC "$IOS_PKG/Sources/_external/"
-  SH
 
   s.vendored_frameworks = [
     'packages/dvai-bridge-ios/Frameworks/llama.xcframework',
