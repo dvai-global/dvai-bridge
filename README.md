@@ -82,14 +82,14 @@ platform.
 
 | Stack | Package | Backends |
 | --- | --- | --- |
-| Browser (React, Vue, Svelte, vanilla JS) | `@dvai-bridge/core` + `react` / `vanilla` | WebLLM (WebGPU), Transformers.js (WebGPU / WASM SIMD) |
-| Node / Bun / Electron | `@dvai-bridge/core` | Transformers.js, native llama.cpp |
-| Capacitor hybrid mobile | `@dvai-bridge/capacitor` + backend slice | Native llama.cpp (Metal iOS, Vulkan / CPU Android) |
-| iOS native (Swift) | `DVAIBridge` (SPM / CocoaPods) | llama.cpp (Metal), CoreML / ANE, Apple Foundation Models, MLX |
-| Android native (Kotlin / Java) | `co.deepvoiceai:dvai-bridge` (AAR) | llama.cpp, MediaPipe LLM, LiteRT, NNAPI / QNN |
-| React Native (≥0.77, TurboModule) | `@dvai-bridge/react-native` | All iOS + Android backends (delegates) |
-| Flutter (≥3.39) | `dvai_bridge` (pub.dev) | All iOS + Android backends (Pigeon channels) |
-| .NET 10 LTS (MAUI / Avalonia / WinUI / Catalyst / desktop) | `co.deepvoiceai.dvai-bridge*` (NuGet) | iOS / Android delegate to native; desktop = llama.cpp + ONNX Runtime GenAI + ML.NET |
+| Browser (React, Vue, Svelte, vanilla JS) | [`@dvai-bridge/core`](https://www.npmjs.com/package/@dvai-bridge/core) + [`react`](https://www.npmjs.com/package/@dvai-bridge/react) / [`vanilla`](https://www.npmjs.com/package/@dvai-bridge/vanilla) | WebLLM (WebGPU), Transformers.js (WebGPU / WASM SIMD) |
+| Node / Bun / Electron | [`@dvai-bridge/core`](https://www.npmjs.com/package/@dvai-bridge/core) | Transformers.js, native llama.cpp |
+| Capacitor hybrid mobile | [`@dvai-bridge/capacitor`](https://www.npmjs.com/package/@dvai-bridge/capacitor) + backend slice ([llama](https://www.npmjs.com/package/@dvai-bridge/capacitor-llama) / [mediapipe](https://www.npmjs.com/package/@dvai-bridge/capacitor-mediapipe) / [foundation](https://www.npmjs.com/package/@dvai-bridge/capacitor-foundation) / [mlx](https://www.npmjs.com/package/@dvai-bridge/capacitor-mlx)) | Native llama.cpp (Metal iOS, Vulkan / CPU Android) |
+| iOS native (Swift) | `DVAIBridge` ([SPM](https://github.com/dvai-global/dvai-bridge) / [CocoaPods](https://cocoapods.org/pods/DVAIBridge)) | llama.cpp (Metal), CoreML / ANE, Apple Foundation Models, MLX |
+| Android native (Kotlin / Java) | [`co.deepvoiceai:dvai-bridge`](https://central.sonatype.com/artifact/co.deepvoiceai/dvai-bridge) (Maven Central AAR) | llama.cpp, MediaPipe LLM, LiteRT, NNAPI / QNN |
+| React Native (≥0.77, TurboModule) | [`@dvai-bridge/react-native`](https://www.npmjs.com/package/@dvai-bridge/react-native) | All iOS + Android backends (delegates) |
+| Flutter (≥3.39) | `dvai_bridge` (pub.dev — coming soon) | All iOS + Android backends (Pigeon channels) |
+| .NET 10 LTS (MAUI / Avalonia / WinUI / Catalyst / desktop) | `co.deepvoiceai.dvai-bridge*` (NuGet — coming soon) | iOS / Android delegate to native; desktop = llama.cpp + ONNX Runtime GenAI + ML.NET |
 
 Full quickstart per platform: [bridge.deepvoiceai.co/docs](https://bridge.deepvoiceai.co/docs)
 
