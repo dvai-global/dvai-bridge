@@ -74,11 +74,12 @@ android {
         unitTests.includeAndroidResources = true
     }
 
-    publishing {
-        singleVariant('release') {
-            withSourcesJar()
-        }
-    }
+    // NB: don't add `publishing { singleVariant('release') { withSourcesJar() } }`
+    // here. The vanniktech.maven.publish plugin auto-configures Android
+    // single-variant publication + sources + javadoc jars on its own; a
+    // manual singleVariant block collides with "Using singleVariant publishing
+    // DSL multiple times to publish variant 'release' to component 'release'
+    // is not allowed."
 }
 
 // AGP 9 / Kotlin 2.x: the legacy android.kotlinOptions block is gone. The
