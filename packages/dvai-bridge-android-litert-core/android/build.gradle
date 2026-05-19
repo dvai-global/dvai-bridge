@@ -54,7 +54,7 @@ buildscript {
         // Maven Central publishing — wraps maven-publish + signing + the
         // Central Portal upload API into one config block. See the
         // mavenPublishing { ... } block below.
-        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.30.0'
+        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.33.0'
     }
 }
 
