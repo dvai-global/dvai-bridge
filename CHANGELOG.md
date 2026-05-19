@@ -989,7 +989,7 @@ citeable version.
   - `.github/workflows/deploy-docs.yml` — VitePress build +
     `actions/deploy-pages@v4`. Triggers on push to main when
     `docs/**`, `README.md`, or `CHANGELOG.md` changes.
-  - `docs/public/CNAME` → `dvai-bridge.deepvoiceai.co`. DNS + Pages
+  - `docs/public/CNAME` → `bridge.deepvoiceai.co`. DNS + Pages
     settings + cert flow documented in private `PUBLISHING.md`.
 - **`RESEARCH.md` figure 6** — `paper-assets/fig6-platform-coverage.svg`
   — 7 SDK rows × 10 backend columns lattice diagram. Embedded in

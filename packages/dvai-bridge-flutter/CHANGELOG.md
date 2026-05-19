@@ -32,7 +32,7 @@ at 4.0.0; CocoaPods `DVAIBridge` at 4.0.0). See the docs site for the full
 ## [2.3.0] — 2026-04-27
 
 Initial release of the Flutter plugin. See
-[`docs/migration/v2.2-to-v2.3.md`](https://dvai-bridge.deepvoiceai.co/migration/v2.2-to-v2.3)
+[`docs/migration/v2.2-to-v2.3.md`](https://bridge.deepvoiceai.co/migration/v2.2-to-v2.3)
 for the broader v2.3 family rollout context.
 
 ### Added

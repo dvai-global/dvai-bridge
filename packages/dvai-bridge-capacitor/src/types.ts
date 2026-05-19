@@ -39,7 +39,7 @@ export interface StartOptions {
    * (and optionally a rendezvous WebSocket) to find peer dvai-bridge
    * instances and offloads inference requests when the local device
    * can't serve the model fast enough. See
-   * [the distributed-inference guide](https://dvai-bridge.deepvoiceai.co/guide/distributed-inference)
+   * [the distributed-inference guide](https://bridge.deepvoiceai.co/guide/distributed-inference)
    * for the full contract.
    *
    * Pairing-request UI is surfaced via the `"pairingRequest"` event
@@ -94,7 +94,7 @@ export interface StartOptions {
  * representable across the Capacitor plugin boundary, so they're surfaced
  * via {@link DVAIBridge.addListener}'s `"pairingRequest"` channel instead.
  *
- * See [the distributed-inference guide](https://dvai-bridge.deepvoiceai.co/guide/distributed-inference)
+ * See [the distributed-inference guide](https://bridge.deepvoiceai.co/guide/distributed-inference)
  * for the full feature description.
  */
 export interface OffloadConfig {
