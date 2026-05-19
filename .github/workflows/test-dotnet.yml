@@ -194,15 +194,12 @@ jobs:
           restore-keys: |
             nuget-android-
 
-      - name: Fetch Phase 3D AAR from GitHub Packages
-        env:
-          GITHUB_USER: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Fetch DVAI Bridge AAR from Maven Central
         run: |
           mkdir -p packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native
-          curl -L -u "${GITHUB_USER}:${GITHUB_TOKEN}" \
-            "https://maven.pkg.github.com/dvai-global/dvai-bridge/co/deepvoiceai/dvai-bridge/2.4.0/dvai-bridge-2.4.0.aar" \
-            -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/dvai-bridge-2.4.0.aar
+          curl -L \
+            "https://repo1.maven.org/maven2/co/deepvoiceai/dvai-bridge/4.0.0/dvai-bridge-4.0.0.aar" \
+            -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/dvai-bridge-4.0.0.aar
 
       - name: Restore Android binding
         working-directory: packages/dvai-bridge-dotnet
@@ -249,15 +246,12 @@ jobs:
         run: bash scripts/mac-side-prepare-llama-desktop.sh
         continue-on-error: true
 
-      - name: Fetch Phase 3D AAR (for the multi-target facade build)
-        env:
-          GITHUB_USER: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Fetch DVAI Bridge AAR from Maven Central (for multi-target facade build)
         run: |
           mkdir -p packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native
-          curl -L -u "${GITHUB_USER}:${GITHUB_TOKEN}" \
-            "https://maven.pkg.github.com/dvai-global/dvai-bridge/co/deepvoiceai/dvai-bridge/2.4.0/dvai-bridge-2.4.0.aar" \
-            -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/dvai-bridge-2.4.0.aar
+          curl -L \
+            "https://repo1.maven.org/maven2/co/deepvoiceai/dvai-bridge/4.0.0/dvai-bridge-4.0.0.aar" \
+            -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/dvai-bridge-4.0.0.aar
 
       - name: Restore solution
         working-directory: packages/dvai-bridge-dotnet

@@ -66,17 +66,9 @@ repositories {
     mavenCentral()
     google()
     // Local Maven repo for `bash scripts/android-publish-local.sh` builds.
+    // The Phase 3D umbrella AAR resolves cleanly from Maven Central as of
+    // v4.0.0 — no GitHub Packages entry / token required.
     mavenLocal()
-    maven {
-        // GitHub Packages Maven for the Phase 3D umbrella AAR. Consumer
-        // apps must export `gpr.user` / `gpr.key` (or the equivalent env
-        // vars) — see docs/guide/flutter-sdk.md for the snippet.
-        url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge")
-        credentials {
-            username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
-            password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
-        }
-    }
 }
 
 def dvaiBridgeVersion = project.findProperty('dvaiBridgeVersion') ?: '4.0.0'

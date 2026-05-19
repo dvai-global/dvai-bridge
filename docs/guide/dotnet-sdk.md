@@ -73,47 +73,28 @@ What `dotnet add package DVAIBridge` pulls in transitively:
 ::: tip Family asymmetry
 The .NET family is the third public registry. iOS bindings ship with the
 xcframework bundled in the NuGet (no extra config); the Android binding
-slice still requires a GitHub Packages Maven repo entry in the consumer's
-csproj. See [migration v2.3 → v2.4](../migration/v2.3-to-v2.4.md) for the
-full distribution table.
+slice fetches its AAR from Maven Central at consumer-build time. See
+[migration v2.3 → v2.4](../migration/v2.3-to-v2.4.md) for the full
+distribution table.
 :::
 
 ### Android — consumer csproj
 
-Because the AAR is fetched at consumer-build time (not bundled), your app
-csproj needs the Maven repo entry and a personal access token with
-`read:packages` scope:
+The AAR is fetched at consumer-build time (not bundled) from Maven
+Central. No tokens, no repo override — the default
+`AndroidMavenLibrary` resolver already searches
+`https://repo.maven.apache.org/maven2/`:
 
 ```xml
 <!-- YourMauiApp.csproj -->
 <ItemGroup Condition="$(TargetFramework.Contains('android'))">
   <AndroidMavenLibrary
     Include="co.deepvoiceai:dvai-bridge"
-    Version="4.0.0"
-    Repository="https://maven.pkg.github.com/dvai-global/dvai-bridge" />
+    Version="4.0.0" />
 </ItemGroup>
 ```
 
-Plus a repo-local or user-global `nuget.config` with credentials:
-
-```xml
-<!-- nuget.config (next to your sln; gitignored if it contains secrets) -->
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <packageSources>
-    <add key="github-dvai" value="https://maven.pkg.github.com/dvai-global/dvai-bridge" />
-  </packageSources>
-  <packageSourceCredentials>
-    <github-dvai>
-      <add key="Username" value="%GITHUB_USER%" />
-      <add key="ClearTextPassword" value="%GITHUB_TOKEN%" />
-    </github-dvai>
-  </packageSourceCredentials>
-</configuration>
-```
-
-Then export `GITHUB_USER` + `GITHUB_TOKEN` (or use environment-specific
-secrets in CI). Same friction Flutter consumers see in 3F.
+No `nuget.config` credentials, no environment variables — clean.
 
 ### Android — bootstrap
 

@@ -5,10 +5,10 @@
     AAR via Microsoft's Java/Kotlin binding generator (class-parse +
     XAJavaInterop1).
 
-    The AAR is fetched from GitHub Packages Maven by CI before `dotnet
-    build` runs (see .github/workflows/test-dotnet.yml Task 13). It's
-    gitignored so we don't pin a binary to the repo. The fetched filename
-    is `native/dvai-bridge-$(Version).aar` — auto-tracks the repo version
+    The AAR is fetched from Maven Central by CI before `dotnet build`
+    runs (see .github/workflows/test-dotnet.yml Task 13). It's gitignored
+    so we don't pin a binary to the repo. The fetched filename is
+    `native/dvai-bridge-$(Version).aar` — auto-tracks the repo version
     set in Directory.Build.props.
 
     `Transforms/Metadata.xml` rewrites Kotlin's `suspend fun(continuation)`
@@ -29,7 +29,7 @@
     <AndroidCodegenTarget>XAJavaInterop1</AndroidCodegenTarget>
     <PackageId>DVAIBridge.Android</PackageId>
     <Title>DVAIBridge.Android — Android native bindings (internal slice)</Title>
-    <Description>Android native bindings for DVAIBridge — internal slice of the DVAIBridge NuGet family. Pulled in transitively by DVAIBridge when targeting net10.0-android. Consumers should depend on DVAIBridge directly. The underlying co.deepvoiceai:dvai-bridge AAR is fetched from GitHub Packages Maven at consumer build time (NOT bundled in this NuGet); see docs/guide/dotnet-sdk.md for the consumer-side configuration.</Description>
+    <Description>Android native bindings for DVAIBridge — internal slice of the DVAIBridge NuGet family. Pulled in transitively by DVAIBridge when targeting net10.0-android. Consumers should depend on DVAIBridge directly. The underlying co.deepvoiceai:dvai-bridge AAR is fetched from Maven Central at consumer build time (NOT bundled in this NuGet); see docs/guide/dotnet-sdk.md for the consumer-side configuration.</Description>
     <PackageTags>llm;ai;android;binding;internal;dvai-bridge</PackageTags>
     <RootNamespace>DVAIBridge.Android</RootNamespace>
     <AssemblyName>DVAIBridge.Android</AssemblyName>
@@ -44,9 +44,9 @@
 
   <ItemGroup>
     <!--
-      AAR fetched by CI from GitHub Packages Maven before build:
-        curl -L -u "$GITHUB_USER:$GITHUB_TOKEN" \
-          "https://maven.pkg.github.com/dvai-global/dvai-bridge/co/deepvoiceai/dvai-bridge/$(Version)/dvai-bridge-$(Version).aar" \
+      AAR fetched by CI from Maven Central before build (no auth needed):
+        curl -L \
+          "https://repo1.maven.org/maven2/co/deepvoiceai/dvai-bridge/$(Version)/dvai-bridge-$(Version).aar" \
           -o native/dvai-bridge-$(Version).aar
       Bind=true tells the binding generator to emit C# wrappers from the
       AAR's classes.jar.

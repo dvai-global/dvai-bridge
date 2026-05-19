@@ -11,53 +11,29 @@ native Android apps.
 
 ## Install
 
-The SDK is published to **GitHub Packages Maven** at
-`https://maven.pkg.github.com/dvai-global/dvai-bridge`.
-
-### 1. Add the GitHub Packages repo
-
-`settings.gradle.kts`:
-
-```kotlin
-dependencyResolutionManagement {
-    repositories {
-        google()
-        mavenCentral()
-        maven {
-            url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge")
-            credentials {
-                username = providers.gradleProperty("gpr.user").orNull
-                    ?: System.getenv("GITHUB_ACTOR")
-                password = providers.gradleProperty("gpr.key").orNull
-                    ?: System.getenv("GITHUB_TOKEN")
-            }
-        }
-    }
-}
-```
-
-### 2. Provide a GitHub Packages token
-
-GitHub Packages requires authentication even for *public* package reads.
-Store credentials per-developer in `~/.gradle/gradle.properties` (NOT in
-the repo):
-
-```properties
-gpr.user=your-github-username
-gpr.key=ghp_classic_token_with_read_packages_scope
-```
-
-Tokens are managed at https://github.com/settings/tokens. The minimum
-scope for read-only consumption is `read:packages`. Mint a token, paste
-it into your local `gradle.properties`, and you're done.
-
-### 3. Pull the umbrella
+The SDK is published to **Maven Central** under the group
+`co.deepvoiceai`. No tokens, no auth — `mavenCentral()` is on the
+default repo list for every Android project, so all you need is the
+dependency line.
 
 `app/build.gradle.kts`:
 
 ```kotlin
 dependencies {
     implementation("co.deepvoiceai:dvai-bridge:4.0.0")
+}
+```
+
+If your project explicitly manages repos in `settings.gradle.kts`, make
+sure `mavenCentral()` is in the list (it is by default for new Android
+Studio projects):
+
+```kotlin
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
 }
 ```
 

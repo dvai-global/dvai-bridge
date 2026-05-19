@@ -95,42 +95,23 @@ FoundationModels imports compiled in). This is the same caveat the
 ### Android — Gradle
 
 The plugin's `build.gradle` depends on `co.deepvoiceai:dvai-bridge:4.0.0`,
-hosted on **GitHub Packages Maven**. The consumer app needs three pieces
-of config:
+hosted on **Maven Central** — no token, no auth, nothing to set up. New
+Flutter projects ship `mavenCentral()` in their default repo list, so
+the AAR resolves automatically.
 
-#### 1. Add the GitHub Packages Maven repo to `settings.gradle.kts`
+If you've stripped `mavenCentral()` out, add it back to
+`android/settings.gradle.kts` (or the legacy `android/build.gradle`):
 
 ```kotlin
 dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge")
-            credentials {
-                username = providers.gradleProperty("gpr.user").orNull
-                    ?: System.getenv("GITHUB_ACTOR")
-                password = providers.gradleProperty("gpr.key").orNull
-                    ?: System.getenv("GITHUB_TOKEN")
-            }
-        }
     }
 }
 ```
 
-#### 2. Provide a token
-
-Per-developer in `~/.gradle/gradle.properties`:
-
-```properties
-gpr.user=your-github-username
-gpr.key=ghp_classic_token_with_read_packages_scope
-```
-
-GitHub Packages requires authentication even for public reads; the
-minimum scope is `read:packages`.
-
-#### 3. Initialize the bridge from `Application.onCreate()` (optional)
+#### Initialize the bridge from `Application.onCreate()` (optional)
 
 ```kotlin
 import android.app.Application

@@ -79,42 +79,24 @@ caveat.
 
 The package's autolinking config registers the Android module
 automatically. The umbrella AAR (`co.deepvoiceai:dvai-bridge:4.0.0`) is
-hosted on **GitHub Packages Maven**, so consumer apps need three pieces of
-config:
+hosted on **Maven Central** — no token, no auth, nothing to set up.
+React Native projects ship `mavenCentral()` in their default
+`settings.gradle` (or `android/build.gradle`) repo list, so autolinking
+will resolve the AAR automatically.
 
-#### 1. Add the GitHub Packages Maven repo to `settings.gradle.kts`
+If you've stripped `mavenCentral()` out of your project's repo list,
+add it back:
 
 ```kotlin
 dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge")
-            credentials {
-                username = providers.gradleProperty("gpr.user").orNull
-                    ?: System.getenv("GITHUB_ACTOR")
-                password = providers.gradleProperty("gpr.key").orNull
-                    ?: System.getenv("GITHUB_TOKEN")
-            }
-        }
     }
 }
 ```
 
-#### 2. Provide a token
-
-Per-developer in `~/.gradle/gradle.properties`:
-
-```properties
-gpr.user=your-github-username
-gpr.key=ghp_classic_token_with_read_packages_scope
-```
-
-GitHub Packages requires authentication even for **public** package reads.
-The minimum scope is `read:packages`.
-
-#### 3. Initialize the bridge from `Application.onCreate()` (optional)
+#### Initialize the bridge from `Application.onCreate()` (optional)
 
 ```kotlin
 import android.app.Application

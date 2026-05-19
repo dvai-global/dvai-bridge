@@ -5,16 +5,13 @@
 // server. It depends on the umbrella AAR (declared below) and exposes its
 // `DVAIBridge` Kotlin singleton to React Native via a TurboModule.
 //
-// Consumers wiring this into their RN app need three things in their Android
+// Consumers wiring this into their RN app need two things in their Android
 // project:
 //
 //   1. `mavenCentral()` and `google()` repositories (default RN template).
-//   2. A GitHub Packages Maven entry pointing at
-//      `https://maven.pkg.github.com/dvai-global/dvai-bridge` plus a
-//      `gpr.user` / `gpr.key` pair in `~/.gradle/gradle.properties` (or
-//      `GITHUB_ACTOR` / `GITHUB_TOKEN` env vars in CI). See the
-//      docs/guide/react-native-sdk.md guide for the snippet.
-//   3. `applicationContext` initialization in `Application.onCreate()`:
+//      The umbrella + cores publish to Maven Central as of v4.0.0 — no
+//      tokens, no GitHub Packages entry. See docs/guide/react-native-sdk.md.
+//   2. `applicationContext` initialization in `Application.onCreate()`:
 //
 //          DVAIBridge.init(this)
 //
@@ -102,18 +99,9 @@ repositories {
     mavenCentral()
     google()
     // Phase 3D umbrella + cores resolve here in dev (after running
-    // `bash scripts/android-publish-local.sh` locally).
+    // `bash scripts/android-publish-local.sh` locally). v4.0.0+ also
+    // resolves cleanly from Maven Central — no extra repo / token needed.
     mavenLocal()
-    maven {
-        // Production GitHub Packages Maven for the umbrella + cores. Picked up
-        // automatically when the consumer app exports `gpr.user` / `gpr.key`
-        // (or sets the matching env vars in CI).
-        url = uri("https://maven.pkg.github.com/dvai-global/dvai-bridge")
-        credentials {
-            username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
-            password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
-        }
-    }
 }
 
 def dvaiBridgeVersion = project.findProperty('dvaiBridgeVersion') ?: '4.0.0'
