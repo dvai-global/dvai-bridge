@@ -25,14 +25,18 @@
       IsMacCatalyst) to IOSNativeBridge.
 
       TPV `26.4` matches the .NET 10.0.203 SDK's current iOS / Mac
-      Catalyst pack (Microsoft.iOS.Sdk.net10.0_26.4 +
-      Microsoft.MacCatalyst.Sdk.net10.0_26.4; valid TPVs on net10 are
-      26.0 and 26.4 — 26.2 was dropped in 10.0.20x). Runtime floor is
-      iOS 15.1 / Mac Catalyst 15.1 — same as the underlying DVAIBridge
-      umbrella.
+      Catalyst pack — installed iOS SDK pack on the .NET 10.0.300
+      runtime is Microsoft.iOS.Sdk.net10.0_26.5 (valid TPVs are 26.0
+      and 26.5 now; 26.4 was dropped between 10.0.20x and 10.0.300).
+      Mac Catalyst TFM removed in v4.0.0 because the chained
+      llama.xcframework + mtmd.xcframework don't include a Catalyst
+      slice; will be re-added in v4.0.1 (see NEXT-RELEASE.md). Runtime
+      floor bumped to iOS 18.1 to match the DVAIBridgeNetBridge
+      Package.swift (`.iOS("18.1")`) — same as the underlying
+      DVAIBridge umbrella.
     -->
-    <TargetFrameworks>net10.0-ios26.4;net10.0-maccatalyst26.4</TargetFrameworks>
-    <SupportedOSPlatformVersion>15.1</SupportedOSPlatformVersion>
+    <TargetFrameworks>net10.0-ios26.5</TargetFrameworks>
+    <SupportedOSPlatformVersion>18.1</SupportedOSPlatformVersion>
     <IsBindingProject>true</IsBindingProject>
     <NoBindingEmbedding>false</NoBindingEmbedding>
     <PackageId>DVAIBridge.iOS</PackageId>

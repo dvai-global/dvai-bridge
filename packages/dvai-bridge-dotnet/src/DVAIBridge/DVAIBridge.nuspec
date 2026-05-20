@@ -45,7 +45,7 @@
         <dependency id="DVAIBridge.Desktop" version="[$version$]" />
       </group>
       <!-- iOS: pulls in the iOS binding NuGet (which bundles the xcframework). -->
-      <group targetFramework="net10.0-ios26.2">
+      <group targetFramework="net10.0-ios26.5">
         <dependency id="DVAIBridge.iOS" version="[$version$]" />
       </group>
       <!--
@@ -88,16 +88,16 @@
     <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0\" />
     <!--
       Same facade DLL re-shipped under the platform TFM folders. NuGet's
-      lib-resolver picks the most-specific match (`net10.0-ios26.2` over
+      lib-resolver picks the most-specific match (`net10.0-ios26.5` over
       `net10.0`) and the NuGet dep group above pulls in the iOS slice
-      transitively. Without this, restoring net10.0-ios26.2 would fall
+      transitively. Without this, restoring net10.0-ios26.5 would fall
       back to the bare net10.0 folder and miss the slice.
       `_._` would also work but most consumers prefer a real DLL match
       so reflection-loaded type lookup (PlatformBridgeFactory) Just Works.
     -->
-    <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-ios26.2\" />
-    <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-ios26.2\" />
-    <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-ios26.2\" />
+    <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-ios26.5\" />
+    <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-ios26.5\" />
+    <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-ios26.5\" />
     <!--
       Mac Catalyst TFM folders intentionally omitted in v4.0.0 — see
       the commented-out maccatalyst dep group above for the rationale.
