@@ -302,6 +302,16 @@ jobs:
         # matches the iOS 26.x SDK the iOS umbrella now targets.
         run: sudo xcode-select -s /Applications/Xcode_26.3.app
 
+      - name: Download Metal Toolchain (Xcode 26 ships it as a separate component)
+        # Xcode 26 split the Metal compiler tool out of the main install —
+        # missing it surfaces as `cannot execute tool 'metal' due to missing
+        # Metal Toolchain` during mlx-swift's `steel_attention.metal` /
+        # `scaled_dot_product_attention.metal` / `rope.metal` compilation
+        # (~688 MB asset; one-time install per fresh runner). Run after
+        # `xcode-select` so it lands in the correct Xcode bundle. Note:
+        # `sudo` so the download writes to /System/Library/AssetsV2.
+        run: sudo xcodebuild -downloadComponent MetalToolchain
+
       - name: Prepare llama + mtmd xcframeworks (for the iOS umbrella SwiftPM resolve)
         # The DVAIBridge.iOS native umbrella's Package.swift declares
         # binaryTarget entries pointing at
