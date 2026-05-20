@@ -48,10 +48,19 @@
       <group targetFramework="net10.0-ios26.2">
         <dependency id="DVAIBridge.iOS" version="[$version$]" />
       </group>
-      <!-- Mac Catalyst: re-uses the same multi-target DVAIBridge.iOS NuGet (Task 14). -->
-      <group targetFramework="net10.0-maccatalyst26.2">
-        <dependency id="DVAIBridge.iOS" version="[$version$]" />
-      </group>
+      <!--
+        Mac Catalyst dep deferred to v4.0.1 — the underlying
+        llama.xcframework + mtmd.xcframework don't include a Mac
+        Catalyst slice (mac-side-prepare-xcframework.sh only builds
+        iOS device, iOS simulator, and regular macOS). Re-add this
+        dep group once the upstream xcframeworks grow a Catalyst
+        slice and build-xcframework.sh on the .NET side resumes the
+        Catalyst archive pass. Until then, consumers targeting
+        `net10.0-maccatalyst26.2` fall through to the bare net10.0
+        DLL (facade-only, BackendKind.Foundation/.Llama/etc throw
+        BackendUnavailable on the Catalyst runtime).
+      -->
+
       <!-- Android: pulls in the Android binding NuGet (consumer-build AAR fetch). -->
       <group targetFramework="net10.0-android36.0">
         <dependency id="DVAIBridge.Android" version="[$version$]" />
@@ -89,9 +98,12 @@
     <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-ios26.2\" />
     <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-ios26.2\" />
     <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-ios26.2\" />
-    <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-maccatalyst26.2\" />
-    <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-maccatalyst26.2\" />
-    <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-maccatalyst26.2\" />
+    <!--
+      Mac Catalyst TFM folders intentionally omitted in v4.0.0 — see
+      the commented-out maccatalyst dep group above for the rationale.
+      Re-add the three `target="lib\net10.0-maccatalyst26.2\"` entries
+      once the xcframework grows a Catalyst slice.
+    -->
     <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-android36.0\" />
     <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-android36.0\" />
     <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-android36.0\" />

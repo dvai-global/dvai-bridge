@@ -20,13 +20,28 @@ import PackageDescription
 let package = Package(
     name: "DVAIBridgeNetBridge",
     platforms: [
-        .iOS("18.1"),
-        .macCatalyst("18.1")
+        // Mac Catalyst intentionally omitted in v4.0.0 — the
+        // chained llama.xcframework + mtmd.xcframework don't include
+        // a Mac Catalyst slice (mac-side-prepare-xcframework.sh only
+        // builds iOS device, iOS simulator, and regular macOS). Once
+        // that script grows a Catalyst pass, re-add `.macCatalyst("18.1")`
+        // here AND a Catalyst archive step in build-xcframework.sh
+        // AND the net10.0-maccatalyst26.2 dep group in DVAIBridge.nuspec.
+        .iOS("18.1")
     ],
     products: [
+        // type: .dynamic — `BUILD_LIBRARY_FOR_DISTRIBUTION=NO` (needed to
+        // sidestep swift-certificates #254) only emits a packaged
+        // `.framework` bundle when the library is dynamic; with `.static`
+        // we'd get loose `.o` files in the .xcarchive Products dir, which
+        // `xcodebuild -create-xcframework -framework ...` can't consume.
+        // The .NET binding's <NativeReference> in DVAIBridge.iOS.csproj
+        // links the resulting framework via the Xamarin/Mono runtime —
+        // works with both static and dynamic frameworks, so the dynamic
+        // form here doesn't change the consumer surface.
         .library(
             name: "DVAIBridgeNetBridge",
-            type: .static,
+            type: .dynamic,
             targets: ["DVAIBridgeNetBridge"]
         )
     ],
