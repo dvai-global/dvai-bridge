@@ -291,6 +291,17 @@ jobs:
           restore-keys: |
             nuget-macos-
 
+      - name: Select Xcode 26.3 (avoid Xcode 16.4 Swift strict-init bug)
+        # macos-latest defaults to Xcode 16.4, whose Swift compiler rejects
+        # swift-certificates' `_CertificateInternals/_TinyArray.swift` with
+        # `'self.init' isn't called on all paths` / `'self' used before
+        # 'self.init'` errors — affects 1.18.0 + 1.19.x equally, so a
+        # version pin doesn't help (verified on workflow_dispatch run
+        # 26119888980 with `exact: 1.18.0`). Xcode 26.x ships a newer
+        # Swift toolchain where swift-certificates compiles cleanly; also
+        # matches the iOS 26.x SDK the iOS umbrella now targets.
+        run: sudo xcode-select -s /Applications/Xcode_26.3.app
+
       - name: Prepare llama + mtmd xcframeworks (for the iOS umbrella SwiftPM resolve)
         # The DVAIBridge.iOS native umbrella's Package.swift declares
         # binaryTarget entries pointing at
