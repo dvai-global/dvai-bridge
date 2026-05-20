@@ -264,18 +264,12 @@ jobs:
   ios-catalyst-and-pack:
     name: iOS + Catalyst + xcframework + pack (macOS)
     runs-on: macos-latest
-    # Bumped from 40 to 90 minutes. The cold-cache xcframework build on
-    # macos-latest now takes ~30 min just to compile llama+mtmd xcframeworks
-    # for all slices (added by mac-side-prepare-xcframework.sh), plus the
-    # MetalToolchain download (~5 min, ~688 MB), plus the actual
-    # DVAIBridgeNetBridge SwiftPM resolve + 2-slice archive (~20 min),
-    # plus binding restore/build (~10 min), plus pack + push to NuGet
-    # (~3 min). The previous 40 min cap was set when the macOS job
-    # only built the .NET-side xcframework against a path-resolved iOS
-    # umbrella — adding the upstream llama xcframework prep step pushed
-    # the wall-clock past the cap on cold-cache runs (verified on
-    # cancelled run 26136582468).
-    timeout-minutes: 90
+    # Bumped to 150 minutes — cold-cache run hit the 90 min cap at
+    # step #10 mid-xcframework build (run 26141432701). With the llama
+    # xcframework cache step below restoring most of the heavy work,
+    # warm-cache runs should land in ~30-40 min; 150 min keeps the
+    # cap well clear of the cold-cache wall-clock (~80-100 min).
+    timeout-minutes: 150
     steps:
       # The llama.cpp git submodule is needed for the
       # mac-side-prepare-xcframework.sh step below — it builds the llama +
@@ -323,6 +317,22 @@ jobs:
         # `sudo` so the download writes to /System/Library/AssetsV2.
         run: sudo xcodebuild -downloadComponent MetalToolchain
 
+      # Cache the built llama+mtmd xcframeworks keyed by the llama.cpp
+      # git submodule SHA. The actual build (next step) short-circuits
+      # if the xcframework dirs already exist, so a cache hit drops the
+      # ~25-min compile down to a ~30-second restore. Cache key uses
+      # the submodule's commit SHA so any submodule bump invalidates
+      # automatically.
+      - name: Cache llama + mtmd xcframeworks
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/llama.xcframework
+            packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/mtmd.xcframework
+          key: llama-mtmd-xcframework-${{ hashFiles('packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/.git') }}
+          restore-keys: |
+            llama-mtmd-xcframework-
+
       - name: Prepare llama + mtmd xcframeworks (for the iOS umbrella SwiftPM resolve)
         # The DVAIBridge.iOS native umbrella's Package.swift declares
         # binaryTarget entries pointing at
@@ -330,6 +340,8 @@ jobs:
         # — built fresh from the llama.cpp submodule by this script.
         # Required before build-xcframework.sh (next step), which packages
         # the DVAIBridge.xcframework that links against them.
+        # Short-circuits to a no-op if the cache step above restored
+        # the dirs already.
         run: bash scripts/mac-side-prepare-xcframework.sh
 
       - name: Build xcframework (iOS + Catalyst slices)
