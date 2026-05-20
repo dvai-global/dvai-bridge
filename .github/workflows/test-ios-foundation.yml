@@ -46,7 +46,7 @@ jobs:
 
       - name: Upload xcresult on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: xcresult-foundation-core
           path: packages/dvai-bridge-ios-foundation-core/build/test-results.xcresult
@@ -77,7 +77,7 @@ jobs:
 
       - name: Upload xcresult on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: xcresult-foundation-wrapper
           path: packages/dvai-bridge-capacitor-foundation/ios/build/test-results.xcresult
