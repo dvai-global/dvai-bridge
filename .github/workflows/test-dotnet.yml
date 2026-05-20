@@ -264,7 +264,18 @@ jobs:
   ios-catalyst-and-pack:
     name: iOS + Catalyst + xcframework + pack (macOS)
     runs-on: macos-latest
-    timeout-minutes: 40
+    # Bumped from 40 to 90 minutes. The cold-cache xcframework build on
+    # macos-latest now takes ~30 min just to compile llama+mtmd xcframeworks
+    # for all slices (added by mac-side-prepare-xcframework.sh), plus the
+    # MetalToolchain download (~5 min, ~688 MB), plus the actual
+    # DVAIBridgeNetBridge SwiftPM resolve + 2-slice archive (~20 min),
+    # plus binding restore/build (~10 min), plus pack + push to NuGet
+    # (~3 min). The previous 40 min cap was set when the macOS job
+    # only built the .NET-side xcframework against a path-resolved iOS
+    # umbrella — adding the upstream llama xcframework prep step pushed
+    # the wall-clock past the cap on cold-cache runs (verified on
+    # cancelled run 26136582468).
+    timeout-minutes: 90
     steps:
       # The llama.cpp git submodule is needed for the
       # mac-side-prepare-xcframework.sh step below — it builds the llama +
