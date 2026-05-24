@@ -88,8 +88,8 @@ platform.
 | iOS native (Swift) | `DVAIBridge` ([SPM](https://github.com/dvai-global/dvai-bridge) / [CocoaPods](https://cocoapods.org/pods/DVAIBridge)) | llama.cpp (Metal), CoreML / ANE, Apple Foundation Models, MLX |
 | Android native (Kotlin / Java) | [`co.deepvoiceai:dvai-bridge`](https://central.sonatype.com/artifact/co.deepvoiceai/dvai-bridge) (Maven Central AAR) | llama.cpp, MediaPipe LLM, LiteRT, NNAPI / QNN |
 | React Native (≥0.77, TurboModule) | [`@dvai-bridge/react-native`](https://www.npmjs.com/package/@dvai-bridge/react-native) | All iOS + Android backends (delegates) |
-| Flutter (≥3.39) | `dvai_bridge` (pub.dev — coming soon) | All iOS + Android backends (Pigeon channels) |
-| .NET 10 LTS (MAUI / Avalonia / WinUI / desktop) | [`DVAIBridge`](https://www.nuget.org/packages/DVAIBridge) facade + [`.Desktop`](https://www.nuget.org/packages/DVAIBridge.Desktop) / [`.iOS`](https://www.nuget.org/packages/DVAIBridge.iOS) / [`.Android`](https://www.nuget.org/packages/DVAIBridge.Android) / [`.OnnxRuntime`](https://www.nuget.org/packages/DVAIBridge.OnnxRuntime) / [`.MLNet`](https://www.nuget.org/packages/DVAIBridge.MLNet) (NuGet) | iOS / Android delegate to native; desktop = llama.cpp + ONNX Runtime GenAI + ML.NET. Mac Catalyst support deferred to 4.0.1. |
+| Flutter (≥3.39) | [`dvai_bridge`](https://pub.dev/packages/dvai_bridge) | All iOS + Android backends (Pigeon channels) |
+| .NET 10 LTS (MAUI / Avalonia / WinUI / desktop / Catalyst) | [`DVAIBridge`](https://www.nuget.org/packages/DVAIBridge) facade + [`.Desktop`](https://www.nuget.org/packages/DVAIBridge.Desktop) / [`.iOS`](https://www.nuget.org/packages/DVAIBridge.iOS) / [`.Android`](https://www.nuget.org/packages/DVAIBridge.Android) / [`.OnnxRuntime`](https://www.nuget.org/packages/DVAIBridge.OnnxRuntime) / [`.MLNet`](https://www.nuget.org/packages/DVAIBridge.MLNet) (NuGet) | iOS / Android delegate to native; desktop = llama.cpp + ONNX Runtime GenAI + ML.NET. Mac Catalyst slice shipped in v4.0.1. |
 
 Full quickstart per platform: [bridge.deepvoiceai.co/docs](https://bridge.deepvoiceai.co/docs)
 
