@@ -28,14 +28,12 @@
       Catalyst pack — installed iOS SDK pack on the .NET 10.0.300
       runtime is Microsoft.iOS.Sdk.net10.0_26.5 (valid TPVs are 26.0
       and 26.5 now; 26.4 was dropped between 10.0.20x and 10.0.300).
-      Mac Catalyst TFM removed in v4.0.0 because the chained
-      llama.xcframework + mtmd.xcframework don't include a Catalyst
-      slice; will be re-added in v4.0.1 (see NEXT-RELEASE.md). Runtime
-      floor bumped to iOS 18.1 to match the DVAIBridgeNetBridge
-      Package.swift (`.iOS("18.1")`) — same as the underlying
-      DVAIBridge umbrella.
+      Mac Catalyst TFM restored in v4.0.1 alongside the Catalyst
+      slice in the chained llama.xcframework + mtmd.xcframework.
+      Runtime floor iOS 18.1 / Mac Catalyst 18.1 — matches the
+      DVAIBridgeNetBridge Package.swift `platforms:` array.
     -->
-    <TargetFrameworks>net10.0-ios26.5</TargetFrameworks>
+    <TargetFrameworks>net10.0-ios26.5;net10.0-maccatalyst26.5</TargetFrameworks>
     <SupportedOSPlatformVersion>18.1</SupportedOSPlatformVersion>
     <IsBindingProject>true</IsBindingProject>
     <NoBindingEmbedding>false</NoBindingEmbedding>

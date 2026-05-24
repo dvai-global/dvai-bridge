@@ -49,17 +49,14 @@
         <dependency id="DVAIBridge.iOS" version="[$version$]" />
       </group>
       <!--
-        Mac Catalyst dep deferred to v4.0.1 — the underlying
-        llama.xcframework + mtmd.xcframework don't include a Mac
-        Catalyst slice (mac-side-prepare-xcframework.sh only builds
-        iOS device, iOS simulator, and regular macOS). Re-add this
-        dep group once the upstream xcframeworks grow a Catalyst
-        slice and build-xcframework.sh on the .NET side resumes the
-        Catalyst archive pass. Until then, consumers targeting
-        `net10.0-maccatalyst26.2` fall through to the bare net10.0
-        DLL (facade-only, BackendKind.Foundation/.Llama/etc throw
-        BackendUnavailable on the Catalyst runtime).
+        Mac Catalyst — restored in v4.0.1. The shared DVAIBridge.iOS
+        NuGet ships the Catalyst slice in its xcframework now that
+        scripts/mac-side-prepare-xcframework.sh builds a Catalyst pass.
+        Same DVAIBridge.iOS NuGet covers both iOS and Mac Catalyst TFMs.
       -->
+      <group targetFramework="net10.0-maccatalyst26.5">
+        <dependency id="DVAIBridge.iOS" version="[$version$]" />
+      </group>
 
       <!-- Android: pulls in the Android binding NuGet (consumer-build AAR fetch). -->
       <group targetFramework="net10.0-android36.0">
@@ -98,12 +95,12 @@
     <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-ios26.5\" />
     <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-ios26.5\" />
     <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-ios26.5\" />
-    <!--
-      Mac Catalyst TFM folders intentionally omitted in v4.0.0 — see
-      the commented-out maccatalyst dep group above for the rationale.
-      Re-add the three `target="lib\net10.0-maccatalyst26.2\"` entries
-      once the xcframework grows a Catalyst slice.
-    -->
+    <!-- Mac Catalyst TFM folders — restored in v4.0.1 alongside the
+         maccatalyst dep group. NuGet's lib-resolver picks the most-
+         specific match. -->
+    <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-maccatalyst26.5\" />
+    <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-maccatalyst26.5\" />
+    <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-maccatalyst26.5\" />
     <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-android36.0\" />
     <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-android36.0\" />
     <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-android36.0\" />

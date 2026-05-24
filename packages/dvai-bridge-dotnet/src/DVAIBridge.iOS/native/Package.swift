@@ -20,14 +20,14 @@ import PackageDescription
 let package = Package(
     name: "DVAIBridgeNetBridge",
     platforms: [
-        // Mac Catalyst intentionally omitted in v4.0.0 — the
-        // chained llama.xcframework + mtmd.xcframework don't include
-        // a Mac Catalyst slice (mac-side-prepare-xcframework.sh only
-        // builds iOS device, iOS simulator, and regular macOS). Once
-        // that script grows a Catalyst pass, re-add `.macCatalyst("18.1")`
-        // here AND a Catalyst archive step in build-xcframework.sh
-        // AND the net10.0-maccatalyst26.2 dep group in DVAIBridge.nuspec.
-        .iOS("18.1")
+        // Restored .macCatalyst("18.1") in v4.0.1 —
+        // scripts/mac-side-prepare-xcframework.sh now builds an
+        // ios-arm64_x86_64-maccatalyst slice into both chained
+        // llama.xcframework + mtmd.xcframework, so the .NET-side
+        // archive step can compile against a complete frameworks
+        // graph for the Catalyst target.
+        .iOS("18.1"),
+        .macCatalyst("18.1")
     ],
     products: [
         // type: .dynamic — `BUILD_LIBRARY_FOR_DISTRIBUTION=NO` (needed to

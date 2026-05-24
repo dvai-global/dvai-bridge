@@ -32,9 +32,18 @@ set -euo pipefail
 LLAMA_DIR="packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp"
 LLAMA_XCF_PATH="$LLAMA_DIR/build-apple/llama.xcframework"
 MTMD_XCF_PATH="$LLAMA_DIR/build-apple/mtmd.xcframework"
+# Short-circuit also requires the Mac Catalyst slice in both xcframeworks
+# — that's what Step 5/6 add on top of upstream's output. Without this
+# check, a partially-built tree (upstream produced the non-Catalyst
+# slices, but the Catalyst additions never ran or were interrupted)
+# would be considered "done" forever.
+LLAMA_CATALYST_SLICE="$LLAMA_XCF_PATH/ios-arm64_x86_64-maccatalyst"
+MTMD_CATALYST_SLICE="$MTMD_XCF_PATH/ios-arm64_x86_64-maccatalyst"
 
-if [ -d "$LLAMA_XCF_PATH" ] && [ -d "$MTMD_XCF_PATH" ] && [ "${FORCE:-0}" != "1" ]; then
-    echo "[prepare-xcframework] $LLAMA_XCF_PATH and $MTMD_XCF_PATH already exist; skipping rebuild."
+if [ -d "$LLAMA_XCF_PATH" ] && [ -d "$MTMD_XCF_PATH" ] \
+        && [ -d "$LLAMA_CATALYST_SLICE" ] && [ -d "$MTMD_CATALYST_SLICE" ] \
+        && [ "${FORCE:-0}" != "1" ]; then
+    echo "[prepare-xcframework] llama.xcframework + mtmd.xcframework with Catalyst slice already exist; skipping rebuild."
     echo "[prepare-xcframework] Set FORCE=1 to rebuild from scratch."
     exit 0
 fi
@@ -57,6 +66,16 @@ IOS_MIN_OS_VERSION=16.4
 MACOS_MIN_OS_VERSION=13.3
 VISIONOS_MIN_OS_VERSION=1.0
 TVOS_MIN_OS_VERSION=16.4
+# Mac Catalyst — iOS-shaped target running on macOS. The clang target
+# triple is `<arch>-apple-ios<ios-version>-macabi`, but the LINKER
+# version flag is `-mmacosx-version-min=<macos-version>` (Catalyst
+# requires a macOS version that supports that iOS version). Apple's
+# mapping: iOS 18.x Catalyst <-> macOS 15.x. Keep MACCATALYST_IOS_VERSION
+# in sync with the iOS umbrella's `.iOS("18.1")` declaration in
+# packages/dvai-bridge-ios/Package.swift; bump MACCATALYST_MACOS_VERSION
+# accordingly if iOS floor changes (iOS 17 -> macOS 14, iOS 19 -> macOS 16).
+MACCATALYST_IOS_VERSION=18.1
+MACCATALYST_MACOS_VERSION=15.0
 
 # Step 1: build llama.xcframework via upstream's script.
 if [ ! -d "build-apple/llama.xcframework" ] || [ "${FORCE:-0}" = "1" ]; then
@@ -66,6 +85,89 @@ else
     echo "[prepare-xcframework] llama.xcframework exists; skipping upstream build."
 fi
 echo "[prepare-xcframework] llama.xcframework -> $LLAMA_DIR/build-apple/llama.xcframework"
+
+# Step 1.5: bootstrap build-catalyst directory (upstream's build-xcframework.sh
+# doesn't know about Catalyst). Configures CMake with the Catalyst target
+# triple (-target <arch>-apple-ios18.1-macabi) + macOS SDK at deployment
+# target 15.0 (the macOS version that supports iOS 18.x Catalyst).
+# Both archs build into one dir so cmake's caching + parallelism works;
+# arch-specific .o files end up under per-arch subdirs of CMakeFiles/.
+# Step 5 later lipos the two arch-specific static libs together.
+#
+# `-mmacosx-version-min=18.1` would error with "invalid version" (macOS
+# 18.x doesn't exist) — must use MACOS_VERSION=15.0 even though the
+# clang -target says ios18.1.
+if [ ! -f "build-catalyst-arm64/CMakeCache.txt" ] || [ "${FORCE:-0}" = "1" ]; then
+    echo "[prepare-xcframework] Bootstrap build-catalyst-arm64 (Catalyst arm64)..."
+    rm -rf build-catalyst-arm64
+    cmake -B build-catalyst-arm64 \
+        -DCMAKE_SYSTEM_NAME=Darwin \
+        -DCMAKE_OSX_SYSROOT=macosx \
+        -DCMAKE_OSX_ARCHITECTURES=arm64 \
+        -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACCATALYST_MACOS_VERSION}" \
+        -DCMAKE_C_FLAGS="-target arm64-apple-ios${MACCATALYST_IOS_VERSION}-macabi" \
+        -DCMAKE_CXX_FLAGS="-target arm64-apple-ios${MACCATALYST_IOS_VERSION}-macabi" \
+        -DCMAKE_ASM_FLAGS="-target arm64-apple-ios${MACCATALYST_IOS_VERSION}-macabi" \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DLLAMA_BUILD_EXAMPLES=OFF \
+        -DLLAMA_BUILD_TOOLS=OFF \
+        -DLLAMA_BUILD_TESTS=OFF \
+        -DLLAMA_BUILD_SERVER=OFF \
+        -DGGML_METAL=ON \
+        -DGGML_METAL_EMBED_LIBRARY=ON \
+        -DGGML_METAL_USE_BF16=ON \
+        -DGGML_BLAS_DEFAULT=ON \
+        -DGGML_NATIVE=OFF \
+        -DGGML_OPENMP=OFF \
+        > /dev/null
+fi
+if [ ! -f "build-catalyst-x86_64/CMakeCache.txt" ] || [ "${FORCE:-0}" = "1" ]; then
+    echo "[prepare-xcframework] Bootstrap build-catalyst-x86_64 (Catalyst x86_64)..."
+    rm -rf build-catalyst-x86_64
+    cmake -B build-catalyst-x86_64 \
+        -DCMAKE_SYSTEM_NAME=Darwin \
+        -DCMAKE_OSX_SYSROOT=macosx \
+        -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+        -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACCATALYST_MACOS_VERSION}" \
+        -DCMAKE_C_FLAGS="-target x86_64-apple-ios${MACCATALYST_IOS_VERSION}-macabi" \
+        -DCMAKE_CXX_FLAGS="-target x86_64-apple-ios${MACCATALYST_IOS_VERSION}-macabi" \
+        -DCMAKE_ASM_FLAGS="-target x86_64-apple-ios${MACCATALYST_IOS_VERSION}-macabi" \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DLLAMA_BUILD_EXAMPLES=OFF \
+        -DLLAMA_BUILD_TOOLS=OFF \
+        -DLLAMA_BUILD_TESTS=OFF \
+        -DLLAMA_BUILD_SERVER=OFF \
+        -DGGML_METAL=ON \
+        -DGGML_METAL_EMBED_LIBRARY=ON \
+        -DGGML_METAL_USE_BF16=ON \
+        -DGGML_BLAS_DEFAULT=ON \
+        -DGGML_NATIVE=OFF \
+        -DGGML_OPENMP=OFF \
+        > /dev/null
+fi
+
+# Build llama (without tools) for both Catalyst archs. mtmd build comes
+# later in the existing PLATFORMS reconfigure loop — but that loop
+# expects ONE build_dir per platform. For Catalyst we maintain two
+# (one per arch) and lipo them in Step 5; the loop only sees `build-catalyst`
+# (a symlink to the arm64 dir for the mtmd-target build), and the x86_64
+# variant of mtmd is built in its own dir at the same time.
+echo "[prepare-xcframework] Build llama for Catalyst arm64..."
+cmake --build build-catalyst-arm64 --config Release --target llama -- -j -s
+echo "[prepare-xcframework] Build llama for Catalyst x86_64..."
+cmake --build build-catalyst-x86_64 --config Release --target llama -- -j -s
+# Reconfigure both Catalyst dirs with LLAMA_BUILD_TOOLS=ON + build mtmd.
+echo "[prepare-xcframework] Reconfigure Catalyst dirs + build mtmd..."
+for arch_dir in build-catalyst-arm64 build-catalyst-x86_64; do
+    cmake -B "$arch_dir" \
+        -DLLAMA_BUILD_TOOLS=ON \
+        -DLLAMA_BUILD_COMMON=ON \
+        -DLLAMA_BUILD_TESTS=OFF \
+        -DLLAMA_BUILD_EXAMPLES=OFF \
+        -DLLAMA_BUILD_SERVER=OFF \
+        > /dev/null
+    cmake --build "$arch_dir" --config Release --target mtmd -- -j -s
+done
 
 # Step 2: build mtmd as a static library in each per-platform build dir.
 #
@@ -87,6 +189,10 @@ PLATFORMS=(
     "build-ios-device:ios:iphoneos:arm64:${IOS_MIN_OS_VERSION}:false"
     "build-macos:macos:macosx:arm64;x86_64:${MACOS_MIN_OS_VERSION}:false"
 )
+# Mac Catalyst handled separately below — the clang `-target` triple
+# embeds the arch, so it can't be a single multi-arch CMake configure
+# the way build-macos / build-ios-sim are. Built as two per-arch dirs
+# (build-catalyst-arm64 + build-catalyst-x86_64) then lipo'd together.
 
 # release_dir per platform mirrors what upstream's script passes to
 # combine_static_libraries; libmtmd.a will land under that subdir.
@@ -389,6 +495,234 @@ for entry in "${PLATFORMS[@]}"; do
     fi
 done
 xcrun xcodebuild -create-xcframework "${XCF_ARGS[@]}" -output "$(pwd)/build-apple/mtmd.xcframework"
+
+# Step 5: assemble Mac Catalyst slices and repackage both xcframeworks.
+#
+# Upstream's build-xcframework.sh produces llama.xcframework without a
+# Catalyst slice (ggml-org/llama.cpp#12751 closed-stale). The mtmd.xcframework
+# assembled above also lacks Catalyst because the PLATFORMS loop doesn't
+# include it. Both are needed for the .NET MAUI Mac Catalyst TFM
+# (net10.0-maccatalyst*) to link cleanly — without them, dotnet build
+# errors with "no library for this platform was found in 'llama.xcframework'".
+#
+# We:
+#   1. Lipo arm64 + x86_64 libllama + libggml-* libs from each per-arch
+#      build-catalyst-<arch> dir into combined fat libs.
+#   2. Package as a macOS-style llama.framework (Versions/A/ structure —
+#      Catalyst frameworks use the macOS shape, not iOS-flat).
+#   3. Same for mtmd.
+#   4. Recreate both xcframeworks with all existing slices + the new
+#      ios-arm64_x86_64-maccatalyst slice via xcodebuild -create-xcframework.
+
+echo "[prepare-xcframework] Building Mac Catalyst slices..."
+
+# Helper: lipo a list of .a files from each arch dir into a fat archive.
+# Args: <output> <relative-path> <arch1-build-dir> <arch2-build-dir>
+catalyst_lipo() {
+    local out="$1"
+    local rel_path="$2"
+    local arch_dir_1="$3"
+    local arch_dir_2="$4"
+    local lib1="${arch_dir_1}/${rel_path}"
+    local lib2="${arch_dir_2}/${rel_path}"
+    if [ ! -f "$lib1" ] || [ ! -f "$lib2" ]; then
+        echo "[prepare-xcframework] WARN: missing ${rel_path} in one of the Catalyst arch dirs ($lib1 / $lib2)"
+        return 1
+    fi
+    xcrun lipo -create "$lib1" "$lib2" -output "$out"
+}
+
+# Combine multiple .a static libs into one (libtool -static), so the final
+# framework only needs to load a single archive. Catalyst frameworks
+# linking against llama.framework expect the binary to resolve ALL the
+# ggml + llama symbols; combining keeps the link simple at consumer time.
+catalyst_combine_libs() {
+    local out="$1"
+    shift
+    xcrun libtool -static -o "$out" "$@" 2>/dev/null
+}
+
+# Package the combined .a as a macOS-style framework (Catalyst frameworks
+# use the same Versions/A/ symlink layout as macOS frameworks).
+catalyst_package_framework() {
+    local fw_root="$1"
+    local fw_name="$2"
+    local combined_lib="$3"
+    local headers_src_dir="$4"  # optional: directory of headers to copy
+    local install_name="$5"
+    local module_map_extra="$6"  # optional: extra modulemap content
+
+    rm -rf "$fw_root"
+    mkdir -p "${fw_root}/Versions/A/Headers"
+    mkdir -p "${fw_root}/Versions/A/Modules"
+    mkdir -p "${fw_root}/Versions/A/Resources"
+    ln -sf A "${fw_root}/Versions/Current"
+    ln -sf Versions/Current/Headers "${fw_root}/Headers"
+    ln -sf Versions/Current/Modules "${fw_root}/Modules"
+    ln -sf Versions/Current/Resources "${fw_root}/Resources"
+    ln -sf "Versions/Current/${fw_name}" "${fw_root}/${fw_name}"
+
+    # Convert .a to a dynamic framework binary (Catalyst frameworks must
+    # be dynlibs to be linked by Xcode's framework lookup; static .a's
+    # need a different consumer path that .NET MAUI's binding tooling
+    # doesn't take). The -Wl,-undefined,dynamic_lookup leaves cross-
+    # framework symbol references for runtime resolution (e.g. mtmd
+    # depends on llama+ggml symbols which the consumer also links via
+    # llama.framework).
+    xcrun -sdk macosx clang++ -dynamiclib \
+        -isysroot "$(xcrun --sdk macosx --show-sdk-path)" \
+        -arch arm64 -arch x86_64 \
+        -target arm64-apple-ios"${MACCATALYST_IOS_VERSION}"-macabi \
+        -mmacosx-version-min="${MACCATALYST_MACOS_VERSION}" \
+        -Wl,-undefined,dynamic_lookup \
+        -Wl,-force_load,"$combined_lib" \
+        -framework Foundation \
+        -install_name "$install_name" \
+        -o "${fw_root}/Versions/A/${fw_name}"
+
+    # Headers (best-effort — only if a source dir was provided).
+    if [ -n "$headers_src_dir" ] && [ -d "$headers_src_dir" ]; then
+        cp -R "$headers_src_dir"/*.h "${fw_root}/Versions/A/Headers/" 2>/dev/null || true
+    fi
+
+    # Module map (basic — exports headers as a Swift/Obj-C module).
+    cat > "${fw_root}/Versions/A/Modules/module.modulemap" <<EOF
+framework module ${fw_name} {
+    umbrella header "${fw_name}.h"
+${module_map_extra}
+    link "c++"
+    export *
+}
+EOF
+
+    # Info.plist matching what Xcode emits for Mac Catalyst frameworks.
+    cat > "${fw_root}/Versions/A/Resources/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleExecutable</key><string>${fw_name}</string>
+    <key>CFBundleIdentifier</key><string>org.ggml.${fw_name}</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+    <key>CFBundleName</key><string>${fw_name}</string>
+    <key>CFBundlePackageType</key><string>FMWK</string>
+    <key>CFBundleShortVersionString</key><string>1.0</string>
+    <key>CFBundleVersion</key><string>1</string>
+    <key>MinimumOSVersion</key><string>${MACCATALYST_IOS_VERSION}</string>
+    <key>CFBundleSupportedPlatforms</key><array><string>MacOSX</string></array>
+    <key>DTPlatformName</key><string>macosx</string>
+    <key>DTSDKName</key><string>macosx${MACCATALYST_MACOS_VERSION}</string>
+</dict>
+</plist>
+EOF
+}
+
+# --- llama Catalyst slice ---
+CATALYST_LLAMA_TMP="build-catalyst-fat"
+rm -rf "$CATALYST_LLAMA_TMP"
+mkdir -p "$CATALYST_LLAMA_TMP"
+
+# Lipo each underlying static lib.
+for rel in \
+    "src/libllama.a" \
+    "ggml/src/libggml.a" \
+    "ggml/src/libggml-base.a" \
+    "ggml/src/libggml-cpu.a" \
+    "ggml/src/ggml-blas/libggml-blas.a" \
+    "ggml/src/ggml-metal/libggml-metal.a" \
+    ; do
+    if [ -f "build-catalyst-arm64/$rel" ] || [ -f "build-catalyst-x86_64/$rel" ]; then
+        out="${CATALYST_LLAMA_TMP}/$(basename $rel)"
+        catalyst_lipo "$out" "$rel" build-catalyst-arm64 build-catalyst-x86_64
+    fi
+done
+
+# Combine into one (matching what upstream's combine_static_libraries does
+# for the other slices). list every fat .a we just produced.
+LLAMA_COMBINED="${CATALYST_LLAMA_TMP}/combined-llama.a"
+catalyst_combine_libs "$LLAMA_COMBINED" \
+    "${CATALYST_LLAMA_TMP}"/libllama.a \
+    "${CATALYST_LLAMA_TMP}"/libggml*.a
+
+CATALYST_LLAMA_FW="${CATALYST_LLAMA_TMP}/llama.framework"
+catalyst_package_framework \
+    "$CATALYST_LLAMA_FW" \
+    "llama" \
+    "$LLAMA_COMBINED" \
+    "include" \
+    "@rpath/llama.framework/Versions/A/llama" \
+    ""
+
+# --- mtmd Catalyst slice ---
+CATALYST_MTMD_TMP="build-catalyst-mtmd-fat"
+rm -rf "$CATALYST_MTMD_TMP"
+mkdir -p "$CATALYST_MTMD_TMP"
+
+catalyst_lipo \
+    "${CATALYST_MTMD_TMP}/libmtmd.a" \
+    "tools/mtmd/Release/libmtmd.a" \
+    build-catalyst-arm64 build-catalyst-x86_64 || \
+catalyst_lipo \
+    "${CATALYST_MTMD_TMP}/libmtmd.a" \
+    "tools/mtmd/libmtmd.a" \
+    build-catalyst-arm64 build-catalyst-x86_64
+
+CATALYST_MTMD_COMBINED="${CATALYST_MTMD_TMP}/combined-mtmd.a"
+catalyst_combine_libs "$CATALYST_MTMD_COMBINED" "${CATALYST_MTMD_TMP}/libmtmd.a"
+
+CATALYST_MTMD_FW="${CATALYST_MTMD_TMP}/mtmd.framework"
+catalyst_package_framework \
+    "$CATALYST_MTMD_FW" \
+    "mtmd" \
+    "$CATALYST_MTMD_COMBINED" \
+    "tools/mtmd" \
+    "@rpath/mtmd.framework/Versions/A/mtmd" \
+    ""
+
+# Step 6: repackage llama.xcframework + mtmd.xcframework with the new
+# Catalyst slice included. xcodebuild -create-xcframework rebuilds from
+# a list of frameworks — extract the existing slices from the existing
+# xcframework dirs (each subdir except Info.plist is a slice), then
+# pass them + the new Catalyst framework.
+echo "[prepare-xcframework] Repackaging xcframeworks with Catalyst slice..."
+for which in llama mtmd; do
+    src_xcf="build-apple/${which}.xcframework"
+    new_xcf="build-apple/${which}-with-catalyst.xcframework"
+    [ -d "$src_xcf" ] || { echo "[prepare-xcframework] WARN: $src_xcf missing"; continue; }
+
+    # Bail if Catalyst slice already present — xcodebuild won't accept
+    # duplicates and rebuilding for no reason wastes minutes on cold-cache
+    # CI runs (the cache action keys on this dir).
+    if [ -d "${src_xcf}/ios-arm64_x86_64-maccatalyst" ]; then
+        echo "[prepare-xcframework]   $which already has Catalyst slice; skipping."
+        continue
+    fi
+
+    args=()
+    while IFS= read -r slice_dir; do
+        slice_name=$(basename "$slice_dir")
+        # Each slice dir contains one .framework — find it.
+        fw=$(find "$slice_dir" -maxdepth 2 -name '*.framework' -type d | head -n 1)
+        if [ -n "$fw" ]; then
+            args+=(-framework "$(pwd)/$fw")
+        fi
+    done < <(find "$src_xcf" -mindepth 1 -maxdepth 1 -type d)
+
+    # Append the new Catalyst framework.
+    if [ "$which" = "llama" ]; then
+        args+=(-framework "$(pwd)/${CATALYST_LLAMA_FW}")
+    else
+        args+=(-framework "$(pwd)/${CATALYST_MTMD_FW}")
+    fi
+
+    rm -rf "$new_xcf"
+    xcrun xcodebuild -create-xcframework "${args[@]}" -output "$new_xcf"
+    rm -rf "$src_xcf"
+    mv "$new_xcf" "$src_xcf"
+    echo "[prepare-xcframework]   $which.xcframework now includes Catalyst slice:"
+    ls "$src_xcf"
+done
 
 echo "[prepare-xcframework] Done."
 echo "[prepare-xcframework]   $LLAMA_DIR/build-apple/llama.xcframework"

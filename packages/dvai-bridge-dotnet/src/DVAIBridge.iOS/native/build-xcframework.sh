@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 #
 # build-xcframework.sh — produces DVAIBridgeNetBridge.xcframework with
-# device (iphoneos) and simulator (iphonesimulator) slices, ready for
-# consumption by DVAIBridge.iOS.csproj's <NativeReference>.
+# device (iphoneos), simulator (iphonesimulator), and Mac Catalyst
+# slices, ready for consumption by DVAIBridge.iOS.csproj's
+# <NativeReference>.
 #
 # Outputs:
-#   ./DVAIBridgeNetBridge.xcframework/   (2 slices: ios, ios-sim)
+#   ./DVAIBridgeNetBridge.xcframework/   (3 slices: ios, ios-sim, maccatalyst)
 #
 # Prerequisites (CI macos-latest runner):
 #   - Xcode 26+ (test-dotnet.yml selects /Applications/Xcode_26.3.app;
@@ -83,22 +84,44 @@ xcodebuild archive \
     -configuration Release \
     | (xcbeautify --quiet || cat)
 
+# Mac Catalyst slice — restored in v4.0.1 now that
+# scripts/mac-side-prepare-xcframework.sh builds Catalyst slices into
+# the chained llama.xcframework + mtmd.xcframework. Catalyst's
+# `-destination "generic/platform=macOS,variant=Mac Catalyst"` builds
+# an iOS-shaped binary that runs on macOS; xcodebuild resolves it
+# against the macOS SDK with the Catalyst overlay.
+echo "==> xcodebuild archive (maccatalyst)..."
+xcodebuild archive \
+    -scheme "${SCHEME}" \
+    -destination "generic/platform=macOS,variant=Mac Catalyst" \
+    -archivePath "${ARCHIVE_DIR}/maccatalyst.xcarchive" \
+    -derivedDataPath "${ARCHIVE_DIR}/derived-maccatalyst" \
+    SKIP_INSTALL=NO \
+    BUILD_LIBRARY_FOR_DISTRIBUTION=NO \
+    IPHONEOS_DEPLOYMENT_TARGET=18.1 \
+    SUPPORTS_MACCATALYST=YES \
+    -configuration Release \
+    | (xcbeautify --quiet || cat)
+
 # Locate the .framework inside each archive. SwiftPM emits a .framework
 # under Products/usr/local/lib/.
 FRAMEWORK_IPHONEOS=$(find "${ARCHIVE_DIR}/iphoneos.xcarchive" -name '*.framework' -type d | head -n 1)
 FRAMEWORK_IPHONESIMULATOR=$(find "${ARCHIVE_DIR}/iphonesimulator.xcarchive" -name '*.framework' -type d | head -n 1)
+FRAMEWORK_MACCATALYST=$(find "${ARCHIVE_DIR}/maccatalyst.xcarchive" -name '*.framework' -type d | head -n 1)
 
-if [[ -z "${FRAMEWORK_IPHONEOS}" || -z "${FRAMEWORK_IPHONESIMULATOR}" ]]; then
+if [[ -z "${FRAMEWORK_IPHONEOS}" || -z "${FRAMEWORK_IPHONESIMULATOR}" || -z "${FRAMEWORK_MACCATALYST}" ]]; then
     echo "ERROR: failed to locate built .framework in one or more archives." >&2
     echo "  iphoneos: ${FRAMEWORK_IPHONEOS}" >&2
     echo "  iphonesimulator: ${FRAMEWORK_IPHONESIMULATOR}" >&2
+    echo "  maccatalyst: ${FRAMEWORK_MACCATALYST}" >&2
     exit 1
 fi
 
-echo "==> xcodebuild -create-xcframework (ios + ios-sim)..."
+echo "==> xcodebuild -create-xcframework (ios + ios-sim + maccatalyst)..."
 xcodebuild -create-xcframework \
     -framework "${FRAMEWORK_IPHONEOS}" \
     -framework "${FRAMEWORK_IPHONESIMULATOR}" \
+    -framework "${FRAMEWORK_MACCATALYST}" \
     -output "${OUT}"
 
 echo "==> Done: ${OUT}"
