@@ -126,6 +126,36 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Debug PGP secret shape (no secret-value exposure)
+        # Temporary debug step — left in place during v4.0.1 prep until we
+        # confirm the Maven signing pipeline is stable, then removed in a
+        # follow-up. Prints ONLY metadata about the secret (length, format
+        # indicators) — never the value itself. The `head -c 8 | base64`
+        # trick prints the first 8 bytes of the secret in a form GitHub
+        # Actions doesn't recognise as the secret string (so it doesn't
+        # auto-mask the diagnostic output).
+        env:
+          KEY: ${{ secrets.MAVEN_SIGNING_KEY }}
+          KEYID: ${{ secrets.MAVEN_SIGNING_KEY_ID }}
+          PASS: ${{ secrets.MAVEN_SIGNING_KEY_PASSWORD }}
+        run: |
+          echo "=== MAVEN_SIGNING_KEY ==="
+          echo "  length: ${#KEY} bytes"
+          echo "  line count: $(printf '%s' "$KEY" | wc -l)"
+          echo "  first 8 bytes (base64 to avoid GHA masking): $(printf '%s' "$KEY" | head -c 8 | base64)"
+          echo "  last 8 bytes (base64): $(printf '%s' "$KEY" | tail -c 8 | base64)"
+          echo "  contains 'BEGIN PGP': $(printf '%s' "$KEY" | grep -c 'BEGIN PGP' || true)"
+          echo "  contains 'END PGP':   $(printf '%s' "$KEY" | grep -c 'END PGP' || true)"
+          echo "  looks like base64 (printable+/=): $(printf '%s' "$KEY" | grep -qE '^[A-Za-z0-9+/=]+$' && echo yes || echo no)"
+          echo
+          echo "=== MAVEN_SIGNING_KEY_ID ==="
+          echo "  length: ${#KEYID} chars"
+          echo "  base64 of value: $(printf '%s' "$KEYID" | base64)"
+          echo
+          echo "=== MAVEN_SIGNING_KEY_PASSWORD ==="
+          echo "  length: ${#PASS} chars"
+          echo "  (value not printed even base64'd — too short to safely diagnose without exposing)"
+
       - name: Decode signing key + run publishAndReleaseToMavenCentral for all 5 modules
         # The signing key MUST be a single-line base64 encoding of the
         # binary GPG secret key (NOT the ASCII-armored .asc form, NOT
