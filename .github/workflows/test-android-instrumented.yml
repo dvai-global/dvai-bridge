@@ -71,6 +71,21 @@ jobs:
           disable-animations: false
           script: echo "Generated AVD snapshot for caching."
 
+      # Stage cross-module deps in mavenLocal before the emulator-runner
+       # action fires Gradle. capacitor-llama's build.gradle has
+       # `implementation project(':dvai-bridge-android-llama-core')` only
+       # transitively — the actual dep that resolves over the network is
+       # `co.deepvoiceai:android-shared-core:$dvaiBridgeVersion` (declared
+       # `api` from llama-core), which doesn't exist on Maven Central
+       # until *after* the v4.0.1 tag publishes. Match what the JVM-test
+       # workflows do (test-android-llama-jvm.yml lines ~50-60,
+       # test-android-umbrella-jvm.yml lines ~50-65) so this workflow
+       # passes pre-tag.
+      - name: Publish shared-core + llama-core to mavenLocal
+        run: |
+          (cd packages/dvai-bridge-android-shared-core/android && ./gradlew publishToMavenLocal --no-daemon --stacktrace)
+          (cd packages/dvai-bridge-android-llama-core/android   && ./gradlew publishToMavenLocal --no-daemon --stacktrace)
+
       - name: connectedAndroidTest
         uses: reactivecircus/android-emulator-runner@v2
         with:
