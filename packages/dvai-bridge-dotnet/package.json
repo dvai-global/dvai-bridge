@@ -1,43 +1,43 @@
 {
-    "name":  "@dvai-bridge/dotnet",
-    "version":  "4.0.0",
-    "private":  true,
-    "description":  "Local-LLM bridge with OpenAI-compatible HTTP server for .NET MAUI / Avalonia / WinUI on iOS + Android. Wraps the @dvai-bridge/ios + @dvai-bridge/android native SDKs behind an idiomatic C# API. Published to NuGet.org as DVAIBridge + DVAIBridge.iOS + DVAIBridge.Android.",
-    "scripts":  {
-                    "build":  "dotnet build",
-                    "test":  "dotnet test",
-                    "pack":  "dotnet pack -c Release -o ./out",
-                    "build:xcframework":  "bash src/DVAIBridge.iOS/native/build-xcframework.sh"
-                },
-    "keywords":  [
-                     "dvai-bridge",
-                     "dotnet",
-                     "nuget",
-                     "maui",
-                     "avalonia",
-                     "winui",
-                     "llm",
-                     "on-device",
-                     "openai-compatible",
-                     "llama-cpp",
-                     "mediapipe",
-                     "litert",
-                     "mlx",
-                     "coreml",
-                     "foundation-models"
-                 ],
-    "author":  "Deep Chakraborty \u003chttps://github.com/dk013\u003e",
-    "license":  "Custom (See LICENSE)",
-    "repository":  {
-                       "type":  "git",
-                       "url":  "https://github.com/dvai-global/dvai-bridge.git",
-                       "directory":  "packages/dvai-bridge-dotnet"
-                   },
-    "engines":  {
-                    "node":  "\u003e=22"
-                },
-    "publishConfig":  {
-                          "registry":  "https://registry.npmjs.org/",
-                          "access":  "public"
-                      }
+  "name": "@dvai-bridge/dotnet",
+  "version": "4.0.1",
+  "private": true,
+  "description": "Local-LLM bridge with OpenAI-compatible HTTP server for .NET MAUI / Avalonia / WinUI on iOS + Android. Wraps the @dvai-bridge/ios + @dvai-bridge/android native SDKs behind an idiomatic C# API. Published to NuGet.org as DVAIBridge + DVAIBridge.iOS + DVAIBridge.Android.",
+  "scripts": {
+    "build": "dotnet build",
+    "test": "dotnet test",
+    "pack": "dotnet pack -c Release -o ./out",
+    "build:xcframework": "bash src/DVAIBridge.iOS/native/build-xcframework.sh"
+  },
+  "keywords": [
+    "dvai-bridge",
+    "dotnet",
+    "nuget",
+    "maui",
+    "avalonia",
+    "winui",
+    "llm",
+    "on-device",
+    "openai-compatible",
+    "llama-cpp",
+    "mediapipe",
+    "litert",
+    "mlx",
+    "coreml",
+    "foundation-models"
+  ],
+  "author": "Deep Chakraborty <https://github.com/dk013>",
+  "license": "Custom (See LICENSE)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dvai-global/dvai-bridge.git",
+    "directory": "packages/dvai-bridge-dotnet"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  }
 }

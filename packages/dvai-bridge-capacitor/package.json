@@ -1,45 +1,45 @@
 {
-    "name":  "@dvai-bridge/capacitor",
-    "version":  "4.0.0",
-    "publishConfig":  {
-                          "registry":  "https://registry.npmjs.org/",
-                          "access":  "public"
-                      },
-    "description":  "JS routing shim for DVAI-Bridge Capacitor backend plugins. Dispatches to capacitor-llama, capacitor-foundation, or capacitor-mediapipe.",
-    "main":  "dist/index.cjs",
-    "module":  "dist/index.js",
-    "types":  "dist/index.d.ts",
-    "exports":  {
-                    ".":  {
-                              "types":  "./dist/index.d.ts",
-                              "import":  "./dist/index.js",
-                              "require":  "./dist/index.cjs"
-                          }
-                },
-    "type":  "module",
-    "files":  [
-                  "dist",
-                  "README.md",
-                  "LICENSE"
-              ],
-    "scripts":  {
-                    "build":  "tsup",
-                    "dev":  "tsup --watch",
-                    "prepare":  "pnpm run build"
-                },
-    "keywords":  [
-                     "dvai-bridge",
-                     "capacitor",
-                     "local-ai",
-                     "openai-compatible"
-                 ],
-    "author":  "Deep Chakraborty \u003chttps://github.com/dk013\u003e",
-    "license":  "Custom (See LICENSE)",
-    "repository":  {
-                       "type":  "git",
-                       "url":  "https://github.com/dvai-global/dvai-bridge.git"
-                   },
-    "peerDependencies":  {
-                             "@capacitor/core":  "^6.0.0 || ^7.0.0 || ^8.0.0"
-                         }
+  "name": "@dvai-bridge/capacitor",
+  "version": "4.0.1",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "description": "JS routing shim for DVAI-Bridge Capacitor backend plugins. Dispatches to capacitor-llama, capacitor-foundation, or capacitor-mediapipe.",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepare": "pnpm run build"
+  },
+  "keywords": [
+    "dvai-bridge",
+    "capacitor",
+    "local-ai",
+    "openai-compatible"
+  ],
+  "author": "Deep Chakraborty <https://github.com/dk013>",
+  "license": "Custom (See LICENSE)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dvai-global/dvai-bridge.git"
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0 || ^7.0.0 || ^8.0.0"
+  }
 }

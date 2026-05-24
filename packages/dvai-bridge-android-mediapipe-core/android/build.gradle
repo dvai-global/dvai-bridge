@@ -146,7 +146,7 @@ mavenPublishing {
     coordinates(
         'co.deepvoiceai',
         'android-mediapipe-core',
-        (project.findProperty('dvaiBridgeVersion') ?: '4.0.0').toString(),
+        (project.findProperty('dvaiBridgeVersion') ?: '4.0.1').toString(),
     )
 
     pom {

@@ -71,7 +71,7 @@ repositories {
     mavenLocal()
 }
 
-def dvaiBridgeVersion = project.findProperty('dvaiBridgeVersion') ?: '4.0.0'
+def dvaiBridgeVersion = project.findProperty('dvaiBridgeVersion') ?: '4.0.1'
 
 dependencies {
     // Phase 3D umbrella AAR — provides DVAIBridge, BackendKind, StartOptions,

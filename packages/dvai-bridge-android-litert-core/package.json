@@ -1,19 +1,19 @@
 {
-    "name":  "@dvai-bridge/android-litert-core",
-    "version":  "4.0.0",
-    "description":  "DVAI-Bridge Android LiteRT core — wraps Google\u0027s LiteRT (TFLite) runtime with HuggingFace tokenizers, exposes the OpenAI-compatible HTTP surface via android-shared-core. Capacitor-free.",
-    "author":  "Deep Chakraborty \u003chttps://github.com/dk013\u003e",
-    "license":  "Custom (See LICENSE)",
-    "files":  [
-                  "android/src",
-                  "android/build.gradle",
-                  "android/gradle.properties",
-                  "android/settings.gradle",
-                  "README.md",
-                  "LICENSE"
-              ],
-    "publishConfig":  {
-                          "registry":  "https://registry.npmjs.org/",
-                          "access":  "public"
-                      }
+  "name": "@dvai-bridge/android-litert-core",
+  "version": "4.0.1",
+  "description": "DVAI-Bridge Android LiteRT core — wraps Google's LiteRT (TFLite) runtime with HuggingFace tokenizers, exposes the OpenAI-compatible HTTP surface via android-shared-core. Capacitor-free.",
+  "author": "Deep Chakraborty <https://github.com/dk013>",
+  "license": "Custom (See LICENSE)",
+  "files": [
+    "android/src",
+    "android/build.gradle",
+    "android/gradle.properties",
+    "android/settings.gradle",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  }
 }

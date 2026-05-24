@@ -4,6 +4,36 @@ All notable changes to the `dvai_bridge` Flutter plugin are documented here.
 Version numbers track the parent `dvai-bridge` family: bump in lockstep with
 the iOS / Android / React Native packages.
 
+## [4.0.1] — 2026-05-24
+
+Patch release. No API changes — `dvai_bridge 4.0.0` consumers can upgrade
+without touching their code. Primarily refreshes pub.dev metadata and rides
+along with a family-wide v4.0.1 bump driven by infrastructure fixes in the
+sibling iOS / .NET / Android packages.
+
+### Fixed
+
+- **pub.dev `Example` tab link** — `example/README.md` referenced the stale
+  `dvai-bridge.deepvoiceai.co` host (pre-rename leftover). pub.dev archives
+  are immutable per-version, so the corrected link only ships in a new
+  version. Now points at the canonical
+  [`bridge.deepvoiceai.co`](https://bridge.deepvoiceai.co) docs site.
+- **In-IDE doc tooltips** — `lib/src/offload.dart` doc-comments carried the
+  same stale host; updated so `flutter doc` / hover tooltips link to the
+  live docs.
+
+### Changed (family-wide, no Flutter API impact)
+
+- iOS umbrella + .NET binding restore the **Mac Catalyst** slice that was
+  dropped in v4.0.0 — only affects `DVAIBridge.iOS` NuGet consumers running
+  under `net10.0-maccatalyst`. Flutter plugin's iOS side is unaffected.
+- 13 transitive dependency bumps via Dependabot (Babel, jest, vue,
+  @types/*, etc.) — no impact on the Flutter consumer surface; only the
+  monorepo's JS tooling moved.
+- Three iOS test-target source bugs in sibling Capacitor packages cleared
+  (XCTest deployment-target mismatch, missing `HandlerContext` import,
+  obsolete platform floor). Flutter plugin's tests were already green.
+
 ## [4.0.0] — 2026-05-19
 
 First pub.dev publish. Tracks the v4.0.0 release of the DVAI Bridge family

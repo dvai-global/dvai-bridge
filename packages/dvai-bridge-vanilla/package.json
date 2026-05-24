@@ -1,48 +1,48 @@
 {
-    "name":  "@dvai-bridge/vanilla",
-    "version":  "4.0.0",
-    "publishConfig":  {
-                          "registry":  "https://registry.npmjs.org/",
-                          "access":  "public"
-                      },
-    "description":  "Vanilla JS wrapper for @dvai-bridge/core",
-    "main":  "dist/index.cjs",
-    "module":  "dist/index.js",
-    "types":  "dist/index.d.ts",
-    "unpkg":  "dist/index.global.js",
-    "jsdelivr":  "dist/index.global.js",
-    "exports":  {
-                    ".":  {
-                              "types":  "./dist/index.d.ts",
-                              "import":  "./dist/index.js",
-                              "require":  "./dist/index.cjs"
-                          }
-                },
-    "type":  "module",
-    "files":  [
-                  "dist",
-                  "README.md",
-                  "LICENSE"
-              ],
-    "scripts":  {
-                    "build":  "tsup",
-                    "dev":  "tsup --watch",
-                    "test":  "echo \"Error: no test specified\" \u0026\u0026 exit 1"
-                },
-    "keywords":  [
-                     "ai",
-                     "local",
-                     "vanilla",
-                     "edge",
-                     "bridge"
-                 ],
-    "author":  "Deep Chakraborty \u003chttps://github.com/dk013\u003e",
-    "license":  "Custom (See LICENSE)",
-    "repository":  {
-                       "type":  "git",
-                       "url":  "https://github.com/dvai-global/dvai-bridge.git"
-                   },
-    "dependencies":  {
-                         "@dvai-bridge/core":  "workspace:*"
-                     }
+  "name": "@dvai-bridge/vanilla",
+  "version": "4.0.1",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "description": "Vanilla JS wrapper for @dvai-bridge/core",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "unpkg": "dist/index.global.js",
+  "jsdelivr": "dist/index.global.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ai",
+    "local",
+    "vanilla",
+    "edge",
+    "bridge"
+  ],
+  "author": "Deep Chakraborty <https://github.com/dk013>",
+  "license": "Custom (See LICENSE)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dvai-global/dvai-bridge.git"
+  },
+  "dependencies": {
+    "@dvai-bridge/core": "workspace:*"
+  }
 }

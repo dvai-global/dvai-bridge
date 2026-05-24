@@ -1,18 +1,18 @@
 {
-    "name":  "@dvai-bridge/ios-shared-core",
-    "version":  "4.0.0",
-    "description":  "DVAI-Bridge iOS shared HTTP-server + handler-dispatch types used by all backend cores. Extracted from ios-llama-core so non-llama backends don\u0027t transitively inherit llama.xcframework.",
-    "author":  "Deep Chakraborty \u003chttps://github.com/dk013\u003e",
-    "license":  "Custom (See LICENSE)",
-    "main":  "Package.swift",
-    "files":  [
-                  "ios/Sources",
-                  "ios/Tests",
-                  "README.md",
-                  "LICENSE"
-              ],
-    "publishConfig":  {
-                          "registry":  "https://registry.npmjs.org/",
-                          "access":  "public"
-                      }
+  "name": "@dvai-bridge/ios-shared-core",
+  "version": "4.0.1",
+  "description": "DVAI-Bridge iOS shared HTTP-server + handler-dispatch types used by all backend cores. Extracted from ios-llama-core so non-llama backends don't transitively inherit llama.xcframework.",
+  "author": "Deep Chakraborty <https://github.com/dk013>",
+  "license": "Custom (See LICENSE)",
+  "main": "Package.swift",
+  "files": [
+    "ios/Sources",
+    "ios/Tests",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  }
 }

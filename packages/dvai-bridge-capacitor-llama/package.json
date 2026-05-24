@@ -1,71 +1,71 @@
 {
-    "name":  "@dvai-bridge/capacitor-llama",
-    "version":  "4.0.0",
-    "publishConfig":  {
-                          "registry":  "https://registry.npmjs.org/",
-                          "access":  "public"
-                      },
-    "description":  "DVAI-Bridge Capacitor plugin: llama.cpp on iOS (Metal) + Android (Vulkan/CPU) with embedded HTTP server.",
-    "main":  "dist/index.cjs",
-    "module":  "dist/index.js",
-    "types":  "dist/index.d.ts",
-    "exports":  {
-                    ".":  {
-                              "types":  "./dist/index.d.ts",
-                              "import":  "./dist/index.js",
-                              "require":  "./dist/index.cjs"
-                          }
-                },
-    "type":  "module",
-    "files":  [
-                  "dist",
-                  "ios/Sources",
-                  "ios/Tests",
-                  "ios/Package.swift",
-                  "android/src",
-                  "android/build.gradle",
-                  "android/gradle.properties",
-                  "android/settings.gradle",
-                  "DVAICapacitorLlama.podspec",
-                  "README.md",
-                  "LICENSE"
-              ],
-    "scripts":  {
-                    "build":  "tsup",
-                    "mac:build":  "pwsh -File ../../scripts/mac-build.ps1 -Action build -Target capacitor-llama",
-                    "mac:test":  "pwsh -File ../../scripts/mac-build.ps1 -Action test -Target capacitor-llama",
-                    "android-test":  "cd android \u0026\u0026 ./gradlew test",
-                    "android-test:instrumented":  "cd android \u0026\u0026 ./gradlew connectedAndroidTest",
-                    "prepare":  "pnpm run build"
-                },
-    "keywords":  [
-                     "dvai-bridge",
-                     "capacitor",
-                     "llama-cpp",
-                     "llm",
-                     "on-device"
-                 ],
-    "author":  "Deep Chakraborty \u003chttps://github.com/dk013\u003e",
-    "license":  "Custom (See LICENSE)",
-    "repository":  {
-                       "type":  "git",
-                       "url":  "https://github.com/dvai-global/dvai-bridge.git"
-                   },
-    "peerDependencies":  {
-                             "@capacitor/core":  "^6.0.0 || ^7.0.0 || ^8.0.0",
-                             "@dvai-bridge/android-llama-core":  "workspace:*",
-                             "@dvai-bridge/capacitor":  "workspace:*",
-                             "@dvai-bridge/ios-llama-core":  "workspace:*"
-                         },
-    "devDependencies":  {
-                            "@dvai-bridge/capacitor":  "workspace:*"
-                        },
-    "capacitor":  {
-                      "ios":  {
-                                  "src":  "ios"
-                              },
-                      "android":  {
-                                      "src":  "android"
-                                  }
-                  }
+  "name": "@dvai-bridge/capacitor-llama",
+  "version": "4.0.1",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "description": "DVAI-Bridge Capacitor plugin: llama.cpp on iOS (Metal) + Android (Vulkan/CPU) with embedded HTTP server.",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "ios/Sources",
+    "ios/Tests",
+    "ios/Package.swift",
+    "android/src",
+    "android/build.gradle",
+    "android/gradle.properties",
+    "android/settings.gradle",
+    "DVAICapacitorLlama.podspec",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "mac:build": "pwsh -File ../../scripts/mac-build.ps1 -Action build -Target capacitor-llama",
+    "mac:test": "pwsh -File ../../scripts/mac-build.ps1 -Action test -Target capacitor-llama",
+    "android-test": "cd android && ./gradlew test",
+    "android-test:instrumented": "cd android && ./gradlew connectedAndroidTest",
+    "prepare": "pnpm run build"
+  },
+  "keywords": [
+    "dvai-bridge",
+    "capacitor",
+    "llama-cpp",
+    "llm",
+    "on-device"
+  ],
+  "author": "Deep Chakraborty <https://github.com/dk013>",
+  "license": "Custom (See LICENSE)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dvai-global/dvai-bridge.git"
+  },
+  "peerDependencies": {
+    "@capacitor/core": "^6.0.0 || ^7.0.0 || ^8.0.0",
+    "@dvai-bridge/android-llama-core": "workspace:*",
+    "@dvai-bridge/capacitor": "workspace:*",
+    "@dvai-bridge/ios-llama-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@dvai-bridge/capacitor": "workspace:*"
+  },
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    },
+    "android": {
+      "src": "android"
+    }
+  }
 }

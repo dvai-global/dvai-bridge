@@ -104,7 +104,7 @@ repositories {
     mavenLocal()
 }
 
-def dvaiBridgeVersion = project.findProperty('dvaiBridgeVersion') ?: '4.0.0'
+def dvaiBridgeVersion = project.findProperty('dvaiBridgeVersion') ?: '4.0.1'
 
 dependencies {
     implementation "com.facebook.react:react-android"
