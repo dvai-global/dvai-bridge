@@ -10,7 +10,12 @@ import PackageDescription
 // that may land later — e.g. a reusable HttpServer wrapper — would).
 let package = Package(
     name: "DVAICapacitorMediaPipe",
-    platforms: [.iOS(.v14), .macOS(.v12)],
+    // iOS 17 / macOS 14 — bumped from .v14/.v12 to match the shared-core
+    // floor that v3.2.0 raised when migrating off Telegraph onto
+    // Hummingbird. capacitor-foundation already declares .iOS("18.1");
+    // capacitor-mlx already .iOS(.v17); capacitor-llama bumped in the
+    // same commit. mediapipe was the lone laggard.
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "DVAICapacitorMediaPipe", targets: ["DVAICapacitorMediaPipe"]),
     ],

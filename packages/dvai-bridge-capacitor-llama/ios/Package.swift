@@ -3,7 +3,12 @@ import PackageDescription
 
 let package = Package(
     name: "DVAICapacitorLlama",
-    platforms: [.iOS(.v14), .macOS(.v12)],
+    // iOS 17 / macOS 14 — must match dvai-bridge-ios-llama-core
+    // (`platforms: [.iOS(.v17), .macOS(.v14)]`), which we depend on
+    // transitively via `DVAILlamaCore`/`DVAILlamaCoreObjC` below.
+    // Earlier .v14 / .v12 declaration was a vestige from before the
+    // Hummingbird migration (v3.2.0) bumped the shared-core floor.
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "DVAICapacitorLlama", targets: ["DVAICapacitorLlama"]),
     ],
