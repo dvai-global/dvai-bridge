@@ -45,7 +45,7 @@ jobs:
       # see the LicenseRequiredException.
       DVAI_FORCE_DEV: '1'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup .NET ${{ env.DOTNET_VERSION }}
         uses: actions/setup-dotnet@v4
@@ -137,7 +137,7 @@ jobs:
       # DVAIBridgeException type rather than LicenseRequiredException.
       DVAI_FORCE_DEV: '1'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup .NET ${{ env.DOTNET_VERSION }}
         uses: actions/setup-dotnet@v4
@@ -183,7 +183,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup .NET ${{ env.DOTNET_VERSION }}
         uses: actions/setup-dotnet@v4
@@ -276,7 +276,7 @@ jobs:
       # mtmd xcframeworks from llama.cpp source. Only this job uses them;
       # the other jobs (Ubuntu, Windows) deliberately skip submodules to
       # keep their checkouts fast.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
