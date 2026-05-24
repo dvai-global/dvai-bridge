@@ -25,7 +25,11 @@ jobs:
   core-xctest:
     name: ios-llama-core XCTest
     runs-on: [self-hosted, macOS, ARM64]
-    timeout-minutes: 30
+    # Bumped from 30 -> 60 in v4.0.1 prep — see wrapper-xctest below
+    # for full context. Cold-build of the llama.xcframework binary
+    # targets via SwiftPM resolution can take 30+min on the
+    # zer0-mac-pro runner.
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: packages/dvai-bridge-ios-llama-core
@@ -57,7 +61,16 @@ jobs:
   wrapper-xctest:
     name: capacitor-llama wrapper XCTest
     runs-on: [self-hosted, macOS, ARM64]
-    timeout-minutes: 30
+    # Bumped from 30 -> 60 in v4.0.1 prep: the wrapper's DerivedData is
+    # separate from ios-llama-core's, so cold-cache CI runs have to
+    # re-resolve the full SwiftPM graph (Hummingbird + swift-nio +
+    # mlx-swift) and re-compile the chained llama.xcframework binary
+    # targets. Observed 35min cold-build on the zer0-mac-pro runner —
+    # 30min timeout was triggering cancellation pre-test (run
+    # 26359154540 cancelled at 30:00). Core-xctest itself usually
+    # finishes in <2min on warm cache but its first cold build hits
+    # the same kind of cost; matched at 60min for symmetry.
+    timeout-minutes: 60
     needs: core-xctest
     defaults:
       run:
