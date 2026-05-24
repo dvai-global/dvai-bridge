@@ -46,7 +46,7 @@
     "license":  "Custom (See LICENSE)",
     "repository":  {
                        "type":  "git",
-                       "url":  "https://github.com/westenets/dvai-bridge.git"
+                       "url":  "https://github.com/dvai-global/dvai-bridge.git"
                    },
     "dependencies":  {
                          "msw":  "^2.12.13",
