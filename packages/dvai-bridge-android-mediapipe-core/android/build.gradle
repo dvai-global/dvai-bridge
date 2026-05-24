@@ -136,7 +136,7 @@ mavenPublishing {
         /* publishJavadoc  = */ false,
     ))
 
-    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL, true)
+    publishToMavenCentral(true)
     // Sign only when the PGP key is configured — see shared-core for rationale.
     if (project.findProperty('signingInMemoryKey') ||
             System.getenv('ORG_GRADLE_PROJECT_signingInMemoryKey')) {

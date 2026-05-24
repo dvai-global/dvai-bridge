@@ -128,7 +128,7 @@ dependencies {
 // validation passing) or `publishToMavenLocal` for a dry-run that
 // writes the artifacts + signatures to ~/.m2/repository/.
 mavenPublishing {
-    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL, true)
+    publishToMavenCentral(true)
     // Only sign when the PGP key is actually configured — in CI we run
     // `publishToMavenLocal` to verify the build, and the signing key
     // isn't available there. The real Sonatype publish is driven from
