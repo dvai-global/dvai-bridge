@@ -199,6 +199,21 @@ mavenPublishing {
     }
 }
 
+// Switch Gradle signing from BouncyCastle-based in-memory mode to
+// shell-out-to-gpg mode. The in-memory path can't parse GnuPG 2.4+
+// keys that carry pref-aead-algos (subpkt 34) in their user-ID
+// self-signature — `gpg --list-packets` of our v4.0.1 signing key
+// confirms that subpacket is present. useGpgCmd() shells out to the
+// local gpg binary (imported into the runner's keyring by the
+// publish.yml workflow), which can parse it. Passphrase is supplied
+// via ~/.gradle/gradle.properties (signing.gnupg.passphrase).
+if (project.findProperty('signing.gnupg.keyName') ||
+        System.getenv('ORG_GRADLE_PROJECT_USE_GPG_CMD_SIGNING') == 'true') {
+    signing {
+        useGpgCmd()
+    }
+}
+
 // Empty javadoc.jar to satisfy Sonatype Central Portal validation while
 // AGP 9.2.0's bundled Dokka is incompatible with our sealed-class bytecode.
 // See the `configure(AndroidSingleVariantLibrary ...)` comment above.
