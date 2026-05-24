@@ -277,6 +277,18 @@ jobs:
           signing.gnupg.passphrase=${MAVEN_SIGNING_KEY_PASSWORD}
           EOF
           chmod 600 ~/.gradle/gradle.properties
+          # Each module that depends on a sibling needs its sibling's 4.0.1
+          # artifact resolvable BEFORE Gradle does dependency resolution.
+          # Maven Central propagation lag (5-30 min from upload to search
+          # index) means uploading shared-core THEN immediately trying
+          # llama-core's build fails with 'Could not find
+          # co.deepvoiceai:android-shared-core:4.0.1'.
+          #
+          # Fix: `publishToMavenLocal` BEFORE `publishAndReleaseToMavenCentral`
+          # in the same gradlew invocation. The next module's repos {}
+          # block already lists mavenLocal() (see e.g.
+          # dvai-bridge-android-llama-core/android/build.gradle), so the
+          # local install satisfies the dep without waiting for the CDN.
           for module in \
               dvai-bridge-android-shared-core \
               dvai-bridge-android-llama-core \
@@ -284,7 +296,7 @@ jobs:
               dvai-bridge-android-litert-core \
               dvai-bridge-android; do
               echo "==> publish $module"
-              (cd packages/$module/android && ./gradlew publishAndReleaseToMavenCentral --no-daemon --no-configuration-cache -PcompileSdkOverride=35)
+              (cd packages/$module/android && ./gradlew publishToMavenLocal publishAndReleaseToMavenCentral --no-daemon --no-configuration-cache -PcompileSdkOverride=35)
           done
 
   publish-cocoapods:
