@@ -277,27 +277,52 @@ jobs:
           signing.gnupg.passphrase=${MAVEN_SIGNING_KEY_PASSWORD}
           EOF
           chmod 600 ~/.gradle/gradle.properties
-          # Each module that depends on a sibling needs its sibling's 4.0.1
-          # artifact resolvable BEFORE Gradle does dependency resolution.
-          # Maven Central propagation lag (5-30 min from upload to search
-          # index) means uploading shared-core THEN immediately trying
-          # llama-core's build fails with 'Could not find
-          # co.deepvoiceai:android-shared-core:4.0.1'.
+          # Two-phase publish to handle both inter-module dep resolution AND
+          # idempotent re-runs (when a previous fire shipped some modules
+          # but not others, e.g. v4.0.1 shared-core landed on Maven Central
+          # via the first GPG-cmd run but the loop died on the second
+          # module's resolver lag).
           #
-          # Fix: `publishToMavenLocal` BEFORE `publishAndReleaseToMavenCentral`
-          # in the same gradlew invocation. The next module's repos {}
-          # block already lists mavenLocal() (see e.g.
-          # dvai-bridge-android-llama-core/android/build.gradle), so the
-          # local install satisfies the dep without waiting for the CDN.
-          for module in \
-              dvai-bridge-android-shared-core \
-              dvai-bridge-android-llama-core \
-              dvai-bridge-android-mediapipe-core \
-              dvai-bridge-android-litert-core \
-              dvai-bridge-android; do
-              echo "==> publish $module"
-              (cd packages/$module/android && ./gradlew publishToMavenLocal publishAndReleaseToMavenCentral --no-daemon --no-configuration-cache -PcompileSdkOverride=35)
+          # Phase 1 — publishToMavenLocal for all modules in dep order.
+          # Seeds ~/.m2/repository/co/deepvoiceai/... so subsequent modules'
+          # `api 'co.deepvoiceai:android-shared-core:4.0.1'` resolution
+          # finds the artifact locally without waiting for Maven Central's
+          # propagation (5-30 min CDN lag). Idempotent — re-running on a
+          # populated cache is a no-op.
+          #
+          # Phase 2 — publishAndReleaseToMavenCentral, tolerating the
+          # 'Component already exists' Sonatype rejection (Central Portal
+          # forbids re-publishing the same version coordinate; this fires
+          # on every retry after a partial success). Other failures
+          # (signing, network, etc.) still propagate via the explicit
+          # `exit 1`.
+          MODULES="dvai-bridge-android-shared-core dvai-bridge-android-llama-core dvai-bridge-android-mediapipe-core dvai-bridge-android-litert-core dvai-bridge-android"
+
+          echo "=== Phase 1: publishToMavenLocal (seed sibling-dep cache) ==="
+          for module in $MODULES; do
+              echo "==> mavenLocal: $module"
+              (cd packages/$module/android && ./gradlew publishToMavenLocal --no-daemon --no-configuration-cache -PcompileSdkOverride=35)
           done
+
+          echo
+          echo "=== Phase 2: publishAndReleaseToMavenCentral ==="
+          ANY_REAL_FAILURE=0
+          for module in $MODULES; do
+              echo "==> mavenCentral: $module"
+              LOG=$(mktemp)
+              if (cd packages/$module/android && ./gradlew publishAndReleaseToMavenCentral --no-daemon --no-configuration-cache -PcompileSdkOverride=35) 2>&1 | tee "$LOG"; then
+                  echo "    $module ✓ published"
+              else
+                  if grep -q "already exists" "$LOG"; then
+                      echo "    $module ⊝ already at 4.0.1 on Maven Central — skipping"
+                  else
+                      echo "    $module ✗ REAL FAILURE — see log above"
+                      ANY_REAL_FAILURE=1
+                  fi
+              fi
+              rm -f "$LOG"
+          done
+          exit $ANY_REAL_FAILURE
 
   publish-cocoapods:
     name: Publish DVAIBridge.podspec to CocoaPods Trunk
