@@ -315,7 +315,23 @@ jobs:
         # (~688 MB asset; one-time install per fresh runner). Run after
         # `xcode-select` so it lands in the correct Xcode bundle. Note:
         # `sudo` so the download writes to /System/Library/AssetsV2.
-        run: sudo xcodebuild -downloadComponent MetalToolchain
+        #
+        # Retry loop: Apple's MobileAsset CDN occasionally fails the catalog
+        # fetch with `Failed fetching catalog for assetType
+        # (com.apple.MobileAsset.MetalToolchain)` + exit 70. Hit this 3x
+        # during v4.0.1 prep (runs 26354860456 + retries). Three attempts
+        # with 30s back-off — empirically the second attempt succeeds.
+        run: |
+          for i in 1 2 3; do
+            if sudo xcodebuild -downloadComponent MetalToolchain; then
+              echo "Metal Toolchain installed (attempt $i)"
+              exit 0
+            fi
+            echo "Attempt $i failed; sleeping 30s before retry"
+            sleep 30
+          done
+          echo "Metal Toolchain download failed after 3 attempts"
+          exit 1
 
       # Cache the built llama+mtmd xcframeworks keyed by the llama.cpp
       # git submodule SHA. The actual build (next step) short-circuits

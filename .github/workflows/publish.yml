@@ -76,8 +76,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build all packages
-        run: pnpm build
+      - name: Build all packages (excluding Flutter — needs Dart SDK)
+        # `@dvai-bridge/flutter`'s `build` script runs `flutter pub get` +
+        # `dart run pigeon` to regenerate `messages.g.dart`. Those require
+        # Dart + Flutter SDKs which aren't installed on this Ubuntu runner
+        # (we only set up Node above). The npm package for flutter is
+        # metadata-only — it doesn't ship the pigeon-generated stubs;
+        # the real Flutter package publishes via pub.dev in a separate
+        # job (`publish-pub-dev`) which DOES install the Dart SDK.
+        run: pnpm -r --filter='!@dvai-bridge/flutter' run build
 
       - name: Publish to npmjs.org
         # `pnpm -r publish` walks every workspace package and skips
@@ -106,10 +113,17 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Decode signing key + run publishAndReleaseToMavenCentral for all 5 modules
-        # The signing key is a base64-encoded ASCII-armoured PGP secret
-        # block (no passphrase). The mavenCentral* Sonatype Portal token
-        # is the username:password pair from
-        # https://central.sonatype.com/account.
+        # The signing key MUST be a single-line base64 encoding of the
+        # binary GPG secret key (NOT the ASCII-armored .asc form, NOT
+        # raw ASCII armor pasted as multi-line). vanniktech 0.33's
+        # `signingInMemoryKey` parser fails with "Could not read PGP
+        # secret key" if the secret contains anything else (we hit this
+        # on the first v4.0.1 fire — run 26361328491).
+        # Generate with:
+        #   gpg --export-secret-keys "$KEYID" | base64 -w0 | \
+        #     gh secret set MAVEN_SIGNING_KEY -R dvai-global/dvai-bridge
+        # The mavenCentral* Sonatype Portal token is the
+        # username:password pair from https://central.sonatype.com/account.
         #
         # Each Android core publishes independently — they live in
         # separate Gradle roots (one Gradle build per package; the
@@ -162,7 +176,10 @@ jobs:
           COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
         run: |
           set -e
-          pod trunk push packages/dvai-bridge-ios/DVAIBridge.podspec --allow-warnings --skip-import-validation
+          # Podspec was moved to repo root in commit ce4bd64 ("chore: move
+          # podspec to root for monorepo validation"). publish.yml wasn't
+          # updated at the time — corrected here for v4.0.1+.
+          pod trunk push DVAIBridge.podspec --allow-warnings --skip-import-validation
 
   publish-pub-dev:
     name: Publish dvai_bridge to pub.dev
