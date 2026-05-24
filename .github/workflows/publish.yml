@@ -157,6 +157,19 @@ jobs:
           if [ "$CR_COUNT" -gt 0 ]; then
             echo "  ⚠ secret contains $CR_COUNT CR bytes — this almost certainly breaks the armor parser"
           fi
+
+          # Independent verification — try importing the key with gpg
+          # itself. If gpg accepts it, the armor is structurally fine
+          # and any subsequent failure is in vanniktech/BouncyCastle.
+          # If gpg rejects it too, we have a clearer error message.
+          echo
+          echo "=== gpg --import probe ==="
+          printf '%s' "$KEY" > /tmp/key-probe.asc
+          gpg --import --batch --no-tty /tmp/key-probe.asc 2>&1 | head -10 || echo "(gpg --import exited non-zero)"
+          echo
+          echo "=== gpg --list-secret-keys after import ==="
+          gpg --list-secret-keys --keyid-format=long 2>&1 | head -10
+          rm -f /tmp/key-probe.asc
           echo
           echo "=== MAVEN_SIGNING_KEY_ID ==="
           echo "  length: ${#KEYID} chars"
