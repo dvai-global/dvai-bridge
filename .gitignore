@@ -190,3 +190,5 @@ experiments/mlc-perf-spike/
 # Local-only release artifacts built by scripts/prepare-ios-release.sh.
 # These are uploaded to the GitHub Release manually; never tracked.
 /DVAIBridge-v*.zip
+# Local-only internal metrics dashboard — never commit
+tools/metrics-dashboard/
