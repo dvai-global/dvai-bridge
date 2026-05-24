@@ -114,7 +114,11 @@ echo "✅ Forensic preparation complete."
 
 # 5. Package for CocoaPods (Lightweight payload)
 echo "📦 Packaging for CocoaPods..."
-ZIP_NAME="DVAIBridge-v4.0.0.zip"
+# Derive version from root package.json so this script doesn't need
+# yearly hand-editing on every release. node -p falls back to manual
+# override via VERSION=4.0.1 bash scripts/prepare-ios-release.sh.
+VERSION="${VERSION:-$(node -p "require('$ROOT_DIR/package.json').version")}"
+ZIP_NAME="DVAIBridge-v${VERSION}.zip"
 rm -f "$ZIP_NAME"
 
 PKG_DIR="cocoapods_temp"

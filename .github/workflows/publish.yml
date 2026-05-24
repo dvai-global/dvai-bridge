@@ -76,15 +76,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build all packages (excluding Flutter — needs Dart SDK)
-        # `@dvai-bridge/flutter`'s `build` script runs `flutter pub get` +
-        # `dart run pigeon` to regenerate `messages.g.dart`. Those require
-        # Dart + Flutter SDKs which aren't installed on this Ubuntu runner
-        # (we only set up Node above). The npm package for flutter is
-        # metadata-only — it doesn't ship the pigeon-generated stubs;
-        # the real Flutter package publishes via pub.dev in a separate
-        # job (`publish-pub-dev`) which DOES install the Dart SDK.
-        run: pnpm -r --filter='!@dvai-bridge/flutter' run build
+      - name: Build all packages (excluding platform-toolchain consumers)
+        # Three packages have `build` scripts that require external
+        # toolchains not installed on this Ubuntu/Node runner:
+        #
+        #   * @dvai-bridge/flutter  -> `flutter pub get && dart run pigeon`
+        #                              (needs Flutter + Dart SDKs)
+        #   * @dvai-bridge/dotnet   -> `dotnet build` of DVAIBridge.Android.csproj
+        #                              (needs `android` .NET workload —
+        #                              NETSDK1147 without it)
+        #   * @dvai-bridge/ios      -> SwiftPM resolve (needs Xcode)
+        #
+        # Each of those packages is metadata/wrapper-only on npm — the
+        # real publish for Flutter happens via pub.dev, for .NET via NuGet
+        # (test-dotnet.yml), and the iOS native side via CocoaPods. The
+        # npm copies don't ship platform-built artefacts, so skipping
+        # their `build` script doesn't change what npm consumers get.
+        run: pnpm -r --filter='!@dvai-bridge/flutter' --filter='!@dvai-bridge/dotnet' --filter='!@dvai-bridge/ios' run build
 
       - name: Publish to npmjs.org
         # `pnpm -r publish` walks every workspace package and skips
