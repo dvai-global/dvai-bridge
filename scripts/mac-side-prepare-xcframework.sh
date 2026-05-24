@@ -650,9 +650,28 @@ catalyst_package_framework \
     "$CATALYST_LLAMA_FW" \
     "llama" \
     "$LLAMA_COMBINED" \
-    "include" \
+    "" \
     "@rpath/llama.framework/Versions/A/llama" \
     ""
+
+# Header copy — match upstream build-xcframework.sh's curated public
+# surface exactly (9 headers split across include/ and ggml/include/).
+# Without ggml.h + friends the Catalyst slice can't satisfy the
+# `#include "ggml.h"` inside llama.framework's public llama.h, which
+# breaks downstream Obj-C++ consumers (DVAILlamaCoreObjC/LlamaCppBridge.mm
+# hit `fatal error: 'ggml.h' file not found` for the maccatalyst slice).
+# The previous `headers_src_dir="include"` only copied include/*.h
+# (llama.h + llama-cpp.h) and silently skipped the ggml/include/ ones.
+CATALYST_LLAMA_HDR="${CATALYST_LLAMA_FW}/Versions/A/Headers"
+cp include/llama.h             "${CATALYST_LLAMA_HDR}/"
+cp ggml/include/ggml.h         "${CATALYST_LLAMA_HDR}/"
+cp ggml/include/ggml-opt.h     "${CATALYST_LLAMA_HDR}/"
+cp ggml/include/ggml-alloc.h   "${CATALYST_LLAMA_HDR}/"
+cp ggml/include/ggml-backend.h "${CATALYST_LLAMA_HDR}/"
+cp ggml/include/ggml-metal.h   "${CATALYST_LLAMA_HDR}/"
+cp ggml/include/ggml-cpu.h     "${CATALYST_LLAMA_HDR}/"
+cp ggml/include/ggml-blas.h    "${CATALYST_LLAMA_HDR}/"
+cp ggml/include/gguf.h         "${CATALYST_LLAMA_HDR}/"
 
 # --- mtmd Catalyst slice ---
 CATALYST_MTMD_TMP="build-catalyst-mtmd-fat"
@@ -676,9 +695,44 @@ catalyst_package_framework \
     "$CATALYST_MTMD_FW" \
     "mtmd" \
     "$CATALYST_MTMD_COMBINED" \
-    "tools/mtmd" \
+    "" \
     "@rpath/mtmd.framework/Versions/A/mtmd" \
     ""
+
+# mtmd headers — explicit two-header copy matching the iOS package_mtmd_framework
+# path. The default cp -R from tools/mtmd/ would pick up internal headers
+# we don't want to ship. We also need to:
+#   1) Patch `#include "ggml.h"` and `#include "llama.h"` to angle-bracket
+#      form so they resolve through the sibling llama.framework module
+#      instead of looking inside mtmd.framework's own Headers/ (matches
+#      what the iOS mtmd packaging step does — see lines 283-297).
+#      Without this, the .NET-side Catalyst archive of DVAILlamaCoreObjC
+#      fails with `fatal error: 'ggml.h' file not found` when
+#      LlamaCppBridge.mm transitively imports mtmd.h.
+#   2) Overwrite the modulemap with `use llama` so Clang knows to satisfy
+#      the angle-bracket includes via the sibling llama framework module
+#      (the generic modulemap produced by catalyst_package_framework
+#      lacks the `use llama` declaration).
+CATALYST_MTMD_HDR="${CATALYST_MTMD_FW}/Versions/A/Headers"
+cp tools/mtmd/mtmd.h         "${CATALYST_MTMD_HDR}/"
+cp tools/mtmd/mtmd-helper.h  "${CATALYST_MTMD_HDR}/"
+sed -i.bak \
+    -e 's|#include "ggml.h"|#include <llama/ggml.h>|g' \
+    -e 's|#include "llama.h"|#include <llama/llama.h>|g' \
+    "${CATALYST_MTMD_HDR}/mtmd.h" "${CATALYST_MTMD_HDR}/mtmd-helper.h"
+rm -f "${CATALYST_MTMD_HDR}/mtmd.h.bak" "${CATALYST_MTMD_HDR}/mtmd-helper.h.bak"
+
+cat > "${CATALYST_MTMD_FW}/Versions/A/Modules/module.modulemap" <<'EOF'
+framework module mtmd {
+    use llama
+    header "mtmd.h"
+    header "mtmd-helper.h"
+
+    link "c++"
+
+    export *
+}
+EOF
 
 # Step 6: repackage llama.xcframework + mtmd.xcframework with the new
 # Catalyst slice included. xcodebuild -create-xcframework rebuilds from
