@@ -122,6 +122,13 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
+        with:
+          # llama-core's CMakeLists.txt references the llama.cpp submodule
+          # under packages/dvai-bridge-android-llama-core/android/src/main/
+          # cpp/native/llama.cpp; without recursive checkout, Gradle's
+          # configureCMakeRelWithDebInfo task dies with CXX1429 'cannot find
+          # llama.cpp/CMakeLists.txt' (run 26364994303 hit exactly this).
+          submodules: recursive
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
