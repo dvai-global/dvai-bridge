@@ -63,7 +63,7 @@ jobs:
       # v10 with the rest of the workflows (deploy-docs, publish,
       # fixtures-lint, test-react-native) so they all read the same
       # pnpm-lock.yaml format consistently.
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v6
         with:
           version: 10
 
