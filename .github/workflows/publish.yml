@@ -147,6 +147,16 @@ jobs:
           echo "  contains 'BEGIN PGP': $(printf '%s' "$KEY" | grep -c 'BEGIN PGP' || true)"
           echo "  contains 'END PGP':   $(printf '%s' "$KEY" | grep -c 'END PGP' || true)"
           echo "  looks like base64 (printable+/=): $(printf '%s' "$KEY" | grep -qE '^[A-Za-z0-9+/=]+$' && echo yes || echo no)"
+          # CRLF detection — Git Bash on Windows often produces CRLF
+          # in multi-line output, which BouncyCastle's armor parser
+          # can't tolerate. Counts \r bytes in the secret.
+          CR_COUNT=$(printf '%s' "$KEY" | tr -cd '\r' | wc -c | tr -d ' ')
+          LF_COUNT=$(printf '%s' "$KEY" | tr -cd '\n' | wc -c | tr -d ' ')
+          echo "  \\r (CR) count: $CR_COUNT"
+          echo "  \\n (LF) count: $LF_COUNT"
+          if [ "$CR_COUNT" -gt 0 ]; then
+            echo "  ⚠ secret contains $CR_COUNT CR bytes — this almost certainly breaks the armor parser"
+          fi
           echo
           echo "=== MAVEN_SIGNING_KEY_ID ==="
           echo "  length: ${#KEYID} chars"
