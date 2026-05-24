@@ -89,56 +89,124 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  # publish-maven:
-  #   name: Publish co.deepvoiceai:dvai-bridge* to Maven Central
-  #   runs-on: ubuntu-latest
-  #   needs: []
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - uses: actions/setup-java@v5
-  #       with:
-  #         distribution: temurin
-  #         java-version: '21'
-  #     - name: Decode GPG key
-  #       run: echo "${{ secrets.MAVEN_GPG_PRIVATE_KEY }}" | base64 -d | gpg --batch --import
-  #     - name: Publish + close + release staging repo
-  #       run: ./gradlew publishAllPublicationsToOSSRHRepository closeAndReleaseStagingRepository
-  #       env:
-  #         OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-  #         OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-  #         SIGNING_KEY_ID: ${{ secrets.MAVEN_GPG_KEY_ID }}
-  #         SIGNING_PASSWORD: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+  publish-maven:
+    name: Publish co.deepvoiceai:* to Maven Central
+    runs-on: macos-latest
+    # vanniktech maven-publish 0.33 has a Windows-only `file://` URI
+    # parse bug; macos-latest is unaffected. Gated on the
+    # MAVEN_CENTRAL_ENABLED repo variable so dry-runs / forks don't
+    # accidentally trip it.
+    if: ${{ vars.MAVEN_CENTRAL_ENABLED == 'true' || github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Decode signing key + run publishAndReleaseToMavenCentral for all 5 modules
+        # The signing key is a base64-encoded ASCII-armoured PGP secret
+        # block (no passphrase). The mavenCentral* Sonatype Portal token
+        # is the username:password pair from
+        # https://central.sonatype.com/account.
+        #
+        # Each Android core publishes independently — they live in
+        # separate Gradle roots (one Gradle build per package; the
+        # monorepo isn't a single multi-project root). Order is
+        # shared-core first (the others depend on it), then the four
+        # consumers in any order. The `publishAndReleaseToMavenCentral`
+        # task auto-promotes the staging repo once Sonatype validation
+        # passes; no manual click on the Portal afterwards.
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.MAVEN_SIGNING_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_SIGNING_KEY_PASSWORD }}
+        run: |
+          set -e
+          for module in \
+              dvai-bridge-android-shared-core \
+              dvai-bridge-android-llama-core \
+              dvai-bridge-android-mediapipe-core \
+              dvai-bridge-android-litert-core \
+              dvai-bridge-android; do
+              echo "==> publish $module"
+              (cd packages/$module/android && ./gradlew publishAndReleaseToMavenCentral --no-daemon --no-configuration-cache -PcompileSdkOverride=35)
+          done
 
-  # publish-nuget:
-  #   name: Publish DVAIBridge.* to NuGet.org
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - uses: actions/setup-dotnet@v4
-  #       with:
-  #         dotnet-version: '10.0.x'
-  #     - run: dotnet pack packages/dvai-bridge-dotnet -c Release -o nupkgs
-  #     - run: dotnet nuget push 'nupkgs/*.nupkg' -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json --skip-duplicate
+  publish-cocoapods:
+    name: Publish DVAIBridge.podspec to CocoaPods Trunk
+    runs-on: macos-latest
+    if: ${{ vars.COCOAPODS_ENABLED == 'true' || github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # The podspec references the v4.0.x release zip on GitHub;
+          # the checkout needs the tag to be present locally for
+          # pod-trunk's validation step to resolve the source URL.
+          submodules: false
+          fetch-depth: 0
+      - name: Push DVAIBridge to CocoaPods Trunk
+        # `--allow-warnings` is required because Apple's deprecation
+        # warnings on CoreML APIs fire at lint time even when the
+        # actual targets opt out. `--skip-import-validation` skips
+        # the pod's own swift compile in trunk's lint sandbox; we
+        # validated this locally before tagging via `pod lib lint`.
+        # Re-runs against an already-published version exit 0 (trunk
+        # rejects duplicates silently as "already pushed").
+        env:
+          COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+        run: |
+          set -e
+          pod trunk push packages/dvai-bridge-ios/DVAIBridge.podspec --allow-warnings --skip-import-validation
 
-  # publish-cocoapods:
-  #   name: Publish DVAIBridge.podspec to CocoaPods Trunk
-  #   runs-on: macos-15
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - run: pod trunk push packages/dvai-bridge-ios/DVAIBridge.podspec --allow-warnings
-  #       env:
-  #         COCOAPODS_TRUNK_TOKEN: ${{ secrets.COCOAPODS_TRUNK_TOKEN }}
+  publish-pub-dev:
+    name: Publish dvai_bridge to pub.dev
+    runs-on: ubuntu-latest
+    if: ${{ vars.PUB_DEV_ENABLED == 'true' || github.event_name == 'workflow_dispatch' }}
+    permissions:
+      # pub.dev's OIDC publish flow needs id-token write; the
+      # PUB_CREDENTIALS_JSON fallback (long-lived OAuth token) also
+      # works without it — kept here for the OIDC upgrade path.
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.44.0'
+      - name: Authenticate with pub.dev (long-lived credentials JSON)
+        # PUB_CREDENTIALS_JSON is the contents of `~/.config/dart/pub-credentials.json`
+        # after a local `dart pub login`. The token doesn't expire as
+        # long as the underlying Google account stays active. For a
+        # more rotation-friendly setup, switch to OIDC via the
+        # `dart-lang/setup-dart` action — but that requires linking
+        # the package to a GitHub Actions identity on pub.dev's admin
+        # page first. JSON works today; OIDC is the v4.0.2+ upgrade.
+        run: |
+          mkdir -p ~/.config/dart
+          printf '%s' '${{ secrets.PUB_CREDENTIALS_JSON }}' > ~/.config/dart/pub-credentials.json
+          chmod 600 ~/.config/dart/pub-credentials.json
+      - name: dart pub publish
+        # `--force` skips the interactive confirmation. Required for CI.
+        # pub.dev rejects republishes of the same version with a clear
+        # 409; the job fails-fast in that case which is the desired
+        # behaviour (CI accidentally re-firing on the same tag).
+        working-directory: packages/dvai-bridge-flutter
+        run: |
+          flutter pub get
+          dart run pigeon --input pigeons/messages.dart
+          dart pub publish --force
 
-  # publish-pub-dev:
-  #   name: Publish dvai_bridge to pub.dev
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - uses: subosito/flutter-action@v2
-  #       with:
-  #         channel: stable
-  #     - name: Authenticate with pub.dev
-  #       run: |
-  #         mkdir -p ~/.config/dart
-  #         echo '${{ secrets.PUB_CREDENTIALS_JSON }}' > ~/.config/dart/pub-credentials.json
-  #     - run: cd packages/dvai-bridge-flutter && flutter pub publish --force
+  # NuGet publish lives in test-dotnet.yml's macOS pack-and-push job —
+  # that workflow already builds the iOS xcframework + bindings + 6
+  # .nupkg artefacts in one place and pushes via `dotnet nuget push`
+  # to api.nuget.org/v3/index.json on tag pushes. Duplicating it here
+  # would double the macOS-runner cost without adding any safety, so
+  # this stays a deliberate omission. Required secrets: NUGET_API_KEY
+  # (NuGet.org → Account → API Keys, scope `Push › *`, owner = dvai org).
