@@ -61,6 +61,15 @@ final class RealModelSmokeTest: XCTestCase {
     }
 
     func testSmokeRealModelEndToEnd() async throws {
+        // Gated off CI in v4.0.1 — see testLlamaBackendIntegration in
+        // packages/dvai-bridge-ios/.../RealModelIntegrationTest.swift for
+        // the full context. Same simulator-OOM symptom: sustained CPU-only
+        // llama.cpp inference dies after ~10-16min with exit 65 and no
+        // assertion. Three RealModelSmokeTest cases (this one + Vision +
+        // Audio) all hit it. Re-enable locally with RUN_LLAMA_INTEGRATION=1.
+        guard ProcessInfo.processInfo.environment["RUN_LLAMA_INTEGRATION"] == "1" else {
+            throw XCTSkip("Real-model smoke gated off CI in v4.0.1 — simulator dies under sustained inference. Set RUN_LLAMA_INTEGRATION=1 to run.")
+        }
         let env = Self.loadSmokeEnv()
         guard let urlStr = env["SMOKE_MODEL_URL"], !urlStr.isEmpty,
               let sha = env["SMOKE_MODEL_SHA256"], !sha.isEmpty,
@@ -112,6 +121,10 @@ final class RealModelSmokeTest: XCTestCase {
     /// of SMOKE_VISION_MODEL_URL / SMOKE_VISION_MODEL_SHA256 /
     /// SMOKE_VISION_MMPROJ_URL / SMOKE_VISION_MMPROJ_SHA256 are unset.
     func testSmokeVisionEndToEnd() async throws {
+        // Gated off CI in v4.0.1 — see testSmokeRealModelEndToEnd above.
+        guard ProcessInfo.processInfo.environment["RUN_LLAMA_INTEGRATION"] == "1" else {
+            throw XCTSkip("Real-model vision smoke gated off CI in v4.0.1 — simulator dies under sustained inference. Set RUN_LLAMA_INTEGRATION=1 to run.")
+        }
         let env = Self.loadSmokeEnv()
         guard let modelUrlStr = env["SMOKE_VISION_MODEL_URL"], !modelUrlStr.isEmpty,
               let modelSha = env["SMOKE_VISION_MODEL_SHA256"], !modelSha.isEmpty,
@@ -234,6 +247,10 @@ final class RealModelSmokeTest: XCTestCase {
     /// audio (per mtmd-helper.h docs). Skips when the model declared no
     /// audio encoder (e.g. vision-only mmproj).
     func testSmokeAudioEndToEnd() async throws {
+        // Gated off CI in v4.0.1 — see testSmokeRealModelEndToEnd above.
+        guard ProcessInfo.processInfo.environment["RUN_LLAMA_INTEGRATION"] == "1" else {
+            throw XCTSkip("Real-model audio smoke gated off CI in v4.0.1 — simulator dies under sustained inference. Set RUN_LLAMA_INTEGRATION=1 to run.")
+        }
         let env = Self.loadSmokeEnv()
         guard let modelUrlStr = env["SMOKE_VISION_MODEL_URL"], !modelUrlStr.isEmpty,
               let modelSha = env["SMOKE_VISION_MODEL_SHA256"], !modelSha.isEmpty,
