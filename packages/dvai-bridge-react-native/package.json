@@ -82,7 +82,7 @@
                             "@types/react":  "^19.2.14",
                             "babel-jest":  "^30.3.0",
                             "del-cli":  "^7.0.0",
-                            "jest":  "^30.3.0",
+                            "jest":  "^30.4.2",
                             "jest-environment-jsdom":  "^30.3.0",
                             "react":  "^19.2.5",
                             "react-native":  "^0.85.2",
