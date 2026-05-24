@@ -12,6 +12,13 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Push NuGet packages to nuget.org on this run (defaults to false — used when the tag-trigger CI failed mid-pipeline and the artifacts need to be pushed manually).'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
   # Tag pushes drive the publish-to-NuGet.org step (gated by tag prefix).
   release:
     types: [published]
@@ -414,12 +421,12 @@ jobs:
         run: dotnet build DVAIBridge.sln -c Release --no-restore -p:BindingsGenerated=true
 
       - name: Pack all six NuGets
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish == 'true')
         working-directory: packages/dvai-bridge-dotnet
         run: dotnet pack DVAIBridge.sln -c Release -o ./out --no-build -p:BindingsGenerated=true
 
       - name: Upload .nupkg artifacts
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish == 'true')
         uses: actions/upload-artifact@v7
         with:
           name: nupkgs
@@ -431,7 +438,7 @@ jobs:
       # up DVAIBridge / .iOS / .Android / .Desktop / .OnnxRuntime / .MLNet
       # in one push; --skip-duplicate makes re-runs safe.
       - name: Push to NuGet.org
-        if: (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && env.NUGET_API_KEY != ''
+        if: (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish == 'true')) && env.NUGET_API_KEY != ''
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         working-directory: packages/dvai-bridge-dotnet
