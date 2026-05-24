@@ -76,23 +76,29 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build all packages (excluding platform-toolchain consumers)
-        # Three packages have `build` scripts that require external
-        # toolchains not installed on this Ubuntu/Node runner:
+      - name: Build all packages (only @dvai-bridge/* JS-publishable packages)
+        # pnpm-workspace.yaml includes packages/*, examples/*, docs, hub —
+        # we only want to build the publish-to-npm subset:
         #
-        #   * @dvai-bridge/flutter  -> `flutter pub get && dart run pigeon`
-        #                              (needs Flutter + Dart SDKs)
-        #   * @dvai-bridge/dotnet   -> `dotnet build` of DVAIBridge.Android.csproj
-        #                              (needs `android` .NET workload —
-        #                              NETSDK1147 without it)
-        #   * @dvai-bridge/ios      -> SwiftPM resolve (needs Xcode)
+        #   * Build:   @dvai-bridge/* npm packages that have a working
+        #              Node-only `build` script (tsup / bob / etc.)
         #
-        # Each of those packages is metadata/wrapper-only on npm — the
-        # real publish for Flutter happens via pub.dev, for .NET via NuGet
-        # (test-dotnet.yml), and the iOS native side via CocoaPods. The
-        # npm copies don't ship platform-built artefacts, so skipping
-        # their `build` script doesn't change what npm consumers get.
-        run: pnpm -r --filter='!@dvai-bridge/flutter' --filter='!@dvai-bridge/dotnet' --filter='!@dvai-bridge/ios' run build
+        #   * Skip the workspace siblings:
+        #     - examples/* — example apps (web-react, etc.) whose vite/rolldown
+        #       builds aren't needed for publishing and routinely break on
+        #       fresh node_modules (rolldown 1.0.0-rc.15 vite-resolve flake).
+        #     - docs — VitePress site; built by deploy-docs.yml separately.
+        #     - hub — Tauri desktop app; built by dvai-hub-release.yml.
+        #
+        #   * Skip these @dvai-bridge/* packages with platform-toolchain builds:
+        #     - @dvai-bridge/flutter — needs Flutter + Dart SDKs
+        #     - @dvai-bridge/dotnet  — needs `android` .NET workload (NETSDK1147)
+        #     - @dvai-bridge/ios     — needs Xcode + SwiftPM
+        #
+        # `--filter='./packages/**'` scopes pnpm's recursion to packages/*
+        # only; the remaining `!...` filters exclude the three
+        # platform-toolchain consumers.
+        run: pnpm --filter='./packages/**' --filter='!@dvai-bridge/flutter' --filter='!@dvai-bridge/dotnet' --filter='!@dvai-bridge/ios' run build
 
       - name: Publish to npmjs.org
         # `pnpm -r publish` walks every workspace package and skips
