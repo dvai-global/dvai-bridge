@@ -121,7 +121,7 @@ jobs:
 
       - name: Upload xcresults
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: smoke-ios-xcresults
           path: packages/dvai-bridge-capacitor-llama/ios/build/test-results-*.xcresult
@@ -186,7 +186,7 @@ jobs:
 
       - name: Upload reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: smoke-android-reports
           path: packages/dvai-bridge-capacitor-llama/android/build/reports/

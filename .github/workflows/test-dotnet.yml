@@ -115,7 +115,7 @@ jobs:
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-ubuntu
           path: packages/dvai-bridge-dotnet/tests/**/TestResults/**/coverage.cobertura.xml
@@ -404,7 +404,7 @@ jobs:
 
       - name: Upload .nupkg artifacts
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nupkgs
           path: |

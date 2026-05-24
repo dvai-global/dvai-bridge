@@ -48,7 +48,7 @@ jobs:
 
       - name: Upload xcresult on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: xcresult-mediapipe-ios
           path: packages/dvai-bridge-capacitor-mediapipe/ios/build/test-results.xcresult
