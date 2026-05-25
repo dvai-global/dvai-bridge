@@ -18,7 +18,7 @@
     "@dvai-bridge/capacitor-llama": "workspace:*"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.3.1",
-    "esbuild": "^0.27.0"
+    "@capacitor/cli": "^8.3.4",
+    "esbuild": "^0.28.0"
   }
 }
