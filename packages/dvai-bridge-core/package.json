@@ -49,7 +49,7 @@
     "url": "https://github.com/dvai-global/dvai-bridge.git"
   },
   "dependencies": {
-    "msw": "^2.12.13",
+    "msw": "^2.14.6",
     "@noble/curves": "^1.6.0",
     "jose": "^6.1.0"
   },
