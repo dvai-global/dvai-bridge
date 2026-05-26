@@ -95,6 +95,83 @@ Full quickstart per platform: [bridge.deepvoiceai.co/docs](https://bridge.deepvo
 
 ---
 
+## Isn't this just LiteLLM / LangChain / Ollama?
+
+Short answer: no — those tools assume something DVAI-Bridge ships. Long answer:
+
+The on-device-LLM space already has plenty of moving parts. Developers I've
+talked to often ask "isn't this reinventing the wheel?" — usually pointing
+at one of these:
+
+- **[LiteLLM](https://github.com/BerriAI/litellm) / [OpenRouter](https://openrouter.ai/) / [LangChain](https://www.langchain.com/)** — gateway and router libraries.
+  Excellent at fanning a request to many backends, but **they assume a
+  server is already running** (cloud, or a local one the user installed).
+  They route TO an inference engine; they aren't one.
+- **[Ollama](https://ollama.com/) / [LM Studio](https://lmstudio.ai/) / [vLLM](https://docs.vllm.ai/) / [llama-server](https://github.com/ggml-org/llama.cpp/tree/master/tools/server) / [llamafile](https://github.com/Mozilla-Ocho/llamafile) / [LocalAI](https://localai.io/) / [Jan.ai](https://jan.ai/)** —
+  local OpenAI-compatible servers. Great on a developer laptop. But
+  **the end user has to install them**, configure a port, keep them
+  running, and update them out-of-band from your app. Mobile users
+  can't install any of these. Corporate IT won't approve "yet another
+  daemon".
+- **[llama.rn](https://github.com/mybigday/llama.rn) / [Capacitor LocalLLM](https://github.com/Mediapipe-One/CapacitorPlugin-LocalLLM) / [ExecuTorch](https://pytorch.org/executorch/) / [MLX-Swift](https://github.com/ml-explore/mlx-swift) / [MediaPipe LLM Inference](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference)** —
+  embedded runtimes that DO ship inside the app, but **expose JS-bridge
+  or native-only APIs**. Agentic frameworks (LangChain, autogen, crewai,
+  the OpenAI SDK itself) can't talk to them without per-runtime adapters.
+- **[WebLLM](https://github.com/mlc-ai/web-llm) / [Wllama](https://github.com/ngxson/wllama) / [Transformers.js](https://huggingface.co/docs/transformers.js)** —
+  browser-only WebGPU / WASM runtimes. Useful, but not what you ship in
+  a mobile app or a MAUI desktop binary.
+- **[LM Studio LM Link](https://lmstudio.ai/link) / Tailscale-for-LLMs / [Magic Wormhole](https://magic-wormhole.readthedocs.io/)-style relays** —
+  cross-network LLM routing. All require **installs on both ends** plus
+  a coordinator account, with the operator (Tailscale, LM Studio's
+  backend) able to revoke or observe the link.
+
+DVAI-Bridge isn't a competitor to any of those — it's a different shape
+of thing. The six properties below define what it actually is, and they
+hold simultaneously. No existing tool combines all six.
+
+### Six things that hold simultaneously
+
+1. **Your app IS the server.** The inference runtime is in your app
+   bundle, not a daemon the end user installs. `npm install`, `pod
+   install`, `gradle`, `NuGet`. Models download on first use, resumable,
+   sha256-verified. No "please install Ollama first" step in your
+   onboarding.
+2. **Real OpenAI HTTP, inside the app process.** A loopback HTTP server
+   on `127.0.0.1` serves `/v1/chat/completions`, `/v1/embeddings`,
+   `/v1/models`, with SSE streaming and the standard error envelope.
+   Any OpenAI client speaks to it. Your agent code from a cloud
+   prototype runs locally with `baseURL = dvai.baseUrl` and **nothing
+   else changes**.
+3. **One library, every client platform.** Same OpenAI surface from
+   npm (browser, Node, React, React Native, Capacitor), CocoaPods
+   (iOS Swift), Maven Central (Android Kotlin), pub.dev (Flutter), and
+   NuGet (.NET MAUI / Avalonia / WinUI / Catalyst). A Flutter
+   developer, a Swift developer, and a React Native developer hit
+   identical endpoints with identical request/response shapes.
+4. **Backend-agnostic per device.** Your code says
+   `backend: 'auto'` — the SDK picks llama.cpp / Apple Foundation
+   Models / MLX / CoreML+ANE / MediaPipe LLM / LiteRT / WebLLM /
+   Transformers.js / ONNX Runtime GenAI based on what the device
+   actually supports. The agentic framework on top **doesn't know or
+   care** which engine is executing.
+5. **Local-first with optional peer expansion.** LAN-mDNS capability
+   discovery + cross-network self-hostable WebSocket rendezvous.
+   Phone too slow? Transparently push to your Mac on the same Wi-Fi
+   — same OpenAI wire, same `baseURL`. Need it across networks?
+   Self-host the rendezvous (no default operator, no third-party
+   broker). Both modes opt-in; both expose the same wire to the
+   consuming code.
+6. **Zero user setup.** End users don't install Ollama, configure
+   Tailscale, or run llama-server. They install **your app**.
+   Everything else is invisible.
+
+The combination is the gap. Each component exists in isolation
+somewhere in the prior art (and is dutifully credited in the
+[architecture docs](https://bridge.deepvoiceai.co/architecture)) —
+but no single existing tool ships all six in one package.
+
+---
+
 ## Examples
 
 ```ts
