@@ -21,6 +21,45 @@ Pod::Spec.new do |s|
   s.name             = 'DVAIBridge'
   s.version          = package['version']
   s.summary          = package['description']
+  # CocoaPods Trunk + cocoapods.org render `description` on the pod's
+  # landing page below the summary. This is positioning copy aimed at
+  # iOS devs who land here from a search and ask "isn't this just
+  # llama.cpp / MLX-Swift / Apple Foundation Models?" — the answer is
+  # 'no, those are runtimes; this is a runtime PLUS a real OpenAI
+  # HTTP surface inside your app process, same wire as every other
+  # platform in the dvai-bridge family'.
+  s.description      = <<-DESC
+    DVAIBridge embeds an OpenAI-compatible HTTP server inside your iOS
+    app's own process — `http://127.0.0.1:38883/v1/chat/completions`,
+    `/v1/embeddings`, `/v1/models`, SSE streaming, the standard error
+    envelope. Any OpenAI client speaks to it (the OpenAI SDK, LangChain,
+    autogen, crewai, instructor, Vercel AI SDK — anything).
+
+    Backends: llama.cpp (Metal), Apple Foundation Models (iOS 26+),
+    CoreML / ANE, MLX. Engine selected at runtime by device capability;
+    your call site doesn't change.
+
+    Why not just llama.cpp / MLX-Swift / Apple Foundation Models? Those
+    are runtimes you wire up yourself — no HTTP surface, no agentic-
+    framework interop, no resumable model downloader, no cross-device
+    offload. DVAIBridge ships all of that as one library.
+
+    Why not Ollama / LM Studio / llama-server? Those are SERVERS your
+    END USERS install. DVAIBridge ships inside YOUR APP's binary —
+    `pod install`, build, run. Zero setup for the user.
+
+    Optional peer expansion: phone too slow? Pair with your Mac on the
+    same Wi-Fi (mDNS) or across networks via a self-hostable WebSocket
+    rendezvous — same OpenAI wire, transparent to consuming code.
+
+    Same library, same OpenAI surface, also available for Android
+    (Maven Central), Flutter (pub.dev), React Native + Capacitor +
+    browser + Node (npm), and .NET MAUI / Avalonia / WinUI / Catalyst
+    / desktop (NuGet). Cross-platform agentic apps stop being a
+    per-platform porting exercise.
+
+    Docs + architecture: https://bridge.deepvoiceai.co
+  DESC
   s.license          = { :type => 'Custom', :file => 'LICENSE' }
   s.homepage         = 'https://github.com/dvai-global/dvai-bridge'
   s.author           = { 'Deep Chakraborty' => 'chakraborty.deep013@gmail.com' }
