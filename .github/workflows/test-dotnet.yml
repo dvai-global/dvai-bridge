@@ -60,7 +60,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Cache NuGet
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: nuget-ubuntu-${{ hashFiles('packages/dvai-bridge-dotnet/Directory.Packages.props') }}
@@ -152,7 +152,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Cache NuGet
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~\.nuget\packages
           key: nuget-windows-${{ hashFiles('packages/dvai-bridge-dotnet/Directory.Packages.props') }}
@@ -207,7 +207,7 @@ jobs:
         run: dotnet workload install android
 
       - name: Cache NuGet
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: nuget-android-${{ hashFiles('packages/dvai-bridge-dotnet/Directory.Packages.props') }}
@@ -296,7 +296,7 @@ jobs:
         run: dotnet workload install ios maccatalyst android
 
       - name: Cache NuGet
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: nuget-macos-${{ hashFiles('packages/dvai-bridge-dotnet/Directory.Packages.props') }}
@@ -347,7 +347,7 @@ jobs:
       # the submodule's commit SHA so any submodule bump invalidates
       # automatically.
       - name: Cache llama + mtmd xcframeworks
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp/build-apple/llama.xcframework
