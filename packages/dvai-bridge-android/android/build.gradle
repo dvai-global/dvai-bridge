@@ -182,11 +182,20 @@ mavenPublishing {
 
     pom {
         name = 'DVAI Bridge Android'
-        description = 'DVAI Bridge Android SDK — single 8-method Kotlin API surface ' +
-                'fronting llama.cpp, MediaPipe / LiteRT-LM and bare-LiteRT backends. ' +
+        description = 'DVAI Bridge Android SDK — embeds an OpenAI-compatible HTTP server ' +
+                'inside your Android app process (127.0.0.1:38883, /v1/chat/completions, ' +
+                '/v1/embeddings, /v1/models, SSE streaming). Any OpenAI client speaks to it ' +
+                '(LangChain, autogen, crewai, the OpenAI SDK). ' +
+                'Single 8-method Kotlin API surface fronting llama.cpp, MediaPipe / LiteRT-LM ' +
+                'and bare-LiteRT backends; engine selected at runtime by device capability. ' +
+                'Same OpenAI wire as the dvai-bridge family on iOS (CocoaPods), Flutter (pub.dev), ' +
+                'React Native + Capacitor + browser + Node (npm), and .NET MAUI (NuGet) — ' +
+                'cross-platform agentic apps stop being a per-platform porting exercise. ' +
                 'Mirrors the iOS DVAIBridge SDK; pulls in the four cores ' +
                 '(android-shared-core / android-llama-core / android-mediapipe-core / ' +
-                'android-litert-core) transitively.'
+                'android-litert-core) transitively. Unlike Ollama / LM Studio / llama-server ' +
+                'which the end user installs, this library ships INSIDE your app. ' +
+                'Docs + architecture: https://bridge.deepvoiceai.co'
         inceptionYear = '2026'
         url = 'https://github.com/dvai-global/dvai-bridge'
 
