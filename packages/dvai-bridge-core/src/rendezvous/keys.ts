@@ -8,12 +8,18 @@
  *
  * Implementation note: WebCrypto's `subtle.deriveKey` doesn't support
  * X25519 in all runtimes yet (Node has it as of 22; Safari is still
- * catching up). We use `@noble/curves/ed25519` (which exports x25519)
+ * catching up). We use `@noble/curves/ed25519.js` (which exports x25519)
  * because it's small (~5 KB), audited, and works in every JS runtime
  * we support without a native dep.
+ *
+ * @noble/curves v2 note: the export path now requires the `.js` suffix
+ * (v1's extensionless `@noble/curves/ed25519` was dropped from the
+ * package `exports` map), and `utils.randomPrivateKey()` was renamed to
+ * `utils.randomSecretKey()`. `getPublicKey` / `getSharedSecret` are
+ * unchanged.
  */
 
-import { x25519 } from "@noble/curves/ed25519";
+import { x25519 } from "@noble/curves/ed25519.js";
 
 export interface KeyPair {
   publicKey: Uint8Array;
@@ -22,7 +28,7 @@ export interface KeyPair {
 
 /** Generate a fresh ephemeral X25519 keypair. */
 export function generateEphemeralKeyPair(): KeyPair {
-  const secretKey = x25519.utils.randomPrivateKey();
+  const secretKey = x25519.utils.randomSecretKey();
   const publicKey = x25519.getPublicKey(secretKey);
   return { publicKey, secretKey };
 }

@@ -49,14 +49,14 @@
     "url": "https://github.com/dvai-global/dvai-bridge.git"
   },
   "dependencies": {
-    "msw": "^2.12.13",
-    "@noble/curves": "^1.6.0",
-    "jose": "^6.1.0"
+    "@noble/curves": "^2.2.0",
+    "jose": "^6.1.0",
+    "msw": "^2.14.6"
   },
   "peerDependencies": {
+    "@dvai-bridge/capacitor": "workspace:*",
     "@huggingface/transformers": "^4.0.1",
     "@mlc-ai/web-llm": "^0.2.78",
-    "@dvai-bridge/capacitor": "workspace:*",
     "node-llama-cpp": "^3.0.0"
   },
   "peerDependenciesMeta": {

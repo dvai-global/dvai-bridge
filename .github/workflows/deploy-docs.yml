@@ -72,7 +72,7 @@ jobs:
           echo "Build OK — $(find docs/.vitepress/dist -type f | wc -l) files, $(du -sh docs/.vitepress/dist | cut -f1) total"
 
       - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
+        uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.DOCS_DEPLOY_SSH_KEY }}
 
