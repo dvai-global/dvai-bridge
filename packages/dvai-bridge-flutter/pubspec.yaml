@@ -1,6 +1,6 @@
 name: dvai_bridge
 description: Local-LLM bridge with an OpenAI-compatible HTTP server for Flutter (iOS + Android). Wraps the native DVAIBridge SDKs via Pigeon-generated platform channels.
-version: 4.0.1
+version: 4.0.2
 homepage: https://github.com/dvai-global/dvai-bridge
 repository: https://github.com/dvai-global/dvai-bridge
 issue_tracker: https://github.com/dvai-global/dvai-bridge/issues

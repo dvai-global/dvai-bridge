@@ -4,6 +4,29 @@ All notable changes to the `dvai_bridge` Flutter plugin are documented here.
 Version numbers track the parent `dvai-bridge` family: bump in lockstep with
 the iOS / Android / React Native packages.
 
+## [4.0.2] — 2026-05-28
+
+Maintenance release. No API changes — `dvai_bridge 4.0.x` consumers upgrade
+without touching their code. Rides along with a family-wide v4.0.2 bump
+driven by a dependency-maintenance pass across the monorepo.
+
+### Changed (family-wide, no Flutter API impact)
+
+- Dependency refresh from the Dependabot batch: GitHub Actions runners
+  (`setup-node` v6, `actions/cache` v5, `setup-dotnet` v5, `labeler` v6),
+  plus JS-side dev tooling (Babel, typescript-eslint, esbuild, msw,
+  `@react-native/*` 0.85.3, `@tauri-apps/cli`). None reach the Flutter
+  consumer surface.
+- `@noble/curves` 1.x → 2.x in the JS `@dvai-bridge/core` package
+  (rendezvous E2EE key exchange). Migrated to the v2 export path +
+  `randomSecretKey` API; X25519 ECDH round-trip verified. Flutter's
+  native rendezvous path is unaffected (it uses platform crypto, not
+  the JS lib).
+- README positioning section ("Isn't this just LiteLLM / LangChain /
+  Ollama?") now shipped on the pub.dev landing — clarifies that
+  DVAI-Bridge embeds the runtime + OpenAI HTTP inside your app rather
+  than being a gateway (LiteLLM) or an end-user-installed server (Ollama).
+
 ## [4.0.1] — 2026-05-24
 
 Patch release. No API changes — `dvai_bridge 4.0.0` consumers can upgrade

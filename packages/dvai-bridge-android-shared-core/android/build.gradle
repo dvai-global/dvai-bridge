@@ -142,7 +142,7 @@ mavenPublishing {
     coordinates(
         'co.deepvoiceai',
         'android-shared-core',
-        (project.findProperty('dvaiBridgeVersion') ?: '4.0.1').toString(),
+        (project.findProperty('dvaiBridgeVersion') ?: '4.0.2').toString(),
     )
 
     pom {
