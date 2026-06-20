@@ -39,7 +39,7 @@ on the core idea. We split on the surface.
 - **Mobile path.** QVAC reaches iOS and Android only through React Native (Expo). DVAI-Bridge has first-class Swift Package, Android AAR, and Flutter pub.dev packages.
 - **OpenAI HTTP.** QVAC ships the OpenAI wrapper as an *optional* layer on a typed JS SDK. DVAI-Bridge ships the OpenAI HTTP surface as **the** product — every SDK exposes the same `127.0.0.1:38883` wire.
 - **Engines.** QVAC ships Fabric LLM, customized GGML, Whisper, Diffusion, ONNX, Bergamot. DVAI-Bridge ships llama.cpp, Apple Foundation Models, MLX, CoreML, MediaPipe LLM, LiteRT — including engines QVAC doesn't reach.
-- **Capabilities QVAC has and we don't yet.** Image and video generation, dedicated text-to-speech, OCR, out-of-the-box translation. See [the parity plan](https://github.com/dvai-global/dvai-bridge/blob/main/STRATEGY-QVAC-PARITY.md).
+- **Capabilities QVAC has and we don't yet.** Image and video generation, dedicated text-to-speech, OCR, out-of-the-box translation. On the roadmap.
 - **Licence.** QVAC is Apache 2.0. DVAI-Bridge is the DVAI Bridge Community Licence — source-available with commercial terms.
 
 If your whole stack is JavaScript and you need diffusion or TTS today,
