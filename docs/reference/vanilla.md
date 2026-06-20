@@ -1,10 +1,11 @@
 # Vanilla JS Reference
 
-Direct usage for non-framework environments using `@dvai-bridge/vanilla`.
+No framework? Install `@dvai-bridge/vanilla` and go.
 
 ## `VanillaDVAI` Class
 
-A lightweight wrapper around the core orchestrator, optimized for usage in standard JavaScript environments.
+A thin wrapper around the core. Built for plain JavaScript — no React,
+no provider, no hooks.
 
 ### Usage:
 
@@ -20,23 +21,23 @@ await ai.initialize();
 
 ### Properties:
 
-- **`isReady`**: `boolean` — `true` after successful initialization.
-- **`mockUrl`**: `string` — Access the local OpenAI-compatible endpoint.
-- **`backend`**: `"webllm" | "transformers" | "native"` — The active inference engine name.
-- **`modelId`**: `string` — Resolved model identifier.
-- **`progress`**: `{ text: string, progress: number }` — Object tracking loading state.
+- **`isReady`**: `boolean` — `true` once initialization finishes.
+- **`mockUrl`**: `string` — The local OpenAI-shaped endpoint to point clients at.
+- **`backend`**: `"webllm" | "transformers" | "native"` — The engine that's running.
+- **`modelId`**: `string` — The model that's loaded.
+- **`progress`**: `{ text: string, progress: number }` — Where the loader is.
 
 ### Methods:
 
-- **`initialize()`**: `Promise<void>` — Initializes the orchestration layer and starts MSW.
-- **`unload()`**: `Promise<void>` — Shuts down the backend and frees all associated RAM/VRAM.
-- **`onProgress(callback)`**: `void` — Register a listener for loading progress updates.
+- **`initialize()`**: `Promise<void>` — Boots the engine. Starts MSW.
+- **`unload()`**: `Promise<void>` — Shuts the engine down. Frees RAM and VRAM.
+- **`onProgress(callback)`**: `void` — Subscribe to loading progress.
 
 ---
 
 ## Direct Usage (No Wrapper)
 
-You can also use the core package directly for scenarios where you need full control:
+Want full control? Skip the wrapper and use the core package directly.
 
 ### Standard Pipeline Model:
 
@@ -53,7 +54,7 @@ const ai = new DVAI({
 
 await ai.initialize();
 
-// Option 1: Use the OpenAI-compatible MSW endpoint
+// Option 1: Hit the OpenAI-compatible MSW endpoint
 const response = await fetch("https://api.openai.local/v1/chat/completions", {
 	method: "POST",
 	headers: { "Content-Type": "application/json" },
@@ -65,7 +66,7 @@ const response = await fetch("https://api.openai.local/v1/chat/completions", {
 const data = await response.json();
 console.log(data.choices[0].message.content);
 
-// Option 2: Call chatCompletion directly (bypasses MSW)
+// Option 2: Call chatCompletion directly — skips MSW
 const result = await ai.chatCompletion({
 	messages: [{ role: "user", content: "Tell me a joke" }],
 });
@@ -125,7 +126,8 @@ console.log("Gemma 4 ready at:", ai.mockUrl);
 
 ### MSW Disabled (Direct Pipeline Only):
 
-If you only need `runPipeline()` (e.g., for embeddings) and don't need the OpenAI-compatible endpoint:
+Only need `runPipeline()` — for embeddings, say — and don't care about
+the OpenAI endpoint? Turn MSW off.
 
 ```javascript
 import { DVAI } from "@dvai-bridge/core";

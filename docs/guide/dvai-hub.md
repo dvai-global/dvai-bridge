@@ -1,23 +1,22 @@
 # DVAI Hub
 
-DVAI Hub is the household-utility flavor of distributed inference.
-Run it on the strongest machine in your house — a desktop, a laptop
-when it's plugged in, the family Mac mini — and any number of
-dvai-bridge-powered mobile apps will pair with it and offload
-heavy inference requests onto it.
+DVAI Hub is the household-utility flavor of distributed inference. Run
+it on the strongest machine in your house — a desktop, a laptop when
+it's plugged in, the family Mac mini. Any number of
+dvai-bridge-powered mobile apps pair with it and offload heavy
+inference onto it.
 
-You don't have to use it. Mobile apps still work standalone. But
-when you do use it:
+You don't have to use it. Mobile apps still work standalone. But when
+you do:
 
-- Phone-class models that are slow on your phone (or burn through
-  battery, or evict mid-generation) become snappy.
-- A single household Hub serves multiple unrelated mobile apps from
-  multiple family members; their pairings, caches, and audit logs
-  stay isolated per-app.
-- External engines you already have running (Ollama, LM Studio,
-  vLLM, llama-server, llamafile) become available to those apps —
-  no need for the apps to re-download a model the engine already
-  has cached.
+- Phone-class models that crawl on your phone, burn battery, or evict
+  mid-generation suddenly become snappy.
+- A single household Hub serves multiple unrelated apps from multiple
+  family members. Pairings, caches, and audit logs stay isolated
+  per-app.
+- External engines already running on the box (Ollama, LM Studio,
+  vLLM, llama-server, llamafile) become available to those apps. The
+  apps don't re-download a model the engine already has cached.
 
 [Architecture deep-dive →](#how-it-works)
 [Developer-fork guide →](/guide/dvai-hub-developer-fork)
@@ -33,7 +32,7 @@ when you do use it:
 brew install deepvoiceai/dvai-hub/dvai-hub
 ```
 
-…or download the universal `.dmg` from
+…or grab the universal `.dmg` from
 [GitHub Releases](https://github.com/dvai-global/dvai-bridge/releases/latest).
 
 ### Windows
@@ -42,12 +41,12 @@ brew install deepvoiceai/dvai-hub/dvai-hub
 winget install DeepVoiceAI.DVAIHub
 ```
 
-…or download the `.msi` from
+…or grab the `.msi` from
 [GitHub Releases](https://github.com/dvai-global/dvai-bridge/releases/latest).
 
 ### Linux
 
-Download `.AppImage`, `.deb`, or `.rpm` from
+Grab `.AppImage`, `.deb`, or `.rpm` from
 [GitHub Releases](https://github.com/dvai-global/dvai-bridge/releases/latest).
 
 ```sh
@@ -68,62 +67,61 @@ sudo dnf install ./dvai-hub-*.x86_64.rpm
 
 On first launch, the Hub:
 
-1. Starts the embedded HTTP server on a free port (defaults to the
-   `38883` range; falls back if busy).
-2. Begins advertising itself on your LAN via mDNS as a peer
+1. Starts the embedded HTTP server on a free port. Defaults to the
+   `38883` range; falls back if busy.
+2. Advertises itself on your LAN via mDNS as a peer
    (`_dvai-bridge._tcp.local`).
-3. Lives in your system tray. Clicking the tray icon opens the
-   dashboard; closing the window leaves Hub running in the tray.
+3. Lives in your system tray. Click the tray icon — the dashboard
+   opens. Close the window — Hub stays running in the tray.
 
 The dashboard's first-run wizard walks you through:
 
-- **Engines:** does the Hub have permission to surface external
-  engines (Ollama, LM Studio, ...)? Default off — you opt in tab
-  by tab from the Engines tab afterwards.
-- **Auto-start at login:** opt in here or later from Settings.
+- **Engines** — should the Hub surface external engines (Ollama, LM
+  Studio, …)? Default off. You opt in tab by tab from the Engines tab
+  afterwards.
+- **Auto-start at login** — opt in here or later from Settings.
 
 ---
 
 ## Pair your phone
 
-Open your dvai-bridge-powered mobile app on the same Wi-Fi network
-as the Hub. The app's first inference request:
+Open your dvai-bridge-powered mobile app on the same Wi-Fi as the Hub.
+The app's first inference request:
 
 1. Triggers an mDNS handshake to your Hub.
-2. Surfaces an **approval modal** in the Hub dashboard:
+2. Pops an **approval modal** in the Hub dashboard —
    _"iPhone wants to pair with this Hub on behalf of `<your-app>`."_
-3. On approve, a 256-bit pairing key is generated and stored.
-   Subsequent requests from the same phone are HMAC-signed with
-   that key — no further prompts.
+3. On approve, a 256-bit pairing key is generated and stored. Every
+   request after that from the same phone is HMAC-signed with that
+   key. No more prompts.
 
-The pairing is per-app. If you install a different app, it
-triggers its own approval prompt and gets its own key. Revoking
-one app doesn't affect the others.
+Pairing is per-app. Install a different app — it triggers its own
+approval prompt and gets its own key. Revoke one app, the others are
+untouched.
 
-Pairings expire after 30 days of inactivity. Re-handshake is
-silent if you re-approve.
+Pairings expire after 30 days of inactivity. Re-handshake is silent if
+you re-approve.
 
 ---
 
 ## Use it
 
 There's nothing to do. Once paired, your mobile app's inference
-requests route to the Hub automatically, subject to the usual
-offload rules:
+requests route to the Hub automatically. Subject to the usual offload
+rules:
 
 - The Hub runs the request locally if it has the model cached.
-- If the requested model isn't an exact match, the Hub may
-  substitute a same-shape model with a different quantization
-  (only when you've approved better-quant substitution per-app
-  in Settings).
+- If the requested model isn't an exact match, the Hub may substitute
+  a same-shape model with a different quantization — only when you've
+  approved better-quant substitution per-app in Settings.
 - If no compatible model is cached, the Hub returns a structured
-  `no_capable_device` error — your mobile app's offload policy
-  decides whether to fall back to local inference.
+  `no_capable_device` error. Your mobile app's offload policy decides
+  whether to fall back to local inference.
 
-The mobile app's chat client (LangChain, OpenAI SDK, etc.) sees
-a normal SSE-streamed response — same shape as if it had run
-locally. The fact that the work happened on your laptop is
-invisible at the wire.
+The mobile app's chat client (LangChain, OpenAI SDK, etc.) sees a
+normal SSE-streamed response — same shape as if it had run locally.
+The fact that the work happened on your laptop is invisible at the
+wire.
 
 ---
 
@@ -147,24 +145,23 @@ invisible at the wire.
 ```
 
 The Hub is built on the same v3.0 distributed-inference primitives
-that power any other dvai-bridge target — capability assessment,
-LAN mDNS discovery, HMAC-signed pairing handshake, OpenAI-compat
-proxy. What's new in v3.1:
+that power every other dvai-bridge target — capability assessment, LAN
+mDNS discovery, HMAC-signed pairing handshake, OpenAI-compat proxy.
+What's new in v3.1:
 
 - **Multi-tenant pairing isolation.** A single Hub serves many
-  unrelated apps; each gets its own pairing key, capability
-  cache, and audit log. The Flavor 2 (developer-fork) build
-  locks to a single appId.
-- **Strict substitution policy.** When a request asks for
-  `gemma-4-E2B-q4-instruct` and the Hub has `gemma-4-E2B-q8-instruct`
-  cached, the policy chooses: refuse (default), or substitute
-  with explicit warning (per-pairing opt-in). No silent
-  family / version / size / type mismatches.
-- **External engine bridge.** Opt-in framework that surfaces
-  Ollama / LM Studio / vLLM / llama-server / llamafile as
-  additional backend pools. Each engine's cached models are
-  parsed through the same canonical-name parser so the
-  substitution policy can reason about them.
+  unrelated apps. Each gets its own pairing key, capability cache, and
+  audit log. The Flavor 2 (developer-fork) build locks to a single
+  appId.
+- **Strict substitution policy.** Request asks for
+  `gemma-4-E2B-q4-instruct`. Hub has `gemma-4-E2B-q8-instruct` cached.
+  The policy chooses — refuse (default), or substitute with an
+  explicit warning (per-pairing opt-in). No silent family / version /
+  size / type mismatches.
+- **External engine bridge.** Opt-in framework that surfaces Ollama,
+  LM Studio, vLLM, llama-server, and llamafile as additional backend
+  pools. Each engine's cached models flow through the same canonical-
+  name parser, so the substitution policy can reason about them.
 
 ---
 
@@ -185,13 +182,13 @@ proxy. What's new in v3.1:
 
 ## Privacy
 
-- Hub-served requests **never** leave your network unless you
+- Hub-served requests **never** leave your network. Unless you
   configure a `rendezvousUrl` for the internet path.
-- Audit logs live on disk in your user-data directory; nothing is
+- Audit logs live on disk in your user-data directory. Nothing is
   transmitted to DeepVoiceAI.
-- The Hub does not auto-update by default. Updates come through
-  whatever distribution channel you installed from
-  (Homebrew / winget / direct download).
+- The Hub doesn't auto-update by default. Updates come through
+  whatever channel you installed from — Homebrew, winget, direct
+  download.
 
 ---
 
@@ -199,25 +196,24 @@ proxy. What's new in v3.1:
 
 **My phone can't find the Hub.**
 - Same Wi-Fi network? Same subnet?
-- Corporate / school networks frequently block mDNS. Try a phone
-  hotspot or your home router.
-- Open the dashboard's Status tab — does it show a baseUrl?
-  Visit `http://<hub-baseurl>/v1/dvai/health` from your phone's
-  browser to confirm reachability.
+- Corporate / school networks often block mDNS. Try a phone hotspot or
+  your home router.
+- Open the dashboard's Status tab — does it show a baseUrl? Visit
+  `http://<hub-baseurl>/v1/dvai/health` from your phone's browser to
+  confirm reachability.
 
 **The pairing modal never appears.**
-- Look for a tray notification. If notifications are disabled in
-  your OS, the Hub falls back to surfacing the modal on the next
-  dashboard open.
-- Is the Hub paused? Check the tray icon; "Resume peer-mode" wakes
-  the embedded HTTP server.
+- Look for a tray notification. If notifications are disabled in your
+  OS, the Hub falls back to surfacing the modal on the next dashboard
+  open.
+- Is the Hub paused? Check the tray icon. "Resume peer-mode" wakes the
+  embedded HTTP server.
 
 **An inference request returns `no_capable_device`.**
 - Check the Models tab — is the requested model cached?
-- Check the Engines tab — is the engine that has the model
-  enabled?
-- Check the per-app Substitution Policy in Paired Apps — is the
-  app allowed to use a different quant?
+- Check the Engines tab — is the engine that has the model enabled?
+- Check the per-app Substitution Policy in Paired Apps — is the app
+  allowed to use a different quant?
 
 [Full distributed-inference troubleshooting →](/development/distributed-inference-testing#troubleshooting)
 

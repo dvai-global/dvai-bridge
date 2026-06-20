@@ -1,14 +1,14 @@
 # License setup — .NET
 
 You added `DVAIBridge` to your .NET MAUI, Avalonia, WinUI, or console
-project and want to ship a release. Here's the licensing path.
+project. You want to ship a release. Here's the licensing path.
 
 ## TL;DR
 
 Add `dvai-license.jwt` to your `.csproj` as content with
 `CopyToOutputDirectory="PreserveNewest"`. The SDK reads it from the
-app's working directory at startup. In `Debug` configurations the SDK
-ignores license problems.
+app's working directory at startup. `Debug` configurations ignore
+license problems.
 
 ## Where the file goes
 
@@ -20,7 +20,7 @@ MyApp/
   dvai-license.jwt
 ```
 
-Then mark it as content so it ends up next to the binary:
+Mark it as content so it lands next to the binary:
 
 ```xml
 <ItemGroup>
@@ -38,17 +38,17 @@ For MAUI / mobile build profiles, also include it as a MAUI asset:
 </ItemGroup>
 ```
 
-Alternative locations the SDK also checks (in priority order):
+Alternative locations the SDK also checks — in priority order:
 
 1. Inline JWT via `StartOptions { LicenseToken = "..." }`.
 2. Explicit path via `StartOptions { LicenseKeyPath = "..." }`.
 3. `DVAI_LICENSE_PATH` environment variable.
 4. `DVAI_LICENSE_TOKEN` environment variable.
-5. `dvai-license.jwt` in `AppContext.BaseDirectory` (auto-discovered).
+5. `dvai-license.jwt` in `AppContext.BaseDirectory` — auto-discovered.
 
 ## Code: with vs. without
 
-Default (license deployed next to binary):
+Default — license deployed next to binary:
 
 ```csharp
 using DVAIBridge;
@@ -63,7 +63,7 @@ Console.WriteLine(bound.BaseUrl);          // http://127.0.0.1:38883/v1
 Console.WriteLine(bound.LicenseStatus);    // Commercial { Licensee = "Acme", ... }
 ```
 
-Inline JWT (e.g. read from a config service):
+Inline JWT — e.g. read from a config service:
 
 ```csharp
 var token = Environment.GetEnvironmentVariable("DVAI_LICENSE_JWT")
@@ -121,13 +121,13 @@ catch (LicenseRequiredException ex)
 `Debug` builds skip license checks automatically. The SDK detects
 debug mode via `Debugger.IsAttached` and `#if DEBUG`.
 
-To force dev mode explicitly:
+Force dev mode explicitly:
 
 ```bash
 DVAI_FORCE_DEV=1 dotnet run -c Release
 ```
 
-To rehearse the production code path:
+Rehearse the production code path:
 
 ```bash
 DVAI_FORCE_PROD=1 dotnet run -c Release
@@ -135,13 +135,12 @@ DVAI_FORCE_PROD=1 dotnet run -c Release
 
 ## Per-flavour notes
 
-- **MAUI iOS / Android**: the file is loaded from the bundled
-  `MauiAsset` path on mobile and from `AppContext.BaseDirectory` on
-  Catalyst.
-- **Avalonia / WinUI desktop**: the file lives next to the binary in
+- **MAUI iOS / Android** — the file loads from the bundled `MauiAsset`
+  path on mobile and from `AppContext.BaseDirectory` on Catalyst.
+- **Avalonia / WinUI desktop** — the file lives next to the binary in
   `bin/<config>/<tfm>/`.
-- **Console / server**: same discovery rules as
-  [Node](./node) (env vars, cwd, etc.).
+- **Console / server** — same discovery rules as [Node](./node) — env
+  vars, cwd, etc.
 
 ## When validation fails
 
@@ -153,8 +152,8 @@ DVAI_FORCE_PROD=1 dotnet run -c Release
 | `audience entries ... do not match` | Assembly identity doesn't match `aud` | Re-issue, or use a wildcard |
 | `expired` | Past `exp` | Renew |
 
-The runtime audience on .NET is the executing assembly's name, or the
-value of the `DVAI_AUDIENCE` env var if set. Most licenses include a
+The runtime audience on .NET is the executing assembly's name — or the
+value of the `DVAI_AUDIENCE` env var if set. Most licenses ship a
 `"*"` fallback.
 
 ## See also

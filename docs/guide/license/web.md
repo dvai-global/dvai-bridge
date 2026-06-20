@@ -1,21 +1,22 @@
 # License setup — Web
 
-You just ran `pnpm add @dvai-bridge/core` and want to ship to a real
+You ran `pnpm add @dvai-bridge/core`. You want to ship to a real
 domain. Here's everything you need.
 
 ## TL;DR
 
-Drop your `dvai-license.jwt` file into your app's static-assets folder
-(`public/` for Vite, Next.js, CRA; `static/` for SvelteKit) and ship.
-The SDK fetches `/dvai-license.jwt` from the same origin at startup,
-verifies the signature offline, and unlocks production behaviour. On
+Drop your `dvai-license.jwt` into your static-assets folder — `public/`
+for Vite, Next.js, CRA; `static/` for SvelteKit. Ship.
+
+The SDK fetches `/dvai-license.jwt` from the same origin at startup.
+Signature verification runs offline. Production behaviour unlocks. On
 localhost, the SDK ignores license problems entirely.
 
 ## Where the file goes
 
-Default (auto-discovered): your origin must serve the file at the URL
-`/dvai-license.jwt`. For most bundlers that means putting it in the
-static-assets folder:
+Default — auto-discovered. Your origin must serve the file at
+`/dvai-license.jwt`. For most bundlers that means the static-assets
+folder:
 
 | Framework | Drop the file at |
 | --- | --- |
@@ -26,13 +27,13 @@ static-assets folder:
 | Astro | `public/dvai-license.jwt` |
 | Webpack (no plugin) | whatever path your `output.publicPath` resolves to |
 
-Verify by hitting `https://<your-domain>/dvai-license.jwt` in a browser
-— you should see the JWT text. If your edge / CDN strips unknown file
+Verify — hit `https://<your-domain>/dvai-license.jwt` in a browser. You
+should see the JWT text. If your edge or CDN strips unknown file
 extensions, register `.jwt` as `text/plain` or `application/jwt`.
 
 ## Code: with vs. without
 
-Without a license (development, localhost):
+Without a license — development, localhost:
 
 ```ts
 import { DVAI } from "@dvai-bridge/core";
@@ -46,7 +47,7 @@ await dvai.initialize();
 // On localhost: dvai.licenseStatus.kind === "free-dev"
 ```
 
-With a license (production, default discovery):
+With a license — production, default discovery:
 
 ```ts
 // Same code as above. Nothing changes.
@@ -64,7 +65,7 @@ const dvai = new DVAI({
 });
 ```
 
-With the JWT injected inline (env var, CI secret, etc.):
+With the JWT injected inline — env var, CI secret, etc:
 
 ```ts
 const dvai = new DVAI({
@@ -74,12 +75,12 @@ const dvai = new DVAI({
 });
 ```
 
-`licenseToken` always wins over `licenseKeyPath`, which wins over
-auto-discovery.
+Precedence — `licenseToken` wins over `licenseKeyPath`, which wins
+over auto-discovery.
 
 ## What happens without a license
 
-In production (any non-localhost origin), `initialize()` throws
+In production — any non-localhost origin — `initialize()` throws
 `LicenseRequiredError`:
 
 ```ts
@@ -97,18 +98,18 @@ try {
 }
 ```
 
-The error message includes the resolution steps inline; surface it in
-your error reporter (Sentry, console, server log) and you'll see
+The error message ships the resolution steps inline. Surface it in
+your error reporter — Sentry, console, server log — and you'll see
 exactly which check failed.
 
 ## Testing locally without a license
 
-You don't have to do anything — `localhost`, `127.0.0.1`, `*.local`,
-and RFC1918 hostnames all auto-detect as dev mode. The SDK will start
-and log `licenseStatus.kind === "free-dev"`.
+You don't have to do anything. `localhost`, `127.0.0.1`, `*.local`, and
+RFC1918 hostnames all auto-detect as dev mode. The SDK starts and logs
+`licenseStatus.kind === "free-dev"`.
 
-If you serve your dev build from a non-localhost host (e.g. a real
-DNS name behind ngrok), force dev mode explicitly:
+Serving your dev build from a non-localhost host — e.g. a real DNS
+name behind ngrok? Force dev mode:
 
 ```ts
 // Pick one of these before DVAI's first initialize():
@@ -136,8 +137,8 @@ Common failures and what they mean:
 | `audience entries ... do not match` | Token bound to a different hostname | Re-issue with the right `aud`, or use a `*.your-domain.com` wildcard |
 | `expired` | Past `exp` | Renew |
 
-Every reason is logged to `console` when validation fails, even when
-the SDK throws.
+Every reason logs to `console` when validation fails — even when the
+SDK throws.
 
 ## See also
 

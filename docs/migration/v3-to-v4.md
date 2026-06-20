@@ -7,11 +7,11 @@
 2. Production deployments without a valid license now **throw**
    `LicenseRequiredError` at SDK startup. The previous "free-prod tier
    with attribution badge" path is removed.
-3. Development environments (localhost, debug builds, `NODE_ENV=test`,
-   `DVAI_FORCE_DEV=1`) bypass licensing entirely — devs running
+3. Development environments — localhost, debug builds, `NODE_ENV=test`,
+   `DVAI_FORCE_DEV=1` — bypass licensing entirely. Devs running
    locally need no changes.
 
-If your apps only run in dev mode (CI / localhost / debug builds), no
+If your apps only run in dev mode (CI / localhost / debug builds) — no
 code changes are required. If you ship to production, follow the
 walkthrough below.
 
@@ -23,10 +23,10 @@ walkthrough below.
 
 Two breaking changes drive the major bump:
 
-- **API surface change**: a public field on `DVAIConfig` / `StartOptions`
+- **API surface change** — a public field on `DVAIConfig` / `StartOptions`
   was removed.
-- **Behaviour change**: the SDK refuses to start in production without
-  a valid license, where v3 would warn and continue.
+- **Behaviour change** — the SDK refuses to start in production without
+  a valid license. v3 would warn and continue.
 
 Everything else is additive. The OpenAI HTTP wire contract, the
 backend matrix, the distributed-inference plane, the SDK lifecycle —
@@ -56,8 +56,8 @@ Every SDK gains two new optional fields:
   serverless / env-var-driven deploys where a file isn't practical.
   Wins over `licenseKeyPath` if both are set.
 
-If neither is configured, the SDK auto-discovers from
-platform-conventional locations:
+Set neither, and the SDK auto-discovers from platform-conventional
+locations:
 
 | Platform | Default discovery path |
 |---|---|
@@ -77,7 +77,7 @@ Two env vars work everywhere: `DVAI_LICENSE_PATH` (path) and
   (native)** — discriminated value the host app can inspect after
   startup. `"commercial" | "trial" | "free-dev"` when the SDK is
   running. Host-app dashboards can display the licensee name, expiry,
-  audience binding etc. without re-parsing the JWT.
+  audience binding — without re-parsing the JWT.
 
 ### Added — `LicenseRequiredError`
 
@@ -90,15 +90,15 @@ error's `localizedDescription` / `message` field includes:
 - How to bypass in dev (localhost, `NODE_ENV=test`, `DVAI_FORCE_DEV=1`,
   debug builds)
 
-Catch it if you want a custom error UI; let it propagate if you want
-the default behaviour ("app fails to start cleanly with an actionable
-console message").
+Catch it if you want a custom error UI. Let it propagate if you want
+the default behaviour — "app fails to start cleanly with an actionable
+console message".
 
 ### Added — `LicenseValidator` on every SDK's public surface
 
 Host apps that want to inspect license status *without* paying the
-full cost of `DVAI.initialize()` / `DVAIBridge.start()` (which loads
-models, starts the embedded HTTP server, runs the backend init) can
+full cost of `DVAI.initialize()` / `DVAIBridge.start()` — which loads
+models, starts the embedded HTTP server, runs the backend init — can
 now run the validator standalone. Same API shape across every SDK:
 
 ```ts
@@ -132,18 +132,18 @@ final status = await LicenseValidator().validate();
 ```
 
 Useful for license-status pills in app chrome, settings pages,
-setup wizards, CI smoke scripts, and any other place a full SDK
-boot would be heavyweight. Full per-SDK walkthrough at
+setup wizards, CI smoke scripts — any place a full SDK boot would
+be heavyweight. Full per-SDK walkthrough at
 [pre-init license inspection](/guide/license/pre-init-inspection).
 
 React Native and Capacitor consumers who want this from the JS layer
 should install `@dvai-bridge/core` as a regular dependency alongside
-the wrapper package; the wrappers themselves defer license validation
+the wrapper package. The wrappers themselves defer license validation
 to the native iOS / Android validators at start time.
 
 ### Changed — dev mode auto-bypass
 
-Unchanged in spirit but now load-bearing for the policy. The SDK runs
+Unchanged in spirit, but now load-bearing for the policy. The SDK runs
 without a license when any of these are true:
 
 - Browser hostname is `localhost`, `127.0.0.1`, `::1`, `*.local`,
@@ -166,15 +166,15 @@ testing the production path locally before shipping.
 
 ### Step 1 — obtain a license
 
-If you have a commercial license already, skip to Step 2.
+Got a commercial license already? Skip to Step 2.
 
 To obtain one, contact <https://deepvoiceai.com/dvai-bridge/license>.
-Trial licenses are available for evaluation; commercial licenses are
+Trial licenses are available for evaluation. Commercial licenses are
 required for production deployments.
 
 You'll receive a `dvai-license.jwt` file. Treat it like any other
-secret artifact (commit if you want it in version control, OR keep it
-out of git and inject via env var — both work).
+secret artifact — commit if you want it in version control, OR keep it
+out of git and inject via env var. Both work.
 
 ### Step 2 — drop the file at the default location
 
@@ -208,8 +208,8 @@ your-app/
 
 #### iOS
 
-Add the file as a bundle resource in Xcode (drag into the project
-navigator with "Copy items if needed" + "Add to target").
+Add the file as a bundle resource in Xcode — drag into the project
+navigator with "Copy items if needed" + "Add to target".
 
 Or programmatically:
 
@@ -256,9 +256,9 @@ Place the file at `assets/dvai-license.jwt`.
 
 #### React Native
 
-Pass through as `licenseToken` from your env-loading layer (the JS
-side can't read native assets cleanly, so an inline token is the
-pragmatic path):
+Pass through as `licenseToken` from your env-loading layer. The JS
+side can't read native assets cleanly — an inline token is the
+pragmatic path:
 
 ```ts
 import { DVAIBridge } from "@dvai-bridge/react-native";
@@ -305,9 +305,8 @@ Same shape on every SDK — see the per-platform pages under
 
 ### Step 4 — handle `LicenseRequiredError` if you want a custom UI
 
-The default behaviour (uncaught throw → app fails to start with a
-console error) is sensible for most deployments. If you want custom
-error UI:
+The default behaviour — uncaught throw → app fails to start with a
+console error — is sensible for most deployments. For custom error UI:
 
 ```ts
 import { LicenseRequiredError } from "@dvai-bridge/core";
@@ -326,20 +325,20 @@ try {
 ```
 
 Native SDKs expose the equivalent error type via their language's
-conventions (`LicenseRequiredError` on Swift / Kotlin / Dart,
-`LicenseRequiredException` on .NET).
+conventions — `LicenseRequiredError` on Swift / Kotlin / Dart,
+`LicenseRequiredException` on .NET.
 
 ---
 
 ## What didn't change
 
-The OpenAI HTTP wire surface, the backend matrix, the distributed-
-inference plane, the multi-tenant Hub, the per-SDK lifecycle, and
-every other v3.x API are unchanged. Your agent code, your model
-configurations, your peer-pairing flows — all keep working unaltered
-after the license field is set up.
+The OpenAI HTTP wire surface, the backend matrix, the
+distributed-inference plane, the multi-tenant Hub, the per-SDK
+lifecycle — every other v3.x API is unchanged. Your agent code, your
+model configurations, your peer-pairing flows — all keep working
+unaltered after the license field is set up.
 
-The dev-mode auto-bypass intent is unchanged too: developers running
+The dev-mode auto-bypass intent is unchanged too. Developers running
 locally on `pnpm dev` / `flutter run` / Xcode debug builds / Android
 debug builds never need a license. Only release/production builds
 enforce.
@@ -351,11 +350,11 @@ enforce.
 **Q: Can I keep the SDK working in production WITHOUT a license, like
 v3 did?**
 
-No, that's the whole point of v4. The v3 free-prod tier was a
-permissive default; v4 makes commercial use require a commercial
-license, consistent with the BSL 1.1 terms. If you want the v3
-behaviour for evaluation, use a **trial license** (free, limited
-duration, available from the same URL as commercial).
+No — that's the whole point of v4. The v3 free-prod tier was a
+permissive default. v4 makes commercial use require a commercial
+license, consistent with the BSL 1.1 terms. Want the v3 behaviour for
+evaluation? Use a **trial license** — free, limited duration, available
+from the same URL as commercial.
 
 **Q: Does this break my CI builds?**
 
@@ -393,8 +392,8 @@ list multiple bundle ids (`["com.acme.app", "com.acme.staging"]`).
 **Q: How do I rotate keys?**
 
 The SDK's public-key registry is `kid`-keyed (key id). Adding a new
-key for rotation is just adding a new entry to the registry; old
-licenses keep verifying against the old key until they expire, new
+key for rotation is just adding a new entry to the registry. Old
+licenses keep verifying against the old key until they expire; new
 licenses verify against the new key. See
 [the license-setup overview](/guide/license/) for the operator-side
 rotation procedure.

@@ -1,30 +1,34 @@
-# Auto-Recovery & Robustness
+# Auto-recovery and robustness
 
-Local AI inference can be unpredictable due to varying hardware and memory pressure. DVAI-Bridge includes advanced features to ensure your application remains stable even when the underlying engine fails.
+Local inference is unpredictable. Hardware varies. Memory pressure
+spikes. The engine sometimes fails. DVAI-Bridge ships built-in recovery
+so your app stays up when the model below it doesn't.
 
-## WebLLM Auto-Recovery
+## WebLLM auto-recovery
 
-WebLLM (MLC) can sometimes return blank outputs or hang if the WebGPU context is lost or overloaded. DVAI-Bridge implements an automatic recovery cycle for these scenarios.
+WebLLM (MLC) can return blank output or hang — usually a lost or
+overloaded WebGPU context. DVAI-Bridge runs an automatic recovery cycle
+when it sees that happen.
 
-### Detection Mechanism:
+### What counts as a fatal error
 
-DVAI-Bridge monitors the following as **Fatal Errors**:
+DVAI-Bridge watches for three signals.
 
-- **Blank Output**: The engine returns an empty string for a chat completion.
-- **Blank Stream**: A streaming response produces no text content before closing.
-- **Timeout**: The generation exceeds the `generationTimeout` (default: 60s).
+- **Blank output** — the engine returns an empty string for a chat completion.
+- **Blank stream** — a streaming response closes without producing text.
+- **Timeout** — generation exceeds `generationTimeout` (default: 60s).
 
-### Recovery Process:
+### What the recovery does
 
-When a fatal error is detected, DVAI-Bridge:
+When a fatal error fires, DVAI-Bridge:
 
-1.  **Unloads** the current backend (releasing memory and workers).
-2.  **Re-initializes** the backend (reloading the model and engine).
+1.  **Unloads** the current backend — releases memory and workers.
+2.  **Re-initializes** the backend — reloads the model and engine.
 3.  **Retries** the original request automatically.
 
-### Configuration:
+### Configuration
 
-You can control the recovery behavior via `maxRetries` (default: 2).
+Control the retry budget via `maxRetries` (default: 2).
 
 ```typescript
 const config = {
@@ -35,9 +39,11 @@ const config = {
 
 ---
 
-## Blank Chunk Detection
+## Blank chunk detection
 
-For streaming responses, DVAI-Bridge can abort the generation if it detects too many consecutive empty chunks, which often indicates the model is in an infinite loop or "stuck".
+On streaming responses, DVAI-Bridge can abort generation if too many
+consecutive empty chunks come through. That usually means the model is
+stuck in an infinite loop.
 
 ```typescript
 const config = {
@@ -47,9 +53,10 @@ const config = {
 
 ---
 
-## Resource Management
+## Resource management
 
-To prevent battery drain and memory leakage, you should unload the model when it's not needed (e.g., when the user navigates away from the chat).
+To save battery and memory, unload the model when you don't need it —
+e.g. when the user navigates away from chat.
 
 ```typescript
 // React

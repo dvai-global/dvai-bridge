@@ -1,20 +1,20 @@
 # Tested models
 
-The DVAI-Bridge Capacitor plugins are model-agnostic — anything in GGUF
-form runs on `capacitor-llama`, anything in MediaPipe `.task` form runs
+The DVAI-Bridge Capacitor plugins are model-agnostic. Anything in GGUF
+form runs on `capacitor-llama`. Anything in MediaPipe `.task` form runs
 on `capacitor-mediapipe`. This page lists the specific models we
 exercise in CI and pre-release smoke tests, organized by tier of
 verification effort.
 
 > [!NOTE]
-> Some model entries below carry a *placeholder* tag where the upstream
-> name has not yet been finalized at the time this document was written.
-> Verify the exact HF revision before pinning into your app.
+> Some entries below carry a *placeholder* tag — the upstream name
+> wasn't finalized when this document was written. Verify the exact HF
+> revision before pinning into your app.
 
 ## Tier 1 — development (per-PR smoke)
 
-Cached on the self-hosted CI runner. These models are loaded for every
-PR-level smoke run on iOS / Android.
+Cached on the self-hosted CI runner. Loaded on every PR-level smoke run
+on iOS and Android.
 
 | Backend | Model | Format | ~Size | Notes |
 |---|---|---|---|---|
@@ -23,10 +23,10 @@ PR-level smoke run on iOS / Android.
 | `capacitor-mediapipe` | `gemma-3n-E2B-it` *(placeholder if `gemma-4-E2B-it` not yet shipped)* | `.task` | ~1.5 GB | Vision-capable variant when the E2B `.task` artifact is published. |
 | `capacitor-foundation` | Apple-managed (implicit on iOS 26+) | — | 0 (zero-download) | No `modelPath`. Real-device required for full coverage; Simulator coverage is limited. |
 
-Memory footprint at runtime is roughly **1.3–1.6× the on-disk size** for
-GGUF (working buffers + KV cache scaled by `contextSize`). `.task`
-artifacts are closer to **1.1–1.3×** because MediaPipe manages
-memory differently.
+Runtime memory is roughly **1.3–1.6× the on-disk size** for GGUF —
+working buffers plus KV cache scaled by `contextSize`. `.task`
+artifacts are closer to **1.1–1.3×** because MediaPipe manages memory
+differently.
 
 ## Tier 2 — pre-release (manual, fuller coverage)
 
@@ -60,22 +60,23 @@ Run against a real device in the week before tagging a release.
 | 7B multimodal (audio + image) | 4096 | 99 | 384 |
 | Embeddings | 512 | 99 | n/a |
 
-`gpuLayers: 99` is "request maximum offload" — `llama.cpp` decides what
-fits. Lowering it manually is rarely needed; raise the floor only if
-you see the device thermal-throttling under sustained inference.
+`gpuLayers: 99` means "request maximum offload" — `llama.cpp` decides
+what fits. Lowering it manually is rarely needed. Raise the floor only
+if you see the device thermal-throttling under sustained inference.
 
 ## What we deliberately don't verify
 
-- Output quality, BLEU, or any benchmark accuracy. These tests check
-  *mechanics* — load, respond, stream, free — not whether the model
-  is good.
-- Specific token-per-second figures. They vary too widely across
+- Output quality. No BLEU, no benchmark accuracy. These tests check
+  *mechanics* — load, respond, stream, free — not whether the model is
+  good.
+- Specific tokens-per-second figures. They vary too widely across
   device tiers for a per-PR gate.
-- Long-running soak (>60s). Tier 2 covers a single round-trip per model;
-  longer sessions are an explicit user-test exercise pre-launch.
+- Long-running soak (>60s). Tier 2 covers a single round-trip per
+  model. Longer sessions are an explicit user-test exercise pre-launch.
 
 ## Curating this list
 
-This file is the authoritative reference; updates are docs-only commits.
+This file is the authoritative reference. Updates are docs-only commits.
 When upstream renames or removes a model, update both the entry above
-and the matching pinned URL / sha256 in your app's distribution config.
+and the matching pinned URL and sha256 in your app's distribution
+config.

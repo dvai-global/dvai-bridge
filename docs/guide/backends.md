@@ -2,23 +2,21 @@
 
 ## What does this do?
 
-A "backend" is the inference engine that actually runs the model.
-DVAI-Bridge picks one for you when you set `backend: "auto"`:
-WebLLM in browsers, llama.cpp on mobile + desktop, the platform-native
-runtime (Foundation, CoreML, MLX, MediaPipe, LiteRT) when you opt
-in. You usually don't think about this.
+A backend is the engine that actually runs the model. DVAI-Bridge picks
+one for you. WebLLM in browsers. llama.cpp on mobile and desktop. The
+platform-native runtime — Foundation, CoreML, MLX, MediaPipe, LiteRT —
+when you opt in. Most apps never touch this.
 
-If you just want to ship:
+Set `backend: "auto"` and ship.
 
 ```ts
 const dvai = new DVAI({ backend: "auto", modelId: "Llama-3.2-3B-Instruct-Q4_K_M" });
 await dvai.initialize();
 ```
 
-The rest of this page is for when `auto` doesn't pick what you want
-— e.g. you specifically need WebLLM's MLC compilation, you're loading
-an exotic multimodal model that needs the declarative loader, or
-you're writing the custom-pipeline-factory escape hatch.
+The rest of this page is for when `auto` isn't what you want — you
+specifically need WebLLM's MLC compilation, you're loading an exotic
+multimodal model, or you're writing the custom-pipeline escape hatch.
 
 ::: tip Quick picker
 - Browser, just need text generation? → `backend: "webllm"` (or
@@ -31,22 +29,23 @@ you're writing the custom-pipeline-factory escape hatch.
 
 ## WebLLM (default for browser)
 
-The **WebLLM** backend uses `@mlc-ai/web-llm` to run high-performance, MLC-compiled models via WebGPU.
+The **WebLLM** backend runs MLC-compiled models over WebGPU via
+`@mlc-ai/web-llm`.
 
-### Best For:
+### Best for
 
-- High-performance text generation in the browser.
-- Models explicitly compiled for the MLC runtime (e.g., Llama, Gemma, Vicuna).
+- Fast text generation in the browser.
+- Models compiled for the MLC runtime — Llama, Gemma, Vicuna.
 
-### Setup:
+### Setup
 
-Make sure to install the dependency:
+Install the dependency.
 
 ```bash
 pnpm add @mlc-ai/web-llm
 ```
 
-### Configuration:
+### Configuration
 
 ```typescript
 const config = {
@@ -60,23 +59,26 @@ const config = {
 
 ## Transformers.js (v4)
 
-The **Transformers.js** backend uses `@huggingface/transformers` (v4.0.1+) to run ONNX models with WebGPU acceleration (with automatic CPU fallback).
+The **Transformers.js** backend runs ONNX models via
+`@huggingface/transformers` (v4.0.1+). WebGPU when available — CPU when
+not.
 
-### Best For:
+### Best for
 
-- Multi-modal tasks (Text-to-Image, ASR, TTS, Image Segmentation).
-- Models from the Hugging Face Hub (thousands of compatible models).
-- Environments where WebGPU might not be available (CPU fallback).
+- Multimodal tasks — text-to-image, ASR, TTS, image segmentation.
+- The full Hugging Face Hub catalogue — thousands of models.
+- Devices without WebGPU — CPU fallback is automatic.
 
-### Setup:
+### Setup
 
 ```bash
 pnpm add @huggingface/transformers@^4.0.1
 ```
 
-### Configuration (Standard Pipeline):
+### Configuration (standard pipeline)
 
-For models supported by the built-in `pipeline()` API (text-generation, feature-extraction, etc.):
+For models the built-in `pipeline()` covers — text-generation,
+feature-extraction, and friends.
 
 ```typescript
 const config = {
@@ -92,25 +94,38 @@ const config = {
 ```
 
 > [!IMPORTANT]
-> **Worker thread is the default, and the library tries hard to keep it that way.** If the worker URL is missing or the script fails to load, dvai-bridge logs a loud error and falls back to running on the main thread — which WILL block your UI during inference. Run `npx dvai-bridge init` once to copy the worker file into your `public/`, and don't override `transformersWorkerUrl: ""` unless you genuinely need main-thread inference.
+> **Worker thread is the default — keep it that way.** If the worker URL is missing or the script fails to load, dvai-bridge logs a loud error and falls back to the main thread, which WILL block your UI during inference. Run `npx dvai-bridge init` once to copy the worker file into `public/`. Don't override `transformersWorkerUrl: ""` unless you genuinely need main-thread inference.
 
 > [!TIP]
-> **Dealing with "Unknown ArrayValue filter: trim"**: If you encounter this error (common with Llama 3/3.2 models), ensure your input content is a string. `dvai-bridge` automatically flattens structured content blocks (like those from LangChain) into strings to maintain compatibility with the model's Jinja2 templates.
+> **"Unknown ArrayValue filter: trim"** — common with Llama 3 / 3.2. The fix is that input content needs to be a string. `dvai-bridge` flattens structured content blocks (like LangChain's) into strings automatically, so the model's Jinja2 templates keep working.
 
 ---
 
-### Declarative Multimodal Loader
+### Declarative multimodal loader
 
-Many modern models (Gemma 4, LLaVA, Idefics, Qwen-VL, etc.) don't fit the stock `pipeline()` factory — they expect to be loaded via named model and processor classes, with audio / image inputs passed through the processor's positional arguments. Instead of hardcoding a detection table per model family, dvai-bridge exposes three declarative config fields that tell the library **which transformers.js classes to load, which processor to pair them with, and which submodules to null after load**. Everything else — the worker, the OpenAI endpoint, streaming, `runPipeline()` for binary payloads — just works.
+Many modern models — Gemma 4, LLaVA, Idefics, Qwen-VL — don't fit the
+stock `pipeline()` factory. They load via named model and processor
+classes. They take audio and image inputs through the processor's
+positional arguments. Hardcoding a detection table per family doesn't
+scale.
 
-This is the recommended path for multimodal models. It runs in the worker by default (so the main thread stays unblocked) and on the main-thread fallback path too (so behavior is identical regardless of where the model lands).
+Instead, dvai-bridge exposes three declarative config fields. They tell
+the library which transformers.js classes to load, which processor to
+pair them with, and which submodules to null after load. Everything else
+— the worker, the OpenAI endpoint, streaming, `runPipeline()` for binary
+payloads — just works.
+
+This is the recommended path for multimodal models. It runs in the
+worker by default. The main thread stays free. The main-thread fallback
+takes the same path, so behaviour is identical regardless of where the
+model lands.
 
 #### When to use the declarative loader
 
-- Your model requires a specific `...ForConditionalGeneration` class, not `pipeline()`.
-- Your model needs `AutoProcessor` (or similar) for audio/image/video inputs alongside text.
-- You want to null a specific submodule after load (e.g. drop `vision_encoder` on a voice-only app to reclaim VRAM).
-- You want the worker path to handle it — no framework-specific factory code to cross the worker boundary.
+- Your model requires a specific `...ForConditionalGeneration` class — not `pipeline()`.
+- Your model needs `AutoProcessor` (or similar) for audio, image, or video inputs alongside text.
+- You want to null a submodule after load — e.g. drop `vision_encoder` on a voice-only app to reclaim VRAM.
+- You want the worker path to handle it — no framework-specific factory code crossing the worker boundary.
 
 #### Example: Gemma 4 E2B (audio + text, voice-only host)
 
@@ -147,7 +162,9 @@ await dvai.initialize();
 
 #### Feeding audio / image inputs
 
-The generic multimodal callable uses the common `processor(prompt, images, audio, options)` call signature. Pass media as content parts on the last user message:
+The generic multimodal callable uses the common
+`processor(prompt, images, audio, options)` signature. Pass media as
+content parts on the last user message.
 
 ```typescript
 // Audio (e.g. Gemma-4 audio transcription + formatting)
@@ -172,7 +189,11 @@ console.log(result[0].generated_text);
 // and arrive at the processor as the `images` positional arg.
 ```
 
-`runPipeline()` posts the messages to the worker via `postMessage`, so binary payloads like `Float32Array` survive intact — JSON serialization through MSW would turn them into enumerated object keys and explode the tokenizer. Use `runPipeline()` for any call that carries binary content; text-only calls can still go through `chatCompletion()` / MSW.
+`runPipeline()` posts the messages to the worker via `postMessage` —
+binary payloads like `Float32Array` survive intact. JSON serialization
+through MSW would turn them into enumerated object keys and blow up the
+tokenizer. Use `runPipeline()` for any call that carries binary content.
+Text-only calls can still go through `chatCompletion()` or MSW.
 
 #### The three declarative config fields
 
@@ -184,26 +205,36 @@ console.log(result[0].generated_text);
 
 #### Generic by design
 
-The library has no hardcoded knowledge of any specific model. If transformers.js exports the class and the processor follows the common `(prompt, images, audio, options)` call signature, it just works. Swapping to a different multimodal checkpoint tomorrow is three string fields in config — no library-side change.
+The library hardcodes no model-specific knowledge. If transformers.js
+exports the class and the processor follows the common
+`(prompt, images, audio, options)` signature, it just works. Swapping to
+a different multimodal checkpoint tomorrow is three string fields in
+config — no library change.
 
-If you hit a model whose processor takes a non-standard call signature (kwargs-style, videos-only, etc.), drop to the `createPipeline` factory below for full control. That's the only escape hatch you'll ever need.
+For processors with a non-standard call signature — kwargs-style,
+videos-only — drop to the `createPipeline` factory below. That's the
+only escape hatch you'll ever need.
 
 ---
 
-### Custom Pipeline Factory (`createPipeline`)
+### Custom pipeline factory (`createPipeline`)
 
-When the declarative loader can't express what your model needs — exotic processor call signatures, bespoke pre/post-processing, a tokenizer-only setup — pass a factory function instead. You supply the model-loading and inference logic; dvai-bridge handles MSW, the OpenAI endpoint, response formatting, and streaming.
+When the declarative loader can't express what your model needs — exotic
+processor signatures, bespoke pre/post-processing, a tokenizer-only
+setup — pass a factory function. You supply the model loading and
+inference logic. dvai-bridge handles MSW, the OpenAI endpoint, response
+formatting, and streaming.
 
 > [!IMPORTANT]
 > **`createPipeline` is main-thread only.** Function closures can't cross the Worker boundary. If your model needs to run off the main thread, use the **declarative loader** above — that path runs in the worker.
 
-#### When to use `createPipeline`:
+#### When to use `createPipeline`
 
-- The model's processor takes kwargs or a non-standard positional order that the generic multimodal callable doesn't match.
-- You need `AutoTokenizer` + `AutoModelForCausalLM` with custom chat-template handling.
-- You want to inject pre/post-processing (e.g. a deduplication pass, a custom streamer).
+- The model's processor takes kwargs, or a positional order the generic multimodal callable doesn't match.
+- You need `AutoTokenizer` + `AutoModelForCausalLM` with a custom chat-template.
+- You want to inject pre/post-processing — a deduplication pass, a custom streamer.
 
-#### Example: Tokenizer-based text generation
+#### Example: tokenizer-based text generation
 
 ```typescript
 import { DVAI, type CreatePipelineFn } from "@dvai-bridge/core";
@@ -253,7 +284,7 @@ const dvai = new DVAI({
 });
 ```
 
-#### The `CreatePipelineFn` Signature
+#### The `CreatePipelineFn` signature
 
 ```typescript
 type CreatePipelineFn = (
@@ -274,7 +305,7 @@ type PipelineCallable = (messages: any, options?: any) => Promise<any>;
 
 ---
 
-### Multi-Modal Examples (Standard Pipeline):
+### Multimodal examples (standard pipeline)
 
 ```typescript
 // For non-text tasks supported by pipeline(), use runPipeline() directly
@@ -288,10 +319,10 @@ const result = await ai.runPipeline(
 ## Native backends (mobile + desktop)
 
 The web backends above run inside the browser process. For Capacitor,
-native iOS, native Android, and React Native consumers, dvai-bridge
-ships a parallel family of **native** backends that boot a real
-`127.0.0.1` HTTP server inside the app and serve the same OpenAI surface.
-The agent code never has to change between platforms.
+native iOS, native Android, and React Native, dvai-bridge ships a
+parallel family of **native** backends. They boot a real `127.0.0.1`
+HTTP server inside the app and serve the same OpenAI surface. Your agent
+code stays the same on every platform.
 
 | Native backend | Engine | Platforms | Model format | Guide |
 |---|---|---|---|---|
@@ -302,32 +333,38 @@ The agent code never has to change between platforms.
 | **MediaPipe** | LiteRT-LM (post-Phase 3B runtime swap) | Android | `.task` / `.litertlm` | [Android Native SDK § MediaPipe](./android-native-sdk.md#mediapipe-backendkindmediapipe) |
 | **LiteRT** | Bare LiteRT 2.x (TFLite successor) | Android | `.tflite` / `.litertlm` | [Android Native SDK § LiteRT](./android-native-sdk.md#litert-backendkindlitert) |
 
-Two notes worth calling out:
+Two notes worth calling out.
 
-- The Android **MediaPipe** backend migrated from the deprecated
+- The Android **MediaPipe** backend moved from the deprecated
   `com.google.mediapipe:tasks-genai` SDK to
   `com.google.ai.edge.litertlm:litertlm-android` in v2.0 (Phase 3B).
-  Same handler behaviour, same Capacitor JS contract — the swap is
-  transparent to JS callers and to the `MediaPipe` enum case on the
+  Same handler behaviour. Same Capacitor JS contract. The swap is
+  invisible to JS callers and to the `MediaPipe` enum case on the
   Android Native SDK.
 - The Android **LiteRT** backend (new in v2.1) is distinct from the
   bundled-task MediaPipe wrapper. It runs Llama-style stateful
   `.tflite` / `.litertlm` checkpoints directly on `CompiledModel` with
-  a pure-Kotlin `tokenizer.json` BPE parser. SentencePiece / Unigram
+  a pure-Kotlin `tokenizer.json` BPE parser. SentencePiece and Unigram
   tokenizers are not supported — Gemma users should pick the
   `MediaPipe` backend instead.
 
-For the per-backend modality matrix (text / image / audio / embeddings),
+For the per-backend modality matrix — text, image, audio, embeddings —
 see [Multimodal](./multimodal.md).
 
 ---
 
-## Performance References
+## Performance references
 
-DVAI-Bridge adds an OpenAI-compatible surface + MSW interception on top of each backend — the raw inference speed is whatever the underlying engine delivers. Numbers are heavily hardware- and model-dependent; rather than republish them, here are the upstream sources:
+DVAI-Bridge adds an OpenAI-compatible surface and MSW interception on
+top of each backend. Raw inference speed is whatever the underlying
+engine delivers. Numbers vary widely with hardware and model — rather
+than republish them, here are the upstream sources.
 
 - **WebLLM** — [WebLLM benchmarks](https://webllm.mlc.ai/#chat-demo) publish tokens/sec for common MLC-compiled models on WebGPU (e.g., Llama 3.1 8B Q4 ≈ 41 tok/s and Phi 3.5 mini ≈ 71 tok/s on an M3 Max, ~71–80% of native speed).
 - **Transformers.js** — HuggingFace maintains an official [transformers.js-benchmarking toolkit](https://github.com/huggingface/transformers.js-benchmarking) for WASM / WebGPU / WebNN / Node. Representative numbers are in the [v3 launch post](https://huggingface.co/blog/transformersjs-v3) (e.g., up to ~64× WebGPU-vs-WASM speedup on embeddings; `all-MiniLM-L6-v2` at 8–12 ms/inference on an M2 Air).
 - **llama.cpp (native backend across `@dvai-bridge/capacitor-llama` / `@dvai-bridge/ios` / `@dvai-bridge/android` / `@dvai-bridge/react-native`)** — [`llama-bench`](https://github.com/ggerganov/llama.cpp/tree/master/examples/llama-bench) is the standard tool for per-device prompt-processing and text-generation throughput; results vary widely across CPUs and mobile GPUs (Metal / Vulkan).
 
-To measure the bridge's own overhead (MSW roundtrip, worker postMessage, streaming adapter), compare `dvai.chatCompletion(...)` to a `fetch(mockUrl, ...)` call of the same prompt — they should differ by a few ms at most on modern browsers.
+To measure the bridge's own overhead — MSW roundtrip, worker
+postMessage, streaming adapter — compare `dvai.chatCompletion(...)` to
+a `fetch(mockUrl, ...)` call of the same prompt. On modern browsers
+they should differ by a few ms at most.

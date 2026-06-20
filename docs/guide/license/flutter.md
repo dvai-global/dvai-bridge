@@ -1,15 +1,15 @@
 # License setup — Flutter
 
-You added `dvai_bridge` to your `pubspec.yaml` and want to ship a
+You added `dvai_bridge` to your `pubspec.yaml`. You want to ship a
 release build. Here's the licensing path.
 
 ## TL;DR
 
-Drop `dvai-license.jwt` into your app's `assets/` directory and
-register it in `pubspec.yaml`. At `DVAIBridge.instance.start(...)`
-time, the SDK loads it via `rootBundle`, verifies the ES256 signature
-offline, and unlocks production behaviour. In `flutter run --debug`
-the SDK ignores license problems.
+Drop `dvai-license.jwt` into your app's `assets/` directory. Register
+it in `pubspec.yaml`. At `DVAIBridge.instance.start(...)`, the SDK
+loads it via `rootBundle`, verifies the ES256 signature offline, and
+unlocks production behaviour. `flutter run --debug` ignores license
+problems.
 
 ## Where the file goes
 
@@ -30,17 +30,17 @@ flutter:
     - assets/dvai-license.jwt
 ```
 
-Alternative locations the SDK also checks (in priority order):
+Alternative locations the SDK also checks — in priority order:
 
 1. Inline JWT via `StartOptions(licenseToken: "...")`.
 2. Explicit path via `StartOptions(licenseKeyPath: ...)` — a path
    under `getApplicationDocumentsDirectory()` is typical for tokens
    downloaded after install.
-3. `assets/dvai-license.jwt` via `rootBundle` (auto-discovered).
+3. `assets/dvai-license.jwt` via `rootBundle` — auto-discovered.
 
 ## Code: with vs. without
 
-Default (license bundled in `assets/`):
+Default — license bundled in `assets/`:
 
 ```dart
 import 'package:dvai_bridge/dvai_bridge.dart';
@@ -54,7 +54,7 @@ print(bound.baseUrl);            // http://127.0.0.1:38883/v1
 print(bound.licenseStatus);      // LicenseStatus.commercial(licensee: "Acme", ...)
 ```
 
-With an inline JWT (loaded from `flutter_secure_storage`):
+Inline JWT — loaded from `flutter_secure_storage`:
 
 ```dart
 final token = await secureStorage.read(key: 'dvai_license_jwt');
@@ -66,7 +66,7 @@ final bound = await DVAIBridge.instance.start(StartOptions(
 ));
 ```
 
-With an explicit file path:
+Explicit file path:
 
 ```dart
 final docs = await getApplicationDocumentsDirectory();
@@ -88,7 +88,7 @@ in v3.3 — pin to v3.3+ to enforce on Flutter.
 
 ## What happens without a license
 
-In release builds (`flutter build apk`, `flutter build ipa`),
+In release builds — `flutter build apk`, `flutter build ipa` —
 `start(...)` throws `DVAIBridgeError.licenseRequired`:
 
 ```dart
@@ -105,11 +105,10 @@ try {
 
 ## Testing locally without a license
 
-`flutter run --debug` automatically enables dev mode. The SDK
-detects debug mode via `kDebugMode` (which Flutter sets via
-`assert(...)` inlining).
+`flutter run --debug` enables dev mode automatically. The SDK detects
+debug mode via `kDebugMode` — Flutter inlines that with `assert(...)`.
 
-To force dev mode explicitly inside a profile / release build:
+Force dev mode explicitly inside a profile / release build:
 
 ```dart
 const bool kForceDev = bool.fromEnvironment('DVAI_FORCE_DEV', defaultValue: false);
@@ -121,7 +120,7 @@ Pass at build time:
 flutter build apk --dart-define=DVAI_FORCE_DEV=true
 ```
 
-To rehearse production behaviour in a debug build:
+Rehearse production behaviour in a debug build:
 
 ```bash
 flutter run --dart-define=DVAI_FORCE_PROD=true
@@ -137,9 +136,9 @@ flutter run --dart-define=DVAI_FORCE_PROD=true
 | `audience entries ... do not match` | Bundle id / package name doesn't match | Re-issue with the right ids, or use a wildcard |
 | `expired` | Past `exp` | Renew |
 
-The runtime audience on Flutter is the platform-specific app id:
-`CFBundleIdentifier` on iOS, `applicationId` on Android. Most
-licenses include both plus a `"*"` fallback.
+The runtime audience on Flutter is the platform-specific app id —
+`CFBundleIdentifier` on iOS, `applicationId` on Android. Most licenses
+ship both plus a `"*"` fallback.
 
 ## See also
 

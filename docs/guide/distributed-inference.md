@@ -2,10 +2,10 @@
 
 ## What does this do?
 
-If the phone in someone's pocket is too slow to run a model, their
-laptop on the same Wi-Fi probably isn't. DVAI-Bridge can spot that
-mid-request and route the inference to the laptop, all while the
-caller still sees a regular OpenAI HTTP response. They never know.
+The phone in someone's pocket is slow. The laptop on the same Wi-Fi
+isn't. DVAI-Bridge can spot that mid-request and route the inference
+to the laptop. The caller still sees a regular OpenAI HTTP response.
+They never know.
 
 If you just want to turn it on:
 
@@ -28,7 +28,7 @@ await dvai.initialize();
 That's enough for the LAN path. The rest of this page covers:
 
 - The opt-in **internet** path via a self-hosted rendezvous server.
-- All `OffloadConfig` fields with defaults and edge cases.
+- Every `OffloadConfig` field — defaults and edge cases.
 - The HMAC identity headers added in v3.1 for cross-process trust.
 - The architecture diagrams.
 
@@ -36,28 +36,28 @@ Skip to the section that matches what you're building.
 
 ## The two paths
 
-1. **LAN**: zero setup. Devices on the same Wi-Fi auto-discover each
-   other via mDNS / Bonjour and offload directly.
-2. **Internet**: opt-in. If you self-host the
-   [rendezvous server](./self-hosting-rendezvous.md) and configure its
-   URL, devices on different networks pair via QR scan + the
-   rendezvous server, then offload through the same encrypted relay.
+1. **LAN** — zero setup. Devices on the same Wi-Fi auto-discover via
+   mDNS / Bonjour and offload directly.
+2. **Internet** — opt-in. Self-host the
+   [rendezvous server](./self-hosting-rendezvous.md), configure its
+   URL, and devices on different networks pair via QR scan plus the
+   rendezvous server. Then offload through the same encrypted relay.
 
-The OpenAI HTTP wire surface stays unchanged. Your consumer code
-points at `dvai.baseUrl` and writes plain OpenAI requests; the
-library decides per-request whether to run locally or proxy to a peer.
+The OpenAI HTTP wire surface stays unchanged. Your consumer code points
+at `dvai.baseUrl` and writes plain OpenAI requests. The library decides
+per-request whether to run locally or proxy to a peer.
 
 The [API reference](/reference/api#offloadconfig-v30) lists every
-`OffloadConfig` field with default values; the
-[wire-protocol section](#wire-protocol-additions-in-v3-1) below
-covers the v3.1 handshake + HMAC-signed identity headers; the
+`OffloadConfig` field with default values. The
+[wire-protocol section](#wire-protocol-additions-in-v3-1) below covers
+the v3.1 handshake + HMAC-signed identity headers. The
 [v3.0 design rationale lives in `RESEARCH.md` §7](https://github.com/dvai-global/dvai-bridge/blob/main/RESEARCH.md)
 on the public repo.
 
 ## Quick start
 
-Opt in by adding `offload` to your `DVAI` config (or to the equivalent
-start-options on a native SDK):
+Opt in by adding `offload` to your `DVAI` config — or to the equivalent
+start-options on a native SDK.
 
 ```ts
 import { DVAI } from "@dvai-bridge/core";
@@ -109,7 +109,7 @@ Override the default offload policy on individual requests:
 | Header value | Meaning |
 | --- | --- |
 | `prefer` (default) | Offload if local can't serve fast enough AND a faster peer exists. |
-| `never` | Always run locally, even if slow. Useful for privacy-sensitive prompts the user wants to keep on-device. |
+| `never` | Always run locally — even if slow. Use for privacy-sensitive prompts the user wants to keep on-device. |
 | `require` | Refuse rather than fall back. Returns the structured `no_capable_device` error if no qualified peer is reachable. |
 
 ```ts
@@ -122,25 +122,25 @@ await openai.chat.completions.create(
 
 ## Capability assessment
 
-The library decides "is this device fast enough?" by:
+The library decides "is this device fast enough?" two ways.
 
-1. **Cold-run probe** on first use of a model: 50-token completion,
+1. **Cold-run probe** on first use of a model. 50-token completion,
    measured tok/s, persisted per `(modelId, libraryVersion)`. Cache
-   lives in IndexedDB (browser) / `~/.cache/dvai-bridge/` (Node) /
-   `Application Support/dvai-bridge/` (iOS) / `cacheDir` (Android) /
+   lives in IndexedDB (browser), `~/.cache/dvai-bridge/` (Node),
+   `Application Support/dvai-bridge/` (iOS), `cacheDir` (Android),
    `LocalApplicationData` (.NET).
-2. **Heuristic fallback** before the first probe: coarse score from
-   detected NPU + RAM + GPU class. Conservative — under-promises so
+2. **Heuristic fallback** before the first probe. A coarse score from
+   detected NPU, RAM, and GPU class. Conservative — under-promises so
    we offload more often than over-promise.
 
-Trigger an explicit probe + persist with `await dvai.probeCapability()`
-(no-op when `offload.enabled` is false). Check the cached score with
+Trigger an explicit probe with `await dvai.probeCapability()` (no-op
+when `offload.enabled` is false). Check the cached score with
 `await dvai.getCapability()`.
 
-The numbers we care about are **tok/s decode rates** of the upstream
+The numbers we care about — **tok/s decode rates** of the upstream
 backend (llama.cpp, MediaPipe, MLX, etc.). They're properties of the
-backend + model + device — not of dvai-bridge itself. See RESEARCH.md
-§6.11 for why we don't publish first-party benchmarks.
+backend + model + device, not of dvai-bridge itself. See
+RESEARCH.md §6.11 for why we don't publish first-party benchmarks.
 
 ## The "no capable device" error
 
@@ -166,49 +166,48 @@ OpenAI-error-shaped:
 }
 ```
 
-Returned with HTTP 503 + `Retry-After: 30`. Existing OpenAI clients
-(LangChain, Vercel AI SDK, OpenAI's own SDKs) surface it as an error
-naturally — no DVAI-specific error handler needed.
+Returned with HTTP 503 plus `Retry-After: 30`. Every existing OpenAI
+client — LangChain, Vercel AI SDK, OpenAI's own SDKs — surfaces it as
+an error naturally. No DVAI-specific error handler needed.
 
 ## QR-pairing flow (internet path)
 
-When two devices are on different networks and need to pair:
+Two devices on different networks need to pair. Here's how.
 
 1. **Source device** (the one that wants to offload) calls something
-   like `dvai.startQrPairing()` (host-app SDK surface). The library
+   like `dvai.startQrPairing()` — the host-app SDK surface. The library
    opens a WebSocket to the rendezvous server and gets back a QR
-   payload + a session ID.
-2. **Source device** displays the QR payload as a QR code in its UI.
-3. **Target device** scans the QR with its camera (host-app's UI).
-4. **Target device** calls `dvai.completePairFromQrPayload(payload)`,
-   which joins the rendezvous session and completes a fresh X25519
-   key exchange.
+   payload plus a session ID.
+2. **Source device** shows the QR payload as a QR code in its UI.
+3. **Target device** scans the QR with its camera — the host app's UI.
+4. **Target device** calls `dvai.completePairFromQrPayload(payload)`.
+   That joins the rendezvous session and completes a fresh X25519 key
+   exchange.
 5. The two devices now share a per-session secret. **The rendezvous
-   server never sees plaintext** — it only relays public keys + AEAD-
-   encrypted payloads.
-6. From this point on, source's `dvai.baseUrl` requests can offload
-   to target through the rendezvous relay.
+   server never sees plaintext** — it only relays public keys plus
+   AEAD-encrypted payloads.
+6. From here on, source's `dvai.baseUrl` requests can offload to
+   target through the rendezvous relay.
 
-Camera-side QR scanning is the host app's job (it's platform-specific:
-AVFoundation on iOS, CameraX on Android, getUserMedia + a JS QR
-decoder in browser). The library exposes the *generation* + *handshake*
-APIs; the *scanning* surface is yours.
+QR scanning is the host app's job. It's platform-specific — AVFoundation
+on iOS, CameraX on Android, getUserMedia + a JS QR decoder in browser.
+The library exposes the *generation* and *handshake* APIs. The
+*scanning* surface is yours.
 
 ## LAN-pairing flow (no QR needed)
 
-When two devices are on the same Wi-Fi:
+Two devices on the same Wi-Fi. Simpler:
 
 1. mDNS discovers the peer automatically.
 2. First time source A wants to offload to target B, A POSTs
-   `/v1/dvai/handshake` to B with its identity + a nonce.
-3. B's `onPairingRequest` callback fires with A's info; the user
+   `/v1/dvai/handshake` to B with its identity and a nonce.
+3. B's `onPairingRequest` callback fires with A's info. The user
    approves.
 4. B generates a 256-bit pairing key and **echoes it back** in the
-   handshake response (LAN trust model — same network the request
-   crossed). Stored on both sides; the multi-tenant Hub stores it
+   handshake response. LAN trust model — same network the request
+   crossed. Stored on both sides; the multi-tenant Hub stores it
    per-`(appId, peerDeviceId)`.
-5. From this point on, A's offload requests carry four identity
-   headers:
+5. From here on, A's offload requests carry four identity headers:
    - `X-DVAI-Peer-Device-Id`
    - `X-DVAI-App-Id`
    - `X-DVAI-Nonce`
@@ -216,7 +215,7 @@ When two devices are on the same Wi-Fi:
      `HMAC-SHA256(pairingKey, composeSignedMessage(nonce, method, path, bodyJson))`
 
    B verifies before serving. Verified requests log to the audit
-   under the real `(appId, peerDeviceId)`; unsigned requests use the
+   under the real `(appId, peerDeviceId)`. Unsigned requests use the
    anonymous backwards-compat path (audit row keyed `"anonymous"`).
    Partial header sets are rejected with 401.
 6. Pairings expire after `expireAfterDays` (default 30) of inactivity.
@@ -232,10 +231,10 @@ When two devices are on the same Wi-Fi:
 
 ### Chat-completion interceptor (v3.1)
 
-`DVAIConfig.chatCompletionInterceptor` is a first-chance hook that
-runs **before** the default `/v1/chat/completions` handler. The
-v3.1 Hub uses it to apply substitution-policy + engine-bridge
-routing without monkey-patching the transport. Return shape:
+`DVAIConfig.chatCompletionInterceptor` is a first-chance hook. It runs
+**before** the default `/v1/chat/completions` handler. The v3.1 Hub
+uses it to apply substitution-policy and engine-bridge routing without
+monkey-patching the transport. Return shape:
 
 ```ts
 chatCompletionInterceptor?: (
@@ -248,26 +247,25 @@ chatCompletionInterceptor?: (
 - Return a `Response` → that's what the client gets.
 - Return `null` → fall through to the default local-backend handler.
 
-Headers are passed lower-cased so the interceptor can read v3.1
-identity fields and verify HMAC against a stored pairing key.
+Headers are passed lower-cased. The interceptor can read v3.1 identity
+fields and verify HMAC against a stored pairing key.
 
 ## v3.2 — Per-SDK outgoing-offload routing
 
 v3.0 shipped the wire protocol + decision logic in
-`@dvai-bridge/core`; v3.1 packaged the strong-peer side as the
-[DVAI Hub](./dvai-hub.md). v3.2 closes the loop by wiring the
-**source side** in every native SDK so any consumer app — Android
-Kotlin, iOS Swift, .NET, React Native, Flutter — gets
-zero-code-change offload routing on every outgoing
-`/v1/chat/completions` request.
+`@dvai-bridge/core`. v3.1 packaged the strong-peer side as the
+[DVAI Hub](./dvai-hub.md). v3.2 closes the loop. The **source side**
+gets wired into every native SDK — so any consumer app (Android Kotlin,
+iOS Swift, .NET, React Native, Flutter) gets zero-code-change offload
+routing on every outgoing `/v1/chat/completions` request.
 
 ### What changed for the consumer app
 
-**Nothing.** That's the design point. You still call the same
-`start()` you've always called and read `baseUrl` off the returned
+**Nothing.** That's the design point. You still call the same `start()`
+you always called. You still read `baseUrl` off the returned
 `BoundServer`. v3.2's pre-routing proxy claims that public port and
-decides per-request whether to serve the request locally or forward
-to a paired peer. Your OpenAI client doesn't know the difference.
+decides per-request whether to serve locally or forward to a paired
+peer. Your OpenAI client doesn't know the difference.
 
 ```kotlin
 // Android — exact same code as v3.1, plus offload enabled.
@@ -296,8 +294,8 @@ client.newCall(req).execute()
 
 ### Pre-init hardware assessment (`assessHardware`)
 
-Before any model download or backend init, consumer apps can ask
-the SDK how this device is going to handle local inference:
+Before any model download or backend init, consumer apps can ask the
+SDK how this device will handle local inference:
 
 ```kotlin
 val a = DVAIBridge.assessHardware(
@@ -350,35 +348,32 @@ Returns the same JSON-serializable shape on every platform:
 }
 ```
 
-**The SDK never shows UI for hardware decisions** — the consumer
-app decides what (if anything) to surface based on `mode`. That's a
+**The SDK never shows UI for hardware decisions.** The consumer app
+decides what — if anything — to surface, based on `mode`. That's a
 deliberate v3.2 design point: SDK is a data source, not a UX driver.
 
 ### How the runtime decision works
 
-Every chat-completion request through the SDK's public `baseUrl`
-hits the pre-routing proxy first. The proxy:
+Every chat-completion request through the SDK's public `baseUrl` hits
+the pre-routing proxy first. The proxy:
 
 1. Honours the `X-DVAI-Offload` header (`never` | `prefer` |
-   `require`) — defaults to `prefer`.
+   `require`). Defaults to `prefer`.
 2. Reads the live discovered-peer list (LAN mDNS + optional
    rendezvous).
-3. Picks the best peer for the requested `model` (peers with the
-   model already loaded preferred over higher-score peers without
-   it).
+3. Picks the best peer for the requested `model`. Peers with the model
+   already loaded beat higher-score peers without it.
 4. If the best peer's score is at or above
    `OffloadConfig.minLocalCapability`, forwards the request with
    HMAC-signed identity headers (`X-DVAI-Peer-Device-Id`,
    `X-DVAI-App-Id`, `X-DVAI-Nonce`, `X-DVAI-Signature`).
-5. Otherwise, serves the request locally (if a backend is loaded)
-   or returns 503 `no_capable_device` (if not — i.e. offload-only
-   mode).
+5. Otherwise: serves the request locally (if a backend is loaded), or
+   returns 503 `no_capable_device` (if not — offload-only mode).
 
-In `offload-only` mode (precheck classified the device as too weak
-to comfortably run the model), the SDK **never downloads or loads
-the model file**. The proxy stands alone and forwards every
-request. Saves bandwidth + battery on devices that wouldn't run
-the model anyway.
+In `offload-only` mode — precheck classified the device as too weak to
+run the model comfortably — the SDK **never downloads or loads the
+model file**. The proxy stands alone and forwards every request. Saves
+bandwidth and battery on devices that wouldn't run the model anyway.
 
 ### Per-platform implementation
 
@@ -409,68 +404,69 @@ its native backend:
 
 ## When this isn't the right fit
 
-- **You're shipping to a single device class.** No reason to wire
-  offload — just don't set `offload.enabled`.
+- **You ship to a single device class.** No reason to wire offload —
+  leave `offload.enabled` unset.
 - **All your users have weak hardware and no peer to offload to.**
   Offload won't help. Pick a smaller model.
-- **You have strong cloud-availability assumptions.** Offload is
-  designed for the local-AI-first scenario. If your app already
-  falls back to a cloud API on weak devices, that's its own thing —
-  dvai-bridge offload doesn't replace it.
+- **You have strong cloud-availability assumptions.** Offload is for
+  the local-AI-first scenario. If your app already falls back to a
+  cloud API on weak devices, that's its own thing — dvai-bridge
+  offload doesn't replace it.
 - **You can't host a rendezvous server.** Use LAN-only by leaving
   `rendezvousUrl` unset. Internet pairing requires
-  [self-hosting](./self-hosting-rendezvous.md) — we don't operate
-  a rendezvous service for the world.
+  [self-hosting](./self-hosting-rendezvous.md) — we don't operate a
+  rendezvous service for the world.
 
 ## v3.2.1 — bug fixes + production-verified offload path
 
-The v3.2.0 release shipped Phase 5 outgoing-offload routing on every
-native SDK, but three protocol-level bugs prevented the path from
-working end-to-end against the desktop Hub (every signed offload
-request returned 401, the Hub didn't auto-discover on macOS, and
-the iOS proxy looped requests back to itself under specific
-port-binding conditions). v3.2.1 fixes all three. See
+v3.2.0 shipped Phase 5 outgoing-offload routing on every native SDK.
+But three protocol-level bugs stopped the path from working end-to-end
+against the desktop Hub — every signed offload request returned 401,
+the Hub didn't auto-discover on macOS, and the iOS proxy looped
+requests back to itself under specific port-binding conditions. v3.2.1
+fixes all three. See
 [CHANGELOG `[3.2.1]`](https://github.com/dvai-global/dvai-bridge/blob/main/CHANGELOG.md)
-for the full breakdown. Verified end-to-end via 59 consecutive
-iPhone-simulator dogfood iterations streaming through a real Hub;
-ttfb ~200 ms, ttlb ~1700-2100 ms (10× ratio confirms incremental
-SSE streaming through Hummingbird's `ResponseBody` writer).
+for the full breakdown.
+
+Verified end-to-end via 59 consecutive iPhone-simulator dogfood
+iterations streaming through a real Hub. ttfb ~200 ms, ttlb
+~1700-2100 ms. The 10× ratio confirms incremental SSE streaming through
+Hummingbird's `ResponseBody` writer.
 
 The reference dogfood example
 ([`examples/ios-offload-dogfood`](https://github.com/dvai-global/dvai-bridge/tree/main/examples/ios-offload-dogfood))
-demonstrates the full local-or-offload flow end-to-end: pre-init
+demonstrates the full local-or-offload flow end-to-end. Pre-init
 capability assessment → branch into local backend OR
 offload-only-with-paired-Hub → identical `OpenAI` Swift client call
-that streams chunks the same way regardless of which path served
-the response. The same SDK shape exists verbatim on Android (Kotlin),
-.NET (C#), Flutter (Dart), and React Native (TS via TurboModule),
-so the pattern translates 1:1 across platforms.
+that streams chunks the same way regardless of which path served the
+response. The same SDK shape exists verbatim on Android (Kotlin),
+.NET (C#), Flutter (Dart), and React Native (TS via TurboModule). The
+pattern translates 1:1 across platforms.
 
 ## Limitations + roadmap
 
-- **Browser as offload TARGET** is not supported. Browsers can't
-  reliably accept inbound HTTP from cross-origin sources. Browsers
-  are offload-source-only.
-- **Rendezvous-WS-tunneled requests** are stubbed in v3.0.0-rc1 (LAN
-  path is fully wired; internet path's WS-relay support lights up in
-  v3.0.0 final). Track progress via the v3.0 milestone on GitHub.
+- **Browser as offload TARGET** — not supported. Browsers can't reliably
+  accept inbound HTTP from cross-origin sources. Browsers are
+  offload-source-only.
+- **Rendezvous-WS-tunneled requests** — stubbed in v3.0.0-rc1. LAN path
+  is fully wired. The internet path's WS-relay support lights up in
+  v3.0.0 final. Track progress via the v3.0 milestone on GitHub.
 - **Outgoing-offload routing in the native SDKs is GA as of v3.2.1.**
   All four mobile SDKs (iOS, Android, .NET, RN/Flutter via native
-  bridges) wire `OffloadConfig` through to the per-request decision
-  + HMAC-signed peer forward, with cross-platform-identical canonical
-  message format. v3.2.0 shipped the wiring but with three protocol
-  bugs (HMAC drift, URL doubling, self-discovery). v3.2.1 fixes
-  them — see the CHANGELOG entry. Earlier mixed
-  v3.2.0/v3.2.1 deployments will fail authentication; upgrade both
-  ends together.
-- **Persistent pairing across reconnects** (no re-QR-scan after
-  device reboot) is on the v3.1 roadmap.
-- **CLI diagnostics tool** (`dvai-bridge cli peers`, `... probe`,
-  etc.) is on the v3.1 roadmap.
-- **Multi-instance horizontal scaling of the rendezvous server**
-  (Redis-backed session store) is on the v3.2 roadmap. Until then,
-  vertical scaling + a sticky LB handles ~50k concurrent sessions
-  per instance.
+  bridges) wire `OffloadConfig` through to the per-request decision +
+  HMAC-signed peer forward. Cross-platform-identical canonical message
+  format. v3.2.0 shipped the wiring with three protocol bugs (HMAC
+  drift, URL doubling, self-discovery). v3.2.1 fixes them — see the
+  CHANGELOG entry. Mixed v3.2.0/v3.2.1 deployments will fail
+  authentication; upgrade both ends together.
+- **Persistent pairing across reconnects** — no re-QR-scan after device
+  reboot. On the v3.1 roadmap.
+- **CLI diagnostics tool** — `dvai-bridge cli peers`, `... probe`, etc.
+  On the v3.1 roadmap.
+- **Multi-instance horizontal scaling of the rendezvous server** —
+  Redis-backed session store. On the v3.2 roadmap. Until then, vertical
+  scaling plus a sticky LB handles ~50k concurrent sessions per
+  instance.
 
 ## See also
 

@@ -3,16 +3,16 @@
 ## What does this do?
 
 The same call — `dvai.initialize()` — has to expose an OpenAI HTTP API
-in a browser tab, a Node process, an Android APK, and an iOS app
-bundle. None of those allow exactly the same thing. The "transport"
-layer is the glue that picks the right approach per runtime.
+inside a browser tab, a Node process, an Android APK, and an iOS app.
+None of those allow exactly the same thing. The transport layer is the
+glue that picks the right approach per runtime.
 
-If you just want to ship: you don't have to touch this. The default
-(`transport: "auto"`) does the right thing — browsers get MSW, every
-other runtime gets a real HTTP server on `127.0.0.1:38883`, and you
-just read `dvai.baseUrl`. The rest of the page is for when you need to
-override (forcing MSW in tests, picking a different port, dealing with
-CORS / Private Network Access).
+You don't have to touch it. The default (`transport: "auto"`) does the
+right thing — browsers get MSW, every other runtime gets a real HTTP
+server on `127.0.0.1:38883`, and you just read `dvai.baseUrl`. The rest
+of this page is for the cases when you need to override — forcing MSW
+in tests, picking a different port, dealing with CORS or Private Network
+Access.
 
 ```ts
 // Default — picks MSW or HTTP automatically.
@@ -28,7 +28,7 @@ new DVAI({ transport: "http", httpBasePort: 40000 });
 ## How selection works
 
 When you call `dvai.initialize()` (JS/TS) or `start()` on a native SDK,
-the library picks one of three transports:
+the library picks one of three transports.
 
 | Transport | When it's used | What it does |
 |---|---|---|
@@ -36,19 +36,19 @@ the library picks one of three transports:
 | `http` | Node, Electron main, Capacitor mobile, native iOS / Android / .NET | Boots a real HTTP server on `127.0.0.1` starting at port `38883`, serves `/v1/*` endpoints. |
 | `none` | Web Workers, Service Workers, or when you opt out | No transport started. Use `dvai.chatCompletion()` directly. |
 
-You read the endpoint via `dvai.baseUrl` (JS) or the equivalent field on
-each native SDK's `start()` return value:
+Read the endpoint via `dvai.baseUrl` (JS) — or the equivalent field on
+each native SDK's `start()` return value.
 
-- MSW path: `"https://api.openai.local/v1"` (or whatever you set via `mockUrl`).
-- HTTP path: `"http://127.0.0.1:38883/v1"` (or the fallback port if 38883 was busy).
+- MSW path — `"https://api.openai.local/v1"` (or whatever you set via `mockUrl`).
+- HTTP path — `"http://127.0.0.1:38883/v1"` (or the fallback port if 38883 was busy).
 
 ## Port fallback
 
-On HTTP, if the base port is taken, `dvai-bridge` retries `38884`, `38885`,
-... up to 16 attempts. If all are in use, `initialize()` / `start()`
+If the base port is taken, `dvai-bridge` retries `38884`, `38885`, and so
+on — up to 16 attempts. If all are busy, `initialize()` or `start()`
 throws with an actionable error listing the tried range.
 
-Override the base port or attempts limit:
+Override the base port or attempts limit.
 
 ```ts
 new DVAI({ httpBasePort: 40000, httpMaxPortAttempts: 4 });
@@ -66,14 +66,15 @@ new DVAI({ transport: "http" });  // force HTTP (Node / Electron main only)
 new DVAI({ transport: "none" });  // no transport; direct inference only
 ```
 
-Native SDKs always use HTTP — there's no MSW analogue outside the browser
+Native SDKs always use HTTP. There's no MSW analogue outside the browser
 main thread.
 
 ## CORS and Private Network Access
 
-The HTTP transport emits CORS + PNA headers on every response so HTTPS
-pages and webviews can call loopback without being blocked by Chrome /
-Edge Private Network Access enforcement. Configure the allowed origin:
+The HTTP transport emits CORS and PNA headers on every response — so
+HTTPS pages and webviews can call loopback without being blocked by
+Chrome or Edge Private Network Access enforcement. Configure the allowed
+origin.
 
 ```ts
 new DVAI({ corsOrigin: "*" });                                    // default
@@ -88,12 +89,13 @@ on every response.
 ## Mobile (Android cleartext policy)
 
 Android 9+ blocks cleartext HTTP by default. The Capacitor plugin
-(`@dvai-bridge/capacitor`), the Android AAR (`co.deepvoiceai:dvai-bridge`),
-and the React Native / Flutter wrappers that consume them all inject a
-minimal `network_security_config.xml` entry via Gradle manifest merging.
-You don't need to touch the config file by hand.
+(`@dvai-bridge/capacitor`), the Android AAR
+(`co.deepvoiceai:dvai-bridge`), and the React Native and Flutter
+wrappers that consume them all inject a minimal
+`network_security_config.xml` entry via Gradle manifest merging. You
+don't touch the config file by hand.
 
-For reference — this is what gets merged in:
+For reference — this is what gets merged in.
 
 ```xml
 <network-security-config>
@@ -111,11 +113,12 @@ exempts loopback (`127.0.0.1`, `::1`, `localhost`) by default — no
 ## Why plain HTTP on loopback (not HTTPS)
 
 Public CAs won't issue certs for `127.0.0.1` or `localhost`. Self-signed
-certs fail iOS ATS and Android NSC trust-anchor validation by default,
-and accepting them requires opting out of cert validation app-wide —
-which is *worse* security-wise than allowing cleartext to loopback only.
-Every mainstream hybrid framework (Capacitor, Cordova, Ionic, Expo, React
-Native dev server) goes plain HTTP on loopback. We do the same.
+certs fail iOS ATS and Android NSC trust-anchor validation by default —
+and accepting them means opting out of cert validation app-wide. That's
+*worse* security-wise than allowing cleartext to loopback only.
+
+Every mainstream hybrid framework — Capacitor, Cordova, Ionic, Expo,
+React Native dev server — goes plain HTTP on loopback. We do the same.
 
 Your app's traffic to the outside world still uses HTTPS. Only the
 in-process `localhost` → `localhost` hop is cleartext, and it never

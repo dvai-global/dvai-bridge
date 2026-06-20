@@ -1,13 +1,13 @@
 # Example apps
 
-DVAI-Bridge ships 18 runnable example apps covering every (SDK ×
-backend) pair. Each example is a complete project with its own
-manifest (`package.json`, `Package.swift`, `build.gradle.kts`,
-`pubspec.yaml`, `.csproj`) and a `smoke.sh` that boots a wiring-only
-test you can run on CI.
+DVAI-Bridge ships 18 runnable example apps. Every (SDK × backend) pair is
+covered. Each example is a complete project — its own manifest
+(`package.json`, `Package.swift`, `build.gradle.kts`, `pubspec.yaml`,
+`.csproj`) and a `smoke.sh` that boots a wiring-only test you can run
+on CI.
 
 Source: [`examples/`](https://github.com/dvai-global/dvai-bridge/tree/main/examples)
-in the monorepo. Group-by-SDK below.
+in the monorepo. Grouped by SDK below.
 
 ## Prerequisites (all examples)
 
@@ -18,7 +18,7 @@ cd dvai-bridge
 pnpm install --ignore-scripts
 ```
 
-Native examples additionally need the native SDK published locally:
+Native examples also need the native SDK published locally:
 
 ```bash
 # Android: publish the workspace AAR to ~/.m2/
@@ -33,9 +33,9 @@ bash scripts/mac-side-prepare-xcframework.sh
 
 ### `web-react` — React + Vite + Transformers.js (browser, MSW)
 
-What it shows: a React app whose chat UI talks to LangChain
-`ChatOpenAI` pointed at the local MSW endpoint. Default backend is
-Transformers.js; pluggable to WebLLM.
+A React chat UI. Talks to LangChain `ChatOpenAI` pointed at the local
+MSW endpoint. Default backend is Transformers.js. Swap to WebLLM if you
+want.
 
 ```bash
 pnpm --filter web-react dev          # Vite dev server with HMR
@@ -45,15 +45,15 @@ pnpm --filter web-react dev          # Vite dev server with HMR
 Verify: tokens appear in the response panel within ~5s after the model
 downloads (~500 MB on first run, cached afterwards).
 
-Adapt: replace `transformersModelId` in `src/App.tsx` to swap models;
-swap `@langchain/openai` for the official `openai` package if you
+Adapt: change `transformersModelId` in `src/App.tsx` to swap models.
+Swap `@langchain/openai` for the official `openai` package if you
 prefer.
 
 ### `web-vanilla-cdn` — single HTML page, no bundler (browser, MSW)
 
-What it shows: a `<script type="module">` tag pulls
-`@dvai-bridge/vanilla` from a CDN, initializes the SDK, and calls
-`fetch()` against the local MSW endpoint.
+One HTML page. A `<script type="module">` tag pulls
+`@dvai-bridge/vanilla` from a CDN, calls `initialize()`, then `fetch()`
+against the local MSW endpoint.
 
 ```bash
 ( cd examples/web-vanilla-cdn && python -m http.server 8000 )
@@ -61,12 +61,12 @@ What it shows: a `<script type="module">` tag pulls
 bash examples/web-vanilla-cdn/smoke.sh   # static smoke (no model load)
 ```
 
-Adapt: edit `index.html` directly — there's no build step.
+Adapt: edit `index.html` directly. No build step.
 
 ### `node-langchain` — Node + Transformers.js + LangChain
 
-What it shows: `dvai-bridge` running in plain Node, LangChain's
-`ChatOpenAI.stream()` calling `http://127.0.0.1:38883/v1`.
+`dvai-bridge` running in plain Node. LangChain's `ChatOpenAI.stream()`
+calls `http://127.0.0.1:38883/v1`.
 
 ```bash
 pnpm --filter node-langchain start
@@ -75,13 +75,13 @@ pnpm --filter node-langchain start
 
 Verify: streaming completion tokens print to the terminal.
 
-Adapt: change `modelId` in `index.js`; change the LangChain prompt /
-chain configuration to fit your app.
+Adapt: change `modelId` in `index.js`. Rewire the LangChain prompt or
+chain however you like.
 
 ### `node-llama-cpp` — Node + native llama.cpp + LangChain
 
-What it shows: `dvai-bridge` with `backend: "native"`, loading a GGUF
-checkpoint via `node-llama-cpp`'s NAPI bindings.
+`dvai-bridge` with `backend: "native"`. Loads a GGUF checkpoint via
+`node-llama-cpp`'s NAPI bindings.
 
 ```bash
 pnpm --filter node-llama-cpp start
@@ -89,14 +89,14 @@ pnpm --filter node-llama-cpp start
 bash examples/node-llama-cpp/smoke.sh    # gated by SMOKE_MODEL_URL / SMOKE_MODEL_SHA256
 ```
 
-Verify: token-rate roughly matches your CPU / GPU's tok/s ceiling.
+Verify: token rate roughly matches your CPU / GPU's tok/s ceiling.
 
-Adapt: any GGUF that `llama.cpp` loads will work; swap the URL +
+Adapt: any GGUF that `llama.cpp` loads will work. Swap the URL and
 SHA-256 in `index.js`.
 
 ## iOS native
 
-All iOS examples open with `open Package.swift`. Pick `iPhone 16` as
+Every iOS example opens with `open Package.swift`. Pick `iPhone 16` as
 the run destination.
 
 | Example | Backend | Model | Open |
@@ -120,18 +120,17 @@ bash examples/ios-llama/smoke.sh
 # Off Mac: prints skip and exits 0.
 ```
 
-Verify (after running on the simulator): tap **Load + Ask**, watch
-the status label go through Download → Load → Bind, see tokens
-stream into the scroll view.
+Verify (after running on the simulator): tap **Load + Ask**. Watch the
+status label go through Download → Load → Bind. Tokens stream into the
+scroll view.
 
-Adapt: edit `Sources/<App>/<App>.swift` — change `modelUrl`,
-`modelSha256`, or swap the OpenAI SDK for any other (the URL is
-`bound.baseUrl`).
+Adapt: edit `Sources/<App>/<App>.swift`. Change `modelUrl`,
+`modelSha256`, or swap the OpenAI SDK — the URL is `bound.baseUrl`.
 
 ## Android native
 
-All Android examples build with Gradle and consume the workspace AAR
-from `mavenLocal()`.
+Every Android example builds with Gradle. They consume the workspace
+AAR from `mavenLocal()`.
 
 | Example | Backend | Model |
 | --- | --- | --- |
@@ -155,20 +154,20 @@ cd examples/android-llama
 ./gradlew :app:installDebug && adb shell am start -n co.deepvoiceai.examples.androidllama/.MainActivity
 ```
 
-Verify: tap Load + Ask, watch the Compose UI update through the
-states, tokens render in the text view.
+Verify: tap Load + Ask. Watch the Compose UI step through the states.
+Tokens render in the text view.
 
-Adapt: edit `MainActivity.kt` — change `modelUrl` / `modelSha256`,
-swap `aallam/openai-kotlin` for any other OpenAI client (pointed at
-`bound.baseUrl`).
+Adapt: edit `MainActivity.kt`. Change `modelUrl` / `modelSha256`. Swap
+`aallam/openai-kotlin` for any other OpenAI client pointed at
+`bound.baseUrl`.
 
 ## React Native
 
 ### `react-native-app` — backend selector, all six native backends
 
-What it shows: one screen, dropdown to pick a backend, supply
-`modelPath`, call `DVAIBridge.start(...)`, then stream a chat
-completion via the official `openai` npm SDK.
+One screen. Dropdown to pick a backend. Supply `modelPath`, call
+`DVAIBridge.start(...)`, stream a chat completion through the official
+`openai` npm SDK.
 
 Run on Android (any host):
 
@@ -191,19 +190,18 @@ bash examples/react-native-app/smoke.sh
 # Typecheck + Metro bundle. RUN_ANDROID_BUILD=1 opts into the Gradle build.
 ```
 
-Verify: the in-app log panel prints `licenseStatus.kind` and the
-bound `baseUrl`; the response area streams tokens.
+Verify: the in-app log panel prints `licenseStatus.kind` and the bound
+`baseUrl`. The response area streams tokens.
 
-Adapt: edit `App.tsx` — backend dropdown values map to native enum
-cases; the model-path text input feeds into `StartOptions`.
+Adapt: edit `App.tsx`. The backend dropdown values map to native enum
+cases. The model-path text input feeds `StartOptions`.
 
 ## Flutter
 
 ### `flutter-app` — backend dropdown, streaming via `dart:io` HttpClient
 
-What it shows: a single `StreamBuilder<DVAIBridgeState>` driving the
-UI; the user picks a backend, then `DVAIBridge.instance.start(...)`
-boots the embedded server.
+One `StreamBuilder<DVAIBridgeState>` drives the UI. The user picks a
+backend. `DVAIBridge.instance.start(...)` boots the embedded server.
 
 ```bash
 cd examples/flutter-app
@@ -212,11 +210,11 @@ flutter run                # picks the connected device / simulator
 bash smoke.sh              # pub get + pigeon regen + analyze + test
 ```
 
-Verify: the dropdown disables platform-mismatched backends in-place;
-selecting `mlx` on Android shows a `DVAIBridgeError(backendUnavailable)`.
+Verify: the dropdown disables platform-mismatched backends in place.
+Pick `mlx` on Android — you get a `DVAIBridgeError(backendUnavailable)`.
 
-Adapt: edit `lib/main.dart` — swap the backend defaults or the
-prompt template.
+Adapt: edit `lib/main.dart`. Swap the backend defaults or the prompt
+template.
 
 ## .NET
 
@@ -243,20 +241,20 @@ dotnet run -c Release             # UI mode (Avalonia)
 DVAI_HEADLESS=1 DVAI_MODEL_PATH=/path/to/model.gguf dotnet run -c Release
 ```
 
-Verify (UI mode): the Avalonia window shows the bound base URL; click
-**Send**, watch the streaming completion fill the text panel.
+Verify (UI mode): the Avalonia window shows the bound base URL. Click
+**Send**. The streaming completion fills the text panel.
 
-Adapt: each `.csproj` `<ProjectReference>` resolves into
-`packages/dvai-bridge-dotnet/`; change the model path or backend
+Adapt: every `.csproj` `<ProjectReference>` resolves into
+`packages/dvai-bridge-dotnet/`. Change the model path or backend
 selector in `Program.cs`.
 
 ## Capacitor
 
 ### `capacitor-mobile` — hybrid web bundle + native llama.cpp
 
-What it shows: a single HTML page in `www/` calls
-`DVAIBridge.start({ backend: "llama", modelPath })` from the webview;
-the chat input streams a completion via `fetch()` SSE.
+A single HTML page in `www/` calls
+`DVAIBridge.start({ backend: "llama", modelPath })` from the webview.
+The chat input streams a completion via `fetch()` SSE.
 
 ```bash
 # Web bundle:
@@ -284,7 +282,7 @@ bash examples/capacitor-mobile/smoke.sh
 # Builds the web bundle and runs `cap doctor`. No device required.
 ```
 
-Verify: the webview loads, the chat textarea accepts a prompt, the
+Verify: the webview loads. The chat textarea accepts a prompt. The
 response area streams tokens.
 
 Adapt: `www/index.html` is a plain HTML page — edit it directly. The
@@ -292,12 +290,12 @@ Adapt: `www/index.html` is a plain HTML page — edit it directly. The
 
 ## CI smoke matrix
 
-Every example has a `smoke.sh` that:
+Every example has a `smoke.sh`. It:
 
 1. Skips cleanly when its host-OS / hardware requirement isn't met.
-2. Runs a wiring-only test on supported hosts (typecheck, bundle,
+2. Runs a wiring-only test on supported hosts — typecheck, bundle,
    `dotnet build`, Gradle JVM tests, `xcodebuild test` against a
-   wiring assertion).
+   wiring assertion.
 3. Optionally exercises a real model when a `SMOKE_MODEL_URL` /
    `SMOKE_MODEL_PATH` env var is provided.
 
@@ -309,7 +307,7 @@ for ex in examples/*/smoke.sh; do
 done
 ```
 
-The full per-(SDK × backend) matrix with host requirements is in
+The full per-(SDK × backend) matrix with host requirements lives in
 [`examples/MATRIX.md`](https://github.com/dvai-global/dvai-bridge/blob/main/examples/MATRIX.md).
 
 ## See also

@@ -1,25 +1,22 @@
 # Vibe-coding with DVAI-Bridge
 
-This page is for developers who hand most of their code to an AI
-coding assistant (Cursor, Claude Code, GitHub Copilot Workspace, etc.)
-and want the assistant to actually know how DVAI-Bridge works.
+You hand most of your code to an AI assistant — Cursor, Claude Code, Copilot
+Workspace. This page makes sure it actually knows how DVAI-Bridge works.
 
-There are three ways to give an assistant context, in order of
-fidelity:
+Three ways to give it context. Pick one.
 
-1. **Point it at `/llms.txt`** — a short index of every doc, with one
-   sentence per page. The assistant fetches each linked page on demand.
-2. **Drop `/llms-full.txt` into the project** — the entire docs
-   tree concatenated. Largest token footprint, but the assistant
-   never needs to fetch.
-3. **Paste the short "context block" below** into your system prompt.
-   Smallest footprint; covers 80% of normal usage.
+- **Point it at `/llms.txt`** — a short index of every doc. One sentence per
+  page. The assistant fetches what it needs.
+- **Drop `/llms-full.txt` into the project** — every doc, concatenated.
+  Heaviest token cost. Nothing left to fetch.
+- **Paste the context block below** — smallest footprint. Covers 80% of
+  normal usage.
 
 ## Pointing common assistants at the docs
 
 ### Cursor
 
-In Cursor settings → **Rules for AI**, add:
+Open Cursor settings. Go to **Rules for AI**. Paste this in:
 
 ```
 When the user is working with DVAI-Bridge (@dvai-bridge/core,
@@ -29,12 +26,12 @@ https://bridge.deepvoiceai.co/docs/llms.txt and follow the linked pages
 relevant to the task.
 ```
 
-For tighter integration, drop `docs/llms-full.txt` into your repo as
-`.cursor/dvai-bridge.md` — Cursor's `@docs` mention will pick it up.
+Want tighter integration? Drop `docs/llms-full.txt` into your repo as
+`.cursor/dvai-bridge.md`. Cursor's `@docs` mention picks it up.
 
 ### Claude Code
 
-Add `docs/llms-full.txt` to your `CLAUDE.md` references section:
+Add `docs/llms-full.txt` to your `CLAUDE.md` references:
 
 ```md
 # Project conventions
@@ -47,7 +44,7 @@ Add `docs/llms-full.txt` to your `CLAUDE.md` references section:
 
 ### GitHub Copilot Workspace / Copilot Chat
 
-In Copilot Chat, attach this prompt:
+Attach this prompt:
 
 ```
 Use the DVAI-Bridge docs at https://bridge.deepvoiceai.co/docs/llms.txt
@@ -58,7 +55,7 @@ baseUrl rather than calling DVAI's internal APIs.
 
 ## Copy-pasteable context block
 
-Drop this into your assistant's system prompt or the top of a chat:
+Drop this in the system prompt or the top of a chat:
 
 ```md
 # DVAI-Bridge context (paste into system prompt)
@@ -140,16 +137,15 @@ identical; consumer code never knows.
 
 ## Why the OpenAI HTTP surface matters
 
-The whole point of DVAI-Bridge is that **standard agent code works
-unchanged**. If your assistant suggests calling DVAI's internal APIs
-directly, push back: that's not the contract. The contract is "a
-local OpenAI server at `baseUrl`." Any agent SDK that speaks OpenAI
-HTTP works.
+The whole point of DVAI-Bridge — **standard agent code works unchanged**.
 
-This is also what makes DVAI-Bridge agent-friendly in the first
-place: the assistant doesn't need to learn a new library, it just
-needs to know where the server lives. Once it sees `baseUrl`, all of
-its existing OpenAI knowledge applies.
+If your assistant suggests calling DVAI's internal APIs directly, push
+back. That's not the contract. The contract is one line: a local OpenAI
+server at `baseUrl`. Any agent SDK that speaks OpenAI HTTP works.
+
+This is also what makes DVAI-Bridge agent-friendly. The assistant doesn't
+learn a new library. It just learns where the server lives. Once it sees
+`baseUrl`, every bit of OpenAI knowledge it already has applies.
 
 ## See also
 
