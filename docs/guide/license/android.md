@@ -1,14 +1,14 @@
 # License setup — Android
 
-You added `co.deepvoiceai:dvai-bridge` to your Gradle build and want
-to ship a release APK / AAB. Here's the licensing path.
+You added `co.deepvoiceai:dvai-bridge` to your Gradle build. You want
+to ship a release APK or AAB. Here's the licensing path.
 
 ## TL;DR
 
 Drop `dvai-license.jwt` into your app's `src/main/assets/` folder. At
-`DVAIBridge.start(...)` time, the SDK reads it from the APK assets,
+`DVAIBridge.start(...)`, the SDK reads it from the APK assets,
 verifies the ES256 signature offline, and unlocks production
-behaviour. In `debug` build variants the SDK ignores license problems.
+behaviour. `debug` build variants ignore license problems.
 
 ## Where the file goes
 
@@ -22,19 +22,19 @@ app/
         dvai-license.jwt
 ```
 
-It ships inside the APK, accessible via `context.assets.open(...)`.
+It ships inside the APK — accessible via `context.assets.open(...)`.
 
-Alternative locations the SDK also checks (in priority order):
+Alternative locations the SDK also checks — in priority order:
 
-1. An inline JWT passed to `StartOptions(licenseToken = "...")` —
-   useful when the token comes from your account flow at runtime.
-2. A path passed to `StartOptions(licenseKeyPath = ...)` — e.g. a
-   file your app downloaded into `Context.filesDir`.
-3. `assets/dvai-license.jwt` (auto-discovered).
+1. Inline JWT passed to `StartOptions(licenseToken = "...")` — useful
+   when the token comes from your account flow at runtime.
+2. A path passed to `StartOptions(licenseKeyPath = ...)` — e.g. a file
+   your app downloaded into `Context.filesDir`.
+3. `assets/dvai-license.jwt` — auto-discovered.
 
 ## Code: with vs. without
 
-Default (license bundled in `assets/`):
+Default — license bundled in `assets/`:
 
 ```kotlin
 import co.deepvoiceai.bridge.DVAIBridge
@@ -48,7 +48,8 @@ println(bound.baseUrl)              // http://127.0.0.1:38883/v1
 println(bound.licenseStatus)        // LicenseStatus.Commercial(licensee = "Acme", ...)
 ```
 
-With an inline JWT (downloaded at runtime, stored in EncryptedSharedPreferences):
+Inline JWT — downloaded at runtime, stored in
+`EncryptedSharedPreferences`:
 
 ```kotlin
 val token = encryptedPrefs.getString("dvai_license_jwt", null)!!
@@ -60,7 +61,7 @@ val bound = DVAIBridge.start(StartOptions(
 ))
 ```
 
-With an explicit file path:
+Explicit file path:
 
 ```kotlin
 val licensePath = File(context.filesDir, "dvai-license.jwt").absolutePath
@@ -102,13 +103,13 @@ try {
 detects debug mode via `BuildConfig.DEBUG` and
 `ApplicationInfo.FLAG_DEBUGGABLE`.
 
-To force dev mode explicitly:
+Force dev mode explicitly:
 
 ```kotlin
 System.setProperty("DVAI_FORCE_DEV", "1")
 ```
 
-To rehearse the release code path inside a debug build:
+Rehearse the release code path inside a debug build:
 
 ```kotlin
 System.setProperty("DVAI_FORCE_PROD", "1")
@@ -124,8 +125,8 @@ System.setProperty("DVAI_FORCE_PROD", "1")
 | `audience entries ... do not match` | Package name doesn't match `aud` entries | Re-issue with your `applicationId`, or use a wildcard pattern |
 | `expired` | Past `exp` | Renew |
 
-The runtime audience on Android is your application's `packageName`
-(e.g. `com.acme.app`). License templates typically include both your
+The runtime audience on Android is your application's `packageName` —
+e.g. `com.acme.app`. License templates typically ship both your
 package name and a `"*"` fallback for trials.
 
 ## See also

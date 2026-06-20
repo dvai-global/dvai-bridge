@@ -1,20 +1,19 @@
 # Pre-init license inspection
 
-You can run the license validator independently of the SDK's main
-startup sequence. This is useful when:
+Run the license validator on its own — outside the SDK's startup
+sequence. Three good reasons:
 
-- A dashboard / settings UI wants to display the licensee, expiry, or
-  tier without paying the full cost of `DVAI.initialize()` /
-  `DVAIBridge.start()` (which loads models, starts the embedded HTTP
-  server, performs backend init).
-- A setup wizard wants to verify the license file before committing
-  the user to a model download.
-- A CI smoke wants to confirm that a license artifact is valid before
-  running the full integration test.
+- **Show license state in a dashboard or settings UI** — the licensee,
+  the expiry, the tier — without paying the full cost of
+  `DVAI.initialize()` / `DVAIBridge.start()` (which loads models, starts
+  the embedded HTTP server, runs backend init).
+- **Verify before a download** — a setup wizard checks the license file
+  before the user commits to a model download.
+- **Smoke-test in CI** — confirm a license artifact is valid before the
+  full integration test runs.
 
-The same `LicenseValidator` class that the SDK uses internally during
-`initialize()` is exposed on every SDK's public surface. Same JWT
-format, same claim checks, same dev-mode bypass rules everywhere.
+Same `LicenseValidator` class the SDK uses inside `initialize()`. Same
+JWT format. Same claim checks. Same dev-mode bypass rules. Everywhere.
 
 ## TypeScript / Node / Browser / Capacitor JS layer
 
@@ -43,8 +42,8 @@ switch (status.kind) {
 }
 ```
 
-`validate()` never throws. Use `validateAndAssert()` instead if you
-want the same throw-on-prod behavior the SDK itself uses at startup.
+`validate()` never throws. Use `validateAndAssert()` for the same
+throw-on-prod behavior the SDK runs at startup.
 
 ## Swift (iOS / macOS / Mac Catalyst)
 
@@ -70,7 +69,7 @@ case .freeExpired(let licensee, let expiredAt):
 }
 ```
 
-For the throw variant: `try await validator.validateAndAssert()`.
+Throw variant: `try await validator.validateAndAssert()`.
 
 ## Kotlin (Android)
 
@@ -102,11 +101,11 @@ suspend fun checkLicense(context: Context, isDebugBuild: Boolean) {
 }
 ```
 
-The Kotlin validator needs the `Context` to read `packageName` (for
-audience binding) and to discover assets / raw resources. Pass your
-host app's `BuildConfig.DEBUG` so the dev-mode bypass picks up the
-right value (the library module's own `BuildConfig.DEBUG` doesn't
-reflect your app's build variant).
+The Kotlin validator needs the `Context` — it reads `packageName` for
+audience binding and discovers assets / raw resources. Pass your host
+app's `BuildConfig.DEBUG` so the dev-mode bypass picks up the right
+value. The library module's own `BuildConfig.DEBUG` doesn't reflect
+your app's build variant.
 
 ## C# / .NET (MAUI, Avalonia, WinUI, Desktop)
 
@@ -138,8 +137,8 @@ switch (status)
 }
 ```
 
-For the throw variant: `await validator.ValidateAndAssertAsync()`
-which throws `LicenseRequiredException`.
+Throw variant: `await validator.ValidateAndAssertAsync()` — throws
+`LicenseRequiredException`.
 
 ## Dart (Flutter)
 
@@ -166,28 +165,29 @@ switch (status) {
 }
 ```
 
-For the throw variant: `await validator.validateAndAssert()` which
-throws `LicenseRequiredException`.
+Throw variant: `await validator.validateAndAssert()` — throws
+`LicenseRequiredException`.
 
 ## React Native + Capacitor
 
-These wrappers don't ship a JS-side LicenseValidator of their own —
-the license check happens on the native side (Swift / Kotlin) at
-startup. If you want pre-init validation from the JS layer:
+These wrappers don't ship a JS-side `LicenseValidator`. The license
+check happens on the native side (Swift / Kotlin) at startup.
 
-- **Capacitor**: install `@dvai-bridge/core` as a regular dependency
+To run pre-init validation from the JS layer:
+
+- **Capacitor** — install `@dvai-bridge/core` as a regular dependency
   alongside `@dvai-bridge/capacitor` and use the TypeScript example
-  above. The core's validator reads the same `dvai-license.jwt` your
-  app already ships (it's a same-origin fetch from `public/`).
-- **React Native**: same — install `@dvai-bridge/core` and use the
-  TypeScript example. Note that audience binding from a Node-style
-  context won't have `window.location.hostname`; either pass
-  `DVAI_AUDIENCE` via `process.env` shim or pre-read your bundle id
-  via the native module and pass it through `audienceOverride`.
+  above. Core's validator reads the same `dvai-license.jwt` your app
+  already ships — a same-origin fetch from `public/`.
+- **React Native** — same approach. Install `@dvai-bridge/core` and
+  use the TypeScript example. One catch — audience binding from a
+  Node-style context has no `window.location.hostname`. Either pass
+  `DVAI_AUDIENCE` via a `process.env` shim, or pre-read your bundle
+  id via the native module and pass it through `audienceOverride`.
 
 ## Same JWT file works everywhere
 
-All five SDK validators read the same `dvai-license.jwt` format and
+All five SDK validators read the same `dvai-license.jwt` format. They
 verify with the same `kid`-keyed public-key registry. One license
 issued by `dvai-license-generator` with platforms `["ios", "android",
 "web", "dotnet", "flutter", "react-native", "capacitor", "node"]`

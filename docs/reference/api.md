@@ -1,10 +1,10 @@
 # API Reference
 
-Detailed reference for the `DVAI` configuration and common types.
+The `DVAI` config and the types that go with it.
 
 ## `DVAIConfig`
 
-The main configuration object used to initialize the orchestration layer.
+The object you pass when you build a `DVAI` instance.
 
 | Property                | Type                                               | Default                                          | Description                                                                                                                                              |
 | :---------------------- | :------------------------------------------------- | :----------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -45,8 +45,8 @@ The main configuration object used to initialize the orchestration layer.
 
 ## `OffloadConfig` (v3.0+)
 
-Opts the library into peer-device discovery + offload. v2.x consumer
-code that doesn't set `offload` keeps working unchanged.
+Turns on peer discovery and inference offload. Leave it unset and the
+library behaves exactly like v2.x.
 
 | Property | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -84,8 +84,8 @@ code that doesn't set `offload` keeps working unchanged.
 
 ### `no_capable_device` error response
 
-When the offload decision fails to find a qualified peer, the response
-is OpenAI-error-shaped (HTTP 503 + `Retry-After: 30`):
+No peer fast enough? The library returns an OpenAI-shaped error —
+HTTP 503 with `Retry-After: 30`.
 
 ```json
 {
@@ -114,13 +114,15 @@ is OpenAI-error-shaped (HTTP 503 + `Retry-After: 30`):
 | `dvai.getPeers()` | `Peer[]` | Snapshot of currently-discovered peers. |
 
 See the [Distributed Inference guide](/guide/distributed-inference) for
-the full design + flows.
+the full design and the flows that drive it.
 
 ---
 
 ## `CreatePipelineFn`
 
-A factory function for custom model loading. Receives the dynamically-imported `@huggingface/transformers` module and a context object. Must return a `PipelineCallable`.
+A factory for loading models the built-in `pipeline()` can't reach.
+DVAI hands you the dynamically-imported `@huggingface/transformers`
+module and a context object. You return a `PipelineCallable`.
 
 ```typescript
 type CreatePipelineFn = (
@@ -136,7 +138,9 @@ type CreatePipelineFn = (
 
 ## `PipelineCallable`
 
-The function returned by `createPipeline`. Accepts chat messages and generation options, returns results matching the Transformers.js pipeline output format.
+The function `createPipeline` returns. Takes chat messages and
+generation options. Returns the same shape Transformers.js pipelines
+return.
 
 ```typescript
 type PipelineCallable = (messages: any, options?: any) => Promise<any>;
@@ -147,7 +151,7 @@ type PipelineCallable = (messages: any, options?: any) => Promise<any>;
 
 ## `ChatOptions`
 
-Options passed to `chatCompletion` or `createStreamingResponse`.
+The options you pass to `chatCompletion` or `createStreamingResponse`.
 
 | Property      | Type            | Description                                                              |
 | :------------ | :-------------- | :----------------------------------------------------------------------- |
@@ -161,56 +165,66 @@ Options passed to `chatCompletion` or `createStreamingResponse`.
 
 ## `DVAIInstance` (Core Class)
 
-Methods available on the `DVAI` class instance.
+The methods you call on a `DVAI` instance.
 
 ### `initialize(onProgress?)`
 
-Initializes the selected backend, starts workers, registers MSW handlers, and begins model downloading/loading. Accepts an optional progress callback.
+Boots the backend. Starts workers. Registers MSW handlers. Downloads
+and loads the model. Pass a progress callback if you want to show a
+loader.
 
 ### `chatCompletion(options)`
 
-Returns a standard OpenAI-format response object. Works for both standard pipeline models and custom `createPipeline` models.
+Returns an OpenAI-shaped response object. Works the same way for
+stock pipeline models and for custom `createPipeline` models.
 
 ### `createStreamingResponse(options)`
 
-Returns a `ReadableStream` that yields OpenAI-format SSE chunks. On the Transformers.js backend, streaming is real token-level streaming via `TextStreamer` (not word-by-word simulation).
+Returns a `ReadableStream` of OpenAI SSE chunks. On the Transformers.js
+backend, those chunks are real per-token output via `TextStreamer` —
+not word-by-word fakery.
 
 ### `embedding(inputs)`
 
-Returns an array of embedding vectors (`number[][]`) for the given string or array of strings.
+Returns embedding vectors (`number[][]`) for a string or an array of
+strings.
 
-- `backend: "transformers"` requires `pipelineTask: "feature-extraction"`.
-- `backend: "native"` requires `nativeEmbeddingMode: true`.
-- Throws when called on the WebLLM backend.
+- `backend: "transformers"` needs `pipelineTask: "feature-extraction"`.
+- `backend: "native"` needs `nativeEmbeddingMode: true`.
+- WebLLM doesn't do embeddings — this throws.
 
 ### `runPipeline(inputs, options?)`
 
-Runs the underlying Transformers.js pipeline directly with arbitrary inputs. Use for non-chat tasks (image generation, ASR, etc.).
+Calls the underlying Transformers.js pipeline directly. Reach for it
+when you need non-chat tasks — image generation, ASR, anything else.
 
 ### `unload()`
 
-Completely unloads the engine and frees memory/workers.
+Tears the engine down. Frees memory and workers.
 
 ### `getActiveBackend()`
 
-Returns the currently resolved backend instance.
+Hands you the resolved backend instance.
 
 ### Instance fields
 
-- `dvai.baseUrl?: string` — URL to hand to OpenAI SDKs. `undefined` when `transport="none"`.
-- `dvai.port?: number` — Bound HTTP port (HTTP transport only).
+- `dvai.baseUrl?: string` — The URL to hand to any OpenAI SDK. `undefined` when `transport="none"`.
+- `dvai.port?: number` — The bound HTTP port. HTTP transport only.
 
 ### Methods
 
-- `dvai.getBaseUrl(): string | undefined` — Method form of `dvai.baseUrl`.
-- `dvai.getPort(): number | undefined` — Method form of `dvai.port`.
-- `dvai.getActiveTransport(): "msw" | "http" | "none"` — Resolved transport after `initialize()`.
+- `dvai.getBaseUrl(): string | undefined` — Same value as `dvai.baseUrl`, in method form.
+- `dvai.getPort(): number | undefined` — Same value as `dvai.port`, in method form.
+- `dvai.getActiveTransport(): "msw" | "http" | "none"` — The transport DVAI picked during `initialize()`.
 
 ---
 
 ## OpenAI-Compatible Endpoints
 
-DVAI-Bridge registers MSW handlers for these endpoints, derived from `mockUrl` (defaults to `https://api.openai.local/v1/chat/completions`). If `mockUrl` ends with `/chat/completions`, the base URL is its parent; siblings are registered as:
+DVAI-Bridge mounts MSW handlers for these endpoints. The base URL comes
+from `mockUrl` (default: `https://api.openai.local/v1/chat/completions`).
+If `mockUrl` ends in `/chat/completions`, its parent is the base — the
+siblings live next to it.
 
 | Method | Endpoint               | Notes                                                                                                                                                                                                                      |
 | :----- | :--------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -221,9 +235,9 @@ DVAI-Bridge registers MSW handlers for these endpoints, derived from `mockUrl` (
 
 ### Distributed-inference plane (`/v1/dvai/*`, v3.0+; v3.1 wire fixes)
 
-Mounted only when `offload.enabled = true`. v3.0 had these handlers
-defined but never dispatched; **v3.1 wires them into the HTTP
-transport so they actually return JSON instead of 404**.
+Only mounted when `offload.enabled = true`. v3.0 defined these handlers
+but never dispatched them. **v3.1 wires them into the HTTP transport —
+they finally return JSON instead of 404**.
 
 | Method | Endpoint | Notes |
 | :--- | :--- | :--- |
@@ -259,14 +273,14 @@ POST /v1/dvai/handshake
 }
 ```
 
-The pairing key is sent in the response over the same Wi-Fi the
-handshake request crossed (LAN trust model). Rendezvous-QR pairings
-use ECDH key agreement and don't reach this handler.
+The pairing key travels back over the same Wi-Fi the handshake came
+in on — that's the LAN trust model. Rendezvous-QR pairings use ECDH
+key agreement and never touch this handler.
 
 ### Identity-signed `/v1/chat/completions` (v3.1)
 
-Once paired, a peer can include four request headers to identify
-itself in the audit log:
+Once paired, a peer can sign its requests with four headers — and the
+audit log records who it was.
 
 | Header | Description |
 | --- | --- |
@@ -275,15 +289,15 @@ itself in the audit log:
 | `X-DVAI-Nonce` | Per-request nonce (any unique string). |
 | `X-DVAI-Signature` | Hex `HMAC-SHA256(pairingKey, composeSignedMessage(nonce, "POST", "/v1/chat/completions", bodyJson))`. |
 
-The `composeSignedMessage` and `signHmac` / `verifyHmac` primitives
-are exported from `@dvai-bridge/core`'s package root. Targets
-(Hub) verify the signature against the stored pairing key:
-- All four headers present + verifies → audit row records the real
-  `appId` / `peerDeviceId`.
-- All four absent → backwards-compat anonymous path (audit logs
-  `appId: "anonymous"`). v3.0 SDKs that don't sign use this path.
-- Partial set → 401 with reason "all four or none".
+`composeSignedMessage`, `signHmac`, and `verifyHmac` are exported from
+the `@dvai-bridge/core` package root. Targets — like the Hub — check
+the signature against the stored pairing key:
 
-The Hub interceptor refuses requests whose model parses to
-`family: "unknown"` (parser sentinel for unparseable model names) —
-substituting on a sentinel-vs-sentinel match has no semantic basis.
+- All four headers present and the signature verifies — the audit row records the real `appId` and `peerDeviceId`.
+- All four absent — the legacy anonymous path runs. Audit logs `appId: "anonymous"`. v3.0 SDKs land here.
+- Some headers but not all — 401 with the reason "all four or none".
+
+The Hub interceptor rejects requests whose model name parses to
+`family: "unknown"` — that's the parser's sentinel for "I can't read
+this." Substituting one sentinel for another tells you nothing, so the
+Hub refuses.

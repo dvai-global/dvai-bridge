@@ -1,24 +1,23 @@
 # Quickstart: Capacitor
 
-End-to-end setup for running a local LLM inside a Capacitor 6/7/8 app using
-DVAI-Bridge's first-party plugins. By the end of this page your app talks to
-an OpenAI-compatible HTTP endpoint served by a native HTTP server bound to
-`127.0.0.1`.
+Run a local LLM inside a Capacitor 6, 7, or 8 app. End to end. By the
+end of this page, your app talks to an OpenAI-compatible HTTP endpoint —
+served by a native HTTP server bound to `127.0.0.1`.
 
 ## Prerequisites
 
-- A Capacitor 6, 7, or 8 application (`npx cap doctor` should report green).
-- Node.js 20+ and `pnpm` (npm / yarn also work).
-- iOS: Xcode 16+ with the iOS 17+ SDK. (Apple Foundation Models requires
-  iOS 26+ at runtime — see the backend matrix below.)
-- Android: Android Studio with NDK r27+ and JDK 21. `compileSdk 35` (or the
-  current Capacitor 8 default) on your app module.
+- A Capacitor 6, 7, or 8 app. `npx cap doctor` should report green.
+- Node.js 20+ and `pnpm`. npm or yarn work too.
+- iOS: Xcode 16+ with the iOS 17+ SDK. Apple Foundation Models needs
+  iOS 26+ at runtime — see the backend matrix below.
+- Android: Android Studio with NDK r27+ and JDK 21. `compileSdk 35` (or
+  the current Capacitor 8 default) on your app module.
 
 ## 1. Install the packages
 
-The `@dvai-bridge/capacitor` package is a thin JS routing shim. It does
-nothing on its own — you also install one or more **backend** plugins,
-each shipping native code:
+`@dvai-bridge/capacitor` is a thin JS routing shim. It does nothing on
+its own. You also install one or more **backend** plugins — each ships
+native code.
 
 ```bash
 # Required: the JS shim + at least one backend.
@@ -30,15 +29,15 @@ pnpm add @dvai-bridge/core @dvai-bridge/react   # or @dvai-bridge/vanilla
 
 Three backend plugins are available:
 
-| Package | Backend | Platforms | Use when… |
+| Package | Backend | Platforms | Pick when… |
 |---|---|---|---|
-| `@dvai-bridge/capacitor-llama` | llama.cpp | iOS + Android | You want GGUF model support, broadest model selection, optional vision via `mmproj`. |
+| `@dvai-bridge/capacitor-llama` | llama.cpp | iOS + Android | You want GGUF support, the broadest model selection, and optional vision via `mmproj`. |
 | `@dvai-bridge/capacitor-foundation` | Apple Foundation Models | iOS 26+ | You want zero-download text inference on Apple silicon devices. |
-| `@dvai-bridge/capacitor-mediapipe` | MediaPipe LLM Inference | Android | You want Google's `.task` runtime including vision-capable Gemma variants. |
+| `@dvai-bridge/capacitor-mediapipe` | MediaPipe LLM Inference | Android | You want Google's `.task` runtime — including vision-capable Gemma variants. |
 
-Mixing backends is supported — you only `start()` one at a time, but having
-both `capacitor-llama` and `capacitor-mediapipe` installed means you can
-pick at runtime based on platform or user setting.
+Mix freely. You only `start()` one backend at a time. But installing
+both `capacitor-llama` and `capacitor-mediapipe` lets you pick at
+runtime — by platform, or by user setting.
 
 ## 2. `cap sync`
 
@@ -52,21 +51,21 @@ This step is **mandatory**. It does two things:
 
 - **iOS** — adds the plugin's `Package.swift` / podspec to your Xcode
   project. The first build pulls Hummingbird (HTTP server) and
-  swift-nio transitively. Run `pnpm cap open ios` and let CocoaPods
-  / SwiftPM resolve once.
+  swift-nio transitively. Run `pnpm cap open ios` and let CocoaPods /
+  SwiftPM resolve once.
 - **Android** — registers the plugin's Gradle module, merges its
   `AndroidManifest.xml` (which declares the `network_security_config.xml`
-  whitelisting cleartext to `127.0.0.1` / `localhost`), and links
-  the prebuilt `libllama.so` / MediaPipe native libs.
+  whitelisting cleartext to `127.0.0.1` / `localhost`), and links the
+  prebuilt `libllama.so` / MediaPipe native libs.
 
-You do not need to touch your app's `network_security_config.xml`. The
+You don't need to touch your app's `network_security_config.xml`. The
 plugin merges its own.
 
 ## 3. First-run code
 
-Minimal example, runnable from any framework. This assumes you've used
-`@dvai-bridge/capacitor`'s `downloadModel()` helper or shipped a `.gguf`
-file via your own download path — see step 4 for the helper.
+Minimal example. Runs from any framework. Assumes you've used
+`@dvai-bridge/capacitor`'s `downloadModel()` helper, or shipped a
+`.gguf` file through your own download path — see step 4 for the helper.
 
 ```ts
 import { DVAIBridge } from "@dvai-bridge/capacitor";
@@ -125,14 +124,14 @@ while (true) {
 }
 ```
 
-When the user closes the screen, call `DVAIBridge.stop()` to release the
-model and free memory. `stop()` is idempotent.
+When the user closes the screen, call `DVAIBridge.stop()`. It releases
+the model and frees memory. `stop()` is idempotent.
 
 ## 4. Downloading a model with `downloadModel`
 
-Most apps cannot ship multi-GB GGUF files inside the bundle. The shim
-includes a resumable, sha256-verified downloader that caches into the
-platform-appropriate app-data directory:
+Most apps can't ship multi-GB GGUF files inside the bundle. The shim
+includes a resumable, sha256-verified downloader. It caches into the
+platform's app-data directory.
 
 ```ts
 import { DVAIBridge } from "@dvai-bridge/capacitor";
@@ -163,17 +162,17 @@ await DVAIBridge.start({ backend: "llama", modelPath: path });
 
 Behavior:
 
-- If the file already exists with a matching sha256, returns immediately
-  with `{ cached: true }`.
+- File already exists with a matching sha256? Returns immediately with
+  `{ cached: true }`.
 - Otherwise streams an HTTP `Range` download into `<destFilename>.partial`,
   computing sha256 as bytes arrive.
 - On final mismatch, deletes the partial + final paths and throws
-  `ChecksumMismatchError`. Retry-friendly.
-- iOS: marks the file `isExcludedFromBackupKey = true` so it doesn't bloat
-  iCloud backups.
+  `ChecksumMismatchError`. Safe to retry.
+- iOS: marks the file `isExcludedFromBackupKey = true` so it doesn't
+  bloat iCloud backups.
 
-For full guidance on hosting, multi-file models, and disk-space
-pre-checks, see [Model distribution](./model-distribution.md).
+For hosting, multi-file models, and disk-space pre-checks, see
+[Model distribution](./model-distribution.md).
 
 ## 5. Common errors
 
@@ -185,13 +184,13 @@ pre-checks, see [Model distribution](./model-distribution.md).
 | `[DVAI] Apple Foundation Models is iOS-only` | Selected `foundation` on Android. | Branch on `Capacitor.getPlatform()` and pick `llama` / `mediapipe` on Android. |
 | Cleartext error on Android emulator (API < 28). | Custom `networkSecurityConfig` overrides ours with `cleartextTrafficPermitted=false`. | Either remove your override or merge in `<domain includeSubdomains="true">127.0.0.1</domain>`. The plugin's manifest entry uses `tools:replace` but a host-app explicit override still wins. |
 
-iOS does **not** require any `Info.plist` keys for loopback HTTP —
-ATS exempts `127.0.0.1` by default. `NSLocalNetworkUsageDescription` is
+iOS does **not** need any `Info.plist` keys for loopback HTTP. ATS
+exempts `127.0.0.1` by default. `NSLocalNetworkUsageDescription` is
 unrelated and not needed.
 
 ## 6. Choosing a backend
 
-| Need | Recommended backend |
+| Need | Pick |
 |---|---|
 | Text completion, broadest model choice | `llama` |
 | Vision (image_url content parts) | `mediapipe` (vision-capable Gemma) or `llama` + mmproj (Phase 2) |
@@ -200,17 +199,17 @@ unrelated and not needed.
 | Embeddings | `llama` with `embeddingMode: true` |
 | Apple-managed privacy posture | `foundation` |
 
-See [Multimodal](./multimodal.md) for the full per-backend modality matrix
-and content-part shapes, and [Tested models](./tested-models.md) for
+See [Multimodal](./multimodal.md) for the full per-backend modality
+matrix and content-part shapes. [Tested models](./tested-models.md) has
 concrete model recommendations per tier.
 
 ## 7. Distributed inference (`offload`) — v3.0+
 
 Capacitor v3.0+ surfaces the v3.0 distributed-inference configuration.
 Pass an `offload` block to `start()` to enable LAN / internet peer
-discovery and request offload when local capability is insufficient. See
-the [Distributed Inference guide](./distributed-inference.md) for the
-full feature description.
+discovery and offload when local hardware can't keep up. See the
+[Distributed Inference guide](./distributed-inference.md) for the full
+description.
 
 ```ts
 import { DVAIBridge } from "@dvai-bridge/capacitor";
@@ -227,9 +226,9 @@ const server = await DVAIBridge.start({
 });
 ```
 
-The JS-side `OffloadConfig.onPairingRequest` callback cannot cross the
-Capacitor plugin boundary, so consumers receive inbound pairing requests
-via an event listener and respond via `respondToPairing(requestId, approved)`:
+The JS-side `OffloadConfig.onPairingRequest` callback can't cross the
+Capacitor plugin boundary. So inbound pairing requests arrive via an
+event listener — respond with `respondToPairing(requestId, approved)`:
 
 ```ts
 const handle = await DVAIBridge.addListener("pairingRequest", async (req) => {
@@ -241,20 +240,22 @@ const handle = await DVAIBridge.addListener("pairingRequest", async (req) => {
 await handle.remove();
 ```
 
-`addListener("pairingRequest")` requires a successful `start()` first —
+`addListener("pairingRequest")` needs a successful `start()` first —
 the listener is dispatched on the active backend plugin. Without a
 registered listener, inbound pairing requests are denied after the
 request's `expiresAt` deadline.
 
 ## Next steps
 
-- [Model distribution](./model-distribution.md) — hosting, sha256, multi-file
-  GGUF + mmproj download patterns, gated HF repos, disk-space pre-checks.
+- [Model distribution](./model-distribution.md) — hosting, sha256,
+  multi-file GGUF + mmproj download patterns, gated HF repos,
+  disk-space pre-checks.
 - [Multimodal](./multimodal.md) — image / audio content parts, error
   semantics, per-backend support matrix.
-- [Tested models](./tested-models.md) — the curated list we exercise in CI
-  and pre-release smoke tests.
-- [Native backend overview](./native-backend.md) — architecture, migration
-  notes from the deprecated `llama-cpp-capacitor` package.
-- [Distributed Inference guide](./distributed-inference.md) — peer discovery,
-  capability scoring, pairing handshake, and the `/v1/dvai/*` endpoints.
+- [Tested models](./tested-models.md) — the curated list we exercise in
+  CI and pre-release smoke tests.
+- [Native backend overview](./native-backend.md) — architecture and
+  migration notes from the deprecated `llama-cpp-capacitor` package.
+- [Distributed Inference guide](./distributed-inference.md) — peer
+  discovery, capability scoring, pairing handshake, and the
+  `/v1/dvai/*` endpoints.

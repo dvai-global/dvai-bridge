@@ -1,13 +1,13 @@
 # Native LLM (Capacitor)
 
-DVAI-Bridge ships first-party Capacitor plugins that run a local
-OpenAI-compatible HTTP server inside your iOS / Android app, fronted
+DVAI-Bridge ships first-party Capacitor plugins. They run a local
+OpenAI-compatible HTTP server inside your iOS or Android app, fronted
 by a native inference backend.
 
 > [!TIP]
 > **Don't need Capacitor?** Native iOS, native Android, and React Native
-> consumers have direct paths that don't require the Capacitor wrapper.
-> Pick the right guide for your stack:
+> consumers have direct paths that skip the Capacitor wrapper. Pick the
+> right guide for your stack:
 >
 > - SwiftUI / UIKit: [iOS Native SDK](./ios-native-sdk.md) — `@dvai-bridge/ios`
 > - Compose / Views / KMP: [Android Native SDK](./android-native-sdk.md) — `@dvai-bridge/android`
@@ -25,7 +25,7 @@ by a native inference backend.
 
 ## Architecture
 
-The Capacitor surface area is split across five packages:
+The Capacitor surface splits across five packages.
 
 ```
 @dvai-bridge/capacitor              ← JS routing shim (no native code)
@@ -35,8 +35,8 @@ The Capacitor surface area is split across five packages:
   └─ @dvai-bridge/capacitor-mlx          ← native: MLX (Apple Silicon, iOS 17+)
 ```
 
-You install the shim plus **one or more** backend plugins. The shim
-chooses which backend's `start()` to call based on `StartOptions.backend`.
+Install the shim plus **one or more** backend plugins. The shim chooses
+which backend's `start()` to call based on `StartOptions.backend`.
 
 ### How a backend plugin boots
 
@@ -44,7 +44,7 @@ chooses which backend's `start()` to call based on `StartOptions.backend`.
 2. The shim looks up the registered native plugin (`DVAIBridgeLlama`,
    `DVAIBridgeFoundation`, `DVAIBridgeMediaPipe`, or `DVAIBridgeMLX`)
    and dispatches.
-3. The native side loads the model (mmap on iOS / Android), opens an
+3. The native side loads the model (mmap on iOS and Android), opens an
    HTTP server bound to `127.0.0.1:<port>`, and starts the `/v1/*`
    route handlers.
 4. The promise resolves with `{ baseUrl, port, backend, modelId }`.
@@ -59,15 +59,15 @@ chooses which backend's `start()` to call based on `StartOptions.backend`.
 | `capacitor-mediapipe` | Stub: returns `Android-only` error | Kotlin wrapping MediaPipe `LlmInference` |
 | `capacitor-mlx` | Swift wrapping `mlx-swift-lm` (Apple Silicon only) | Stub: returns `iOS-only` error |
 
-The HTTP server library differs per OS:
+The HTTP server library differs per OS.
 
-- **iOS** — [Hummingbird 2.x](https://github.com/hummingbird-project/hummingbird) (built on swift-nio). Replaced Telegraph in v3.2.0 to enable SSE streaming through the offload proxy and fix a clang-module collision.
+- **iOS** — [Hummingbird 2.x](https://github.com/hummingbird-project/hummingbird), built on swift-nio. Replaced Telegraph in v3.2.0 to enable SSE streaming through the offload proxy and fix a clang-module collision.
 - **Android** — [NanoHTTPD](https://github.com/NanoHttpd/nanohttpd).
 
-In both cases it serves the OpenAI-compatible surface (`/v1/chat/completions`,
-`/v1/completions`, `/v1/models`, `/v1/embeddings` where applicable) plus
-preflight CORS. The full route table lives in the Phase 1 design spec
-in the source tree.
+Both serve the OpenAI-compatible surface — `/v1/chat/completions`,
+`/v1/completions`, `/v1/models`, `/v1/embeddings` where applicable —
+plus preflight CORS. The full route table lives in the Phase 1 design
+spec in the source tree.
 
 ## Setup
 
@@ -93,11 +93,11 @@ install + first-run code, including:
 ### MLX backend
 
 `@dvai-bridge/capacitor-mlx` loads MLX-converted HuggingFace models via
-[`mlx-swift-lm`](https://github.com/ml-explore/mlx-swift-lm). The `modelPath`
-start option is the HuggingFace model id (not a local path), e.g.
-`mlx-community/Llama-3.2-1B-Instruct-4bit`. The first call downloads the
-weights into the user's local HF cache (~/Library/Caches/...); subsequent
-calls hit the cache.
+[`mlx-swift-lm`](https://github.com/ml-explore/mlx-swift-lm). The
+`modelPath` start option is the HuggingFace model id — not a local
+path. For example, `mlx-community/Llama-3.2-1B-Instruct-4bit`. The
+first call downloads the weights into the user's local HF cache
+(`~/Library/Caches/...`). Subsequent calls hit the cache.
 
 ```ts
 import DVAIBridge from "@dvai-bridge/capacitor";
@@ -110,33 +110,33 @@ const result = await DVAIBridge.start({
 
 **Constraints:**
 
-- iOS 17+ at link time (the `@dvai-bridge/ios-mlx-core` package's
-  Package.swift floor); `@dvai-bridge/capacitor-mlx`'s ios podspec
+- iOS 17+ at link time — the `@dvai-bridge/ios-mlx-core` package's
+  Package.swift floor. `@dvai-bridge/capacitor-mlx`'s ios podspec
   inherits this minimum.
 - **Apple Silicon only at runtime.** MLX uses Apple's GPU + Neural
-  Engine through Metal Performance Shaders; iOS Simulator on Intel
-  Macs has no MLX device and `start()` will throw. Real devices and
+  Engine through Metal Performance Shaders. iOS Simulator on Intel
+  Macs has no MLX device — `start()` will throw. Real devices and
   iOS Simulator on Apple-Silicon Macs work.
-- The first run downloads model weights from HuggingFace Hub (typical
-  4-bit quantized 1B model is ~700 MB; 8B models are several GB). No
-  HF token is needed for public model repos.
-- `embeddings()` is **not implemented** by the MLX backend in this
-  release; use `llama` with `embeddingMode: true` for embeddings.
+- The first run downloads model weights from HuggingFace Hub. A typical
+  4-bit quantized 1B model is ~700 MB. 8B models are several GB. No HF
+  token is needed for public model repos.
+- `embeddings()` is **not implemented** on the MLX backend in this
+  release. Use `llama` with `embeddingMode: true` for embeddings.
 
 **CocoaPods consumers:** the MLX backend is currently SwiftPM-only.
 `mlx-swift-lm`'s transitive Swift packages don't publish CocoaPods
-specs. Consumers using `pod install` should pick `llama` or `coreml`
-instead. SwiftPM consumers (`Package.swift` with the Capacitor SwiftPM
-shim) get full MLX support.
+specs. Consumers using `pod install` should pick `llama` or `coreml`.
+SwiftPM consumers (`Package.swift` with the Capacitor SwiftPM shim) get
+full MLX support.
 
-See [Multimodal](./multimodal.md) for the per-backend image / audio
+See [Multimodal](./multimodal.md) for the per-backend image and audio
 support matrix.
 
 ## Migration from `llama-cpp-capacitor`
 
 Apps using the deprecated `llama-cpp-capacitor` plugin should migrate to
-the new three-plugin family. The new API is OpenAI-compatible — you call
-HTTP, not bridge methods, after `start()` returns.
+the new three-plugin family. The new API is OpenAI-compatible — you
+call HTTP, not bridge methods, after `start()` returns.
 
 ### Before (deprecated)
 
@@ -189,18 +189,17 @@ const reply = data.choices[0].message.content;
 | `LlamaCpp.release(handle)` | `DVAIBridge.stop()` (idempotent). |
 | `nativeModelPath` core option | `modelPath` on `start()`. |
 
-Differences to be aware of:
+Differences worth flagging:
 
 - The new API does **not** ship a default `nativeModelPath` resolver
-  pointing at `public/models/`. You either pass an absolute path
-  (typically from `downloadModel()`) or assemble one yourself from
-  `Filesystem`.
-- `llama.cpp` GPU-layers default is now `99` (request maximum offload);
-  the runtime decides what's feasible.
-- The HTTP boundary means you can swap in any OpenAI-compatible
-  client (Vercel AI SDK, LangChain, the `openai` SDK with a
-  `baseURL` override) without changing application code when you switch
-  to a hosted endpoint later.
+  pointing at `public/models/`. Pass an absolute path — typically from
+  `downloadModel()` — or assemble one yourself from `Filesystem`.
+- `llama.cpp` GPU-layers default is now `99` (request maximum offload).
+  The runtime decides what's feasible.
+- The HTTP boundary lets you swap in any OpenAI-compatible client —
+  Vercel AI SDK, LangChain, the `openai` SDK with a `baseURL` override —
+  without changing application code when you switch to a hosted endpoint
+  later.
 
 ## See also
 

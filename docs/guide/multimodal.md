@@ -1,15 +1,15 @@
 # Multimodal
 
 The DVAI-Bridge Capacitor plugins accept OpenAI-shaped content parts.
-What actually runs depends on the backend you started and on whether
-your loaded model has the matching modality. This page documents the
-shapes, the per-backend support matrix, and the exact error wording you
-get when a request doesn't fit.
+What actually runs depends on the backend you started and whether your
+loaded model has the matching modality. This page documents the shapes,
+the per-backend support matrix, and the exact error wording you get when
+a request doesn't fit.
 
 ## OpenAI content parts
 
 Each `messages[i].content` is either a plain string or an array of
-content parts:
+content parts.
 
 ```ts
 type ContentPart =
@@ -20,7 +20,7 @@ type ContentPart =
 type AudioFormat = "pcm16" | "wav" | "mp3" | "m4a" | "aac" | "flac" | "ogg";
 ```
 
-A multimodal request looks like:
+A multimodal request looks like this.
 
 ```json
 {
@@ -47,23 +47,22 @@ A multimodal request looks like:
 | Streaming SSE | ✅ | ✅ | ✅ |
 | Embeddings | ✅ if `embeddingMode: true` | ❌ | ❌ |
 
-In Phase 1 the most-tested modalities are:
+Phase 1 best-tested paths:
 
 - **Text** on all three backends.
-- **Image** on `capacitor-mediapipe` against vision-capable Gemma `.task`
-  artifacts. Image support on `capacitor-llama` is wired but the mmproj
+- **Image** on `capacitor-mediapipe` against vision-capable Gemma
+  `.task` artifacts. Image on `capacitor-llama` is wired — the mmproj
   path is gated until Phase 2 verification.
-- **Audio** on `capacitor-llama` requires a model whose GGUF has a
-  native audio encoder (e.g. Gemma 4 multimodal, Phi-4 Multimodal); the
-  pass-through is implemented but verified only on Phase 2 hardware
-  budget.
+- **Audio** on `capacitor-llama` needs a model whose GGUF has a native
+  audio encoder — Gemma 4 multimodal, Phi-4 Multimodal. The
+  pass-through is implemented, verified only on Phase 2 hardware.
 
-Treat the matrix as the contract; treat Phase 1 verification status as a
-caveat layered on top.
+Treat the matrix as the contract. Treat Phase 1 verification status as
+a caveat layered on top.
 
 ## Image content parts
 
-Three URL forms are accepted:
+Three URL forms are accepted.
 
 ### 1. Data URLs (base64 inline)
 
@@ -74,7 +73,7 @@ Three URL forms are accepted:
 }
 ```
 
-Best for images already in memory (camera capture, generated previews).
+Best for images already in memory — camera capture, generated previews.
 The plugin base64-decodes inline.
 
 ### 2. `https://` URLs
@@ -86,8 +85,8 @@ The plugin base64-decodes inline.
 }
 ```
 
-The plugin fetches the URL on the native side (no CORS concerns —
-that's a browser-only constraint). Treat any external fetch as
+The plugin fetches the URL on the native side. No CORS concerns —
+that's a browser-only constraint. Treat any external fetch as
 network-dependent and error-prone.
 
 ### 3. `file://` URLs
@@ -99,16 +98,16 @@ network-dependent and error-prone.
 }
 ```
 
-Reads directly from app-private storage. Combine with Capacitor's
-`Camera` / `Filesystem` plugins for capture flows.
+Reads directly from app-private storage. Pair with Capacitor's `Camera`
+and `Filesystem` plugins for capture flows.
 
-Decoded image bytes are then handed to the backend:
+Decoded image bytes go to the backend.
 
 - **`capacitor-llama`** — `mtmd_helper_eval` with the loaded mmproj.
-  Decodes PNG / JPEG internally.
+  Decodes PNG and JPEG internally.
 - **`capacitor-mediapipe`** — `LlmInferenceSession.addImage(MPImage)`
   on vision-enabled `.task` models.
-- **`capacitor-foundation`** — returns 400; not in the current API.
+- **`capacitor-foundation`** — returns 400. Not in the current API.
 
 ## Audio content parts
 
@@ -119,9 +118,9 @@ Decoded image bytes are then handed to the backend:
 }
 ```
 
-`data` is base64-encoded bytes of the encoded format (or raw PCM samples
-for `format: "pcm16"`). The plugin decodes via platform-native APIs
-into 16-bit PCM and hands the samples to the backend's audio API.
+`data` is base64-encoded bytes of the encoded format — or raw PCM
+samples for `format: "pcm16"`. The plugin decodes via platform-native
+APIs into 16-bit PCM and hands the samples to the backend's audio API.
 
 ### Format availability per platform
 
@@ -139,15 +138,16 @@ Decoding paths:
 - **iOS** — `AVAudioFile` + `AVAudioConverter` (built-in).
 - **Android** — `MediaExtractor` + `MediaCodec` (built-in).
 
-If you target both platforms, `wav` / `mp3` / `m4a` are the safe-by-default
-formats. `flac` works only on iOS, `ogg` only on Android.
+If you target both platforms, `wav`, `mp3`, and `m4a` are the
+safe-by-default formats. `flac` works only on iOS. `ogg` only on
+Android.
 
 Backend routing for audio:
 
 - **`capacitor-llama`** — `mtmd_helper_eval_audio` (or current upstream
   equivalent) for models with a native audio encoder.
-- **`capacitor-foundation`** — 400; not in the current API.
-- **`capacitor-mediapipe`** — 400; no audio-capable tasks in Phase 1.
+- **`capacitor-foundation`** — 400. Not in the current API.
+- **`capacitor-mediapipe`** — 400. No audio-capable tasks in Phase 1.
 
 ## Error semantics
 
@@ -164,22 +164,22 @@ remediation UI.
 | Audio decode fails | 400 | `{ "error": "Audio decode failed: <reason>" }` |
 | Unsupported audio format | 400 | `{ "error": "Unsupported audio format: <fmt>. Supported on this platform: <list>." }` |
 
-These wordings are spec-pinned and asserted by the cross-language handler
-parity tests. They will not change without a CHANGELOG entry.
+These wordings are spec-pinned and asserted by the cross-language
+handler parity tests. They will not change without a CHANGELOG entry.
 
 ## Streaming SSE notes
 
 When `stream: true`, all three backends emit OpenAI-shaped chunks. There
-is one documented asymmetry across plugins: see
-[Handler parity](../development/handler-parity.md) for the gory detail.
-For application code that uses an OpenAI SDK or the Vercel AI SDK, this
+is one documented asymmetry across plugins — see
+[Handler parity](../development/handler-parity.md) for the detail. For
+application code using an OpenAI SDK or the Vercel AI SDK, the
 asymmetry is invisible — those clients tolerate both shapes.
 
 ## Phase 1 limitations
 
-- Image and audio pass-through are implemented behind the HTTP boundary
-  but the per-modality verification runs on Phase 2's hardware budget
-  for `capacitor-llama`. Expect "wired but lightly tested."
+- Image and audio pass-through are implemented behind the HTTP boundary.
+  Per-modality verification on `capacitor-llama` lands on Phase 2's
+  hardware budget. Expect "wired but lightly tested."
 - Vision on `capacitor-mediapipe` is the most-tested image path in
   Phase 1.
 - `capacitor-foundation` stays text-only until Apple ships a multimodal
@@ -188,7 +188,7 @@ asymmetry is invisible — those clients tolerate both shapes.
 ## See also
 
 - [Capacitor quickstart](./quickstart-capacitor.md) — first-run setup.
-- [Tested models](./tested-models.md) — concrete vision / audio model
+- [Tested models](./tested-models.md) — concrete vision and audio model
   recommendations.
 - [Handler parity](../development/handler-parity.md) — cross-platform
   SSE-frame asymmetries.

@@ -1,15 +1,16 @@
 # React Reference
 
-Integration for React applications using `@dvai-bridge/react`.
+For React apps. Install `@dvai-bridge/react`.
 
 ## `DVAIProvider`
 
-The provider component that manages the global AI orchestration state. Ensure this wraps your application (usually in `main.tsx` or `App.tsx`).
+Wraps your tree. Holds the global AI state. Put it at the top — usually
+in `main.tsx` or `App.tsx`.
 
 ### Props:
 
 - `config`: A [`DVAIConfig`](/reference/api) object.
-- `children`: Your React application components.
+- `children`: Your React tree.
 
 ### Example:
 
@@ -25,7 +26,7 @@ import { DVAIProvider } from "@dvai-bridge/react";
 
 ## `useDVAI` Hook
 
-The primary interface for interacting with the local AI engine.
+The main way to talk to the local engine from your components.
 
 ### Usage:
 
@@ -36,23 +37,27 @@ const { isReady, progress, mockUrl, backend, modelId, unload, init } =
 
 ### Return Properties:
 
-- **`isReady`**: `boolean` — `true` when the engine is fully initialized and MSW is active.
-- **`progress`**: `{ text: string, progress: number }` — Current loading/downloading state.
-- **`mockUrl`**: `string` — The local URL that intercepts OpenAI-compatible requests (default: `https://api.openai.local/v1/chat/completions`).
-- **`backend`**: `"webllm" | "transformers" | "native"` — The currently active inference engine.
-- **`modelId`**: `string` — The ID of the currently loaded model.
-- **`unload()`**: `() => Promise<void>` — Manually unload the current engine and workers to free resources.
-- **`init()`**: `() => Promise<void>` — Manually trigger initialization if `autoInit` was `false`.
+- **`isReady`**: `boolean` — `true` when the engine is up and MSW is intercepting.
+- **`progress`**: `{ text: string, progress: number }` — Where the loader is.
+- **`mockUrl`**: `string` — The local URL OpenAI clients should hit (default: `https://api.openai.local/v1/chat/completions`).
+- **`backend`**: `"webllm" | "transformers" | "native"` — The engine that's running.
+- **`modelId`**: `string` — The model that's loaded.
+- **`unload()`**: `() => Promise<void>` — Shut the engine down. Free workers and memory.
+- **`init()`**: `() => Promise<void>` — Start it up by hand. Use this when you set `autoInit: false`.
 
 ---
 
 ## LangChain Integration
 
-`dvai-bridge` is fully compatible with LangChain (and other OpenAI-compatible SDKs). It provides a local mock URL that intercepts standard `/chat/completions` requests via MSW (Mock Service Worker).
+LangChain works as-is. So does any OpenAI-compatible SDK. DVAI hands
+you a local URL — MSW intercepts the `/chat/completions` call and
+runs the model on-device.
 
 ### Example with Tool Calling:
 
-For small models like Llama 3.2 1B, it is recommended to use a manual tool-execution loop to ensure reliable parsing of JSON-formatted tool calls from the model's message content.
+Small models — Llama 3.2 1B and friends — don't always emit clean
+tool-call JSON. Run a manual tool loop. You parse the JSON yourself
+and stay in control.
 
 ```tsx
 import { DVAIProvider, useDVAI } from "@dvai-bridge/react";
@@ -133,7 +138,8 @@ function AgentDemo() {
 
 ### Example with Custom Model (Gemma 4):
 
-When using a model that requires `createPipeline`, pass it through the provider config:
+Some models — Gemma 4, multimodal stacks — need a `createPipeline`
+factory. Pass it through the provider config.
 
 ```tsx
 import { DVAIProvider, useDVAI } from "@dvai-bridge/react";
@@ -222,7 +228,8 @@ function Chat() {
 
 ## `dvai` Instance
 
-For advanced use cases, the `DVAI` core instance is also exported:
+Need to drop below the hook? The raw `DVAI` core instance is on the
+return value too.
 
 ```tsx
 import { useDVAI } from "@dvai-bridge/react";

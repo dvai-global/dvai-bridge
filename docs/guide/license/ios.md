@@ -1,32 +1,32 @@
 # License setup — iOS
 
-You added the `DVAIBridge` SwiftPM (or CocoaPods) dependency and want
+You added the `DVAIBridge` SwiftPM (or CocoaPods) dependency. You want
 to ship to the App Store. Here's the licensing path.
 
 ## TL;DR
 
 Add `dvai-license.jwt` to your Xcode project's main bundle as a
 resource. At app launch, the SDK reads it from the bundle, verifies
-the ES256 signature offline, and unlocks production behaviour. In
-Debug builds the SDK ignores license problems.
+the ES256 signature offline, and unlocks production behaviour. Debug
+builds ignore license problems.
 
 ## Where the file goes
 
-Add the license file as a bundled resource so it ships inside the
-`.app` package:
+Add the license as a bundled resource so it ships inside the `.app`
+package:
 
-1. Drop `dvai-license.jwt` into your Xcode project (drag-and-drop or
-   File → Add Files…).
+1. Drop `dvai-license.jwt` into your Xcode project — drag-and-drop or
+   File → Add Files…
 2. In the file inspector, tick **Target Membership** for your app
    target.
-3. Make sure it appears under **Build Phases → Copy Bundle Resources**.
+3. Confirm it shows up under **Build Phases → Copy Bundle Resources**.
 
 The runtime location is `Bundle.main.url(forResource: "dvai-license",
 withExtension: "jwt")`. The SDK looks there first.
 
-Alternative locations the SDK also checks (in priority order):
+Alternative locations the SDK also checks — in priority order:
 
-1. An inline JWT passed to `start(.init(licenseToken: "..."))` — useful
+1. Inline JWT passed to `start(.init(licenseToken: "..."))` — useful
    when the token comes from your account flow at runtime.
 2. A path passed to `start(.init(licenseKeyPath: ...))` — e.g. a file
    downloaded into `Application Support`.
@@ -34,7 +34,7 @@ Alternative locations the SDK also checks (in priority order):
 
 ## Code: with vs. without
 
-Default (license bundled at `dvai-license.jwt`):
+Default — license bundled at `dvai-license.jwt`:
 
 ```swift
 import DVAIBridge
@@ -47,7 +47,7 @@ print(bound.baseUrl)             // http://127.0.0.1:38883/v1
 print(bound.licenseStatus)       // .commercial(licensee: "Acme", ...)
 ```
 
-With an inline JWT (downloaded at runtime, stored in Keychain):
+Inline JWT — downloaded at runtime, stored in Keychain:
 
 ```swift
 let token = try keychain.read("dvai-license-jwt")
@@ -59,7 +59,7 @@ let bound = try await DVAIBridge.shared.start(.init(
 ))
 ```
 
-With an explicit file path:
+Explicit file path:
 
 ```swift
 let bound = try await DVAIBridge.shared.start(.init(
@@ -80,8 +80,8 @@ for the release date and pin to v3.3+ to enforce on iOS.
 
 ## What happens without a license
 
-In Release builds, `start(...)` throws `DVAIBridgeError.licenseRequired`
-with a verbose user-facing message:
+In Release builds, `start(...)` throws
+`DVAIBridgeError.licenseRequired` with a verbose user-facing message:
 
 ```swift
 do {
@@ -93,22 +93,22 @@ do {
 }
 ```
 
-The reason includes which check failed (missing file, expired,
-audience mismatch, etc.) and the resolution steps.
+The reason names the check that failed — missing file, expired,
+audience mismatch — and the resolution steps.
 
 ## Testing locally without a license
 
 Debug builds skip license checks automatically. The SDK detects Debug
 mode via the `DEBUG` compile flag and the simulator's environment.
 
-To force dev mode explicitly (e.g. for a TestFlight build you want to
-distribute without a real license):
+Force dev mode explicitly — e.g. for a TestFlight build you want to
+distribute without a real license:
 
 ```swift
 ProcessInfo.processInfo.environment["DVAI_FORCE_DEV"] = "1"
 ```
 
-To rehearse the production code path inside a Debug build:
+Rehearse the production code path inside a Debug build:
 
 ```swift
 setenv("DVAI_FORCE_PROD", "1", 1)
@@ -125,8 +125,8 @@ setenv("DVAI_FORCE_PROD", "1", 1)
 | `expired` | Past `exp` | Renew |
 
 The runtime audience on iOS is `Bundle.main.bundleIdentifier`. License
-templates typically include both your bundle id (e.g.
-`com.acme.app`) and a `"*"` fallback for trials.
+templates typically ship both your bundle id — e.g. `com.acme.app` —
+and a `"*"` fallback for trials.
 
 ## See also
 

@@ -1,44 +1,46 @@
 # License setup — Capacitor
 
-You added `@dvai-bridge/capacitor` (plus a backend plugin like
-`@dvai-bridge/capacitor-llama`) and want to ship to the App Store and
+You added `@dvai-bridge/capacitor` plus a backend plugin like
+`@dvai-bridge/capacitor-llama`. You want to ship to the App Store and
 Play Store. Here's the licensing path.
 
 ## TL;DR
 
-Drop `dvai-license.jwt` into your `www/` (or Vite's `public/`) folder
-so it ends up at `/dvai-license.jwt` inside the bundled webview
-assets. The JS-side validator runs on `DVAIBridge.start(...)`, fetches
-the file via the Capacitor scheme, verifies the signature offline,
-and unlocks production behaviour. In `Capacitor.DEBUG === true` mode
-the SDK ignores license problems.
+Drop `dvai-license.jwt` into your `www/` — or Vite's `public/` —
+folder. It lands at `/dvai-license.jwt` inside the bundled webview
+assets.
+
+The JS-side validator runs on `DVAIBridge.start(...)`. It fetches the
+file via the Capacitor scheme, verifies the signature offline, and
+unlocks production behaviour. In `Capacitor.DEBUG === true` mode the
+SDK ignores license problems.
 
 ## Where the file goes
 
-For Capacitor, the JS-side validator does the verification — same
-discovery rules as the [web setup](./web), but the file ships inside
-the native app rather than from your origin.
+On Capacitor, the JS-side validator does the verification. Same
+discovery rules as the [web setup](./web). The file ships inside the
+native app instead of from your origin.
 
-- **Vite / esbuild bundled webview**: drop the file in `public/`. Vite
-  copies it to `dist/`, then `npx cap sync` copies `dist/` into the
-  native projects.
-- **Single-HTML / no bundler**: drop it directly into `www/`.
+- **Vite / esbuild bundled webview** — drop the file in `public/`.
+  Vite copies it to `dist/`. Then `npx cap sync` copies `dist/` into
+  the native projects.
+- **Single-HTML / no bundler** — drop it directly into `www/`.
 
-Verify it's bundled correctly:
+Verify it shipped:
 
-- iOS: open the `.app` bundle in Xcode, expand `App/public/`, confirm
+- iOS — open the `.app` bundle in Xcode, expand `App/public/`, confirm
   `dvai-license.jwt` is there.
-- Android: open the APK with Android Studio's APK analyzer, look for
+- Android — open the APK with Android Studio's APK analyzer, look for
   `assets/public/dvai-license.jwt`.
 
-Alternative discovery (same as web):
+Alternative discovery — same as web:
 
 1. Inline JWT — `DVAIBridge.start({ licenseToken: "..." })`.
 2. Explicit URL — `DVAIBridge.start({ licenseKeyPath: "/path/in/webview.jwt" })`.
 
 ## Code: with vs. without
 
-Default (license bundled in webview assets):
+Default — license bundled in webview assets:
 
 ```ts
 import { DVAIBridge } from "@dvai-bridge/capacitor";
@@ -52,7 +54,7 @@ console.log(bound.baseUrl);          // http://127.0.0.1:38883/v1
 console.log(bound.licenseStatus);    // { kind: "commercial", licensee: "Acme", ... }
 ```
 
-With an inline JWT (downloaded into Capacitor Preferences):
+Inline JWT — downloaded into Capacitor Preferences:
 
 ```ts
 import { Preferences } from "@capacitor/preferences";
@@ -88,13 +90,13 @@ try {
 The Capacitor JS validator detects dev mode when **any** of these are
 true:
 
-- The webview hostname is `localhost` (which it usually is in
-  Capacitor's bundled-content scheme).
-- `Capacitor.DEBUG === true` (set by Capacitor in debug builds).
+- The webview hostname is `localhost` — usually true under Capacitor's
+  bundled-content scheme.
+- `Capacitor.DEBUG === true` — set by Capacitor in debug builds.
 - `window.localStorage.DVAI_FORCE_DEV === "true"`.
 - `NODE_ENV=test` or `NODE_ENV=development` at bundle time.
 
-To rehearse production behaviour locally:
+Rehearse production behaviour locally:
 
 ```ts
 localStorage.setItem("DVAI_FORCE_PROD", "true");
@@ -102,11 +104,11 @@ localStorage.setItem("DVAI_FORCE_PROD", "true");
 
 ## Audience binding on Capacitor
 
-The runtime audience is the webview hostname — Capacitor reports
-`localhost` for the bundled-content origin. Your licenses should
-include `"localhost"` as an `aud` entry for Capacitor activation, or
-use `"*"`. (The native bundle-id binding will come with the v3.3
-native-side validators — see the iOS / Android pages.)
+The runtime audience is the webview hostname. Capacitor reports
+`localhost` for the bundled-content origin. Your licenses need
+`"localhost"` as an `aud` entry for Capacitor activation — or `"*"`.
+Native bundle-id binding lands with the v3.3 native-side validators —
+see the iOS / Android pages.
 
 ## When validation fails
 
@@ -123,7 +125,7 @@ native-side validators — see the iOS / Android pages.)
 - [License setup index](./index)
 - [Pre-init inspection](./pre-init-inspection) — run
   `LicenseValidator` from `@dvai-bridge/core` in the webview before
-  the native plugin boots, useful for setup wizards.
+  the native plugin boots — useful for setup wizards.
 - [Web](./web) — the JS-side discovery rules apply identically.
 - [Native LLM (Capacitor)](/guide/native-backend) — the broader
   Capacitor quickstart.

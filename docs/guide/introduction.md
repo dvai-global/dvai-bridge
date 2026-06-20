@@ -1,12 +1,14 @@
 # Introduction
 
-## What does this do?
+## What is DVAI-Bridge?
 
-You're shipping an app. You want it to call an LLM. You don't want to
-pay for OpenAI per token, you don't want to run a server, and you
-don't want your users to install Ollama. DVAI-Bridge embeds a local
-OpenAI-compatible server right inside your app — so the same agent
-code you wrote for OpenAI keeps working, just locally.
+DVAI-Bridge is a local AI SDK for building cross-platform apps that ship
+AI inside the app itself — not behind a cloud API, not behind a server the
+user has to install.
+
+It runs an OpenAI-compatible HTTP server inside your app process. You
+point any OpenAI client at it, and the same agent code you wrote for the
+cloud keeps working. Locally. Privately. For free.
 
 ```ts
 import { DVAI } from "@dvai-bridge/core";
@@ -22,185 +24,90 @@ const r = await openai.chat.completions.create({
 });
 ```
 
-That's the whole point. Read the rest of this page if you want the
-architectural story — but the snippet above is the contract.
+That's the whole contract.
 
-If you just want to ship:
+## Why local AI?
 
-- Pick your SDK from the [License setup](./license/) index and follow
-  the per-platform walkthrough.
-- Set `backend: "auto"` and trust the defaults.
-- Point your existing OpenAI client at `dvai.baseUrl`.
+Cloud AI works — until you try to ship a real product. Three costs always
+catch up.
 
-## The MOAT
+- **Per-token fees.** Every user query costs money. High-volume apps burn through budgets fast.
+- **Privacy exposure.** Sensitive data leaves the device. Healthcare, legal, and finance apps can't accept that.
+- **Infrastructure burden.** Keys, rate limits, rotation, secret storage — all for what should be "just run the model."
 
-DVAI-Bridge is the only library that lets you point any OpenAI-compatible
-client — LangChain, the OpenAI SDK, the Vercel AI SDK, or any
-language's OpenAI client — at a real, fully local HTTP endpoint, across:
+Local inference fixes those — until shipping day. Ollama needs the user
+to install Ollama. llama.cpp wants a sidecar binary. WebLLM is browser-only.
+Every team that tries to ship a production AI app hits this wall.
 
-- **Browser** (React, Vue, Svelte, vanilla JS)
-- **Node / Bun**
-- **Electron** (main process, with full-native GPU acceleration)
-- **Capacitor hybrid mobile** (iOS + Android)
-- **iOS native** (Swift, via SwiftPM / CocoaPods — `DVAIBridge`)
-- **Android native** (Kotlin / Java, via AAR — `co.deepvoiceai:dvai-bridge`)
-- **React Native** (TurboModule on RN ≥ 0.77 — `@dvai-bridge/react-native`)
-- **Flutter** (Dart, via pub.dev — `dvai_bridge`)
-- **.NET 10 LTS** (C#, via NuGet — `co.deepvoiceai.dvai-bridge*`; covers .NET MAUI on iOS / Android, Mac Catalyst, Avalonia / WinUI desktop, and Windows / macOS / Linux console apps)
+DVAI-Bridge ships *inside your app*, on every platform, with the same
+OpenAI HTTP wire. The wall goes away.
 
-Plus, since v3.0, **distributed inference across the user's
-devices** — phones offload to laptops on the same Wi-Fi via mDNS
-pairing, OR via a [self-hosted rendezvous server](/guide/self-hosting-rendezvous)
-for cross-network paths. And since v3.1, the
-**[DVAI Hub](/guide/dvai-hub)** packages the strong-peer side as a
-brand-neutral installable utility.
+## What you get
 
-Same OpenAI HTTP surface, multiple language ecosystems, every major
-platform. No other project covers this combination.
+- **Zero per-token cost.** Run forever; no billing limit.
+- **Full privacy.** Inference runs on the user's hardware. The data never leaves.
+- **Zero install for your user.** Your app already contains the AI.
+- **Works offline.** Aeroplane mode. Hospital networks. Enterprise air-gaps. Still works.
+- **Any agent SDK, unchanged.** LangChain, OpenAI SDK, Vercel AI SDK, CrewAI — point `baseURL` at `dvai.baseUrl`.
 
-## The problem
+## What it covers
 
-Traditional AI agents rely on cloud APIs (OpenAI, Anthropic), which
-introduce three costs that kill many products before they launch:
+One SDK shape, six runtimes, five registries.
 
-- **Per-token fees.** Every user query costs money. High-volume apps
-  burn through budgets fast.
-- **Privacy exposure.** Sensitive data must leave the device. Healthcare,
-  legal, finance, and personal-data apps can't accept that.
-- **Infrastructure burden.** Managing keys, rate limits, backend servers,
-  rotation, secret storage — all for what is conceptually just "run this
-  model."
+- **Browser** — React, Vue, Svelte, vanilla JS.
+- **Node and Bun** — server-side or CLI.
+- **Electron** — the main process gets full-native GPU acceleration.
+- **Capacitor hybrid** — one bundle for iOS and Android.
+- **iOS native** — Swift via SwiftPM / CocoaPods (`DVAIBridge`).
+- **Android native** — Kotlin / Java via Maven Central (`co.deepvoiceai:dvai-bridge`).
+- **React Native** — TurboModule on RN ≥ 0.77 (`@dvai-bridge/react-native`).
+- **Flutter** — Dart on pub.dev (`dvai_bridge`).
+- **.NET 10 LTS** — C# on NuGet — covers .NET MAUI on iOS / Android, Mac Catalyst, Avalonia / WinUI desktop, and Windows / macOS / Linux console apps.
 
-Local inference tooling solves those — until shipping day. Ollama
-requires the user to install Ollama. llama.cpp needs a sidecar binary
-and lifecycle management. WebLLM and Transformers.js are browser-only.
-Every team that has tried to ship a production AI-powered app has
-hit this wall.
+Same OpenAI HTTP surface. Same method names. Different package, same behaviour.
 
-## The solution
+## How it works
 
-DVAI-Bridge provides a local OpenAI-compatible HTTP server that lives
-*inside your app process* on every platform. Three wins for the
-developer:
+Three layers, the same on every platform.
 
-- **Any agent SDK, unmodified.** LangChain, the OpenAI SDK, Vercel AI
-  SDK, raw `fetch()` — all work out of the box. Point the `baseURL` at
-  `dvai.baseUrl`. Done.
-- **Zero per-token costs.** Run indefinitely with no billing limit.
-- **Full privacy.** Data is processed entirely on the user's hardware
-  (WebGPU, CUDA, Metal, Vulkan, DirectML, CoreML, NNAPI / QNN, etc.,
-  whichever is available).
+- **The engine** — picks itself by default. Apple Foundation Models on supported iPhones. MLX on Apple Silicon Macs. llama.cpp where it fits. MediaPipe LLM and LiteRT on Android. WebLLM and Transformers.js in browsers. ONNX Runtime on .NET.
+- **The HTTP server** — `127.0.0.1:38883`, with port fallback. Endpoints are exactly OpenAI's: `/v1/chat/completions`, `/v1/embeddings`, `/v1/models`. Streaming is SSE, exactly the way OpenAI streams.
+- **The SDK** — one idiomatic surface per language. Swift actors. Kotlin coroutines. Pigeon-typed Dart APIs. Async C# Tasks. React hooks for the JS family.
 
-And three wins for the user:
+In the browser, the "server" is a Service Worker that intercepts fetch
+calls — no actual TCP. Same OpenAI URL pattern, same response shape.
 
-- **Nothing extra to install.** Your app ships with AI built in.
-- **Works offline.** Airplane mode, enterprise networks with no outbound
-  access — AI still works.
-- **No data leaves the device.** Period.
+## Distributed inference
 
-## Technical hurdles it solves
+Since v3.0, a phone can offload heavy inference to a stronger device on
+the same Wi-Fi. The strong device is **DVAI Hub** — a small installable
+utility — or any other app embedding DVAI-Bridge.
 
-Beyond cost and privacy, DVAI-Bridge solves the fragmentation problem
-that kills most attempts at shipping local AI:
+Pairing is encrypted end-to-end. Requests are HMAC-signed. The phone
+keeps its OpenAI HTTP surface — only the engine moves.
 
-- **WebGPU instability.** Automatically detects and recovers from
-  browser GPU crashes, re-initializing the engine up to a configurable
-  number of times.
-- **Resource management.** Clean `unload()` + `init()` hooks for
-  battery-aware mobile apps; the model and server are released together.
-- **Unified backends.** One API abstracts over WebLLM, Transformers.js,
-  llama.cpp, CoreML, MediaPipe LLM, Apple Foundation Models, ONNX
-  Runtime GenAI, LiteRT, and more. The agent code never learns which is
-  which.
-- **Any model architecture.** A declarative loader lets you bring any
-  model — even cutting-edge multimodal models — without waiting for
-  library updates. See the [Backends guide](/guide/backends).
-- **Transport abstraction.** MSW for browsers (intercepts fetch calls),
-  real HTTP servers for every other runtime (binds `127.0.0.1`, with
-  port-fallback and CORS + Private Network Access headers built in). Same
-  handler logic behind both. See the [Transports guide](/guide/transports).
+For cross-network paths, run a [self-hosted rendezvous server](/guide/self-hosting-rendezvous).
 
-## Key backends
+## Auto-recovery
 
-- **WebLLM** — high-performance WebGPU inference for modern browsers
-  using MLC-compiled models.
-- **Transformers.js (v4+)** — broad compatibility for thousands of ONNX
-  models from Hugging Face; text, vision, audio, embeddings. Works in
-  browser and Node.
-- **Native llama.cpp** — first-party bindings (NAPI / JNI / Swift /
-  P/Invoke) over a pinned upstream llama.cpp build. GPU-accelerated on
-  every platform (CUDA, Metal, Vulkan, DirectML, Apple Metal).
-- **Platform-specific runtimes** — CoreML + Apple Foundation Models on
-  iOS; MediaPipe LLM + LiteRT on Android; ONNX Runtime GenAI on .NET.
-  Selected per platform based on availability and model format.
+If a model gets stuck — blank output, generation timeout, GPU crash —
+DVAI-Bridge unloads the engine, reloads it, and retries the request up
+to a bounded count. Users see a brief progress update. Not a broken UI.
 
-## Any model architecture
+## Any model
 
-DVAI-Bridge doesn't maintain a hardcoded list of supported models. Three
-paths, in order of preference:
+DVAI-Bridge doesn't hardcode a list of supported models. Three paths, in
+order of preference.
 
-1. **`pipeline()` default** — for standard tasks (text-generation,
-   feature-extraction, ASR, etc.), just set `transformersModelId` and
-   `pipelineTask`. Thousands of models on the Hugging Face Hub work
-   with zero extra config.
+- **`pipeline()` default** — set `transformersModelId` + `pipelineTask`. Thousands of models on Hugging Face work with no extra config.
+- **[Declarative multimodal loader](/guide/backends#declarative-multimodal-loader)** — for models with named classes (multimodal LLMs, vision-language, speech-to-text with chat). Runs in a Web Worker; main thread stays free.
+- **[Custom Pipeline Factory](/guide/backends#custom-pipeline-factory-createpipeline)** — escape hatch for exotic processors. You supply a factory; DVAI handles transport, endpoints, streaming, formatting.
 
-2. **[Declarative multimodal loader](/guide/backends#declarative-multimodal-loader)**
-   — for models that need named classes like
-   `Gemma4ForConditionalGeneration` + `AutoProcessor` (multimodal LLMs,
-   vision-language models, speech-to-text with chat), set
-   `transformersModelClass` and (optionally)
-   `transformersProcessorClass` / `transformersDisableEncoders`. Runs
-   in the Web Worker by default — the main thread stays unblocked
-   during inference.
+Most cutting-edge multimodal models need only the first two.
 
-3. **[Custom Pipeline Factory](/guide/backends#custom-pipeline-factory-createpipeline)**
-   — escape hatch for exotic processor signatures. You supply a factory
-   function; DVAI handles the transport, the OpenAI endpoint, streaming,
-   and response formatting. Main-thread only.
+## What's next
 
-Cutting-edge multimodal models rarely need option 3. Pick 1 or 2.
-
-## Hybrid backend selection
-
-When configured with `backend: "auto"`, DVAI-Bridge picks the best backend
-for the runtime:
-
-1. **Mobile (Capacitor / native iOS / native Android / React Native /
-   Flutter / .NET MAUI):** native llama.cpp with platform-specific
-   acceleration (Metal on iOS; Vulkan or NNAPI / QNN on Android). The
-   native SDKs additionally let you opt into MLX / CoreML / Foundation
-   Models on iOS, and MediaPipe / LiteRT on Android. .NET MAUI inherits
-   the same backend matrix via the platform-specific NuGet slices.
-2. **.NET Mac Catalyst:** routes to the same iOS backend matrix
-   (Foundation / CoreML / MLX / Llama).
-3. **Electron main / .NET desktop:** native llama.cpp with CUDA / Metal
-   / Vulkan / DirectML, whichever is available. .NET hosts can additionally
-   pull in `co.deepvoiceai.dvai-bridge.onnxruntime` (ONNX Runtime GenAI)
-   or `co.deepvoiceai.dvai-bridge.mlnet` (ML.NET) as backends.
-4. **Browser:** WebLLM if WebGPU is present; Transformers.js otherwise.
-5. **Node:** Transformers.js or native llama.cpp depending on what's
-   installed.
-
-## Transport auto-detection
-
-On `initialize()` or `start()`, DVAI-Bridge picks the right transport:
-
-- **Browser main thread** → MSW intercept (intercepts fetch, no actual
-  server process).
-- **Node / Electron main / Capacitor mobile / native mobile / .NET desktop**
-  → real HTTP server on `127.0.0.1:38883` (with port-fallback up to 16
-  attempts).
-- **Web Worker / Service Worker** → no transport; use `chatCompletion()`
-  directly.
-
-Host applications simply read `dvai.baseUrl` (or the equivalent on each
-native SDK) and pass it to any OpenAI SDK. Same API across every
-platform. See the [Transports guide](/guide/transports) for details.
-
-## Built-in robustness
-
-If an inference backend fails (blank output, timeout, GPU crash, etc.),
-DVAI-Bridge automatically triggers a recovery cycle: unloads the engine,
-reloads it, retries the request up to a configurable number of times.
-Users don't see a broken UI; they see a brief progress update and then
-a valid response.
+- [Get started](/guide/getting-started) — five-minute install + first chat.
+- [Pick your platform](/guide/license/) — per-SDK walkthrough.
+- [Backends](/guide/backends) — choose or override engines.
+- [How it compares](/guide/comparison) — DVAI-Bridge vs Ollama, LiteLLM, LangChain, and QVAC.
