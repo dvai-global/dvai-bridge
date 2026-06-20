@@ -4,6 +4,29 @@ All notable changes to the `dvai_bridge` Flutter plugin are documented here.
 Version numbers track the parent `dvai-bridge` family: bump in lockstep with
 the iOS / Android / React Native packages.
 
+## [4.1.0] — 2026-06-20
+
+Maintenance release. No API changes — `dvai_bridge 4.0.x` consumers upgrade
+without touching their code. Family-wide v4.1.0 bump driven by a Dependabot
+refresh pass across the monorepo (11 PRs landed as one batch).
+
+### Changed (family-wide, no Flutter API impact)
+
+- Flutter dev_dependencies: `pigeon` constraint widened from `^26.3.4` to
+  `">=26.3.4 <28.0.0"` — accepts Pigeon 27.x without forcing the major
+  upgrade. Existing 26.x-generated channel code stays compatible.
+- React Native tooling bumped to `0.86.0` family (`@react-native/babel-preset`,
+  `codegen`, `eslint-config`, `gradle-plugin`, `jest-preset`, `metro-config`,
+  `typescript-config`) plus `react-native-builder-bob 0.42.1`. RN runtime
+  stays at `0.85.3`. No impact on Flutter consumers.
+- .NET package versions refreshed (`Microsoft.ML.OnnxRuntimeGenAI` 0.13.1 →
+  0.14.0, `Microsoft.NET.Test.Sdk` 18.5.1 → 18.6.0,
+  `Microsoft.SourceLink.GitHub` 8.0.0 → 10.0.300). No impact on Flutter.
+- JS dev tooling refreshed (`vitest` 4.1.5 → 4.1.9, `vite` 8.0.14 → 8.0.16,
+  `eslint` to 10.4.1 in examples, `@langchain/core` to 1.1.48). Used by the
+  monorepo's tests and examples — not reached by Flutter consumers.
+- Docs site bumps (`vue` 3.5.35 → 3.5.38, `vitepress-plugin-llms` patch).
+
 ## [4.0.2] — 2026-05-28
 
 Maintenance release. No API changes — `dvai_bridge 4.0.x` consumers upgrade
