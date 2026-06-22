@@ -34,7 +34,7 @@ jobs:
       run:
         working-directory: packages/dvai-bridge-ios-llama-core
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -76,7 +76,7 @@ jobs:
       run:
         working-directory: packages/dvai-bridge-capacitor-llama/ios
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
