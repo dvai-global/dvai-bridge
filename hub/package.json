@@ -30,14 +30,14 @@
     "@tauri-apps/plugin-autostart": "^2.0.0",
     "@tauri-apps/plugin-notification": "^2.0.0",
     "lucide-react": "^1.17.0",
-    "react": "19.2.6",
+    "react": "19.2.7",
     "react-dom": "19.2.6",
     "tailwindcss": "^4.3.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.2",
     "@types/node": "^25.9.3",
-    "@types/react": "^19.2.15",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "typescript": "^6.0.3",
