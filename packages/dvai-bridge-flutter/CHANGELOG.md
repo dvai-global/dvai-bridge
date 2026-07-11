@@ -4,6 +4,32 @@ All notable changes to the `dvai_bridge` Flutter plugin are documented here.
 Version numbers track the parent `dvai-bridge` family: bump in lockstep with
 the iOS / Android / React Native packages.
 
+## [4.2.0] — 2026-07-11
+
+Adds **LiteRT-LM** — Google's cross-platform on-device LLM runtime — as a new
+backend across the family. One `.litertlm` weight file runs on browser (via
+`@litert-lm/core`), iOS/macOS (via `@dvai-bridge/ios-litertlm-core`, SwiftPM),
+and Android (via `@dvai-bridge/android-litert-core`). Metal on Apple Silicon,
+CPU fallback elsewhere; WebGPU in the browser.
+
+### Flutter surface
+
+- `BackendKind.litertlm` — new cross-platform enum case. The Dart-to-native
+  wire uses the canonical `"litertlm"` string; the deprecated Android-only
+  `BackendKind.litert` alias is retained for legacy callers.
+- Pigeon-generated channel code accepts both `"litert"` (legacy) and
+  `"litertlm"` (canonical) on the wire; new consumers should use `litertlm`.
+- iOS floor for the LiteRT-LM path is iOS 17 / macOS 14 (matches
+  `dvai-bridge-ios-shared-core` / Hummingbird). Other backends unaffected.
+
+### Changed (family-wide)
+
+- Capacitor: new `@dvai-bridge/capacitor-litertlm` plugin (dual-platform).
+- React Native: `BackendKind.LiteRTLM` added to the TurboModule surface;
+  wire name unified to `"litertlm"` across iOS and Android.
+- iOS umbrella: `.litertlm` case added to `BackendKind`; `.litertlm` file
+  extension now auto-resolves via `backend: .auto`.
+
 ## [4.1.0] — 2026-06-20
 
 Maintenance release. No API changes — `dvai_bridge 4.0.x` consumers upgrade

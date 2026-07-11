@@ -177,7 +177,7 @@ mavenPublishing {
     coordinates(
         'co.deepvoiceai',
         'dvai-bridge',
-        (project.findProperty('dvaiBridgeVersion') ?: '4.1.0').toString(),
+        (project.findProperty('dvaiBridgeVersion') ?: '4.2.0').toString(),
     )
 
     pom {
