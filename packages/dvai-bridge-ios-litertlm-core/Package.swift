@@ -17,20 +17,32 @@ let package = Package(
         .library(name: "DVAILiteRTLMCore", targets: ["DVAILiteRTLMCore"]),
     ],
     dependencies: [
-        // LiteRT-LM Swift SDK. Floor at 0.12.0 — first release with the
-        // stable `Engine` + `Conversation.sendMessageStream` API we wrap.
+        // LiteRT-LM Swift SDK.
         //
-        // Upper bound capped at 0.14.0 (exclusive) because v0.14.0's
-        // Package.swift declares `checksum:` values for its CLiteRTLM /
-        // CLiteRTLM_mac xcframework binaryTargets that don't match the
-        // actual release artifacts on GitHub — SPM aborts every resolve
-        // with `error: checksum of downloaded artifact ... does not match
-        // checksum specified by the manifest`. Confirmed against fresh
-        // downloads: the release binaries were re-uploaded without a
-        // corresponding checksum bump in the manifest. Filed upstream —
-        // remove the cap and bump to `< 1.0.0` once v0.14.1+ ships with
-        // corrected checksums.
-        .package(url: "https://github.com/google-ai-edge/LiteRT-LM.git", "0.12.0" ..< "0.14.0"),
+        // Pinned to v0.13.1's SHA (a0afb5a…) — NOT a version range —
+        // for two reasons:
+        //
+        //  1. LiteRT-LM's own Package.swift uses `.unsafeFlags(
+        //     ["-Xlinker", "-all_load"])` on the LiteRTLM target. SPM
+        //     forbids `.unsafeFlags` in a *versioned* dependency chain
+        //     ("target 'LiteRTLM' in product 'LiteRTLM' contains unsafe
+        //     build flags"). Pinning to a revision instead of a version
+        //     is the sanctioned escape hatch — SE-0292's rationale is
+        //     specifically that revision-pins signal intentional trust.
+        //
+        //  2. v0.14.0 (2026-07-08) ships broken `checksum:` values in
+        //     Package.swift for both xcframework binaryTargets — SPM
+        //     aborts every resolve with `error: checksum of downloaded
+        //     artifact ... does not match checksum specified by the
+        //     manifest`. Filed upstream.
+        //
+        // Bump to v0.14.1's SHA once (a) upstream fixes the checksums
+        // and, ideally, (b) removes the unsafeFlags so we can go back
+        // to a proper version-range pin.
+        .package(
+            url: "https://github.com/google-ai-edge/LiteRT-LM.git",
+            revision: "a0afb5a56acd106b23a2b2385b8469834dc268c0" // v0.13.1
+        ),
         // Shared HTTP-server / handler-dispatch types. Same reason as
         // DVAIMLXCore — avoids transitively pulling llama.xcframework
         // into consumers that only want LiteRT-LM.
