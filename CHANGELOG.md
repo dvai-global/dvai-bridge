@@ -3,6 +3,20 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.2.2] — 2026-07-11
+
+NuGet-only re-cut of 4.2.1. All other registries already shipped 4.2.1
+cleanly (npm, Maven Central, pub.dev, CocoaPods) — this patch exists
+because the .NET NuGet iOS/Catalyst pack job hit the same LiteRT-LM
+Git-LFS smudge failure that `test-ios-bridge.yml` had already been
+patched for. Missed applying `GIT_LFS_SKIP_SMUDGE=1` to `test-dotnet.yml`
+in the 4.2.1 cut.
+
+Fix: same env var at the job level in `test-dotnet.yml`. No source
+changes; consumers of `@dvai-bridge/core`, `co.deepvoiceai:*`,
+`dvai_bridge`, `DVAIBridge` (CocoaPods), and every npm package should
+stay on 4.2.1 — 4.2.2 is only a fresh version for NuGet consumers.
+
 ## [4.2.1] — 2026-07-11
 
 **LiteRT-LM release.** Adds **Google's LiteRT-LM** as a cross-platform

@@ -277,6 +277,20 @@ jobs:
     # warm-cache runs should land in ~30-40 min; 150 min keeps the
     # cap well clear of the cold-cache wall-clock (~80-100 min).
     timeout-minutes: 150
+    # DVAIBridge.iOS native umbrella's Package.swift pulls the LiteRT-LM
+    # Swift SDK by revision. That repo LFS-tracks Android prebuilt .so
+    # files (libGemmaModelConstraintProvider.so et al.), and GitHub's
+    # LFS server intermittently 404s on those Android blobs — killing
+    # SPM's git-checkout with:
+    #   git-lfs: remote missing object 985ec577...
+    #   fatal: prebuilt/android_arm64/libGemmaModelConstraintProvider.so:
+    #     smudge filter lfs failed
+    # We don't need those .so files on .NET/iOS; skip LFS smudge so the
+    # checkout lays down LFS pointers as-is and SPM continues. Same fix
+    # applied to test-ios-bridge.yml in v4.2.1 — this workflow was
+    # missed and hit the same wall.
+    env:
+      GIT_LFS_SKIP_SMUDGE: 1
     steps:
       # The llama.cpp git submodule is needed for the
       # mac-side-prepare-xcframework.sh step below — it builds the llama +

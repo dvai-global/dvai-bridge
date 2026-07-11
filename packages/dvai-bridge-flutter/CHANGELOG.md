@@ -4,6 +4,12 @@ All notable changes to the `dvai_bridge` Flutter plugin are documented here.
 Version numbers track the parent `dvai-bridge` family: bump in lockstep with
 the iOS / Android / React Native packages.
 
+## [4.2.2] — 2026-07-11
+
+NuGet-only re-cut of 4.2.1. Flutter consumers should stay on 4.2.1 —
+this bump exists solely because the .NET NuGet iOS/Catalyst pack in
+CI missed the LFS-smudge-skip fix at 4.2.1. No Flutter API changes.
+
 ## [4.2.1] — 2026-07-11
 
 Re-publish of the LiteRT-LM feature release. **Use 4.2.1, not 4.2.0.**
