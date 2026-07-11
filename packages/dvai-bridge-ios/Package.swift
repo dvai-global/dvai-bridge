@@ -23,6 +23,7 @@ let package = Package(
         .package(path: "../dvai-bridge-ios-llama-core"),
         .package(path: "../dvai-bridge-ios-foundation-core"),
         .package(path: "../dvai-bridge-ios-mlx-core"),
+        .package(path: "../dvai-bridge-ios-litertlm-core"),
         // swift-transformers — provides Tokenizers product for HuggingFace
         // tokenizer loading. Constraint relaxed to `from: 1.2.0` to keep
         // our resolver compatible with mlx-swift-lm 2.x (which pins
@@ -73,6 +74,7 @@ let package = Package(
                 .product(name: "DVAILlamaCore", package: "dvai-bridge-ios-llama-core"),
                 .product(name: "DVAIFoundationCore", package: "dvai-bridge-ios-foundation-core"),
                 .product(name: "DVAIMLXCore", package: "dvai-bridge-ios-mlx-core"),
+                .product(name: "DVAILiteRTLMCore", package: "dvai-bridge-ios-litertlm-core"),
                 "DVAICoreMLCore",
                 // v3.2 Phase 5 — outgoing-offload pre-routing proxy.
                 // Hummingbird (built on swift-nio) gives us proper
@@ -92,6 +94,7 @@ let package = Package(
                 .product(name: "DVAILlamaCore", package: "dvai-bridge-ios-llama-core"),
                 .product(name: "DVAIFoundationCore", package: "dvai-bridge-ios-foundation-core"),
                 .product(name: "DVAIMLXCore", package: "dvai-bridge-ios-mlx-core"),
+                .product(name: "DVAILiteRTLMCore", package: "dvai-bridge-ios-litertlm-core"),
                 "DVAICoreMLCore",
                 // v3.2.2 — license validator tests sign their own test
                 // tokens with a freshly generated test ES256 keypair.

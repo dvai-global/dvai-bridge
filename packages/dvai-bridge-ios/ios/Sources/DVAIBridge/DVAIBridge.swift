@@ -15,6 +15,12 @@ import DVAICoreMLCore
 #if !COCOAPODS
 import DVAIMLXCore
 #endif
+#if !COCOAPODS
+// LiteRT-LM SDK from Google — SwiftPM-only. Google does not publish a
+// CocoaPods podspec for LiteRT-LM. Selecting .litertlm under CocoaPods
+// throws backendUnavailable — same pattern as .foundation and .mlx.
+import DVAILiteRTLMCore
+#endif
 
 /// The iOS SDK entry-point. Use the `shared` singleton or construct an instance
 /// for test isolation. All methods are async-throws and dispatch to the active
@@ -47,6 +53,12 @@ public actor DVAIBridge {
         // Swift framework. Same single-module-CocoaPods autolink concern
         // as Foundation; gated SwiftPM-only.
         case mlx(MLXPluginState)
+        #endif
+        #if !COCOAPODS
+        // LiteRT-LM — Google's LLM runtime SDK. SwiftPM-only (upstream
+        // doesn't ship a podspec). Selecting under CocoaPods throws
+        // backendUnavailable.
+        case litertlm(LiteRTLMPluginState)
         #endif
     }
 
@@ -301,6 +313,22 @@ public actor DVAIBridge {
                 reason: "MLX backend is not available in CocoaPods builds of dvai-bridge — mlx-swift-lm's transitive dependencies don't publish CocoaPods specs. Use SwiftPM if your app needs the MLX backend, or use .llama or .coreml instead."
             )
             #endif
+        case .litertlm:
+            #if !COCOAPODS
+            let state = LiteRTLMPluginState()
+            do {
+                result = try await state.start(opts: opts)
+            } catch {
+                progressBroadcaster.emit(ProgressEvent(phase: .error, message: error.localizedDescription))
+                throw DVAIBridgeError.backendUnavailable(.litertlm, reason: error.localizedDescription)
+            }
+            backend = .litertlm(state)
+            #else
+            throw DVAIBridgeError.backendUnavailable(
+                .litertlm,
+                reason: "LiteRT-LM backend is not available in CocoaPods builds of dvai-bridge — Google does not publish a CocoaPods podspec for LiteRT-LM. Use SwiftPM if your app needs the LiteRT-LM backend, or use .llama / .coreml instead."
+            )
+            #endif
         }
 
         let server = try BoundServer(coreResult: result, backend: resolved)
@@ -361,6 +389,10 @@ public actor DVAIBridge {
                 }
             #if !COCOAPODS
             case .mlx(let state):
+                try await state.stop()
+            #endif
+            #if !COCOAPODS
+            case .litertlm(let state):
                 try await state.stop()
             #endif
             }

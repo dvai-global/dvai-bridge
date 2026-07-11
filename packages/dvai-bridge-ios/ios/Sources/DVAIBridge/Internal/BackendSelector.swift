@@ -17,14 +17,17 @@ internal enum BackendSelector {
             return .coreml
         }
 
-        // 3. modelPath ending in .task / .litertlm → no iOS backend supports
-        //    those; fall through to error
-        if let path = config.modelPath,
-           path.hasSuffix(".task") || path.hasSuffix(".litertlm") {
+        // 3. modelPath ending in .litertlm → .litertlm (iOS LiteRT-LM SDK)
+        if let path = config.modelPath, path.hasSuffix(".litertlm") {
+            return .litertlm
+        }
+
+        // 4. modelPath ending in .task → MediaPipe (Android-only on our stack)
+        if let path = config.modelPath, path.hasSuffix(".task") {
             throw DVAIBridgeError.configurationInvalid(reason:
-                "Model file '\(path)' is a MediaPipe / LiteRT-LM format. " +
-                "Use it via the Android SDK; iOS supports llama.cpp (.gguf), " +
-                "Apple Foundation Models (no file), and CoreML (.mlmodelc / .mlpackage).")
+                "Model file '\(path)' is MediaPipe .task format — MediaPipe is Android-only " +
+                "in our stack. iOS supports .gguf (llama), .mlmodelc / .mlpackage (coreml), " +
+                ".litertlm (LiteRT-LM), and no file (Foundation Models on iOS 26+).")
         }
 
         // 4. No modelPath + iOS 26+ → .foundation
@@ -54,6 +57,6 @@ internal enum BackendSelector {
         // 6. Unknown extension
         throw DVAIBridgeError.configurationInvalid(reason:
             "auto backend can't infer from modelPath '\(config.modelPath ?? "<nil>")'. " +
-            "Set DVAIBridgeConfig.backend = .llama / .foundation / .coreml / .mlx explicitly.")
+            "Set DVAIBridgeConfig.backend = .llama / .foundation / .coreml / .mlx / .litertlm explicitly.")
     }
 }

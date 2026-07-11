@@ -20,4 +20,10 @@ public enum BackendKind: String, Sendable, Codable, CaseIterable {
     /// same reasons as `.foundation` — the mlx-swift-lm transitive deps
     /// don't publish CocoaPods specs.
     case mlx
+    /// LiteRT-LM — Google's on-device LLM runtime via `google-ai-edge/LiteRT-LM`.
+    /// Metal GPU by default; CPU fallback via `accelerator: "cpu"` in start opts.
+    /// Loads `.litertlm` files (same weight format as our Android LiteRT-LM SDK).
+    /// SwiftPM-only: Google does not publish a CocoaPods podspec for LiteRT-LM.
+    /// Selecting under CocoaPods throws `backendUnavailable`.
+    case litertlm
 }
