@@ -3,6 +3,75 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.2.1] — 2026-07-11
+
+**LiteRT-LM release.** Adds **Google's LiteRT-LM** as a cross-platform
+on-device LLM runtime across the family — browser, iOS/macOS, Android,
+Capacitor, React Native, Flutter. One `.litertlm` model file, three
+target platforms.
+
+Gemma 4 E2B and E4B `.litertlm` weights (public, Apache 2.0, hosted by
+`litert-community` on Hugging Face) now run on every DVAI-Bridge
+platform without a separate conversion step.
+
+**Use 4.2.1, not 4.2.0.** 4.2.0 published only to Maven Central and
+pub.dev before two CI issues (a stale `pnpm-lock.yaml` and Git-LFS
+missing-object errors on LiteRT-LM's Android prebuilts during iOS
+xcodebuild) halted the rest of the fan-out. Both fixed and re-cut as
+4.2.1; every registry has the release now.
+
+### Added
+
+- **`@dvai-bridge/core` — LiteRT-LM web backend.** Wraps `@litert-lm/core`
+  behind a new `backend: "litertlm"` config; WebGPU-accelerated.
+  New `litertLmModelUrl` config field defaults to the Gemma 4 E2B
+  Hugging Face weight URL. Serializes chat messages through a
+  Gemma-template prompt (system→user collapse, assistant→model).
+- **`@dvai-bridge/ios-litertlm-core`** (new SwiftPM-only package)
+  wrapping `github.com/google-ai-edge/LiteRT-LM`. SwiftPM only —
+  CocoaPods asymmetry same as `.mlx` and `.foundation` (LiteRT-LM has
+  no CocoaPods spec). Currently pinned to v0.13.1 revision because
+  upstream v0.14.0's Package.swift ships broken xcframework checksums;
+  we'll bump when Google fixes it. Platform floor iOS 17 / macOS 14
+  (matches `DVAISharedCore` / Hummingbird 2.x).
+- **`@dvai-bridge/capacitor-litertlm`** (new Capacitor plugin).
+  Dual-platform: Android via `@dvai-bridge/android-litert-core`,
+  iOS/macOS via `@dvai-bridge/ios-litertlm-core`.
+- **`@dvai-bridge/react-native` — `BackendKind.LiteRTLM`.** Cross-
+  platform enum case. Wire name unified to `"litertlm"` across iOS and
+  Android; the Android-only legacy `BackendKind.LiteRT` (`"litert"`)
+  is kept as an alias for existing callers.
+- **`dvai_bridge` (Flutter) — `BackendKind.litertlm`.** Cross-platform
+  case. Legacy `BackendKind.litert` alias kept.
+- **iOS umbrella `DVAIBridge`** — new `.litertlm` `BackendKind` case;
+  `.litertlm` file extension now auto-resolves via `backend: .auto`.
+
+### Fixed (CI, from the 4.2.0 partial release)
+
+- Refreshed `pnpm-lock.yaml` after adding the new `capacitor-litertlm`
+  workspace package — every workflow using `pnpm install --frozen-
+  lockfile` (Fixtures Lint, Deploy Docs, npm Publish) now passes.
+- `test-ios-bridge.yml` sets `GIT_LFS_SKIP_SMUDGE=1` at the job level so
+  SPM's git checkout of LiteRT-LM lays down LFS pointers as-is instead
+  of hitting GitHub's intermittently-missing Android prebuilt blobs.
+
+### Also in this release
+
+- CocoaPods `DVAIBridge-v4.2.1.zip` release asset uploaded to the
+  GitHub Release so `pod trunk push` resolves — same manual step the
+  4.0.x / 4.1.0 releases used.
+- Docs, READMEs, comparison page updated across the family to mention
+  LiteRT-LM alongside the existing backends.
+
+No breaking changes vs. 4.1.x — consumers upgrade without code edits.
+
+## [4.2.0] — 2026-07-11 — PARTIAL, USE 4.2.1
+
+Partial release. Reached Maven Central and pub.dev before CI failures
+(stale `pnpm-lock.yaml` + Git LFS missing-object errors on iOS
+xcodebuild) blocked the rest. See 4.2.1 above for the completed
+release and full change list.
+
 ## [4.0.0] — 2026-05-15
 
 Major release. Replaces the v3.x plaintext-key license validator with
