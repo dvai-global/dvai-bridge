@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/flutter",
-  "version": "4.2.0",
+  "version": "4.2.1",
   "private": true,
   "description": "Flutter plugin (Pigeon-driven) wrapping the @dvai-bridge/ios + @dvai-bridge/android native SDKs behind a unified Dart API.",
   "scripts": {

@@ -4,7 +4,19 @@ All notable changes to the `dvai_bridge` Flutter plugin are documented here.
 Version numbers track the parent `dvai-bridge` family: bump in lockstep with
 the iOS / Android / React Native packages.
 
-## [4.2.0] — 2026-07-11
+## [4.2.1] — 2026-07-11
+
+Re-publish of the LiteRT-LM feature release. **Use 4.2.1, not 4.2.0.**
+
+v4.2.0 had two CI mishaps that stopped it from publishing to npm,
+CocoaPods, and NuGet (a stale `pnpm-lock.yaml` blocked npm publish,
+and Git LFS missing-object errors on the LiteRT-LM Android prebuilts
+killed the iOS xcodebuild step). Maven Central and pub.dev did publish
+at 4.2.0 successfully — but the feature is only whole at 4.2.1.
+
+No feature or API differences vs. 4.2.0. Bump straight to 4.2.1.
+
+## [4.2.0] — 2026-07-11 [PARTIAL — USE 4.2.1]
 
 Adds **LiteRT-LM** — Google's cross-platform on-device LLM runtime — as a new
 backend across the family. One `.litertlm` weight file runs on browser (via
