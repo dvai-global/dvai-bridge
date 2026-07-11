@@ -69,6 +69,14 @@ xcodebuild archive \
     | (xcbeautify --quiet || cat)
 
 echo "==> xcodebuild archive (iphonesimulator)..."
+# ARCHS=arm64 + EXCLUDED_ARCHS=x86_64 forces the simulator archive to
+# be arm64-only. Reason: LiteRT-LM (added to the iOS umbrella in v4.2.1)
+# ships CLiteRTLM.xcframework with only `ios-arm64-simulator` — no fat
+# ios-arm64_x86_64-simulator variant. A default (fat) simulator archive
+# link-errors on `_litert_lm_*` symbols for x86_64. Apple Silicon Macs
+# run arm64 simulators natively; Intel Macs can no longer run this
+# .NET binding's simulator variant until an upstream Catalyst/x86_64
+# LiteRT-LM ships or we split the umbrella (planned v4.3.0).
 xcodebuild archive \
     -scheme "${SCHEME}" \
     -destination "generic/platform=iOS Simulator" \
@@ -77,6 +85,9 @@ xcodebuild archive \
     SKIP_INSTALL=NO \
     BUILD_LIBRARY_FOR_DISTRIBUTION=NO \
     IPHONEOS_DEPLOYMENT_TARGET=18.1 \
+    ARCHS=arm64 \
+    EXCLUDED_ARCHS=x86_64 \
+    ONLY_ACTIVE_ARCH=NO \
     -configuration Release \
     | (xcbeautify --quiet || cat)
 
