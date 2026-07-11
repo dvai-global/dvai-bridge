@@ -6,8 +6,9 @@ import PackageDescription
 // (Unlike capacitor-mediapipe, which is Android-only.)
 let package = Package(
     name: "DVAICapacitorLiteRTLM",
-    // iOS 16 / macOS 13 — must match dvai-bridge-ios-litertlm-core's floor.
-    platforms: [.iOS(.v16), .macOS(.v13)],
+    // iOS 17 / macOS 14 — matches dvai-bridge-ios-litertlm-core's floor
+    // (which itself inherits from DVAISharedCore / Hummingbird 2.x).
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "DVAICapacitorLiteRTLM", targets: ["DVAICapacitorLiteRTLM"]),
     ],

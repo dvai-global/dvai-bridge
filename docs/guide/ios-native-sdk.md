@@ -200,7 +200,7 @@ cache and pairing store.
 | `.foundation` | Apple Foundation Models | (no file) | 18.1 (link), 26 (runtime) | Zero-download text on iOS 26+. SwiftPM-only. |
 | `.coreml` | CoreML / ANE | `.mlmodelc` directory | 18 (runtime) | Stateful 4-bit Llama-3.2 reference. **Experimental — see [Known issues](#known-issues).** |
 | `.mlx` | MLX (Apple Silicon GPU/ANE) | HuggingFace Hub id | 17 (link), Apple Silicon (runtime) | See the [MLX backend page](./mlx-backend.md). SwiftPM-only. |
-| `.litertlm` | LiteRT-LM (Metal) | `.litertlm` | 16 (link), 16 (runtime) | Google's on-device LLM runtime — Gemma 4 E2B/E4B. Same weight file as Android/web. SwiftPM-only. **v4.2.0+.** |
+| `.litertlm` | LiteRT-LM (Metal) | `.litertlm` | 17 (link), 17 (runtime) | Google's on-device LLM runtime — Gemma 4 E2B/E4B. Same weight file as Android/web. SwiftPM-only. **v4.2.0+.** |
 | `.auto` | Resolve at runtime | Inferred from `modelPath` | — | See [auto-resolution](#auto-resolution-rules) below. |
 
 ### Auto-resolution rules

@@ -4,7 +4,9 @@ import PackageDescription
 // LiteRT-LM (Google's on-device LLM runtime) via Swift SDK. Same runtime
 // family as our Android `android-litert-core` — one .litertlm model file
 // runs on both. Metal GPU acceleration on Apple Silicon; CPU fallback
-// otherwise. Platform floor: iOS 16 / macOS 13 (LiteRT-LM's own minimum).
+// otherwise. Platform floor: iOS 17 / macOS 14 — matches DVAISharedCore
+// (Hummingbird 2.x's own minimum). LiteRT-LM's own floor is iOS 16 /
+// macOS 13, but DVAISharedCore's floor wins.
 //
 // SPM-only. Google does not ship CocoaPods for LiteRT-LM (yet). Consumers
 // under the CocoaPods umbrella get a runtime `.backendUnavailable(.litertlm)`
@@ -12,7 +14,7 @@ import PackageDescription
 // "CocoaPods asymmetries" for the full list.
 let package = Package(
     name: "DVAILiteRTLMCore",
-    platforms: [.iOS(.v16), .macOS(.v13)],
+    platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "DVAILiteRTLMCore", targets: ["DVAILiteRTLMCore"]),
     ],

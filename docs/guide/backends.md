@@ -372,7 +372,7 @@ code stays the same on every platform.
 | **MLX** | `mlx-swift-lm` (Metal + ANE) | Apple Silicon, iOS 17+ (SwiftPM only) | HuggingFace Hub id | [MLX Backend guide](./mlx-backend.md) |
 | **MediaPipe** | LiteRT-LM (post-Phase 3B runtime swap) | Android | `.task` / `.litertlm` | [Android Native SDK § MediaPipe](./android-native-sdk.md#mediapipe-backendkindmediapipe) |
 | **LiteRT** | Bare LiteRT 2.x (TFLite successor) | Android | `.tflite` / `.litertlm` | [Android Native SDK § LiteRT](./android-native-sdk.md#litert-backendkindlitert) |
-| **LiteRT-LM** | `google-ai-edge/LiteRT-LM` (cross-platform on-device LLM runtime) | iOS 16+, macOS 13+, Android, Capacitor, RN, Flutter, browser | `.litertlm` | [iOS Native SDK § LiteRT-LM](./ios-native-sdk.md), [Android Native SDK § LiteRT](./android-native-sdk.md#litert-backendkindlitert) |
+| **LiteRT-LM** | `google-ai-edge/LiteRT-LM` (cross-platform on-device LLM runtime) | iOS 17+, macOS 14+, Android, Capacitor, RN, Flutter, browser | `.litertlm` | [iOS Native SDK § LiteRT-LM](./ios-native-sdk.md), [Android Native SDK § LiteRT](./android-native-sdk.md#litert-backendkindlitert) |
 
 Two notes worth calling out.
 
