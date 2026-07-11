@@ -81,7 +81,6 @@ platform.
 
 ## News
 
-- **[26/07]** **v4.2.2** — NuGet re-cut of 4.2.1 (CI-only fix; the .NET iOS/Catalyst pack needed the same LFS-smudge skip the other iOS workflows already had). Non-NuGet consumers stay on 4.2.1.
 - **[26/07]** **v4.2.1** — **LiteRT-LM** lands as a cross-platform on-device LLM runtime — one `.litertlm` weight file runs on browser (WebGPU), iOS/macOS (Metal via SwiftPM), Android, Capacitor, React Native, and Flutter. Gemma 4 E2B/E4B ships out of the box. [Changelog →](CHANGELOG.md#421--2026-07-11)
 - **[26/06]** **v4.1.0** — Family-wide maintenance release: Dependabot batch (#33-45), hub Vite 5→7 with plugin-react 6, JS/Android/Flutter/.NET dev-tooling refresh. No API changes; 4.0.x consumers upgrade without touching code.
 - **[26/05]** **v4.0.0** — Offline-verifiable JWT license enforcement across all seven SDKs, backed by BSL 1.1 commercial terms and UK patent application GB2611312.6. Plaintext `licenseKey` retired; drop a `dvai-license.jwt` at the platform default path and the SDK picks it up. [Migration guide →](https://bridge.deepvoiceai.co/migration/v3-to-v4)

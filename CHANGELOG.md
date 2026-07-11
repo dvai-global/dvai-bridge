@@ -3,20 +3,6 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [4.2.2] — 2026-07-11
-
-NuGet-only re-cut of 4.2.1. All other registries already shipped 4.2.1
-cleanly (npm, Maven Central, pub.dev, CocoaPods) — this patch exists
-because the .NET NuGet iOS/Catalyst pack job hit the same LiteRT-LM
-Git-LFS smudge failure that `test-ios-bridge.yml` had already been
-patched for. Missed applying `GIT_LFS_SKIP_SMUDGE=1` to `test-dotnet.yml`
-in the 4.2.1 cut.
-
-Fix: same env var at the job level in `test-dotnet.yml`. No source
-changes; consumers of `@dvai-bridge/core`, `co.deepvoiceai:*`,
-`dvai_bridge`, `DVAIBridge` (CocoaPods), and every npm package should
-stay on 4.2.1 — 4.2.2 is only a fresh version for NuGet consumers.
-
 ## [4.2.1] — 2026-07-11
 
 **LiteRT-LM release.** Adds **Google's LiteRT-LM** as a cross-platform
@@ -65,9 +51,20 @@ xcodebuild) halted the rest of the fan-out. Both fixed and re-cut as
 - Refreshed `pnpm-lock.yaml` after adding the new `capacitor-litertlm`
   workspace package — every workflow using `pnpm install --frozen-
   lockfile` (Fixtures Lint, Deploy Docs, npm Publish) now passes.
-- `test-ios-bridge.yml` sets `GIT_LFS_SKIP_SMUDGE=1` at the job level so
-  SPM's git checkout of LiteRT-LM lays down LFS pointers as-is instead
-  of hitting GitHub's intermittently-missing Android prebuilt blobs.
+- `test-ios-bridge.yml` and `test-dotnet.yml` set `GIT_LFS_SKIP_SMUDGE=1`
+  at the job level so SPM's git checkout of LiteRT-LM lays down LFS
+  pointers as-is instead of hitting GitHub's intermittently-missing
+  Android prebuilt blobs.
+
+### Known change — Mac Catalyst dropped from .NET binding
+
+- `DVAIBridge.iOS` NuGet no longer ships `net10.0-maccatalyst26.5`.
+  LiteRT-LM's `CLiteRTLM.xcframework` has no Mac Catalyst slice
+  (`ios-arm64` + `ios-arm64-simulator` only), so the .NET Catalyst
+  target link-errored on LiteRT-LM's C symbols. Catalyst comes back in
+  v4.3.0 alongside a proper umbrella split so `.NET` can opt out of
+  LiteRT-LM without losing Catalyst. Consumers targeting
+  `net10.0-maccatalyst26.5` need to stay on 4.1.0 until then.
 
 ### Also in this release
 

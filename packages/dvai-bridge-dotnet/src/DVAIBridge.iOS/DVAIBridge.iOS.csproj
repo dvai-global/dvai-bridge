@@ -33,14 +33,23 @@
       Runtime floor iOS 18.1 / Mac Catalyst 18.1 — matches the
       DVAIBridgeNetBridge Package.swift `platforms:` array.
     -->
-    <TargetFrameworks>net10.0-ios26.5;net10.0-maccatalyst26.5</TargetFrameworks>
+    <!--
+      v4.2.3: Dropped net10.0-maccatalyst26.5. LiteRT-LM (added to the
+      iOS umbrella in v4.2.1) ships CLiteRTLM.xcframework with only
+      ios-arm64 and ios-arm64-simulator slices — no Mac Catalyst slice
+      at all. Our .NET Catalyst target then link-errored on the
+      LiteRT-LM C symbols. Restoring Catalyst here means either the
+      LiteRT-LM upstream ships a Catalyst slice, or we split the iOS
+      umbrella so .NET can opt out of LiteRT-LM (planned for v4.3.0).
+    -->
+    <TargetFrameworks>net10.0-ios26.5</TargetFrameworks>
     <SupportedOSPlatformVersion>18.1</SupportedOSPlatformVersion>
     <IsBindingProject>true</IsBindingProject>
     <NoBindingEmbedding>false</NoBindingEmbedding>
     <PackageId>DVAIBridge.iOS</PackageId>
-    <Title>DVAIBridge.iOS — iOS + Mac Catalyst native bindings (internal slice)</Title>
-    <Description>iOS + Mac Catalyst native bindings for DVAIBridge — internal slice of the DVAIBridge NuGet family. Pulled in transitively by DVAIBridge when targeting net10.0-ios or net10.0-maccatalyst. Consumers should depend on DVAIBridge directly.</Description>
-    <PackageTags>llm;ai;ios;maccatalyst;binding;internal;dvai-bridge</PackageTags>
+    <Title>DVAIBridge.iOS — iOS native bindings (internal slice)</Title>
+    <Description>iOS native bindings for DVAIBridge — internal slice of the DVAIBridge NuGet family. Pulled in transitively by DVAIBridge when targeting net10.0-ios. Consumers should depend on DVAIBridge directly. Mac Catalyst is not supported in the v4.2.x line (LiteRT-LM's xcframework has no Catalyst slice); planned for v4.3.0.</Description>
+    <PackageTags>llm;ai;ios;binding;internal;dvai-bridge</PackageTags>
     <RootNamespace>DVAIBridge.iOS</RootNamespace>
     <AssemblyName>DVAIBridge.iOS</AssemblyName>
   </PropertyGroup>

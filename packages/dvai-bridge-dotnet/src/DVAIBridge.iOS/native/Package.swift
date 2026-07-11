@@ -20,14 +20,13 @@ import PackageDescription
 let package = Package(
     name: "DVAIBridgeNetBridge",
     platforms: [
-        // Restored .macCatalyst("18.1") in v4.0.1 —
-        // scripts/mac-side-prepare-xcframework.sh now builds an
-        // ios-arm64_x86_64-maccatalyst slice into both chained
-        // llama.xcframework + mtmd.xcframework, so the .NET-side
-        // archive step can compile against a complete frameworks
-        // graph for the Catalyst target.
-        .iOS("18.1"),
-        .macCatalyst("18.1")
+        // v4.2.3: Dropped .macCatalyst("18.1"). LiteRT-LM (added to the
+        // iOS umbrella in v4.2.1) transitively links CLiteRTLM.xcframework
+        // which ships only ios-arm64 + ios-arm64-simulator — no Catalyst
+        // slice. Restoring Catalyst requires either an upstream Catalyst
+        // slice for LiteRT-LM, or splitting the iOS umbrella so this
+        // binding can opt out of LiteRT-LM (planned for v4.3.0).
+        .iOS("18.1")
     ],
     products: [
         // type: .dynamic — `BUILD_LIBRARY_FOR_DISTRIBUTION=NO` (needed to

@@ -1,34 +1,30 @@
 #!/usr/bin/env bash
 #
 # build-xcframework.sh — produces DVAIBridgeNetBridge.xcframework with
-# device (iphoneos), simulator (iphonesimulator), and Mac Catalyst
-# slices, ready for consumption by DVAIBridge.iOS.csproj's
-# <NativeReference>.
+# device (iphoneos) and simulator (iphonesimulator) slices, ready for
+# consumption by DVAIBridge.iOS.csproj's <NativeReference>.
 #
 # Outputs:
-#   ./DVAIBridgeNetBridge.xcframework/   (3 slices: ios, ios-sim, maccatalyst)
+#   ./DVAIBridgeNetBridge.xcframework/   (2 slices: ios, ios-sim)
 #
 # Prerequisites (CI macos-latest runner):
 #   - Xcode 26+ (test-dotnet.yml selects /Applications/Xcode_26.3.app;
 #     also downloads the Metal Toolchain component which Xcode 26 ships
 #     separately and mlx-swift's kernels need)
 #   - Swift 6+
-#   - The Phase 3C iOS umbrella checked out at
-#     packages/dvai-bridge-ios (relative to the repo root)
+#   - The iOS umbrella checked out at packages/dvai-bridge-ios
+#     (relative to the repo root)
 #   - llama.xcframework + mtmd.xcframework prebuilt under
 #     packages/dvai-bridge-android-llama-core/.../build-apple/ via
 #     scripts/mac-side-prepare-xcframework.sh
 #
-# Why no Mac Catalyst slice (v4.0.0): the upstream llama.xcframework +
-# mtmd.xcframework built by mac-side-prepare-xcframework.sh include
-# iOS device, iOS simulator, and macOS (regular) slices but NO Mac
-# Catalyst variant — adding one means modifying both the upstream
-# build-xcframework.sh in llama.cpp's tree AND
-# mac-side-prepare-xcframework.sh in our scripts. Deferred to v4.0.1.
-# Until then, the DVAIBridge.iOS NuGet ships .NET binding support for
-# the `net10.0-ios26.2` TFM only; `net10.0-maccatalyst26.2` consumers
-# would link-error against the missing Catalyst slice in the chained
-# llama frameworks. See NEXT-RELEASE.md.
+# Why no Mac Catalyst slice (v4.2.3): LiteRT-LM (added to the iOS
+# umbrella in v4.2.1) transitively links CLiteRTLM.xcframework, which
+# ships only ios-arm64 + ios-arm64-simulator — no Catalyst slice at all.
+# Restoring Catalyst needs either an upstream Catalyst slice for
+# LiteRT-LM, or splitting the iOS umbrella so this .NET binding can opt
+# out of LiteRT-LM (planned for v4.3.0). Historically we did ship a
+# Catalyst slice (restored in v4.0.1); v4.2.3 pulls it out again.
 #
 # Why BUILD_LIBRARY_FOR_DISTRIBUTION=NO: swift-certificates upstream
 # bug apple/swift-certificates#254 — `_TinyArray.swift`'s
@@ -84,44 +80,29 @@ xcodebuild archive \
     -configuration Release \
     | (xcbeautify --quiet || cat)
 
-# Mac Catalyst slice — restored in v4.0.1 now that
-# scripts/mac-side-prepare-xcframework.sh builds Catalyst slices into
-# the chained llama.xcframework + mtmd.xcframework. Catalyst's
-# `-destination "generic/platform=macOS,variant=Mac Catalyst"` builds
-# an iOS-shaped binary that runs on macOS; xcodebuild resolves it
-# against the macOS SDK with the Catalyst overlay.
-echo "==> xcodebuild archive (maccatalyst)..."
-xcodebuild archive \
-    -scheme "${SCHEME}" \
-    -destination "generic/platform=macOS,variant=Mac Catalyst" \
-    -archivePath "${ARCHIVE_DIR}/maccatalyst.xcarchive" \
-    -derivedDataPath "${ARCHIVE_DIR}/derived-maccatalyst" \
-    SKIP_INSTALL=NO \
-    BUILD_LIBRARY_FOR_DISTRIBUTION=NO \
-    IPHONEOS_DEPLOYMENT_TARGET=18.1 \
-    SUPPORTS_MACCATALYST=YES \
-    -configuration Release \
-    | (xcbeautify --quiet || cat)
+# Mac Catalyst slice — dropped in v4.2.3. LiteRT-LM's CLiteRTLM.xcframework
+# has no Catalyst slice (ios-arm64 + ios-arm64-simulator only), and the
+# iOS umbrella now transitively links it. Restoring the Catalyst archive
+# here means either an upstream Catalyst slice for LiteRT-LM, or splitting
+# the iOS umbrella so this binding can opt out of LiteRT-LM (planned for
+# v4.3.0). Until then, .NET Mac Catalyst users stay on 4.1.0.
 
 # Locate the .framework inside each archive. SwiftPM emits a .framework
 # under Products/usr/local/lib/.
 FRAMEWORK_IPHONEOS=$(find "${ARCHIVE_DIR}/iphoneos.xcarchive" -name '*.framework' -type d | head -n 1)
 FRAMEWORK_IPHONESIMULATOR=$(find "${ARCHIVE_DIR}/iphonesimulator.xcarchive" -name '*.framework' -type d | head -n 1)
-FRAMEWORK_MACCATALYST=$(find "${ARCHIVE_DIR}/maccatalyst.xcarchive" -name '*.framework' -type d | head -n 1)
 
-if [[ -z "${FRAMEWORK_IPHONEOS}" || -z "${FRAMEWORK_IPHONESIMULATOR}" || -z "${FRAMEWORK_MACCATALYST}" ]]; then
+if [[ -z "${FRAMEWORK_IPHONEOS}" || -z "${FRAMEWORK_IPHONESIMULATOR}" ]]; then
     echo "ERROR: failed to locate built .framework in one or more archives." >&2
     echo "  iphoneos: ${FRAMEWORK_IPHONEOS}" >&2
     echo "  iphonesimulator: ${FRAMEWORK_IPHONESIMULATOR}" >&2
-    echo "  maccatalyst: ${FRAMEWORK_MACCATALYST}" >&2
     exit 1
 fi
 
-echo "==> xcodebuild -create-xcframework (ios + ios-sim + maccatalyst)..."
+echo "==> xcodebuild -create-xcframework (ios + ios-sim)..."
 xcodebuild -create-xcframework \
     -framework "${FRAMEWORK_IPHONEOS}" \
     -framework "${FRAMEWORK_IPHONESIMULATOR}" \
-    -framework "${FRAMEWORK_MACCATALYST}" \
     -output "${OUT}"
 
 echo "==> Done: ${OUT}"

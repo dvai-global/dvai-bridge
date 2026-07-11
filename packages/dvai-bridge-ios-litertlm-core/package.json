@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/ios-litertlm-core",
-  "version": "4.2.2",
+  "version": "4.2.1",
   "description": "DVAI-Bridge iOS LiteRT-LM core — Swift wrapper around Google's LiteRT-LM runtime for LLM inference on iOS/macOS. Metal GPU acceleration on Apple Silicon; iOS 16+/macOS 13+ link-time minimum. SPM-only (no CocoaPods upstream).",
   "author": "Deep Chakraborty <https://github.com/dk013>",
   "license": "Custom (See LICENSE)",
