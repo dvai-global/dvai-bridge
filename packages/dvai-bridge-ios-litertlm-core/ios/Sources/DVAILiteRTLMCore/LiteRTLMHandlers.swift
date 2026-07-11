@@ -33,7 +33,7 @@ public final class LiteRTLMHandlers: DVAIHandlers, @unchecked Sendable {
                 Task { [modelId] in
                     do {
                         for try await partial in conversation.sendMessageStream(message) {
-                            let text = partial.text ?? ""
+                            let text = partial.toString
                             if text.isEmpty { continue }
                             let delta: [String: Any] = [
                                 "id": "litertlm-\(UUID().uuidString.prefix(8))",
@@ -68,8 +68,45 @@ public final class LiteRTLMHandlers: DVAIHandlers, @unchecked Sendable {
             "model": modelId,
             "choices": [[
                 "index": 0,
-                "message": ["role": "assistant", "content": reply.text ?? ""],
+                "message": ["role": "assistant", "content": reply.toString],
                 "finish_reason": "stop",
+            ]],
+        ]
+        return .json(200, json)
+    }
+
+    public func handleCompletion(body: [String: Any], ctx: HandlerContext) async throws -> HandlerResponse {
+        let prompt = (body["prompt"] as? String) ?? ""
+        let conversation = try await engine.createConversation()
+        let reply = try await conversation.sendMessage(Message(prompt))
+        let json: [String: Any] = [
+            "id": "litertlm-\(UUID().uuidString.prefix(8))",
+            "object": "text_completion",
+            "created": Int(Date().timeIntervalSince1970),
+            "model": modelId,
+            "choices": [[
+                "text": reply.toString,
+                "index": 0,
+                "finish_reason": "stop",
+            ]],
+        ]
+        return .json(200, json)
+    }
+
+    public func handleEmbeddings(body: [String: Any], ctx: HandlerContext) async throws -> HandlerResponse {
+        // LiteRT-LM is an LLM runtime, not an embedding provider. Same
+        // posture as MLX — point callers at .llama or .coreml.
+        return .error(501, "LiteRT-LM backend does not expose embeddings; use BackendKind.llama or .coreml for /v1/embeddings.")
+    }
+
+    public func handleModels(ctx: HandlerContext) async throws -> HandlerResponse {
+        let json: [String: Any] = [
+            "object": "list",
+            "data": [[
+                "id": modelId,
+                "object": "model",
+                "created": Int(Date().timeIntervalSince1970),
+                "owned_by": "litertlm",
             ]],
         ]
         return .json(200, json)
