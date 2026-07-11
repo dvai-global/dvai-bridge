@@ -220,7 +220,8 @@ final class DVAIBridgeNative: RCTEventEmitter {
         guard let backend = BackendKind(rawValue: backendStr) else {
             // Android-only backends ("mediapipe", "litert") fall here on iOS —
             // surface as backendUnavailable for parity with the TS-side
-            // pre-validation.
+            // pre-validation. ("litertlm" is cross-platform via
+            // dvai-bridge-ios-litertlm-core and does resolve here.)
             throw DVAIBridgeError.backendUnavailable(.auto, reason: "Backend \"\(backendStr)\" is not available on iOS.")
         }
         var config = DVAIBridgeConfig(backend: backend)

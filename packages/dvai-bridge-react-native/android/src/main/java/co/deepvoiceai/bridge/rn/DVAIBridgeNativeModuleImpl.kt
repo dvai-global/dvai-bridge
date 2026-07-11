@@ -294,7 +294,10 @@ internal fun BackendKind.toJsName(): String = when (this) {
     BackendKind.Auto -> "auto"
     BackendKind.Llama -> "llama"
     BackendKind.MediaPipe -> "mediapipe"
-    BackendKind.LiteRT -> "litert"
+    // v4.2.0: canonical wire name is "litertlm" (matches iOS + web). The
+    // Kotlin enum still reads `LiteRT` for backward compat with the
+    // android-litert-core internals.
+    BackendKind.LiteRT -> "litertlm"
 }
 
 /** Convert v3.2 PrecheckMode → kebab-case JS-facing string. */
@@ -329,7 +332,10 @@ internal fun BackendKind.Companion.fromJsName(name: String): BackendKind? = when
     "auto" -> BackendKind.Auto
     "llama" -> BackendKind.Llama
     "mediapipe" -> BackendKind.MediaPipe
-    "litert" -> BackendKind.LiteRT
+    // Accept both the legacy Android-only "litert" wire name and the
+    // canonical cross-platform "litertlm" (v4.2.0+). Both resolve to
+    // the same Kotlin enum value.
+    "litert", "litertlm" -> BackendKind.LiteRT
     else -> null
 }
 

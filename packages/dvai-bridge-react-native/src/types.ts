@@ -43,6 +43,7 @@ export const BackendKind = {
   MLX: "mlx",
   MediaPipe: "mediapipe",
   LiteRT: "litert",
+  LiteRTLM: "litertlm",
 } as const;
 
 export type BackendKind = (typeof BackendKind)[keyof typeof BackendKind];

@@ -101,6 +101,23 @@ describe("DVAIBridge.start — platform validation", () => {
     ).rejects.toMatchObject({ kind: "backendUnavailable" });
     expect(RN.__mockNativeModule.startBridge).not.toHaveBeenCalled();
   });
+
+  it("accepts BackendKind.LiteRTLM on iOS (cross-platform)", async () => {
+    RN.Platform.OS = "ios";
+    RN.__mockNativeModule.startBridge.mockResolvedValueOnce({
+      baseUrl: "http://127.0.0.1:38883/v1",
+      port: 38883,
+      backend: "litertlm",
+      modelId: "gemma-4-E2B-it",
+    });
+    await expect(
+      DVAIBridge.start({
+        backend: BackendKind.LiteRTLM,
+        modelPath: "/var/mobile/.../gemma-4-E2B-it.litertlm",
+      }),
+    ).resolves.toMatchObject({ backend: "litertlm" });
+    expect(RN.__mockNativeModule.startBridge).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("DVAIBridge.start — happy path", () => {
