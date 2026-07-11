@@ -4,8 +4,8 @@
 
 A backend is the engine that actually runs the model. DVAI-Bridge picks
 one for you. WebLLM in browsers. llama.cpp on mobile and desktop. The
-platform-native runtime — Foundation, CoreML, MLX, MediaPipe, LiteRT —
-when you opt in. Most apps never touch this.
+platform-native runtime — Foundation, CoreML, MLX, MediaPipe, LiteRT,
+LiteRT-LM — when you opt in. Most apps never touch this.
 
 Set `backend: "auto"` and ship.
 
@@ -23,8 +23,11 @@ multimodal model, or you're writing the custom-pipeline escape hatch.
   `auto`).
 - Browser, need Hugging Face ONNX models or multimodal? → `backend:
   "transformers"`.
+- Browser, running Gemma 4 E2B/E4B `.litertlm` weights? →
+  `backend: "litertlm"` (Google's on-device LLM runtime).
 - Node / Electron / desktop? → `backend: "native"` (llama.cpp).
-- iOS / Android native? → use the native SDK's `BackendKind` enum.
+- iOS / Android native? → use the native SDK's `BackendKind` enum
+  (`.litertlm` is now cross-platform on both).
 :::
 
 ## WebLLM (default for browser)
@@ -316,6 +319,43 @@ const result = await ai.runPipeline(
 
 ---
 
+## LiteRT-LM (web)
+
+The **LiteRT-LM** browser backend runs Google's on-device LLM runtime
+via `@litert-lm/core`. WebGPU-accelerated. Ships the same `.litertlm`
+weight file as the Android and iOS native paths — one artifact, three
+platforms.
+
+### Best for
+
+- Serving Gemma 4 E2B / E4B `.litertlm` models in the browser (public
+  Apache 2.0 checkpoints on HuggingFace under `litert-community`).
+- Sharing weights with your Android or iOS native builds without a
+  separate conversion step.
+
+### Setup
+
+```bash
+pnpm add @litert-lm/core
+```
+
+### Configuration
+
+```typescript
+const config = {
+  backend: "litertlm",
+  litertLmModelUrl:
+    "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.litertlm",
+};
+```
+
+Same `.litertlm` file works on mobile:
+`@dvai-bridge/ios-litertlm-core` (SwiftPM) and
+`@dvai-bridge/android-litert-core` consume it via LiteRT-LM's Swift and
+Kotlin runtimes.
+
+---
+
 ## Native backends (mobile + desktop)
 
 The web backends above run inside the browser process. For Capacitor,
@@ -332,6 +372,7 @@ code stays the same on every platform.
 | **MLX** | `mlx-swift-lm` (Metal + ANE) | Apple Silicon, iOS 17+ (SwiftPM only) | HuggingFace Hub id | [MLX Backend guide](./mlx-backend.md) |
 | **MediaPipe** | LiteRT-LM (post-Phase 3B runtime swap) | Android | `.task` / `.litertlm` | [Android Native SDK § MediaPipe](./android-native-sdk.md#mediapipe-backendkindmediapipe) |
 | **LiteRT** | Bare LiteRT 2.x (TFLite successor) | Android | `.tflite` / `.litertlm` | [Android Native SDK § LiteRT](./android-native-sdk.md#litert-backendkindlitert) |
+| **LiteRT-LM** | `google-ai-edge/LiteRT-LM` (cross-platform on-device LLM runtime) | iOS 16+, macOS 13+, Android, Capacitor, RN, Flutter, browser | `.litertlm` | [iOS Native SDK § LiteRT-LM](./ios-native-sdk.md), [Android Native SDK § LiteRT](./android-native-sdk.md#litert-backendkindlitert) |
 
 Two notes worth calling out.
 

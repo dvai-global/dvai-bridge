@@ -56,9 +56,10 @@ platform.
 - **Six SDKs.** `@dvai-bridge/core` + `react` + `vanilla` + `capacitor`,
   `DVAIBridge` (Swift / iOS), `co.deepvoiceai:dvai-bridge` (Kotlin / Android),
   `@dvai-bridge/react-native`, `dvai_bridge` (Flutter), `co.deepvoiceai.dvai-bridge` (.NET).
-- **Nine backends.** WebLLM, Transformers.js, llama.cpp, Apple Foundation
-  Models, MLX, CoreML / ANE, MediaPipe LLM, LiteRT, ONNX Runtime GenAI —
-  selected per-platform, invisible to your agent code.
+- **Ten backends.** WebLLM, Transformers.js, LiteRT-LM (cross-platform,
+  v4.2.0+), llama.cpp, Apple Foundation Models, MLX, CoreML / ANE, MediaPipe
+  LLM, LiteRT, ONNX Runtime GenAI — selected per-platform, invisible to your
+  agent code.
 - **Native acceleration** wherever it runs: WebGPU in browsers, CUDA / Metal
   / Vulkan / DirectML on desktop, ANE / Metal / MLX on iOS, NNAPI / QNN
   Hexagon / GPU delegate on Android.
@@ -82,11 +83,11 @@ platform.
 
 | Stack | Package | Backends |
 | --- | --- | --- |
-| Browser (React, Vue, Svelte, vanilla JS) | [`@dvai-bridge/core`](https://www.npmjs.com/package/@dvai-bridge/core) + [`react`](https://www.npmjs.com/package/@dvai-bridge/react) / [`vanilla`](https://www.npmjs.com/package/@dvai-bridge/vanilla) | WebLLM (WebGPU), Transformers.js (WebGPU / WASM SIMD) |
+| Browser (React, Vue, Svelte, vanilla JS) | [`@dvai-bridge/core`](https://www.npmjs.com/package/@dvai-bridge/core) + [`react`](https://www.npmjs.com/package/@dvai-bridge/react) / [`vanilla`](https://www.npmjs.com/package/@dvai-bridge/vanilla) | WebLLM (WebGPU), Transformers.js (WebGPU / WASM SIMD), LiteRT-LM (WebGPU) |
 | Node / Bun / Electron | [`@dvai-bridge/core`](https://www.npmjs.com/package/@dvai-bridge/core) | Transformers.js, native llama.cpp |
-| Capacitor hybrid mobile | [`@dvai-bridge/capacitor`](https://www.npmjs.com/package/@dvai-bridge/capacitor) + backend slice ([llama](https://www.npmjs.com/package/@dvai-bridge/capacitor-llama) / [mediapipe](https://www.npmjs.com/package/@dvai-bridge/capacitor-mediapipe) / [foundation](https://www.npmjs.com/package/@dvai-bridge/capacitor-foundation) / [mlx](https://www.npmjs.com/package/@dvai-bridge/capacitor-mlx)) | Native llama.cpp (Metal iOS, Vulkan / CPU Android) |
-| iOS native (Swift) | `DVAIBridge` ([SPM](https://github.com/dvai-global/dvai-bridge) / [CocoaPods](https://cocoapods.org/pods/DVAIBridge)) | llama.cpp (Metal), CoreML / ANE, Apple Foundation Models, MLX |
-| Android native (Kotlin / Java) | [`co.deepvoiceai:dvai-bridge`](https://central.sonatype.com/artifact/co.deepvoiceai/dvai-bridge) (Maven Central AAR) | llama.cpp, MediaPipe LLM, LiteRT, NNAPI / QNN |
+| Capacitor hybrid mobile | [`@dvai-bridge/capacitor`](https://www.npmjs.com/package/@dvai-bridge/capacitor) + backend slice ([llama](https://www.npmjs.com/package/@dvai-bridge/capacitor-llama) / [mediapipe](https://www.npmjs.com/package/@dvai-bridge/capacitor-mediapipe) / [foundation](https://www.npmjs.com/package/@dvai-bridge/capacitor-foundation) / [mlx](https://www.npmjs.com/package/@dvai-bridge/capacitor-mlx) / [litertlm](https://www.npmjs.com/package/@dvai-bridge/capacitor-litertlm)) | Native llama.cpp (Metal iOS, Vulkan / CPU Android), LiteRT-LM (cross-platform) |
+| iOS native (Swift) | `DVAIBridge` ([SPM](https://github.com/dvai-global/dvai-bridge) / [CocoaPods](https://cocoapods.org/pods/DVAIBridge)) | llama.cpp (Metal), CoreML / ANE, Apple Foundation Models, MLX, LiteRT-LM (SPM only) |
+| Android native (Kotlin / Java) | [`co.deepvoiceai:dvai-bridge`](https://central.sonatype.com/artifact/co.deepvoiceai/dvai-bridge) (Maven Central AAR) | llama.cpp, MediaPipe LLM, LiteRT, LiteRT-LM, NNAPI / QNN |
 | React Native (≥0.77, TurboModule) | [`@dvai-bridge/react-native`](https://www.npmjs.com/package/@dvai-bridge/react-native) | All iOS + Android backends (delegates) |
 | Flutter (≥3.39) | [`dvai_bridge`](https://pub.dev/packages/dvai_bridge) | All iOS + Android backends (Pigeon channels) |
 | .NET 10 LTS (MAUI / Avalonia / WinUI / desktop / Catalyst) | [`DVAIBridge`](https://www.nuget.org/packages/DVAIBridge) facade + [`.Desktop`](https://www.nuget.org/packages/DVAIBridge.Desktop) / [`.iOS`](https://www.nuget.org/packages/DVAIBridge.iOS) / [`.Android`](https://www.nuget.org/packages/DVAIBridge.Android) / [`.OnnxRuntime`](https://www.nuget.org/packages/DVAIBridge.OnnxRuntime) / [`.MLNet`](https://www.nuget.org/packages/DVAIBridge.MLNet) (NuGet) | iOS / Android delegate to native; desktop = llama.cpp + ONNX Runtime GenAI + ML.NET. Mac Catalyst slice shipped in v4.0.1. |
@@ -150,8 +151,8 @@ hold simultaneously. No existing tool combines all six.
    identical endpoints with identical request/response shapes.
 4. **Backend-agnostic per device.** Your code says
    `backend: 'auto'` — the SDK picks llama.cpp / Apple Foundation
-   Models / MLX / CoreML+ANE / MediaPipe LLM / LiteRT / WebLLM /
-   Transformers.js / ONNX Runtime GenAI based on what the device
+   Models / MLX / CoreML+ANE / MediaPipe LLM / LiteRT / LiteRT-LM /
+   WebLLM / Transformers.js / ONNX Runtime GenAI based on what the device
    actually supports. The agentic framework on top **doesn't know or
    care** which engine is executing.
 5. **Local-first with optional peer expansion.** LAN-mDNS capability

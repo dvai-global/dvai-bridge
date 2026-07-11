@@ -200,6 +200,7 @@ cache and pairing store.
 | `.foundation` | Apple Foundation Models | (no file) | 18.1 (link), 26 (runtime) | Zero-download text on iOS 26+. SwiftPM-only. |
 | `.coreml` | CoreML / ANE | `.mlmodelc` directory | 18 (runtime) | Stateful 4-bit Llama-3.2 reference. **Experimental — see [Known issues](#known-issues).** |
 | `.mlx` | MLX (Apple Silicon GPU/ANE) | HuggingFace Hub id | 17 (link), Apple Silicon (runtime) | See the [MLX backend page](./mlx-backend.md). SwiftPM-only. |
+| `.litertlm` | LiteRT-LM (Metal) | `.litertlm` | 16 (link), 16 (runtime) | Google's on-device LLM runtime — Gemma 4 E2B/E4B. Same weight file as Android/web. SwiftPM-only. **v4.2.0+.** |
 | `.auto` | Resolve at runtime | Inferred from `modelPath` | — | See [auto-resolution](#auto-resolution-rules) below. |
 
 ### Auto-resolution rules
@@ -210,9 +211,10 @@ Pass `.auto` and the SDK picks based on `modelPath`:
 |---|---|
 | ends in `.gguf` | `.llama` |
 | ends in `.mlmodelc` / `.mlpackage` | `.coreml` |
+| ends in `.litertlm` | `.litertlm` (LiteRT-LM, iOS SwiftPM only) |
 | nil + iOS 26+ device | `.foundation` |
 | `<owner>/<repo>` style HF id (no extension) | **error** — pass `.mlx` explicitly (see below) |
-| ends in `.task` / `.litertlm` | error (Android-only formats) |
+| ends in `.task` | error (MediaPipe is Android-only) |
 
 `.mlx` is *not* auto-resolved from a HuggingFace id because not every
 HF id is an MLX checkpoint. Pass `.mlx` explicitly when you mean it.
