@@ -39,6 +39,13 @@ describe("backend dispatch", () => {
     expect(registerPlugin).toHaveBeenCalledWith("DVAIBridgeMediaPipe");
   });
 
+  it("routes backend:'litertlm' to DVAIBridgeLiteRTLM plugin", async () => {
+    const { registerPlugin } = await import("@capacitor/core");
+    const { dispatch } = await import("../dispatch");
+    await dispatch.start({ backend: "litertlm", modelPath: "/m.litertlm" });
+    expect(registerPlugin).toHaveBeenCalledWith("DVAIBridgeLiteRTLM");
+  });
+
   it("after start(), stop() routes to the active plugin", async () => {
     const { dispatch } = await import("../dispatch");
     await dispatch.start({ backend: "llama", modelPath: "/m.gguf" });

@@ -1,0 +1,4 @@
+include ':dvai-bridge-android-litert-core'
+project(':dvai-bridge-android-litert-core').projectDir = file('../../dvai-bridge-android-litert-core/android')
+
+rootProject.name = 'dvai-bridge-capacitor-litertlm'

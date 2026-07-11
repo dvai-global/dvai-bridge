@@ -1,0 +1,79 @@
+buildscript {
+    ext {
+        kotlinVersion = '2.3.21'
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:9.2.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+    }
+}
+
+ext {
+    junitVersion = '4.13.2'
+    androidxAppCompatVersion = '1.7.1'
+    capacitorVersion = '8.3.1'
+    coroutinesVersion = '1.10.2'
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        // Phase 3D: android-litert-core's transitive dep on shared-core
+        // resolves here in dev (after `bash scripts/android-publish-local.sh`).
+        mavenLocal()
+    }
+}
+
+// AGP 9+ ships built-in Kotlin support; the standalone 'kotlin-android'
+// plugin is no longer needed (and is rejected by the build).
+// See https://kotl.in/gradle/agp-built-in-kotlin
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'co.deepvoiceai.bridge.litertlm'
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 24
+        targetSdk 36
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    testOptions {
+        unitTests.includeAndroidResources = true
+    }
+}
+
+// AGP 9 / Kotlin 2.x: the legacy android.kotlinOptions block is gone. The
+// replacement is the standalone `kotlin { compilerOptions { ... } }` extension
+// (provided by AGP's built-in Kotlin integration).
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
+dependencies {
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "com.capacitorjs:core:$capacitorVersion"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion"
+
+    // Core library — brings in LiteRT-LM runtime, Ktor, OkHttp, serialization transitively.
+    api project(':dvai-bridge-android-litert-core')
+
+    testImplementation "junit:junit:$junitVersion"
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion"
+    testImplementation 'org.robolectric:robolectric:4.16.1'
+
+    androidTestImplementation 'androidx.test:runner:1.7.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
+}

@@ -5,7 +5,7 @@
  * to keep the JS↔native contract consistent.
  */
 
-export type CapacitorBackend = "llama" | "foundation" | "mediapipe" | "mlx";
+export type CapacitorBackend = "llama" | "foundation" | "mediapipe" | "mlx" | "litertlm";
 
 export interface StartOptions {
   /** Which native backend plugin to dispatch to. */

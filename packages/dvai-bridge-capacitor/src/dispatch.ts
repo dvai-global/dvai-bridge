@@ -12,6 +12,7 @@ const PLUGIN_NAME_BY_BACKEND: Record<CapacitorBackend, string> = {
   foundation: "DVAIBridgeFoundation",
   mediapipe: "DVAIBridgeMediaPipe",
   mlx: "DVAIBridgeMLX",
+  litertlm: "DVAIBridgeLiteRTLM",
 };
 
 let activePlugin: NativePluginInterface | null = null;
