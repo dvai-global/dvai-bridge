@@ -199,6 +199,9 @@ importers:
       '@langchain/openai':
         specifier: ^1.5.1
         version: 1.5.5(@langchain/core@1.2.2(openai@6.46.0(ws@8.21.0)(zod@4.4.3))(ws@8.21.0))(ws@8.21.0)
+      '@litert-lm/core':
+        specifier: '*'
+        version: 0.14.0
       langchain:
         specifier: ^1.4.1
         version: 1.4.1(@langchain/core@1.2.2(openai@6.46.0(ws@8.21.0)(zod@4.4.3))(ws@8.21.0))(openai@6.46.0(ws@8.21.0)(zod@4.4.3))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vue@3.5.39(typescript@6.0.3))(ws@8.21.0)
@@ -386,6 +389,9 @@ importers:
       '@huggingface/transformers':
         specifier: ^4.0.1
         version: 4.1.0
+      '@litert-lm/core':
+        specifier: '*'
+        version: 0.14.0
       '@mlc-ai/web-llm':
         specifier: ^0.2.78
         version: 0.2.82
@@ -2358,6 +2364,12 @@ packages:
 
   '@langchain/protocol@0.0.15':
     resolution: {integrity: sha512-MllvbpMjqHevUm+v94M422mH7XKN+wGCvJRBVROTWBotEDOATYB4Ktk2UheYP859y9o2LlhtPek5t1T9eyfAbQ==}
+
+  '@litert-lm/core@0.14.0':
+    resolution: {integrity: sha512-JQhvU6o6JY/Hyg5D59Xblp2H/Ynu4+a6omjekV3a+N2weh9pLnI3+ZP8AlkTbTjJjST893p3VuXd7O8dWelDCA==}
+
+  '@litertjs/wasm-utils@2.5.0':
+    resolution: {integrity: sha512-zhMAqJRJ3ROi48flZxYx+K2MiMllJVuH7oeumpSIfQMBeOb6JyLV/7ltLbY6E+nERUAfNwzIBqjslWAeXcO6iQ==}
 
   '@mlc-ai/web-llm@0.2.82':
     resolution: {integrity: sha512-ONhW+28PPVSUI1m0RkJcm7suwc47b65i5b/rTEIADq5I22p1+9uf/CBbDPRkkjj1WJB9s8oFp0ywAW0NY1G6fg==}
@@ -10144,6 +10156,12 @@ snapshots:
       - ws
 
   '@langchain/protocol@0.0.15': {}
+
+  '@litert-lm/core@0.14.0':
+    dependencies:
+      '@litertjs/wasm-utils': 2.5.0
+
+  '@litertjs/wasm-utils@2.5.0': {}
 
   '@mlc-ai/web-llm@0.2.82':
     dependencies:

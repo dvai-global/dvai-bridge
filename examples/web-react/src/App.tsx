@@ -14,25 +14,36 @@ import { ChatOpenAI } from "@langchain/openai";
 import { DynamicTool } from "langchain";
 import "./App.css";
 
+type BackendChoice = "transformers" | "webllm" | "litertlm";
+
 function App() {
 	const [status, setStatus] = useState<
 		"idle" | "loading" | "running" | "error" | "success"
 	>("idle");
 	const [result, setResult] = useState<string>("");
+	const [backend, setBackend] = useState<BackendChoice>("transformers");
 
 	const runTest = async () => {
 		setStatus("loading");
-		console.log("Initializing DVAI (Transformers Backend)...");
+		console.log(`Initializing DVAI (${backend} backend)...`);
 
 		try {
-			const dvai = new DVAI({
-				backend: "transformers",
-				transformersModelId: "onnx-community/Llama-3.2-1B-Instruct-ONNX",
-				pipelineTask: "text-generation",
-				dtype: "q4",
-				device: "auto",
-				transformersWorkerUrl: "/dvai-transformers.worker.js",
-			});
+			// Per-backend config. Common fields (timeout etc.) fall back to
+			// DVAIConfig defaults; only the model-source knob differs.
+			const cfg =
+				backend === "webllm"
+					? { backend, modelId: "gemma-2-2b-it-q4f16_1-MLC" as const }
+					: backend === "litertlm"
+						? { backend } // uses DVAIConfig default litertLmModelUrl (Gemma 4 E2B)
+						: {
+								backend: "transformers" as const,
+								transformersModelId: "onnx-community/Llama-3.2-1B-Instruct-ONNX",
+								pipelineTask: "text-generation",
+								dtype: "q4",
+								device: "auto" as const,
+								transformersWorkerUrl: "/dvai-transformers.worker.js",
+							};
+			const dvai = new DVAI(cfg);
 
 			await dvai.initialize((progress: { text: string; progress: number }) => {
 				console.log(
@@ -133,8 +144,24 @@ When you receive a tool result, use it to provide a final natural language answe
 
 	return (
 		<div className="app-container">
-			<h1>DVAI Transformers Repro</h1>
+			<h1>DVAI Web Backends</h1>
 			<div className="controls">
+				<fieldset style={{ display: "inline-block", marginRight: "1rem" }}>
+					<legend>Backend</legend>
+					{(["transformers", "webllm", "litertlm"] as const).map((b) => (
+						<label key={b} style={{ marginRight: "0.75rem" }}>
+							<input
+								type="radio"
+								name="backend"
+								value={b}
+								checked={backend === b}
+								disabled={status === "loading" || status === "running"}
+								onChange={() => setBackend(b)}
+							/>
+							{b}
+						</label>
+					))}
+				</fieldset>
 				<button
 					onClick={runTest}
 					disabled={status === "loading" || status === "running"}

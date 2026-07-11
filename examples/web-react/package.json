@@ -12,6 +12,7 @@
   "dependencies": {
     "@dvai-bridge/core": "workspace:*",
     "@huggingface/transformers": "^3.8.1",
+    "@litert-lm/core": "*",
     "@langchain/core": "^1.2.2",
     "@langchain/openai": "^1.5.1",
     "langchain": "^1.4.1",

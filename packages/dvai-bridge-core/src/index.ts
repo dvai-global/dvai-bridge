@@ -50,7 +50,7 @@ export type {
 	DvaiPublicKeyJwk,
 } from "./license/index.js";
 
-export type BackendType = "webllm" | "transformers" | "native" | "auto";
+export type BackendType = "webllm" | "transformers" | "litertlm" | "native" | "auto";
 export type DeviceType = "webgpu" | "cpu" | "auto";
 export type {
 	PipelineTask,
@@ -65,6 +65,7 @@ export interface DVAIConfig {
 	 * The backend engine to use. Default: "webllm". Set to "auto" to auto-detect.
 	 * - "webllm"       → @mlc-ai/web-llm (browser, WebGPU)
 	 * - "transformers" → @huggingface/transformers (browser or Node)
+	 * - "litertlm"     → @litert-lm/core (browser, WebGPU; Google's LiteRT-LM)
 	 * - "native"       → node-llama-cpp (Node only; loads a GGUF file)
 	 * - "auto"         → resolved at runtime
 	 */
@@ -91,6 +92,12 @@ export interface DVAIConfig {
 	webllmWorkerUrl?: string;
 	/** URL to the Transformers.js worker script (for offloading inference). Default: "/dvai-transformers.worker.js" */
 	transformersWorkerUrl?: string;
+	/**
+	 * URL to a `.litertlm` model file for the LiteRT-LM (`litertlm`) backend.
+	 * Default: the Gemma 4 E2B-it web build from Google's litert-community
+	 * on Hugging Face. Same-origin or CORS-enabled URLs only.
+	 */
+	litertLmModelUrl?: string;
 	/**
 	 * Custom pipeline factory for Transformers.js backend.
 	 * MAIN-THREAD ONLY — function closures don't cross the Worker boundary.
@@ -298,6 +305,7 @@ export class DVAI {
 	public maxRetries: number;
 	public webllmWorkerUrl: string;
 	public transformersWorkerUrl: string;
+	public litertLmModelUrl: string;
 	public dtype?: string;
 	public createPipeline?: import("./TransformersBackend.js").CreatePipelineFn;
 	public transformersModelClass?: string;
@@ -345,7 +353,7 @@ export class DVAI {
 	private recoveryAttempts: number = 0;
 
 	/** The resolved backend type (after "auto" resolution). */
-	private resolvedBackend: "webllm" | "transformers" | "native" = "webllm";
+	private resolvedBackend: "webllm" | "transformers" | "litertlm" | "native" = "webllm";
 
 	/* ----- Phase 3 (v3.0+) — distributed-inference state ----- */
 
@@ -393,6 +401,9 @@ export class DVAI {
 		this.webllmWorkerUrl = config.webllmWorkerUrl ?? "/dvai-webllm.worker.js";
 		this.transformersWorkerUrl =
 			config.transformersWorkerUrl ?? "/dvai-transformers.worker.js";
+		this.litertLmModelUrl =
+			config.litertLmModelUrl ??
+			"https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.litertlm";
 		this.mockUrl =
 			config.mockUrl ?? "https://api.openai.local/v1/chat/completions";
 		this.serviceWorkerUrl = config.serviceWorkerUrl ?? "/mockServiceWorker.js";
@@ -423,7 +434,7 @@ export class DVAI {
 		// Resolve explicit backends immediately so getActiveBackend() is correct
 		// before initialize(). "auto" defers to initialize() for runtime env detection.
 		if (this.backend !== "auto") {
-			this.resolvedBackend = this.backend as "webllm" | "transformers" | "native";
+			this.resolvedBackend = this.backend as "webllm" | "transformers" | "litertlm" | "native";
 		}
 
 		// Phase 3 — capture offload config (lifecycle wiring lights up
@@ -434,7 +445,7 @@ export class DVAI {
 	/**
 	 * Returns the active backend type (resolved from "auto" if applicable).
 	 */
-	getActiveBackend(): "webllm" | "transformers" | "native" {
+	getActiveBackend(): "webllm" | "transformers" | "litertlm" | "native" {
 		return this.resolvedBackend;
 	}
 
@@ -460,14 +471,14 @@ export class DVAI {
 	 * (which delegates to a native HTTP server in the Capacitor plugin), not
 	 * via the backend. The backend stays in the webview as a thin client.
 	 */
-	private resolveBackend(): "webllm" | "transformers" | "native" {
+	private resolveBackend(): "webllm" | "transformers" | "litertlm" | "native" {
 		if (this.backend === "auto") {
 			console.log(
 				"[DVAI] Auto-detected web environment → using webllm backend",
 			);
 			return "webllm";
 		}
-		return this.backend as "webllm" | "transformers" | "native";
+		return this.backend as "webllm" | "transformers" | "litertlm" | "native";
 	}
 
 	/**
@@ -877,7 +888,8 @@ export class DVAI {
 					? this.transformersModelId
 					: this.modelId,
 			onRecovery:
-				this.resolvedBackend === "webllm"
+				this.resolvedBackend === "webllm" ||
+				this.resolvedBackend === "litertlm"
 					? async () => {
 							if (
 								this.backendInstance?.lastFatalError &&
@@ -1004,6 +1016,27 @@ export class DVAI {
 			console.log(
 				`[DVAI] Transformers.js backend ready (task: ${this.pipelineTask}, device: ${backend.getResolvedDevice()}, worker: ${backend.isWorkerBased()})`,
 			);
+		} else if (this.resolvedBackend === "litertlm") {
+			let LiteRTLMBackend: any;
+			try {
+				const mod = await import("./LiteRTLMBackend.js");
+				LiteRTLMBackend = mod.LiteRTLMBackend;
+			} catch {
+				throw new Error(
+					'[DVAI] LiteRT-LM backend selected but "@litert-lm/core" is not installed.\n' +
+						"Install it with: npm install @litert-lm/core",
+				);
+			}
+			const backend = new LiteRTLMBackend({
+				modelUrl: this.litertLmModelUrl,
+				generationTimeout: this.generationTimeout,
+				maxBlankChunks: this.maxBlankChunks,
+			});
+			await backend.initialize(onProgress);
+			this.backendInstance = backend;
+			console.log(
+				`[DVAI] LiteRT-LM backend ready (model=${this.litertLmModelUrl})`,
+			);
 		} else {
 			let WebLLMBackend: any;
 			try {
@@ -1036,7 +1069,7 @@ export class DVAI {
 	 */
 	getEngine(): any {
 		if (!this.backendInstance) return null;
-		if (this.resolvedBackend === "webllm") {
+		if (this.resolvedBackend === "webllm" || this.resolvedBackend === "litertlm") {
 			return this.backendInstance.getEngine?.() ?? null;
 		}
 		if (this.resolvedBackend === "native") {

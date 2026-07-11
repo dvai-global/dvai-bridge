@@ -28,7 +28,7 @@ export interface HandlerContext {
    * phases — handlers must NOT dispatch on this value; always duck-type
    * on backend methods instead.
    */
-  resolvedBackend: "webllm" | "transformers" | "native";
+  resolvedBackend: "webllm" | "transformers" | "litertlm" | "native";
 
   /** Model identifier echoed back in responses. */
   modelId: string;

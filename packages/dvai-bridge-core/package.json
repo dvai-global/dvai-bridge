@@ -56,6 +56,7 @@
   "peerDependencies": {
     "@dvai-bridge/capacitor": "workspace:*",
     "@huggingface/transformers": "^4.0.1",
+    "@litert-lm/core": "*",
     "@mlc-ai/web-llm": "^0.2.78",
     "node-llama-cpp": "^3.0.0"
   },
@@ -64,6 +65,9 @@
       "optional": true
     },
     "@huggingface/transformers": {
+      "optional": true
+    },
+    "@litert-lm/core": {
       "optional": true
     },
     "@dvai-bridge/capacitor": {
