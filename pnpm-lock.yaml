@@ -339,6 +339,19 @@ importers:
         specifier: workspace:*
         version: link:../dvai-bridge-capacitor
 
+  packages/dvai-bridge-capacitor-litertlm:
+    dependencies:
+      '@capacitor/core':
+        specifier: ^6.0.0 || ^7.0.0 || ^8.0.0
+        version: 8.4.1
+      '@dvai-bridge/android-litert-core':
+        specifier: workspace:*
+        version: link:../dvai-bridge-android-litert-core
+    devDependencies:
+      '@dvai-bridge/capacitor':
+        specifier: workspace:*
+        version: link:../dvai-bridge-capacitor
+
   packages/dvai-bridge-capacitor-llama:
     dependencies:
       '@capacitor/core':

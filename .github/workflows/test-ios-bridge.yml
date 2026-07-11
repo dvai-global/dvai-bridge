@@ -30,6 +30,15 @@ jobs:
     name: XCTest — DVAIBridge SDK
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 30
+    # LiteRT-LM's git repo contains Android prebuilt .so files as Git LFS
+    # pointers, and SPM's git-checkout of the revision pin invokes
+    # git-lfs filter-process on every LFS pointer. GitHub's LFS server
+    # intermittently returns "remote missing object" for those Android
+    # binaries — which we don't need on iOS. Skipping LFS smudge lets
+    # SPM lay down the LFS pointer files as-is (Swift target doesn't
+    # touch them) and the resolve proceeds.
+    env:
+      GIT_LFS_SKIP_SMUDGE: 1
     defaults:
       run:
         working-directory: packages/dvai-bridge-ios
