@@ -46,7 +46,7 @@ public actor LiteRTLMPluginState {
         }
 
         let acceleratorOpt = (opts["accelerator"] as? String)?.lowercased() ?? "gpu"
-        let backendKind: LiteRTLM.Backend = acceleratorOpt == "cpu" ? .cpu : .gpu
+        let backendKind: LiteRTLM.Backend = acceleratorOpt == "cpu" ? .cpu() : .gpu
         let cacheDir = opts["cacheDir"] as? String ?? NSTemporaryDirectory()
 
         let httpBasePort = opts["httpBasePort"] as? Int ?? 38883
