@@ -382,7 +382,10 @@ private fun backendKindFromWire(value: String): BackendKind? = when (value) {
     "auto" -> BackendKind.Auto
     "llama" -> BackendKind.Llama
     "mediapipe" -> BackendKind.MediaPipe
-    "litert" -> BackendKind.LiteRT
+    // v4.2: "litertlm" is the new canonical wire string. "litert" is kept
+    // as an alias for pre-v4.2 clients — both map to the same Kotlin enum
+    // case because the underlying runtime (LiteRT-LM) hasn't changed.
+    "litert", "litertlm" -> BackendKind.LiteRT
     else -> null
 }
 

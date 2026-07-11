@@ -50,8 +50,14 @@ enum BackendKind {
   /// Google MediaPipe LLM Inference (`.task`). Android-only.
   mediapipe,
 
-  /// Google LiteRT-LM (`.tflite` / `.litertlm`). Android-only.
-  litert;
+  /// Google LiteRT-LM legacy wire string. Android-only. Kept for backward
+  /// compat with pre-v4.2 clients; new code should use [litertlm].
+  litert,
+
+  /// Google LiteRT-LM (`.litertlm`). Cross-platform: Android via
+  /// `co.deepvoiceai:android-litert-core`, iOS/macOS via
+  /// `@dvai-bridge/ios-litertlm-core`.
+  litertlm;
 
   /// Wire-format identifier mirrored across iOS / Android / RN. Always
   /// lowercase ASCII; matches the generated `BackendKind` cases on both
