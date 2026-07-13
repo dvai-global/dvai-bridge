@@ -26,7 +26,7 @@
     "@dvai-bridge/core": "workspace:*",
     "@noble/curves": "2.2.0",
     "@tailwindcss/vite": "^4.3.0",
-    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-autostart": "^2.0.0",
     "@tauri-apps/plugin-notification": "^2.0.0",
     "lucide-react": "^1.17.0",
