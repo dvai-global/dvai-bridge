@@ -262,7 +262,7 @@ jobs:
           echo "=== Phase 1: publishToMavenLocal (seed sibling-dep cache) ==="
           for module in $MODULES; do
               echo "==> mavenLocal: $module"
-              (cd packages/$module/android && ./gradlew publishToMavenLocal --no-daemon --no-configuration-cache -PcompileSdkOverride=35)
+              (cd packages/$module/android && ./gradlew publishToMavenLocal --no-daemon --no-configuration-cache)
           done
 
           echo
@@ -271,7 +271,7 @@ jobs:
           for module in $MODULES; do
               echo "==> mavenCentral: $module"
               LOG=$(mktemp)
-              if (cd packages/$module/android && ./gradlew publishAndReleaseToMavenCentral --no-daemon --no-configuration-cache -PcompileSdkOverride=35) 2>&1 | tee "$LOG"; then
+              if (cd packages/$module/android && ./gradlew publishAndReleaseToMavenCentral --no-daemon --no-configuration-cache) 2>&1 | tee "$LOG"; then
                   echo "    $module ✓ published"
               else
                   if grep -q "already exists" "$LOG"; then

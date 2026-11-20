@@ -120,6 +120,11 @@ function main() {
     "@huggingface/transformers",
     "@mlc-ai/web-llm",
     "node-llama-cpp",
+    // msw 3 maps `msw/browser` to null under the bun/node conditions, so
+    // core's lazy `import("msw/browser")` cannot resolve here. The msw
+    // transport is browser-only; the sidecar never starts it.
+    "msw",
+    "msw/browser",
   ];
   const externalArgs = externals.flatMap((name) => ["--external", name]);
 
