@@ -15,11 +15,10 @@ SwiftUI / Compose apps have direct guides at
 
 ## Requirements
 
-- **Flutter ≥ 3.39** (Dart ≥ 3.7). The package is developed against
-  Flutter 3.41.5 (Dart 3.11) and CI exercises both the latest stable and
-  the 3.39 floor.
-- **iOS 15.1+ link target**, **Android `minSdk 24`**. The underlying
-  `DVAIBridge` umbrella raises the iOS minimum to **18.1** at runtime.
+- **Flutter ≥ 3.44** (Dart ≥ 3.12). CI exercises both the latest stable
+  and the 3.44 floor.
+- **iOS 18.1+**, **Android `minSdk 24`**. iOS 18.1 is the floor of the
+  `DVAIBridge` umbrella pod the plugin wraps.
 
 ## Install
 
@@ -48,12 +47,12 @@ distribution table.
 ### iOS — Podfile
 
 The plugin's autolinking pulls in `dvai_bridge.podspec`, which depends
-on the `DVAIBridge` umbrella pod (Phase 3C v2.2). Make sure the iOS
+on the `DVAIBridge` umbrella pod of the same version. Make sure the iOS
 deployment target meets the floor:
 
 ```ruby
 # ios/Podfile
-platform :ios, '15.1'
+platform :ios, '18.1'
 
 target 'Runner' do
   use_frameworks!

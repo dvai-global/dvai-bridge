@@ -46,7 +46,7 @@ Pod::Spec.new do |s|
   s.license          = { :type => 'MIT', :file => '../LICENSE' }
   s.author           = { 'Deep Chakraborty' => 'https://github.com/dk013' }
   s.source           = { :git => 'https://github.com/dvai-global/dvai-bridge.git', :tag => "v#{s.version}" }
-  s.platform         = :ios, '15.1'
+  s.platform         = :ios, '18.1'
   s.swift_version    = '5.9'
 
   s.source_files = 'Classes/**/*.{swift,h,m}'
