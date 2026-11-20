@@ -49,13 +49,15 @@ jobs:
   publish-npm:
     name: Publish @dvai-bridge/* to npmjs.org
     runs-on: ubuntu-latest
-    # Skip when NPM_TOKEN isn't configured (e.g. pre-pipeline
-    # setup, forks, dispatch dry-runs). The actual publish step
-    # will surface a clearer error if the token is wrong, so we
-    # don't try to validate it here.
+    # npm Trusted Publishing (OIDC): no NPM_TOKEN. Each @dvai-bridge/*
+    # package has a trusted publisher on npmjs.com pointing at
+    # dvai-global/dvai-bridge + publish.yml. npm stops allowing
+    # 2FA-bypass access tokens for publishing, so this is the only
+    # supported CI path.
     if: ${{ vars.NPM_PUBLISH_ENABLED == 'true' || github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: read
+      id-token: write   # npm Trusted Publishing (OIDC) + provenance
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -68,10 +70,13 @@ jobs:
       - name: Set up Node.js (npmjs.org registry)
         uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
-          scope: '@dvai-bridge'
+
+      # Trusted Publishing needs npm >= 11.5.1.
+      - name: Update npm
+        run: npm install -g npm@latest && npm --version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -100,15 +105,25 @@ jobs:
         # platform-toolchain consumers.
         run: pnpm --filter='./packages/**' --filter='!@dvai-bridge/flutter' --filter='!@dvai-bridge/dotnet' --filter='!@dvai-bridge/ios' run build
 
-      - name: Publish to npmjs.org
-        # `pnpm -r publish` walks every workspace package and skips
-        # any with `"private": true`. The `--access public` flag is
-        # required for first-time publishes under a scope; subsequent
-        # publishes ignore it. `--no-git-checks` is needed because
-        # the tag/release event leaves HEAD in detached state.
-        run: pnpm -r publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to npmjs.org (Trusted Publishing)
+        # `pnpm pack` rewrites workspace:* deps to real versions; `npm
+        # publish <tgz>` then authenticates via OIDC (npm CLI, not pnpm,
+        # performs the token exchange). Versions already on the registry
+        # are skipped so re-runs are safe. Private packages are skipped.
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/npm-pack"; mkdir -p "$OUT"
+          for pj in packages/*/package.json; do
+            d=$(dirname "$pj")
+            read -r name ver priv < <(node -p "const p=require('./$pj');[p.name,p.version,!!p.private].join(' ')")
+            [ "$priv" = "true" ] && continue
+            if npm view "$name@$ver" version >/dev/null 2>&1; then
+              echo "skip $name@$ver (already published)"; continue
+            fi
+            tgz=$(cd "$d" && pnpm pack --pack-destination "$OUT" | tail -1)
+            echo "publish $name@$ver"
+            npm publish "$tgz" --access public --provenance
+          done
 
   publish-maven:
     name: Publish co.deepvoiceai:* to Maven Central
