@@ -4,6 +4,33 @@ All notable changes to the `dvai_bridge` Flutter plugin are documented here.
 Version numbers track the parent `dvai-bridge` family: bump in lockstep with
 the iOS / Android / React Native packages.
 
+## [4.3.0] — 2026-11-20
+
+**Now MIT-licensed.** Free for any use, commercial included, with no
+license key and no runtime check.
+
+### Removed — BREAKING
+
+- `StartOptions.licenseKeyPath`, `StartOptions.licenseToken`,
+  `BoundServer.licenseStatus`, `LicenseRequiredException` and the rest
+  of the license API. Delete those arguments and `dvai-license.jwt`.
+- Dependencies `dart_jsonwebtoken`, `pointycastle`, `package_info_plus`
+  and `path_provider`, which only the license check used.
+
+### Fixed
+
+- Pairing requests now work on Android and iOS. The native plugins
+  implement `respondToPairingRequest` and the `pairingRequestEvents`
+  stream. Before this, the Android plugin failed to compile against
+  the generated Pigeon host API.
+
+### Changed
+
+- Requires Flutter ≥ 3.44 / Dart ≥ 3.12 (pigeon 30).
+- Docs: <https://dvai-global.github.io/dvai-bridge/guide/flutter-sdk>.
+- See the [family changelog](https://github.com/dvai-global/dvai-bridge/blob/main/CHANGELOG.md#430--2026-11-20)
+  for the full release.
+
 ## [4.2.1] — 2026-07-11
 
 Re-publish of the LiteRT-LM feature release. **Use 4.2.1, not 4.2.0.**
@@ -101,7 +128,7 @@ sibling iOS / .NET / Android packages.
   `dvai-bridge.deepvoiceai.co` host (pre-rename leftover). pub.dev archives
   are immutable per-version, so the corrected link only ships in a new
   version. Now points at the canonical
-  [`bridge.deepvoiceai.co`](https://bridge.deepvoiceai.co) docs site.
+  [docs site](https://dvai-global.github.io/dvai-bridge/).
 - **In-IDE doc tooltips** — `lib/src/offload.dart` doc-comments carried the
   same stale host; updated so `flutter doc` / hover tooltips link to the
   live docs.
@@ -123,7 +150,7 @@ sibling iOS / .NET / Android packages.
 First pub.dev publish. Tracks the v4.0.0 release of the DVAI Bridge family
 (npm `@dvai-bridge/*` at 4.0.0; Maven Central `co.deepvoiceai:dvai-bridge`
 at 4.0.0; CocoaPods `DVAIBridge` at 4.0.0). See the docs site for the full
-[v3 → v4 migration guide](https://bridge.deepvoiceai.co/migration/v3.2-to-v4.0).
+[v3 → v4 migration guide](https://dvai-global.github.io/dvai-bridge/migration/v3-to-v4).
 
 ### Changed
 
@@ -141,12 +168,12 @@ at 4.0.0; CocoaPods `DVAIBridge` at 4.0.0). See the docs site for the full
   proxy config introduced in v3.0.
 - DVAI Hub pairing support — Flutter apps on the same Wi-Fi as a Hub
   install can offload heavy inference. See the
-  [DVAI Hub guide](https://bridge.deepvoiceai.co/guide/dvai-hub).
+  [DVAI Hub guide](https://dvai-global.github.io/dvai-bridge/guide/dvai-hub).
 
 ## [2.3.0] — 2026-04-27
 
 Initial release of the Flutter plugin. See
-[`docs/migration/v2.2-to-v2.3.md`](https://bridge.deepvoiceai.co/migration/v2.2-to-v2.3)
+[`docs/migration/v2.2-to-v2.3.md`](https://dvai-global.github.io/dvai-bridge/migration/v2.2-to-v2.3)
 for the broader v2.3 family rollout context.
 
 ### Added

@@ -37,11 +37,6 @@ let package = Package(
         // can use it directly without a `@_implementationOnly` import
         // gymnastics step.
         .package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.0.0"),
-        // v3.2.2 — JWTKit drives the offline JWT license validator
-        // (ES256 ECDSA P-256). Refuses alg=none / HMAC to defend against
-        // algorithm-confusion attacks. Same .jwt format as the JS-side
-        // validator in @dvai-bridge/core.
-        .package(url: "https://github.com/vapor/jwt-kit.git", from: "5.5.0"),
     ],
     targets: [
         .target(
@@ -57,9 +52,9 @@ let package = Package(
             path: "ios/Sources/DVAICoreMLCore",
             // Keep Swift 5 language mode: the existing code in this
             // package was written before Swift 6's strict-concurrency
-            // checks landed. Bumping `swift-tools-version` to 6.0 (to
-            // pull in JWTKit 5.x) doesn't require flipping the language
-            // mode; we opt out per-target to keep the source unchanged.
+            // checks landed. `swift-tools-version` 6.0 doesn't require
+            // flipping the language mode; we opt out per-target to keep
+            // the source unchanged.
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .target(
@@ -80,8 +75,6 @@ let package = Package(
                 // Hummingbird (built on swift-nio) gives us proper
                 // streaming SSE bodies through the proxy.
                 .product(name: "Hummingbird", package: "hummingbird"),
-                // v3.2.2 — offline JWT license validator.
-                .product(name: "JWTKit", package: "jwt-kit"),
             ],
             path: "ios/Sources/DVAIBridge",
             swiftSettings: [.swiftLanguageMode(.v5)]
@@ -96,9 +89,6 @@ let package = Package(
                 .product(name: "DVAIMLXCore", package: "dvai-bridge-ios-mlx-core"),
                 .product(name: "DVAILiteRTLMCore", package: "dvai-bridge-ios-litertlm-core"),
                 "DVAICoreMLCore",
-                // v3.2.2 — license validator tests sign their own test
-                // tokens with a freshly generated test ES256 keypair.
-                .product(name: "JWTKit", package: "jwt-kit"),
             ],
             path: "ios/Tests/DVAIBridgeTests",
             swiftSettings: [.swiftLanguageMode(.v5)]

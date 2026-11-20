@@ -1,40 +1,28 @@
 name: dvai_bridge
 description: Local-LLM bridge with an OpenAI-compatible HTTP server for Flutter (iOS + Android). Wraps the native DVAIBridge SDKs via Pigeon-generated platform channels.
-version: 4.2.1
+version: 4.3.0
 homepage: https://github.com/dvai-global/dvai-bridge
 repository: https://github.com/dvai-global/dvai-bridge
 issue_tracker: https://github.com/dvai-global/dvai-bridge/issues
-documentation: https://bridge.deepvoiceai.co/guide/flutter-sdk
+documentation: https://dvai-global.github.io/dvai-bridge/guide/flutter-sdk
 
-# Floor pinned at Flutter 3.39 (current stable −2 minor); Pigeon 26 generates
-# Dart 3.7-compatible code, so consumers below Flutter 3.41 still consume the
-# generated bindings cleanly. CI exercises 3.41.5 (latest) and 3.39.x (floor).
+# Floor pinned at Flutter 3.44 (current stable 3.50 −2 minor). Pigeon 29+
+# (dev-only) needs a flutter_test that pins meta >=1.18, which first ships
+# in Flutter 3.44. CI exercises 3.50.1 (latest) and 3.44.9 (floor).
 environment:
-  sdk: ">=3.7.0 <4.0.0"
-  flutter: ">=3.39.0"
+  sdk: ">=3.12.0 <4.0.0"
+  flutter: ">=3.44.0"
 
 dependencies:
   flutter:
     sdk: flutter
   meta: ^1.16.0
-  # Offline JWT license validation. ES256 only; private key never
-  # ships with the SDK. See lib/src/license/license_validator.dart.
-  dart_jsonwebtoken: ^3.4.1
-  # Runtime audience detection — reads the application id / bundle
-  # identifier as the license `aud` binding.
-  package_info_plus: ^10.1.0
-  # Documents-directory discovery for `dvai-license.jwt`.
-  path_provider: ^2.1.5
-  # pointycastle is a transitive dep of dart_jsonwebtoken — pinned
-  # explicitly so the test suite can use ECKeyGenerator directly to
-  # mint a deterministic keypair for license-validator tests.
-  pointycastle: ^4.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  pigeon: ">=26.3.4 <28.0.0"
+  pigeon: ">=29.0.2 <31.0.0"
   mockito: ^5.4.5
   build_runner: ^2.4.13
 

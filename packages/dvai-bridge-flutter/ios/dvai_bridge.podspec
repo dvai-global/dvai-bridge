@@ -43,7 +43,7 @@ Pod::Spec.new do |s|
     getters.
   DESC
   s.homepage         = 'https://github.com/dvai-global/dvai-bridge'
-  s.license          = { :type => 'Custom', :file => '../LICENSE' }
+  s.license          = { :type => 'MIT', :file => '../LICENSE' }
   s.author           = { 'Deep Chakraborty' => 'https://github.com/dk013' }
   s.source           = { :git => 'https://github.com/dvai-global/dvai-bridge.git', :tag => "v#{s.version}" }
   s.platform         = :ios, '15.1'
@@ -57,9 +57,9 @@ Pod::Spec.new do |s|
 
   # Phase 3C umbrella pod — provides `DVAIBridge.shared`, `BackendKind`,
   # `DVAIBridgeError`, `ProgressEvent`, `BoundServer`, `DVAIBridgeConfig`.
-  # Pinned with `~> 2.2` so 2.2.x and 2.3.x patches resolve cleanly without
-  # breaking-change risk.
-  s.dependency 'DVAIBridge', '~> 2.2'
+  # Pinned to this pod's own version: the family ships in lockstep, and the
+  # plugin wraps the matching Swift API (e.g. no license API since 4.3.0).
+  s.dependency 'DVAIBridge', s.version.to_s
 
   # Flutter plugin convention — defines the Swift module so the plugin
   # class is importable from generated `GeneratedPluginRegistrant.m`.

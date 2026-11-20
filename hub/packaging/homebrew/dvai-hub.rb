@@ -15,7 +15,7 @@ class DvaiHub < Formula
   desc "Local-network LLM inference hub — pair mobile apps to a strong peer"
   homepage "https://github.com/dvai-global/dvai-bridge"
   version "3.1.0"
-  license "Custom — see LICENSE"
+  license "MIT"
 
   if Hardware::CPU.arm?
     url "https://github.com/dvai-global/dvai-bridge/releases/download/v#{version}/DVAI-Hub_#{version}_aarch64.dmg"

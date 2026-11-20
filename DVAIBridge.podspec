@@ -58,9 +58,9 @@ Pod::Spec.new do |s|
     / desktop (NuGet). Cross-platform agentic apps stop being a
     per-platform porting exercise.
 
-    Docs + architecture: https://bridge.deepvoiceai.co
+    Docs + architecture: https://dvai-global.github.io/dvai-bridge/
   DESC
-  s.license          = { :type => 'Custom', :file => 'LICENSE' }
+  s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.homepage         = 'https://github.com/dvai-global/dvai-bridge'
   s.author           = { 'Deep Chakraborty' => 'chakraborty.deep013@gmail.com' }
   s.source           = {

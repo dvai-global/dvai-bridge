@@ -4,47 +4,14 @@ Thank you for your interest in contributing to DVAI Bridge. This document
 explains how to contribute code, documentation, bug reports, and feature
 suggestions to the project.
 
-We welcome contributions from individuals and organisations. To make the
-contribution process work for both contributors and Deep Voice AI Limited as
-the project owner, please follow the process described below.
+We welcome contributions from individuals and organisations.
 
-## Before you contribute — the Contributor Licence Agreement
+## License
 
-DVAI Bridge is **dual-licensed**:
-
-- Free for personal, educational, academic-research, evaluation, and
-  internal-only use under the **DVAI Bridge Community Licence v1.0**
-  ("DVAI-BCL v1.0" — see [`LICENSE`](./LICENSE)).
-- Commercially licensed for use in revenue-generating products. See
-  [the licensing page](https://deepvoiceai.co/licensing) for commercial
-  terms.
-
-To support this dual-licensing model, **all contributors must sign the DVAI
-Bridge Contributor Licence Agreement (CLA)** before any pull request can be
-merged. The CLA grants Deep Voice AI Limited the licenses needed to
-redistribute your contribution under both the Community Licence and the
-Commercial Licence, and to support the automatic conversion of each Released
-Version to Apache 2.0 three years after release. **You retain copyright in
-your contribution.** The CLA does not transfer ownership.
-
-There are two variants:
-
-- **Individual CLA** — if you are contributing on your own behalf, and no
-  employer has rights to your work.
-- **Corporate CLA** — if you are contributing as an employee of a company
-  that has rights to your work product. The company signs the Corporate CLA
-  once, then adds employees to the schedule.
-
-Read the full CLA at: **https://deepvoiceai.co/cla**
-
-When you submit your first pull request, the **CLA Assistant** bot will
-comment on the PR with a link to the CLA. Following the bot's instructions
-to sign the CLA is a one-time step (unless the CLA is later updated). Once
-signed, all your future contributions are covered automatically.
-
-If you have questions about which CLA applies to your situation, contact us
-at `info@deepvoiceai.co`. We'd rather have a quick conversation than have
-you guess.
+DVAI Bridge is released under the [MIT License](./LICENSE). By submitting a
+pull request you agree that your contribution is licensed under the same MIT
+terms. There is no CLA to sign and no copyright assignment — you retain
+copyright in your contribution.
 
 ## How to contribute
 
@@ -84,8 +51,8 @@ Before opening a feature request, please:
 - Indicate whether you would be willing to contribute the feature yourself
   (welcome but not required).
 
-Deep Voice AI Limited makes all decisions about the DVAI Bridge product
-roadmap. Feature requests are considered as input but not commitments.
+The maintainers decide the project roadmap. Feature requests are considered
+as input but not commitments.
 
 ### Pull requests
 
@@ -104,9 +71,7 @@ Code contributions are welcomed via GitHub Pull Requests. The workflow:
    need `docs/llms-full.txt` re-sync.
 6. Open a pull request against `main` with a clear description of what the
    change does and why it is needed.
-7. **Sign the CLA when prompted by the CLA Assistant bot.** The bot will
-   comment on the PR with a link.
-8. Respond to review feedback from the DVAI Bridge maintainers.
+7. Respond to review feedback from the DVAI Bridge maintainers.
 
 Pull requests that include tests, documentation, and a clear rationale are
 easier and faster to review.
@@ -123,7 +88,7 @@ include:
 - Inline code comments improving readability.
 
 Documentation contributions follow the same pull request workflow as code
-contributions, **including the CLA requirement**.
+contributions.
 
 ## Code style
 
@@ -196,13 +161,13 @@ version.
 In short: be welcoming, be respectful, be constructive. Harassment,
 discrimination, and aggressive behaviour are not tolerated.
 
-Reports of unacceptable behaviour can be sent to `info@deepvoiceai.co` and
-will be handled by Deep Voice AI Limited in confidence.
+Reports of unacceptable behaviour can be raised as described in
+[`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md#enforcement) and will be handled
+by the maintainers in confidence.
 
 ## Review and merging
 
-Pull requests are reviewed by the DVAI Bridge maintainers (currently the
-Deep Voice AI Limited engineering team). Reviews typically include:
+Pull requests are reviewed by the DVAI Bridge maintainers. Reviews typically include:
 
 - **Correctness review** — does the code do what the PR description says?
 - **Style review** — does the code follow the project's conventions?
@@ -217,9 +182,7 @@ every PR will be merged, and we may decline contributions that do not fit
 the project's direction. We try to communicate clearly when we decline a PR
 and will, where possible, explain the reasoning.
 
-After approval, the **CLA Assistant** bot must confirm that the contributor
-has signed the CLA. Once both review approval and CLA signature are in
-place, the PR is squash-merged into `main`.
+After approval, the PR is squash-merged into `main`.
 
 ## Acknowledgement of contributors
 
@@ -236,12 +199,8 @@ If you have questions about contributing that are not answered above:
 
 - **[GitHub Discussions](https://github.com/dvai-global/dvai-bridge/discussions)**
   for open-ended questions about the project.
-- **Email** `info@deepvoiceai.co` for any other enquiries.
+- **[GitHub Issues](https://github.com/dvai-global/dvai-bridge/issues)** for
+  anything else.
 
 Thank you for contributing to DVAI Bridge.
 
----
-
-Last updated: 15 May 2026.
-Deep Voice AI Limited, registered in England and Wales, company number
-16743132.

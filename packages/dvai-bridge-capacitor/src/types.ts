@@ -39,7 +39,7 @@ export interface StartOptions {
    * (and optionally a rendezvous WebSocket) to find peer dvai-bridge
    * instances and offloads inference requests when the local device
    * can't serve the model fast enough. See
-   * [the distributed-inference guide](https://bridge.deepvoiceai.co/guide/distributed-inference)
+   * [the distributed-inference guide](https://dvai-global.github.io/dvai-bridge/guide/distributed-inference)
    * for the full contract.
    *
    * Pairing-request UI is surfaced via the `"pairingRequest"` event
@@ -48,43 +48,6 @@ export interface StartOptions {
    * plugin boundary, so consumers use the event surface instead.
    */
   offload?: OffloadConfig;
-
-  /**
-   * v3.2.2+ — path (or fetchable URL) to your DVAI-Bridge license JWT.
-   *
-   * The Capacitor bridge forwards this string to the native backend
-   * plugin (`DVAIBridgeLlama`, `DVAIBridgeFoundation`,
-   * `DVAIBridgeMediaPipe`, `DVAIBridgeMLX`). Each native validator runs
-   * its own offline JWT verification (signature + expiry + audience +
-   * platform binding) against the iOS bundle identifier or Android
-   * package name — see `@dvai-bridge/core/license` for the canonical
-   * JWT format. The validators are authoritative; this JS-side
-   * forwarding is the only plumbing needed.
-   *
-   * Override priority on the native side (matches `DVAIConfig`):
-   *   1. `licenseToken` (below) — inline JWT string, highest priority
-   *   2. `licenseKeyPath` (this field) — explicit path or URL
-   *   3. Platform default locations + env-var fallbacks
-   *
-   * Free-tier behaviour (no license, expired, invalid) is enforced by
-   * the native validator and surfaced via the platform's standard
-   * error channel. The JS layer never inspects this value beyond
-   * forwarding it.
-   */
-  licenseKeyPath?: string;
-
-  /**
-   * v3.2.2+ — inline DVAI-Bridge license JWT (the full token string).
-   *
-   * Use when injecting the license via runtime config rather than a
-   * bundled file — typical for over-the-air license refresh or when
-   * the same Capacitor binary serves multiple licensees that each
-   * receive their own token from your backend.
-   *
-   * If both `licenseToken` and `licenseKeyPath` are set, `licenseToken`
-   * wins on the native side.
-   */
-  licenseToken?: string;
 }
 
 /**
@@ -94,7 +57,7 @@ export interface StartOptions {
  * representable across the Capacitor plugin boundary, so they're surfaced
  * via {@link DVAIBridge.addListener}'s `"pairingRequest"` channel instead.
  *
- * See [the distributed-inference guide](https://bridge.deepvoiceai.co/guide/distributed-inference)
+ * See [the distributed-inference guide](https://dvai-global.github.io/dvai-bridge/guide/distributed-inference)
  * for the full feature description.
  */
 export interface OffloadConfig {

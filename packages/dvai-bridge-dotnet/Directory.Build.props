@@ -5,22 +5,14 @@
     Version is bumped in lockstep by scripts/sync-versions.js (Task 14).
   -->
   <PropertyGroup>
-    <Version>4.2.1</Version>
-    <Authors>Deep Voice AI</Authors>
-    <Company>Deep Voice AI</Company>
-    <Copyright>Copyright (c) 2026 Deep Voice AI</Copyright>
+    <Version>4.3.0</Version>
+    <Authors>DVAI-Bridge contributors</Authors>
+    <Company>DVAI-Bridge contributors</Company>
+    <Copyright>Copyright (c) 2026 Deep Chakraborty and DVAI-Bridge contributors</Copyright>
     <PackageProjectUrl>https://github.com/dvai-global/dvai-bridge</PackageProjectUrl>
     <RepositoryUrl>https://github.com/dvai-global/dvai-bridge.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <!--
-      Custom license (DVAI Bridge Community Licence v1.0) — NOT an SPDX
-      identifier, so we ship the canonical LICENSE file (repo root)
-      inside every .nupkg via <PackageLicenseFile>. The canonical file
-      lives at the monorepo root so that Maven Central, npm, CocoaPods
-      and NuGet all reference the same license bytes — keep them in sync
-      by editing only `<repo>/LICENSE`.
-    -->
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <!--
       Shared package-page README. Resolves to packages/dvai-bridge-dotnet/README.md
       via $(MSBuildThisFileDirectory) so every SDK-packed csproj that

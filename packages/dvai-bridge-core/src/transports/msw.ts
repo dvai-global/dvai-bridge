@@ -1,5 +1,8 @@
-import { setupWorker, type SetupWorker } from "msw/browser";
-import { http } from "msw";
+// msw is loaded lazily inside start(): msw 3 maps `msw/browser` to null
+// under the `node` export condition, so a top-level import would make
+// `import("@dvai-bridge/core")` throw ERR_PACKAGE_PATH_NOT_EXPORTED in
+// Node / Electron main / SSR even when the msw transport is never used.
+import type { SetupWorker } from "msw/browser";
 import type { HandlerContext } from "../handlers/context.js";
 import {
   handleChatCompletion,
@@ -57,6 +60,10 @@ export class MswTransport implements Transport {
     // Empty serviceWorkerUrl means "don't register" — preserves the
     // direct-inference escape hatch while still reporting a baseUrl.
     if (this.opts.serviceWorkerUrl) {
+      const [{ setupWorker }, { http }] = await Promise.all([
+        import("msw/browser"),
+        import("msw"),
+      ]);
       const handlers = [
         http.post(urls.chat, async ({ request }) =>
           handleChatCompletion(await request.json(), ctx),

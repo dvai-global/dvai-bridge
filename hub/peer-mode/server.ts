@@ -795,7 +795,7 @@ const handlers: Record<string, (params: Record<string, unknown>) => Promise<unkn
         serviceType: "_dvai-bridge._tcp",
         port: boundPort,
         txt: {
-          dvaiVersion: "3.2.1",
+          dvaiVersion: "4.3.0",
           deviceId:
             process.env.DVAI_DEVICE_ID ??
             "hub-" + String(boundPort), // best-effort fallback id

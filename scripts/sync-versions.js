@@ -117,4 +117,28 @@ for (const pkgName of packages) {
   }
 }
 
+// DVAI Hub (hub/) ships in the same tag-triggered GitHub Release as the
+// SDK family, so its installer names (DVAI.Hub_<version>_*.dmg/.msi/...)
+// must carry the family version too. Tauri reads tauri.conf.json; the
+// rest are display / mDNS-advertised copies of the same string.
+const hubDir = path.resolve(__dirname, '../hub');
+const hubFiles = [
+  ['package.json', /("version":\s*")\d+\.\d+\.\d+(")/],
+  ['src-tauri/tauri.conf.json', /("version":\s*")\d+\.\d+\.\d+(")/],
+  ['src-tauri/Cargo.toml', /^(version = ")\d+\.\d+\.\d+(")/m],
+  ['src-tauri/Cargo.lock', /(name = "dvai-hub"\r?\nversion = ")\d+\.\d+\.\d+(")/],
+  ['peer-mode/server.ts', /(dvaiVersion: ")\d+\.\d+\.\d+(")/],
+  ['src/App.tsx', /(Distributed Utility v)\d+\.\d+\.\d+()/],
+];
+for (const [rel, re] of hubFiles) {
+  const p = path.join(hubDir, rel);
+  if (!fs.existsSync(p)) continue;
+  const before = fs.readFileSync(p, 'utf8');
+  const after = before.replace(re, `$1${version}$2`);
+  if (after !== before) {
+    fs.writeFileSync(p, after);
+    console.log(`- Updated hub/${rel}`);
+  }
+}
+
 console.log('Version synchronization complete.');

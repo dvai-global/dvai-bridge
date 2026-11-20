@@ -1,5 +1,9 @@
 # Migration: v3.x → v4.0
 
+::: warning Historical
+As of v4.3.0 DVAI-Bridge is MIT-licensed and the license checker is removed; skip the license steps below. See [v4.2 → v4.3](./v4.2-to-v4.3).
+:::
+
 **TL;DR — three changes you need to know about:**
 
 1. The `licenseKey: string` config field is **gone**. Replace it with
@@ -14,8 +18,6 @@
 If your apps only run in dev mode (CI / localhost / debug builds) — no
 code changes are required. If you ship to production, follow the
 walkthrough below.
-
-[License setup, per platform →](/guide/license/)
 
 ---
 
@@ -133,8 +135,7 @@ final status = await LicenseValidator().validate();
 
 Useful for license-status pills in app chrome, settings pages,
 setup wizards, CI smoke scripts — any place a full SDK boot would
-be heavyweight. Full per-SDK walkthrough at
-[pre-init license inspection](/guide/license/pre-init-inspection).
+be heavyweight. (The per-SDK pre-init walkthrough was removed in v4.3.0.)
 
 React Native and Capacitor consumers who want this from the JS layer
 should install `@dvai-bridge/core` as a regular dependency alongside
@@ -168,7 +169,6 @@ testing the production path locally before shipping.
 
 Got a commercial license already? Skip to Step 2.
 
-To obtain one, contact <https://deepvoiceai.com/dvai-bridge/license>.
 Trial licenses are available for evaluation. Commercial licenses are
 required for production deployments.
 
@@ -300,8 +300,7 @@ const dvai = new DVAI({
 });
 ```
 
-Same shape on every SDK — see the per-platform pages under
-[License setup](/guide/license/).
+Same shape on every SDK.
 
 ### Step 4 — handle `LicenseRequiredError` if you want a custom UI
 
@@ -351,10 +350,8 @@ enforce.
 v3 did?**
 
 No — that's the whole point of v4. The v3 free-prod tier was a
-permissive default. v4 makes commercial use require a commercial
-license, consistent with the BSL 1.1 terms. Want the v3 behaviour for
-evaluation? Use a **trial license** — free, limited duration, available
-from the same URL as commercial.
+permissive default. v4 made commercial use require a commercial
+license. (Moot since v4.3.0: the project is MIT and the check is gone.)
 
 **Q: Does this break my CI builds?**
 
@@ -394,15 +391,11 @@ list multiple bundle ids (`["com.acme.app", "com.acme.staging"]`).
 The SDK's public-key registry is `kid`-keyed (key id). Adding a new
 key for rotation is just adding a new entry to the registry. Old
 licenses keep verifying against the old key until they expire; new
-licenses verify against the new key. See
-[the license-setup overview](/guide/license/) for the operator-side
-rotation procedure.
+licenses verify against the new key.
 
 ---
 
 ## See also
 
-- [License setup overview](/guide/license/) — per-platform walkthrough
-- [LicenseValidator API](/reference/api#licensevalidator) — the public
-  validator surface for host-app dashboards
+- [v4.2 → v4.3](./v4.2-to-v4.3) — MIT relicense; license checker removed
 - [Changelog v4.0.0](../../CHANGELOG) — full release notes

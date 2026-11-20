@@ -108,6 +108,6 @@ Most cutting-edge multimodal models need only the first two.
 ## What's next
 
 - [Get started](/guide/getting-started) — five-minute install + first chat.
-- [Pick your platform](/guide/license/) — per-SDK walkthrough.
+- [Examples](/guide/examples) — a runnable app for every platform.
 - [Backends](/guide/backends) — choose or override engines.
 - [How it compares](/guide/comparison) — DVAI-Bridge vs Ollama, LiteLLM, LangChain, and QVAC.

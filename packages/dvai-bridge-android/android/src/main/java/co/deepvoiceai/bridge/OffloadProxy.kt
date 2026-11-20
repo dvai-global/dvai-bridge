@@ -20,7 +20,7 @@ import io.ktor.http.contentType
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO as ServerCIO
-import io.ktor.server.engine.ApplicationEngine
+import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.httpMethod
@@ -34,6 +34,7 @@ import io.ktor.server.routing.routing
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.ByteWriteChannel
 import io.ktor.utils.io.copyAndClose
+import io.ktor.utils.io.readAvailable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
@@ -122,7 +123,7 @@ class OffloadProxy(
         expectSuccess = false
     }
 
-    @Volatile private var server: ApplicationEngine? = null
+    @Volatile private var server: EmbeddedServer<*, *>? = null
     @Volatile private var boundPort: Int = -1
 
     /**

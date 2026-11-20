@@ -38,11 +38,9 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at **info@deepvoiceai.co**. Please include "DVAI Bridge — Code of Conduct" in the subject so the report routes to the right inbox. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement by opening a [GitHub issue](https://github.com/dvai-global/dvai-bridge/issues) or [discussion](https://github.com/dvai-global/dvai-bridge/discussions). If the report needs to stay private, use the repository's [private reporting form](https://github.com/dvai-global/dvai-bridge/security/advisories/new) and mark it as a Code of Conduct report rather than a security issue. All complaints will be reviewed and investigated promptly and fairly.
 
-All community leaders are obligated to respect the privacy and security of the reporter of any incident. Reports are handled by Deep Voice AI Limited in confidence; we do not share reporter identity outside the people directly involved in the response without the reporter's consent, except where legally required.
-
-If you are reporting behavior by a Deep Voice AI Limited employee or maintainer and prefer not to email a DVAI address, you may also raise the concern via a GitHub Security Advisory on the [dvai-bridge repository](https://github.com/dvai-global/dvai-bridge/security/advisories/new), marking it as out-of-scope for security but requesting confidential routing to the directors. We will respect the routing preference.
+All community leaders are obligated to respect the privacy and security of the reporter of any incident. Reports are handled by the maintainers in confidence; we do not share reporter identity outside the people directly involved in the response without the reporter's consent, except where legally required.
 
 ## Enforcement Guidelines
 

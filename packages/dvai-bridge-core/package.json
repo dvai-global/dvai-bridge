@@ -1,6 +1,6 @@
 {
   "name": "@dvai-bridge/core",
-  "version": "4.2.1",
+  "version": "4.3.0",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
@@ -43,15 +43,14 @@
     "webgpu"
   ],
   "author": "Deep Chakraborty <https://github.com/dk013>",
-  "license": "Custom (See LICENSE)",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/dvai-global/dvai-bridge.git"
   },
   "dependencies": {
-    "@noble/curves": "^2.2.0",
-    "jose": "^6.1.0",
-    "msw": "^2.14.6"
+    "@noble/curves": "^2.4.0",
+    "msw": "^3.0.7"
   },
   "peerDependencies": {
     "@dvai-bridge/capacitor": "workspace:*",

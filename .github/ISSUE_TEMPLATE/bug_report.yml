@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a defect in DVAI-Bridge core, a platform SDK, the embedded server, the license validator, or the Hub app.
+description: Report a defect in DVAI-Bridge core, a platform SDK, the embedded server, or the Hub app.
 title: "[bug] "
 labels: ["bug", "triage"]
 body:
@@ -8,7 +8,7 @@ body:
       value: |
         Thanks for taking the time to file a bug. Please fill in every field — vague reports get bounced back, costing both of us a round-trip.
 
-        **Before submitting:** search [open issues](https://github.com/dvai-global/dvai-bridge/issues) and the [migration guides](https://bridge.deepvoiceai.co/docs/migration) to confirm this isn't a known behaviour change.
+        **Before submitting:** search [open issues](https://github.com/dvai-global/dvai-bridge/issues) and the [migration guides](https://github.com/dvai-global/dvai-bridge/tree/main/docs/migration) to confirm this isn't a known behaviour change.
 
   - type: dropdown
     id: sdk
@@ -108,7 +108,7 @@ body:
       options:
         - label: I searched existing issues and didn't find a duplicate.
           required: true
-        - label: I checked the [migration guides](https://bridge.deepvoiceai.co/docs/migration) — this isn't a documented breaking change.
+        - label: I checked the [migration guides](https://github.com/dvai-global/dvai-bridge/tree/main/docs/migration) — this isn't a documented breaking change.
           required: true
         - label: This isn't a security vulnerability (those go via private advisory per SECURITY.md).
           required: true

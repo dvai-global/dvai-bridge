@@ -190,8 +190,7 @@ bash examples/react-native-app/smoke.sh
 # Typecheck + Metro bundle. RUN_ANDROID_BUILD=1 opts into the Gradle build.
 ```
 
-Verify: the in-app log panel prints `licenseStatus.kind` and the bound
-`baseUrl`. The response area streams tokens.
+Verify: the in-app log panel prints the bound `baseUrl`. The response area streams tokens.
 
 Adapt: edit `App.tsx`. The backend dropdown values map to native enum
 cases. The model-path text input feeds `StartOptions`.
@@ -313,8 +312,6 @@ The full per-(SDK × backend) matrix with host requirements lives in
 ## See also
 
 - [Getting started](./getting-started) — the human-readable quickstart.
-- [License setup](./license/) — what to add before shipping any of
-  these to production.
 - Per-SDK guide: [iOS](./ios-native-sdk),
   [Android](./android-native-sdk), [React Native](./react-native-sdk),
   [Flutter](./flutter-sdk), [.NET](./dotnet-sdk).

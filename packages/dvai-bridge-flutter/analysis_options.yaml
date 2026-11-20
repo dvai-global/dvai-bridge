@@ -7,6 +7,9 @@ analyzer:
   exclude:
     - lib/src/messages.g.dart
     - "**/*.g.dart"
+    - build/**
+    - android/**
+    - ios/**
   language:
     strict-casts: true
     strict-inference: true

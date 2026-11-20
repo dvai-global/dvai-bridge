@@ -3,6 +3,100 @@
 All notable changes to this project are documented here. This project
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.3.0] — 2026-11-20
+
+**DVAI-Bridge is now MIT-licensed.** Free for personal, open-source and
+commercial use, with no license key, no runtime check and no fees. The
+DVAI Bridge Community Licence (DVAI-BCL v1.0) is retired for 4.3.0 and
+later.
+
+### Changed
+
+- **License: DVAI-BCL v1.0 → MIT** for the whole family. `LICENSE` is
+  now the MIT text; every package manifest (npm, Maven POM, CocoaPods,
+  NuGet, pub.dev, Cargo, Homebrew) declares `MIT`. `NOTICE`,
+  `CHANGE_DATE.md` and the CLA workflow are removed.
+- **Docs moved to GitHub Pages:**
+  <https://dvai-global.github.io/dvai-bridge/>. The former docs domain
+  is retired; every link in the repo, the packages and their metadata
+  now points to GitHub Pages or GitHub.
+- **DVAI Hub now shares the family version** (3.2.1 → 4.3.0), so the
+  installers on each GitHub Release (`DVAI.Hub_<version>_*`) match the
+  release tag. `scripts/sync-versions.js` keeps it in step.
+- **.NET:** the Android binding is now compiled against AARs built from
+  the same commit in CI, rather than a pinned 4.0.0 AAR download.
+- **`@dvai-bridge/core` now uses msw 3.** Re-generate your service worker
+  after upgrading: `npx dvai-bridge init` (or `npx msw init <public-dir>`).
+  The worker script must match the installed msw version. `msw` is now loaded
+  lazily, so importing core in Node / Electron main / SSR never touches
+  `msw/browser`.
+- `@dvai-bridge/vanilla` is now bundled for the `browser` platform.
+- The `dvai_bridge` (Flutter) and `DVAIBridgeNative` (React Native) pods
+  now depend on the matching `DVAIBridge` version. They were stuck on
+  `~> 2.2` / `~> 2.1`, which resolved to a 2.x native SDK.
+- Family-wide dependency refresh to latest; see below.
+
+### Removed — BREAKING
+
+The runtime license checker is gone from every SDK. If your app passed
+any of the following, delete the argument and delete
+`dvai-license.jwt` from your bundle. Nothing else changes.
+
+- **Web / Node (`@dvai-bridge/core`):** `licenseKeyPath`, `licenseToken`
+  config fields; `dvai.licenseStatus`; exports `LicenseValidator`,
+  `LicenseRequiredError`, `isPaidTier`, `DEFAULT_LICENSE_FILENAME`,
+  `DVAI_PUBLIC_KEYS`, `PLACEHOLDER_KID` and the license types. The
+  `jose` dependency is dropped.
+- **React Native / Capacitor:** `licenseKeyPath`, `licenseToken` start
+  options.
+- **iOS (Swift):** `StartOptions.licenseKeyPath` / `licenseToken`,
+  `BoundServer.licenseStatus`. The `jwt-kit` dependency is dropped.
+- **Android (Kotlin):** `StartOptions.licenseKeyPath` / `licenseToken` /
+  `hostBuildConfigDebug`, `BoundServer.licenseStatus`,
+  `co.deepvoiceai.bridge.license.*` (incl. `LicenseRequiredError`). The
+  `nimbus-jose-jwt` dependency is dropped. `start()` no longer requires
+  `DVAIBridge.init(context)` unless offload is enabled.
+- **.NET:** `StartOptions.LicenseKeyPath` / `LicenseToken`,
+  `BoundServer.LicenseStatus`, the `DVAIBridge.License` namespace
+  (incl. `LicenseRequiredException`). The `Microsoft.IdentityModel.JsonWebTokens`
+  dependency is dropped.
+- **Flutter:** `StartOptions.licenseKeyPath` / `licenseToken`,
+  `BoundServer.licenseStatus`, `LicenseRequiredException`. The `dart_jsonwebtoken`, `pointycastle`,
+  `package_info_plus` and `path_provider` dependencies are dropped.
+- Environment variables `DVAI_LICENSE_PATH`, `DVAI_LICENSE_TOKEN` and
+  `DVAI_FORCE_DEV` are no longer read.
+
+Migration guide: [v4.2 → v4.3](https://dvai-global.github.io/dvai-bridge/migration/v4.2-to-v4.3).
+
+### Dependencies
+
+Everything moved to its latest stable release, covering Dependabot PRs
+#60–62, #65–68, #71, #72, #74, #76, #82 and #86–89. Highlights:
+
+- **JS:** React Native 0.88.1, React 19.3.1, vitest 5, tsup 9, Vite 8.3,
+  msw 3, Capacitor 8.6, Tauri 2.12, `@huggingface/transformers` 4.3,
+  LangChain core 1.4 / openai 1.8, Fastify 5.12 (rendezvous).
+- **Android:** AGP 9.5.1, Kotlin 2.4.21, Gradle 9.9.2, Ktor 3.6.1
+  (was 2.3), coroutines 1.11, LiteRT 2.3.2, LiteRT-LM Android 0.19.1.
+- **.NET:** ONNX Runtime 1.32, ONNX Runtime GenAI 0.20, ML.NET 6,
+  Tokenizers 3, SourceLink 11 (clears the NU1902 restore failure),
+  Avalonia 12 in the examples.
+- **Flutter:** pigeon 30; the plugin now requires Flutter ≥ 3.44 /
+  Dart ≥ 3.12.
+- **CI:** setup-java 6, setup-node 7, setup-dotnet 6, labeler 7,
+  pnpm/action-setup 6.1.1; docs deploy via GitHub Pages actions.
+
+Held back on purpose:
+
+- TypeScript stays on 6.0.3. `tsup` and typescript-eslint don't support
+  TypeScript 7 yet.
+- Babel stays on 7. `@react-native/babel-preset` 0.88 needs Babel 7.
+- `@react-native-community/cli` stays on 20.2. CLI 21 targets React
+  Native 0.89, which is still a release candidate.
+- VitePress stays on 1.6.4. 2.0 is still alpha.
+- Android libraries keep compileSdk / targetSdk 36. AGP 9 stamps the
+  compileSdk into published AARs as a consumer minimum.
+
 ## [4.2.1] — 2026-07-11
 
 **LiteRT-LM release.** Adds **Google's LiteRT-LM** as a cross-platform
@@ -88,9 +182,8 @@ release and full change list.
 Major release. Replaces the v3.x plaintext-key license validator with
 offline-verifiable JWT-based license enforcement across all seven
 SDKs, and changes the production-mode policy from "warn and continue
-in a free tier" to "throw and refuse to start." Backed by BSL 1.1
-commercial terms and the just-filed UK patent application
-GB2611312.6 (filed 2026-05-14).
+in a free tier" to "throw and refuse to start." (The license checker
+was removed again in v4.3.0 when the project moved to MIT.)
 
 Migration guide: [`docs/migration/v3-to-v4.md`](docs/migration/v3-to-v4.md).
 TL;DR: drop a `dvai-license.jwt` file at the platform default path
@@ -115,7 +208,7 @@ Two replacement fields on every SDK:
 
 If neither is set the SDK auto-discovers from platform-conventional
 locations (project root for Node, `public/` for browser, bundle
-resources / app data for native) — see [License setup](docs/guide/license/)
+resources / app data for native) — see the License setup guide (removed in v4.3.0)
 for the full discovery table.
 
 ### Breaking — production deployments without a license now throw
@@ -139,8 +232,7 @@ default behaviour (app fails to start cleanly with an actionable
 console message).
 
 The previous v3 free-prod fallback path (continue running with an
-attribution warning) is removed. This is the BSL 1.1 commercial-
-enforcement point.
+attribution warning) is removed.
 
 ### Added — offline JWT license validator on every SDK
 
@@ -190,8 +282,8 @@ and CI smoke scripts. Same API shape across SDKs:
 React Native and Capacitor consumers who want JS-side inspection
 install `@dvai-bridge/core` as a separate dep — the wrappers defer
 validation to the native iOS / Android validators at start time.
-Full walkthrough at
-[`docs/guide/license/pre-init-inspection.md`](docs/guide/license/pre-init-inspection.md).
+Full walkthrough was in `docs/guide/license/pre-init-inspection.md`
+(removed in v4.3.0).
 
 ### Added — keypair generation script
 
@@ -251,16 +343,7 @@ adapter mutex.
 
 The Hub's `no_capable_device` and `engine_adapter_not_found` 503
 paths now emit `Retry-After: 30`, matching the rendezvous-side core
-lib + UK patent claim 18.
-
-### Patent
-
-Patent pending — UK patent application **GB2611312.6** filed
-2026-05-14. The applied-for claims cover transport-agnostic handler
-architecture, embedded loopback HTTP in mobile applications, probe-
-based capability assessment with mDNS device offload, rendezvous-
-mediated paired-device offload, and multi-tenant pairing hub with
-structured model substitution.
+lib.
 
 ### Verification
 
@@ -1069,8 +1152,8 @@ citeable version.
   - `.github/workflows/deploy-docs.yml` — VitePress build +
     `actions/deploy-pages@v4`. Triggers on push to main when
     `docs/**`, `README.md`, or `CHANGELOG.md` changes.
-  - `docs/public/CNAME` → `bridge.deepvoiceai.co`. DNS + Pages
-    settings + cert flow documented in private `PUBLISHING.md`.
+  - `docs/public/CNAME` custom domain (since dropped; docs now live at
+    https://dvai-global.github.io/dvai-bridge/).
 - **`RESEARCH.md` figure 6** — `paper-assets/fig6-platform-coverage.svg`
   — 7 SDK rows × 10 backend columns lattice diagram. Embedded in
   §3.2 and the regenerated PDF.

@@ -294,7 +294,11 @@ export const DVAIBridge = {
     listener: (event: ProgressEvent) => void,
   ): ProgressSubscription {
     const emitter = getProgressEmitter();
-    const sub = emitter.addListener(PROGRESS_EVENT_NAME, listener);
+    // RN ≥ 0.88 types listener args as `Object`; same cast as pairingRequest below.
+    const sub = emitter.addListener(
+      PROGRESS_EVENT_NAME,
+      listener as (event: unknown) => void,
+    );
     return {
       remove() {
         sub.remove();

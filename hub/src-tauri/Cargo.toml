@@ -1,8 +1,8 @@
 [package]
 name = "dvai-hub"
-version = "3.2.1"
+version = "4.3.0"
 description = "DVAI Hub — household-utility flavor of distributed inference"
-authors = ["Deep Voice AI Limited"]
+authors = ["DVAI-Bridge contributors"]
 edition = "2021"
 rust-version = "1.77"
 
