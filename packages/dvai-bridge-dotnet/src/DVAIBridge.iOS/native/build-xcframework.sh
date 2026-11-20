@@ -56,8 +56,12 @@ swift package resolve
 
 # We use xcodebuild's -archivePath form against the generated SwiftPM project.
 # The `-scheme DVAIBridgeNetBridge` matches the SwiftPM library product name.
+# -skipPackagePluginValidation / -skipMacroValidation: headless CI cannot
+# trust mlx-swift's CudaBuild plugin interactively; hosted runners skip
+# this by default, the self-hosted Mac does not.
 echo "==> xcodebuild archive (iphoneos)..."
 xcodebuild archive \
+    -skipPackagePluginValidation -skipMacroValidation \
     -scheme "${SCHEME}" \
     -destination "generic/platform=iOS" \
     -archivePath "${ARCHIVE_DIR}/iphoneos.xcarchive" \
@@ -78,6 +82,7 @@ echo "==> xcodebuild archive (iphonesimulator)..."
 # .NET binding's simulator variant until an upstream Catalyst/x86_64
 # LiteRT-LM ships or we split the umbrella (planned v4.3.0).
 xcodebuild archive \
+    -skipPackagePluginValidation -skipMacroValidation \
     -scheme "${SCHEME}" \
     -destination "generic/platform=iOS Simulator" \
     -archivePath "${ARCHIVE_DIR}/iphonesimulator.xcarchive" \
