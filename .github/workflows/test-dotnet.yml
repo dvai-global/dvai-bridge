@@ -434,3 +434,14 @@ jobs:
             --source https://api.nuget.org/v3/index.json \
             --api-key "${NUGET_API_KEY}" \
             --skip-duplicate
+
+      # Self-hosted Mac: the workspace persists between runs. Drop the
+      # per-run xcarchives (~11 GB) and llama.cpp intermediate build dirs
+      # so the disk doesn't fill. Keeps build-apple/ (the finished
+      # xcframeworks) and SwiftPM's .build for the next run.
+      - name: Clean per-run build outputs
+        if: always()
+        run: |
+          rm -rf packages/dvai-bridge-dotnet/src/DVAIBridge.iOS/native/build
+          cd packages/dvai-bridge-android-llama-core/android/src/main/cpp/native/llama.cpp
+          for d in build-*/; do [ "$d" = "build-apple/" ] || rm -rf "$d"; done
