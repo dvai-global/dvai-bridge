@@ -257,8 +257,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # Restore from the project (inside global.json's scope) so the installed
+      # workload matches exactly what net10.0-android36.0 resolves against.
       - name: Install Android workload
-        run: dotnet workload install android
+        working-directory: packages/dvai-bridge-dotnet
+        run: dotnet workload restore src/DVAIBridge.Android/DVAIBridge.Android.csproj
 
       - name: Cache NuGet
         uses: actions/cache@v6
@@ -326,8 +329,13 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Install ios + maccatalyst + android workloads
-        run: dotnet workload install ios maccatalyst android
+      # Restore from the projects (inside global.json's scope) so the installed
+      # workloads match what the iOS / Android TFMs resolve against.
+      - name: Install ios + android workloads
+        working-directory: packages/dvai-bridge-dotnet
+        run: |
+          dotnet workload restore src/DVAIBridge.iOS/DVAIBridge.iOS.csproj
+          dotnet workload restore src/DVAIBridge.Android/DVAIBridge.Android.csproj
 
       - name: Cache NuGet
         uses: actions/cache@v6
