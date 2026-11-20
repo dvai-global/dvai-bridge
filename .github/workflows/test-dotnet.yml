@@ -293,7 +293,7 @@ jobs:
   ios-catalyst-and-pack:
     name: iOS + xcframework + pack (macOS)
     needs: android-aars
-    runs-on: macos-latest
+    runs-on: [self-hosted, macOS, ARM64]
     # Bumped to 150 minutes — cold-cache run hit the 90 min cap at
     # step #10 mid-xcframework build (run 26141432701). With the llama
     # xcframework cache step below restoring most of the heavy work,
@@ -345,42 +345,11 @@ jobs:
           restore-keys: |
             nuget-macos-
 
-      - name: Select Xcode 26.3 (avoid Xcode 16.4 Swift strict-init bug)
-        # macos-latest defaults to Xcode 16.4, whose Swift compiler rejects
-        # swift-certificates' `_CertificateInternals/_TinyArray.swift` with
-        # `'self.init' isn't called on all paths` / `'self' used before
-        # 'self.init'` errors — affects 1.18.0 + 1.19.x equally, so a
-        # version pin doesn't help (verified on workflow_dispatch run
-        # 26119888980 with `exact: 1.18.0`). Xcode 26.x ships a newer
-        # Swift toolchain where swift-certificates compiles cleanly; also
-        # matches the iOS 26.x SDK the iOS umbrella now targets.
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app
-
-      - name: Download Metal Toolchain (Xcode 26 ships it as a separate component)
-        # Xcode 26 split the Metal compiler tool out of the main install —
-        # missing it surfaces as `cannot execute tool 'metal' due to missing
-        # Metal Toolchain` during mlx-swift's `steel_attention.metal` /
-        # `scaled_dot_product_attention.metal` / `rope.metal` compilation
-        # (~688 MB asset; one-time install per fresh runner). Run after
-        # `xcode-select` so it lands in the correct Xcode bundle. Note:
-        # `sudo` so the download writes to /System/Library/AssetsV2.
-        #
-        # Retry loop: Apple's MobileAsset CDN occasionally fails the catalog
-        # fetch with `Failed fetching catalog for assetType
-        # (com.apple.MobileAsset.MetalToolchain)` + exit 70. Hit this 3x
-        # during v4.0.1 prep (runs 26354860456 + retries). Three attempts
-        # with 30s back-off — empirically the second attempt succeeds.
-        run: |
-          for i in 1 2 3; do
-            if sudo xcodebuild -downloadComponent MetalToolchain; then
-              echo "Metal Toolchain installed (attempt $i)"
-              exit 0
-            fi
-            echo "Attempt $i failed; sleeping 30s before retry"
-            sleep 30
-          done
-          echo "Metal Toolchain download failed after 3 attempts"
-          exit 1
+      # Self-hosted Mac (macOS 27 / Xcode 27.2): the .NET iOS workload
+      # (27.2) requires Xcode 27.2, which GitHub-hosted macOS runners do
+      # not ship yet. The runner uses the default Xcode; no xcode-select.
+      - name: Check Metal Toolchain (mlx-swift kernels need it)
+        run: xcrun metal --version || xcodebuild -downloadComponent MetalToolchain
 
       # Cache the built llama+mtmd xcframeworks keyed by the llama.cpp
       # git submodule SHA. The actual build (next step) short-circuits

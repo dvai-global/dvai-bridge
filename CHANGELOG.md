@@ -25,6 +25,10 @@ later.
   release tag. `scripts/sync-versions.js` keeps it in step.
 - **.NET:** the Android binding is now compiled against AARs built from
   the same commit in CI, rather than a pinned 4.0.0 AAR download.
+- **.NET iOS: TFM `net10.0-ios26.5` → `net10.0-ios27.2`.** The current
+  .NET iOS workload (27.2) accepts only 26.0 / 27.2 and needs Xcode 27.2.
+  iOS apps must target `net10.0-ios27.2` (Xcode 27.2) to get the iOS
+  binding. The runtime floor stays iOS 18.1.
 - **`@dvai-bridge/core` now uses msw 3.** Re-generate your service worker
   after upgrading: `npx dvai-bridge init` (or `npx msw init <public-dir>`).
   The worker script must match the installed msw version. `msw` is now loaded
