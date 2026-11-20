@@ -70,6 +70,6 @@ Three layers, the same on every platform.
 ## Next steps
 
 - [Get started](/guide/getting-started) — install and run your first local chat in five minutes.
-- [Pick your platform](/guide/license/) — per-SDK setup, including the license JWT for production.
+- [Examples](/guide/examples) — a runnable app for every platform.
 - [Why this design](/guide/introduction) — the longer-form story behind the architecture.
 - [How it compares](/guide/comparison) — DVAI-Bridge vs Ollama, LiteLLM, LangChain, and QVAC.

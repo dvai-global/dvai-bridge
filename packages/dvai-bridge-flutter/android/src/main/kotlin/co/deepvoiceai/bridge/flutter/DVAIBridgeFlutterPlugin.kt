@@ -33,6 +33,8 @@ import co.deepvoiceai.bridge.ProgressEvent
 import co.deepvoiceai.bridge.StartOptions
 import co.deepvoiceai.bridge.StatusInfo
 import co.deepvoiceai.bridge.shared.core.CorsConfig
+import co.deepvoiceai.bridge.shared.core.pairing.PairingRequest
+import co.deepvoiceai.bridge.shared.core.pairing.PairingSource
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.BinaryMessenger
 import kotlinx.coroutines.CoroutineScope
@@ -41,12 +43,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 class DVAIBridgeFlutterPlugin : FlutterPlugin, DVAIBridgeHostApi {
 
     private var pluginScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var binaryMessenger: BinaryMessenger? = null
     private val progressStreamHandler = ProgressStreamHandler()
+    private val pairingStreamHandler = PairingStreamHandler()
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         // Re-init defensively. Idempotent in DVAIBridge.init.
@@ -57,6 +62,7 @@ class DVAIBridgeFlutterPlugin : FlutterPlugin, DVAIBridgeHostApi {
 
         DVAIBridgeHostApi.setUp(messenger, this)
         ProgressEventsStreamHandler.register(messenger, progressStreamHandler)
+        PairingRequestEventsStreamHandler.register(messenger, pairingStreamHandler)
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -65,6 +71,7 @@ class DVAIBridgeFlutterPlugin : FlutterPlugin, DVAIBridgeHostApi {
         }
         binaryMessenger = null
         progressStreamHandler.stopCollection()
+        pairingStreamHandler.stopCollection()
         pluginScope.cancel()
         // Recreate so a re-attach (rare; e.g. add-to-app `FlutterEngineGroup`
         // scenarios) gets a fresh scope.
@@ -81,6 +88,9 @@ class DVAIBridgeFlutterPlugin : FlutterPlugin, DVAIBridgeHostApi {
             try {
                 val startOptions = toStartOptions(opts)
                 val server = DVAIBridge.start(startOptions)
+                // The pairing flow is per-run (created by start()), so a
+                // listener attached before start is re-pointed at it.
+                pairingStreamHandler.resubscribe()
                 callback(Result.success(toMessage(server)))
             } catch (e: DVAIBridgeError) {
                 callback(Result.failure(toFlutterError(e)))
@@ -215,6 +225,28 @@ class DVAIBridgeFlutterPlugin : FlutterPlugin, DVAIBridgeHostApi {
         } catch (e: Throwable) {
             callback(Result.failure(toFlutterError(DVAIBridgeError.BackendError(e))))
         }
+    }
+
+    override fun respondToPairingRequest(
+        requestId: String,
+        approved: Boolean,
+        callback: (Result<Unit>) -> Unit,
+    ) {
+        val req = pairingStreamHandler.pending.remove(requestId)
+        if (req == null) {
+            callback(
+                Result.failure(
+                    FlutterError(
+                        code = "configurationInvalid",
+                        message = "Unknown or already-resolved pairing request id: $requestId",
+                        details = null,
+                    ),
+                ),
+            )
+            return
+        }
+        req.respond(approved)
+        callback(Result.success(Unit))
     }
 
     private fun deriveFilename(url: String): String {
@@ -367,9 +399,76 @@ class DVAIBridgeFlutterPlugin : FlutterPlugin, DVAIBridgeHostApi {
             }
         }
     }
+
+    // MARK: - Pairing-request event channel
+
+    /// Stream handler for the Pigeon `pairingRequestEvents` channel. Collects
+    /// `DVAIBridge.pairingRequests`, tags each request with a fresh id and
+    /// parks it in [pending] until `respondToPairingRequest` resolves it.
+    inner class PairingStreamHandler : PairingRequestEventsStreamHandler() {
+        val pending = ConcurrentHashMap<String, PairingRequest>()
+        private var sink: PigeonEventSink<PairingRequestMessage>? = null
+        private var collectionJob: Job? = null
+
+        override fun onListen(p0: Any?, sink: PigeonEventSink<PairingRequestMessage>) {
+            this.sink = sink
+            resubscribe()
+        }
+
+        override fun onCancel(p0: Any?) {
+            stopCollection()
+        }
+
+        /// (Re)collect the current run's flow. No-op without a listener.
+        fun resubscribe() {
+            val sink = sink ?: return
+            collectionJob?.cancel()
+            collectionJob = pluginScope.launch(Dispatchers.Main.immediate) {
+                DVAIBridge.pairingRequests.collect { req ->
+                    // ponytail: entries for requests that time out natively
+                    // stay until answered or the stream is cancelled.
+                    val id = UUID.randomUUID().toString()
+                    pending[id] = req
+                    sink.success(toMessage(id, req))
+                }
+            }
+        }
+
+        fun stopCollection() {
+            collectionJob?.cancel()
+            collectionJob = null
+            sink = null
+            pending.clear()
+        }
+
+        private fun toMessage(id: String, req: PairingRequest): PairingRequestMessage {
+            val now = System.currentTimeMillis()
+            return PairingRequestMessage(
+                id = id,
+                peer = PeerMessage(
+                    deviceId = req.peerDeviceId,
+                    deviceName = req.peerDeviceName,
+                    dvaiVersion = "",
+                    baseUrl = "",
+                    loadedModels = emptyList(),
+                    capability = emptyList(),
+                    via = when (req.via) {
+                        PairingSource.LAN_HANDSHAKE -> "mdns"
+                        PairingSource.RENDEZVOUS_QR -> "rendezvous"
+                    },
+                    secure = false,
+                    lastSeenAt = now,
+                ),
+                expiresAt = now + PAIRING_REQUEST_TIMEOUT_MS,
+            )
+        }
+    }
 }
 
 // MARK: - Wire-format helpers
+
+/** Mirrors `PairingPolicy`'s private default `requestTimeoutMs`. */
+private const val PAIRING_REQUEST_TIMEOUT_MS = 60_000L
 
 private fun BackendKind.toWire(): String = when (this) {
     BackendKind.Auto -> "auto"

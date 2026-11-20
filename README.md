@@ -4,14 +4,13 @@
 
 <!-- [![Smoke — real models](https://github.com/dvai-global/dvai-bridge/actions/workflows/smoke-real-models.yml/badge.svg?branch=main)](https://github.com/dvai-global/dvai-bridge/actions/workflows/smoke-real-models.yml) -->
 
-[![License](https://img.shields.io/badge/License-Commercial-blue.svg)](LICENSE) ![Node.js](https://img.shields.io/badge/Node.js-22+-green?logo=node.js) ![TypeScript](https://img.shields.io/badge/TypeScript-5.6+-blue?logo=typescript) ![Swift](https://img.shields.io/badge/Swift-5.9+-F05138?logo=swift) ![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7F52FF?logo=kotlin) ![Flutter](https://img.shields.io/badge/Flutter-3.39+-02569B?logo=flutter) ![.NET](https://img.shields.io/badge/.NET-10.0_LTS-512BD4?logo=dotnet)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) ![Node.js](https://img.shields.io/badge/Node.js-22+-green?logo=node.js) ![TypeScript](https://img.shields.io/badge/TypeScript-5.6+-blue?logo=typescript) ![Swift](https://img.shields.io/badge/Swift-5.9+-F05138?logo=swift) ![Kotlin](https://img.shields.io/badge/Kotlin-2.0+-7F52FF?logo=kotlin) ![Flutter](https://img.shields.io/badge/Flutter-3.39+-02569B?logo=flutter) ![.NET](https://img.shields.io/badge/.NET-10.0_LTS-512BD4?logo=dotnet)
 
 > **The local OpenAI server you embed inside your app.**
 > One library. One HTTP wire. Every platform. Zero install for your users.
 
-**Docs:** [bridge.deepvoiceai.co](https://bridge.deepvoiceai.co)  
-
-**Patent pending —** UK patent application **GB2611312.6** filed 14 May 2026.
+**Docs:** [dvai-global.github.io/dvai-bridge](https://dvai-global.github.io/dvai-bridge/)  
+**License:** [MIT](LICENSE) — free for any use, commercial included. No license key, no sign-up.
 
 ```ts
 import { DVAI } from "@dvai-bridge/core";
@@ -30,8 +29,6 @@ await openai.chat.completions.create({
 That's it. A real OpenAI-compatible server is now running inside your app's
 own process. Point any OpenAI client — LangChain, the OpenAI SDK, the Vercel
 AI SDK, anything — at `dvai.baseUrl` and your agent code keeps working.
-
-Built by **[Deep Voice AI](https://deepvoiceai.co)**.
 
 ---
 
@@ -81,10 +78,10 @@ platform.
 
 ## News
 
+- **[26/11]** **v4.3.0** — 🎉 **DVAI-Bridge is now MIT-licensed.** Free for personal *and* commercial use, forever. The runtime license checker is gone from every SDK — no `dvai-license.jwt`, no keys, no localhost-only limits. Install it, ship it. Plus a family-wide dependency refresh to latest and docs on [GitHub Pages](https://dvai-global.github.io/dvai-bridge/). [Changelog →](CHANGELOG.md)
 - **[26/07]** **v4.2.1** — **LiteRT-LM** lands as a cross-platform on-device LLM runtime — one `.litertlm` weight file runs on browser (WebGPU), iOS/macOS (Metal via SwiftPM), Android, Capacitor, React Native, and Flutter. Gemma 4 E2B/E4B ships out of the box. [Changelog →](CHANGELOG.md#421--2026-07-11)
 - **[26/06]** **v4.1.0** — Family-wide maintenance release: Dependabot batch (#33-45), hub Vite 5→7 with plugin-react 6, JS/Android/Flutter/.NET dev-tooling refresh. No API changes; 4.0.x consumers upgrade without touching code.
-- **[26/05]** **v4.0.0** — Offline-verifiable JWT license enforcement across all seven SDKs, backed by BSL 1.1 commercial terms and UK patent application GB2611312.6. Plaintext `licenseKey` retired; drop a `dvai-license.jwt` at the platform default path and the SDK picks it up. [Migration guide →](https://bridge.deepvoiceai.co/migration/v3-to-v4)
-- **[26/05]** **v3+ DVAI Hub & Distributed Inference** — Tauri desktop utility (`brew install deepvoiceai/dvai-hub/dvai-hub` or `winget install DeepVoiceAI.DVAIHub`) lets mobile apps on the same Wi-Fi offload heavy inference. [Guide →](https://bridge.deepvoiceai.co/guide/dvai-hub)
+- **[26/05]** **v3+ DVAI Hub & Distributed Inference** — Tauri desktop utility (`brew install deepvoiceai/dvai-hub/dvai-hub` or `winget install DeepVoiceAI.DVAIHub`) lets mobile apps on the same Wi-Fi offload heavy inference. [Guide →](https://dvai-global.github.io/dvai-bridge/guide/dvai-hub)
 
 ---
 
@@ -99,9 +96,9 @@ platform.
 | Android native (Kotlin / Java) | [`co.deepvoiceai:dvai-bridge`](https://central.sonatype.com/artifact/co.deepvoiceai/dvai-bridge) (Maven Central AAR) | llama.cpp, MediaPipe LLM, LiteRT, LiteRT-LM, NNAPI / QNN |
 | React Native (≥0.77, TurboModule) | [`@dvai-bridge/react-native`](https://www.npmjs.com/package/@dvai-bridge/react-native) | All iOS + Android backends (delegates) |
 | Flutter (≥3.39) | [`dvai_bridge`](https://pub.dev/packages/dvai_bridge) | All iOS + Android backends (Pigeon channels) |
-| .NET 10 LTS (MAUI / Avalonia / WinUI / desktop / Catalyst) | [`DVAIBridge`](https://www.nuget.org/packages/DVAIBridge) facade + [`.Desktop`](https://www.nuget.org/packages/DVAIBridge.Desktop) / [`.iOS`](https://www.nuget.org/packages/DVAIBridge.iOS) / [`.Android`](https://www.nuget.org/packages/DVAIBridge.Android) / [`.OnnxRuntime`](https://www.nuget.org/packages/DVAIBridge.OnnxRuntime) / [`.MLNet`](https://www.nuget.org/packages/DVAIBridge.MLNet) (NuGet) | iOS / Android delegate to native; desktop = llama.cpp + ONNX Runtime GenAI + ML.NET. Mac Catalyst slice shipped in v4.0.1. |
+| .NET 10 LTS (MAUI / Avalonia / WinUI / desktop) | [`DVAIBridge`](https://www.nuget.org/packages/DVAIBridge) facade + [`.Desktop`](https://www.nuget.org/packages/DVAIBridge.Desktop) / [`.iOS`](https://www.nuget.org/packages/DVAIBridge.iOS) / [`.Android`](https://www.nuget.org/packages/DVAIBridge.Android) / [`.OnnxRuntime`](https://www.nuget.org/packages/DVAIBridge.OnnxRuntime) / [`.MLNet`](https://www.nuget.org/packages/DVAIBridge.MLNet) (NuGet) | iOS / Android delegate to native; desktop = llama.cpp + ONNX Runtime GenAI + ML.NET. Mac Catalyst temporarily off since v4.2.1 (LiteRT-LM ships no Catalyst slice). |
 
-Full quickstart per platform: [bridge.deepvoiceai.co/docs](https://bridge.deepvoiceai.co/docs)
+Full quickstart per platform: [dvai-global.github.io/dvai-bridge](https://dvai-global.github.io/dvai-bridge/guide/getting-started)
 
 ---
 
@@ -155,7 +152,7 @@ hold simultaneously. No existing tool combines all six.
 3. **One library, every client platform.** Same OpenAI surface from
    npm (browser, Node, React, React Native, Capacitor), CocoaPods
    (iOS Swift), Maven Central (Android Kotlin), pub.dev (Flutter), and
-   NuGet (.NET MAUI / Avalonia / WinUI / Catalyst). A Flutter
+   NuGet (.NET MAUI / Avalonia / WinUI). A Flutter
    developer, a Swift developer, and a React Native developer hit
    identical endpoints with identical request/response shapes.
 4. **Backend-agnostic per device.** Your code says
@@ -177,7 +174,7 @@ hold simultaneously. No existing tool combines all six.
 
 The combination is the gap. Each component exists in isolation
 somewhere in the prior art (and is dutifully credited in the
-[architecture docs](https://bridge.deepvoiceai.co/architecture)) —
+[comparison docs](https://dvai-global.github.io/dvai-bridge/guide/comparison)) —
 but no single existing tool ships all six in one package.
 
 ---
@@ -227,7 +224,7 @@ var server = await DVAIBridge.Shared.StartAsync(new StartOptions {
 ```
 
 Multimodal, streaming, embeddings, distributed offload, the Hub —
-everything's at the [docs site](https://bridge.deepvoiceai.co).
+everything's at the [docs site](https://dvai-global.github.io/dvai-bridge/).
 
 ---
 
@@ -240,10 +237,10 @@ boring substrate so your agent code never has to think about it.
 
 ---
 
-## Licensing
+## License
 
-Dual: **free for development & personal use** on `localhost` (verified at
-runtime). **Commercial use** requires a license key — `info@deepvoiceai.co`.
+[MIT](LICENSE). Use it in personal, open-source, and commercial apps — no
+license key, no runtime check, no fees.
 
 ---
 
@@ -263,4 +260,4 @@ contributor docs (iOS / Android / RN / Flutter / .NET) under
 
 ---
 
-© Deep Voice AI Limited. All rights reserved.
+MIT © 2026 Deep Chakraborty and DVAI-Bridge contributors.

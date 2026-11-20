@@ -22,7 +22,7 @@ Open Cursor settings. Go to **Rules for AI**. Paste this in:
 When the user is working with DVAI-Bridge (@dvai-bridge/core,
 @dvai-bridge/react, dvai_bridge, DVAIBridge SwiftPM, or
 co.deepvoiceai:dvai-bridge), fetch context from
-https://bridge.deepvoiceai.co/docs/llms.txt and follow the linked pages
+https://dvai-global.github.io/dvai-bridge/llms.txt and follow the linked pages
 relevant to the task.
 ```
 
@@ -47,7 +47,7 @@ Add `docs/llms-full.txt` to your `CLAUDE.md` references:
 Attach this prompt:
 
 ```
-Use the DVAI-Bridge docs at https://bridge.deepvoiceai.co/docs/llms.txt
+Use the DVAI-Bridge docs at https://dvai-global.github.io/dvai-bridge/llms.txt
 as reference. The library exposes an OpenAI-compatible HTTP server on
 loopback (read via dvai.baseUrl). Always wire OpenAI SDKs through
 baseUrl rather than calling DVAI's internal APIs.
@@ -96,7 +96,6 @@ Required-ish fields, in priority order of "what to set first":
   .MediaPipe | .LiteRT` (native).
 - `modelId` (JS WebLLM), `transformersModelId` (JS Transformers.js),
   or `modelPath` (every native llama.cpp path).
-- `licenseKeyPath` / `licenseToken` (production builds — required).
 
 Optional:
 - `httpBasePort` (default 38883), `httpBindHost` (default 127.0.0.1).
@@ -104,19 +103,9 @@ Optional:
 - `transport: "auto" | "msw" | "http" | "none" | "capacitor"`.
 - `offload: OffloadConfig` (v3.0+, distributed inference).
 
-## License flow (BSL 1.1 — must work in production)
+## License
 
-Production builds throw `LicenseRequiredError` if no valid license is
-found. Discovery order:
-1. `licenseToken` config option (inline JWT)
-2. `licenseKeyPath` config option (file path)
-3. `DVAI_LICENSE_PATH` env var
-4. `DVAI_LICENSE_TOKEN` env var
-5. Platform default (`dvai-license.jwt` in cwd for Node, `/dvai-license.jwt`
-   for web, `Bundle.main` for iOS, `assets/` for Android)
-
-Dev-mode auto-bypass: localhost / 127.0.0.1 / *.local hostnames;
-NODE_ENV=test or development; DVAI_FORCE_DEV=1; Capacitor.DEBUG=true.
+MIT. No license key, token, or file is needed in any environment.
 
 ## Distributed inference (v3.0+)
 
@@ -154,4 +143,3 @@ learn a new library. It just learns where the server lives. Once it sees
 - [`/llms-full.txt`](https://github.com/dvai-global/dvai-bridge/blob/main/docs/llms-full.txt)
   — every doc in one file.
 - [Getting started](./getting-started) — the human-readable quickstart.
-- [License setup](./license/) — production licensing per platform.

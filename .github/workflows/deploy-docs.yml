@@ -1,119 +1,65 @@
-name: Deploy docs to bridge.deepvoiceai.co
+name: Deploy docs to GitHub Pages
 
-# CD pipeline for the VitePress docs site. Fires when:
-#   - release: types: [published] — main trigger; matches the rest of
-#     our CD workflows (publish.yml, smoke-real-models.yml).
-#   - push: tags 'v*.*.*' — covers tag-first flows where the tag is
-#     cut from the CLI before the GitHub Release notes are written.
-#   - workflow_dispatch — manual; use this to push docs-only updates
-#     between releases (typo fixes, new guide pages) without cutting
-#     a new tag.
-#
-# Deploy target: /var/www/dvai-bridge-docs/ on the Apache box.
-# Apache vhost serves /docs/* from that directory directly; every
-# other path proxies to the Fastify portal at 127.0.0.1:3000.
+# VitePress docs -> https://dvai-global.github.io/dvai-bridge/
+# Fires on release tags (docs track the shipped version), on docs-only
+# pushes to main, and manually.
 
 on:
-  release:
-    types: [published]
   push:
     tags:
       - 'v*.*.*'
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 concurrency:
-  group: deploy-docs
+  group: pages
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
-    name: Build VitePress and rsync to bridge.deepvoiceai.co
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.1.1
         with:
           version: 10
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: pnpm
 
-      - name: Install docs deps (workspace-filtered)
-        # `--filter dvai-bridge-docs` scopes the install to the docs
-        # workspace package by name (not directory — pnpm's filter
-        # matches the `name` field in package.json). This skips:
-        #   - Installing the SDK packages' devDeps.
-        #   - The `prepare` hook in @dvai-bridge/core + the 5 capacitor
-        #     wrappers (each does a full tsup build at install time,
-        #     costing 10-30s per package).
-        # Docs imports nothing from packages/, so this is safe.
-        # If a future docs page DOES import a workspace package (e.g.
-        # for a live code example), broaden to `--filter dvai-bridge-docs...`
-        # to also install its transitive workspace deps.
-        run: pnpm install --frozen-lockfile --filter dvai-bridge-docs
+      # Docs import nothing from packages/, so install only the docs
+      # workspace (skips every SDK's prepare/build hook).
+      - run: pnpm install --frozen-lockfile --filter dvai-bridge-docs
 
       - name: Build VitePress site
         working-directory: docs
         run: pnpm run docs:build
 
-      - name: Verify build output
-        # Fail loud and early if VitePress emitted nothing — guards
-        # against accidentally rsync-ing an empty dist over the live
-        # docs.
-        run: |
-          if [ ! -f docs/.vitepress/dist/index.html ]; then
-            echo "::error::docs/.vitepress/dist/index.html not found — VitePress build did not produce output"
-            exit 1
-          fi
-          echo "Build OK — $(find docs/.vitepress/dist -type f | wc -l) files, $(du -sh docs/.vitepress/dist | cut -f1) total"
+      - uses: actions/configure-pages@v6
 
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.10.0
+      - uses: actions/upload-pages-artifact@v5
         with:
-          ssh-private-key: ${{ secrets.DOCS_DEPLOY_SSH_KEY }}
+          path: docs/.vitepress/dist
 
-      - name: Trust deploy host
-        # Avoids the strict-host-key-check prompt on first deploy. If
-        # the host key ever changes (e.g. server rebuild), the deploy
-        # will fail loud — at which point you regenerate this entry
-        # by re-running the workflow.
-        run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          ssh-keyscan -H "${{ secrets.DOCS_DEPLOY_HOST }}" >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-      - name: Rsync docs to server
-        # -a   archive mode (recursive + preserve times, symlinks)
-        # -z   compress in transit
-        # -v   verbose (so CI logs show the file list)
-        # --delete           remove files in the destination that are no
-        #                    longer in source (renamed / deleted pages
-        #                    don't linger as 404 targets)
-        # --human-readable   prettier byte counts in the log
-        # --stats            summary at the end
-        # The trailing slash on the source path is load-bearing: it
-        # copies the *contents* of dist/ into /var/www/dvai-bridge-docs/,
-        # not the dist/ directory itself.
-        #
-        # Server-side note: the destination must be writable by
-        # DOCS_DEPLOY_USER. If you want Apache (www-data) to read the
-        # files and inherit the group, set the setgid bit on the dir:
-        #   chmod g+s /var/www/dvai-bridge-docs
-        #   chown -R <DOCS_DEPLOY_USER>:www-data /var/www/dvai-bridge-docs
-        run: |
-          rsync -avz --delete --human-readable --stats \
-            docs/.vitepress/dist/ \
-            "${{ secrets.DOCS_DEPLOY_USER }}@${{ secrets.DOCS_DEPLOY_HOST }}:/var/www/dvai-bridge-docs/"
-
-      - name: Summary
-        if: success()
-        run: |
-          echo "::notice title=Docs deployed::Published to https://bridge.deepvoiceai.co/docs/"
-          echo "Trigger: ${{ github.event_name }}"
-          echo "Ref:     ${{ github.ref }}"
-          echo "SHA:     ${{ github.sha }}"
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

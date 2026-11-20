@@ -18,7 +18,7 @@ layout: home
 hero:
   name: "DVAI-Bridge"
   text: "One local OpenAI server, embedded everywhere."
-  tagline: "Web, iOS, Android, React Native, Flutter, and .NET — six SDKs, nine backends, one HTTP surface. Zero cloud cost. Zero install for your users."
+  tagline: "Web, iOS, Android, React Native, Flutter, and .NET — six SDKs, ten backends, one HTTP surface. Zero cloud cost. Zero install for your users."
   image:
     src: /banner.png
     alt: DVAI-Bridge Banner
@@ -33,7 +33,7 @@ hero:
 features:
   - title: 📱 Six SDKs, one API
     details: Web, iOS (Swift), Android (Kotlin), React Native, Flutter, and .NET (MAUI / Avalonia / WinUI / Catalyst / desktop). Same OpenAI HTTP contract on every platform; switch the import, keep the agent code.
-  - title: 🚀 Nine backends
+  - title: 🚀 Ten backends
     details: WebLLM, Transformers.js, llama.cpp, Apple Foundation Models, CoreML, MLX, MediaPipe LLM, LiteRT, and (.NET only) ONNX Runtime + ML.NET. Picked automatically per platform; opt into specifics when you need to.
   - title: 🛡️ Auto-Recovery
     details: Blank-chunk detection, generation timeout, and a bounded recovery loop that unloads + reloads the engine on fatal errors. Users see a brief reload instead of a broken UI.
@@ -85,7 +85,7 @@ architectural story — but the snippet above is the contract.
 
 If you just want to ship:
 
-- Pick your SDK from the [License setup](./license/) index and follow
+- Pick your SDK from the [Examples](./examples) index and follow
   the per-platform walkthrough.
 - Set `backend: "auto"` and trust the defaults.
 - Point your existing OpenAI client at `dvai.baseUrl`.
@@ -303,11 +303,6 @@ function Chat() {
 That's the whole library, end to end. The rest of this page covers
 the longer-form options (Vanilla JS, Node, custom models, embeddings)
 in case the React snippet above doesn't match your stack.
-
-::: tip Ready to ship to production?
-You'll need a license JWT before the SDK runs outside `localhost`.
-See [License setup](./license/) for the per-platform walkthrough.
-:::
 
 ## Installation
 
@@ -2241,7 +2236,7 @@ missing.
 
 ## Distributed inference (Phase 3)
 
-`StartOptions` accepts an optional [`OffloadConfig`](https://bridge.deepvoiceai.co/docs/guide/distributed-inference)
+`StartOptions` accepts an optional [`OffloadConfig`](https://dvai-global.github.io/dvai-bridge/guide/distributed-inference)
 that turns on LAN peer discovery + capability-aware request offload.
 
 ```kotlin
@@ -6159,1503 +6154,6 @@ from prototype to shipped.
 
 ---
 
-# === FILE: guide/license/index.md ===
-
-# License setup
-
-DVAI-Bridge is licensed under BSL 1.1. In **production** builds, the SDK
-needs a signed license JWT to start. In **development** (localhost,
-`NODE_ENV=test`, debug builds, the `DVAI_FORCE_DEV=1` override), the SDK
-runs without one — you only ever need to think about licensing at the
-point you ship.
-
-The license file is a single `.jwt` token issued by the operator of the
-SDK (you, or whoever sells the SDK to you). The SDK ships only with the
-**public** verification key; it cannot mint tokens itself, and it does
-not phone home. Validation is fully offline.
-
-This section has a one-page walkthrough per platform. Pick yours:
-
-- [Web](./web) — `@dvai-bridge/core` running in the browser (Vite,
-  Next.js, etc.).
-- [Node](./node) — `@dvai-bridge/core` running in Node, serverless, or
-  Electron main.
-- [iOS](./ios) — Swift apps via the `DVAIBridge` SwiftPM / CocoaPods
-  package.
-- [Android](./android) — Kotlin / Java apps via
-  `co.deepvoiceai:dvai-bridge`.
-- [.NET](./dotnet) — MAUI, Avalonia, WinUI, and console apps via the
-  `DVAIBridge` NuGet family.
-- [Flutter](./flutter) — `dvai_bridge` from pub.dev.
-- [React Native](./react-native) — `@dvai-bridge/react-native`
-  TurboModule on RN ≥ 0.77.
-- [Capacitor](./capacitor) — `@dvai-bridge/capacitor` hybrid apps.
-
-## What every platform has in common
-
-1. The license file is a single JWT (one line of base64url text). It
-   contains the licensee name, expiry, allowed platforms, and an
-   audience binding (your domain or bundle id). The signature is
-   ECDSA P-256 (ES256).
-2. The SDK looks for the file at a platform-default location first
-   (e.g. `dvai-license.jwt` in your project root for Node, or
-   `/dvai-license.jwt` served from your origin for the web). You can
-   override that with a config field or an environment variable.
-3. In dev mode the SDK ignores license problems. In production it
-   throws `LicenseRequiredError` (or the native equivalent) before any
-   inference happens, with a verbose message pointing you at the fix.
-
-## Where to get a license
-
-If you're an SDK consumer, your licensor (the operator that issued
-your build) hands you the file. Drop it at the discovery path the
-platform page calls out, ship your app.
-
-If you're operating your own DVAI-Bridge fork or a private build,
-generate your keypair once with
-`node scripts/license/generate-keypair.mjs`, commit the public key
-into `packages/dvai-bridge-core/src/license/publicKeys.ts`, store the
-private key in your secrets manager, and use it inside your
-license-generator service to mint customer JWTs. The script's output
-explains each step inline.
-
-## Dev-mode bypass at a glance
-
-The SDK silences license checks when **any** of these are true:
-
-- `NODE_ENV=test` or `NODE_ENV=development` (Node)
-- `DVAI_FORCE_DEV=1` (any platform that has process env)
-- `localhost`, `127.0.0.1`, `*.local`, or RFC1918 hostnames (browser)
-- `Capacitor.DEBUG === true` (Capacitor hybrid)
-- `localStorage.DVAI_FORCE_DEV = "true"` (browser test hook)
-
-Setting `DVAI_FORCE_PROD=1` overrides all of the above — useful when
-you want to test the production code path locally.
-
-
----
-
-# === FILE: guide/license/web.md ===
-
-# License setup — Web
-
-You just ran `pnpm add @dvai-bridge/core` and want to ship to a real
-domain. Here's everything you need.
-
-## TL;DR
-
-Drop your `dvai-license.jwt` file into your app's static-assets folder
-(`public/` for Vite, Next.js, CRA; `static/` for SvelteKit) and ship.
-The SDK fetches `/dvai-license.jwt` from the same origin at startup,
-verifies the signature offline, and unlocks production behaviour. On
-localhost, the SDK ignores license problems entirely.
-
-## Where the file goes
-
-Default (auto-discovered): your origin must serve the file at the URL
-`/dvai-license.jwt`. For most bundlers that means putting it in the
-static-assets folder:
-
-| Framework | Drop the file at |
-| --- | --- |
-| Vite (React, Vue, Svelte, vanilla) | `public/dvai-license.jwt` |
-| Next.js | `public/dvai-license.jwt` |
-| Create React App | `public/dvai-license.jwt` |
-| SvelteKit | `static/dvai-license.jwt` |
-| Astro | `public/dvai-license.jwt` |
-| Webpack (no plugin) | whatever path your `output.publicPath` resolves to |
-
-Verify by hitting `https://<your-domain>/dvai-license.jwt` in a browser
-— you should see the JWT text. If your edge / CDN strips unknown file
-extensions, register `.jwt` as `text/plain` or `application/jwt`.
-
-## Code: with vs. without
-
-Without a license (development, localhost):
-
-```ts
-import { DVAI } from "@dvai-bridge/core";
-
-const dvai = new DVAI({
-  backend: "auto",
-  modelId: "Llama-3.2-1B-Instruct-Q4_K_M",
-});
-
-await dvai.initialize();
-// On localhost: dvai.licenseStatus.kind === "free-dev"
-```
-
-With a license (production, default discovery):
-
-```ts
-// Same code as above. Nothing changes.
-// As long as /dvai-license.jwt is served from the same origin,
-// dvai.licenseStatus.kind will be "commercial" or "trial" after init.
-```
-
-With a license at a non-default path:
-
-```ts
-const dvai = new DVAI({
-  backend: "auto",
-  modelId: "Llama-3.2-1B-Instruct-Q4_K_M",
-  licenseKeyPath: "/assets/dvai-license.jwt", // any same-origin URL
-});
-```
-
-With the JWT injected inline (env var, CI secret, etc.):
-
-```ts
-const dvai = new DVAI({
-  backend: "auto",
-  modelId: "Llama-3.2-1B-Instruct-Q4_K_M",
-  licenseToken: import.meta.env.VITE_DVAI_LICENSE_JWT,
-});
-```
-
-`licenseToken` always wins over `licenseKeyPath`, which wins over
-auto-discovery.
-
-## What happens without a license
-
-In production (any non-localhost origin), `initialize()` throws
-`LicenseRequiredError`:
-
-```ts
-import { DVAI, LicenseRequiredError } from "@dvai-bridge/core";
-
-try {
-  await dvai.initialize();
-} catch (err) {
-  if (err instanceof LicenseRequiredError) {
-    // err.message is verbose — points at the discovery paths and
-    // the dev-mode bypass list.
-    // err.status.kind is "free-prod" or "free-expired".
-    console.error(err.message);
-  }
-}
-```
-
-The error message includes the resolution steps inline; surface it in
-your error reporter (Sentry, console, server log) and you'll see
-exactly which check failed.
-
-## Testing locally without a license
-
-You don't have to do anything — `localhost`, `127.0.0.1`, `*.local`,
-and RFC1918 hostnames all auto-detect as dev mode. The SDK will start
-and log `licenseStatus.kind === "free-dev"`.
-
-If you serve your dev build from a non-localhost host (e.g. a real
-DNS name behind ngrok), force dev mode explicitly:
-
-```ts
-// Pick one of these before DVAI's first initialize():
-window.localStorage.setItem("DVAI_FORCE_DEV", "true");
-```
-
-To rehearse production behaviour on localhost:
-
-```ts
-window.localStorage.setItem("DVAI_FORCE_PROD", "true");
-```
-
-## When validation fails
-
-Common failures and what they mean:
-
-| Error reason fragment | What's wrong | Fix |
-| --- | --- | --- |
-| `not a well-formed JWT` | File is empty, truncated, or HTML 404 page | Verify `/dvai-license.jwt` returns the raw token |
-| `unsupported alg` | Token signed with the wrong algorithm | Re-issue with ES256 |
-| `kid ... is not in the SDK's public-key registry` | You're on an old SDK that pre-dates a key rotation | Upgrade `@dvai-bridge/core` |
-| `signed with the placeholder key` | You're using a development SDK that hasn't shipped a real key | Replace `publicKeys.ts` with your generated key |
-| `signature did not verify` | Token was tampered with or wrong key | Re-download from your licensor |
-| `does not authorise platform "web"` | License doesn't include `"web"` in its `platforms` claim | Re-issue covering web |
-| `audience entries ... do not match` | Token bound to a different hostname | Re-issue with the right `aud`, or use a `*.your-domain.com` wildcard |
-| `expired` | Past `exp` | Renew |
-
-Every reason is logged to `console` when validation fails, even when
-the SDK throws.
-
-## See also
-
-- [License setup index](./index) — cross-platform summary.
-- [Pre-init inspection](./pre-init-inspection) — run `LicenseValidator`
-  standalone (no `DVAI.initialize()` cost) for a license-status pill in
-  your app's chrome.
-- [Node](./node) — server-side validation flow.
-- [Reference: DVAIConfig.licenseKeyPath / licenseToken](/reference/api).
-
-
----
-
-# === FILE: guide/license/node.md ===
-
-# License setup — Node
-
-You imported `@dvai-bridge/core` in a Node script, Next.js server route,
-serverless function, or Electron main process. Here's the path from
-zero to a license-enforced production build.
-
-## TL;DR
-
-Place `dvai-license.jwt` at your project root (next to `package.json`).
-The SDK reads it automatically on `initialize()`. In production, the
-SDK throws `LicenseRequiredError` if the file is missing or invalid;
-in `NODE_ENV=development` or `NODE_ENV=test` the check is skipped.
-
-## Where the file goes
-
-In priority order:
-
-1. Inline JWT — `new DVAI({ licenseToken: "..." })`
-2. Explicit path — `new DVAI({ licenseKeyPath: "/etc/dvai/license.jwt" })`
-3. `DVAI_LICENSE_PATH` environment variable
-4. `DVAI_LICENSE_TOKEN` environment variable (inline JWT)
-5. Auto-discovery — `dvai-license.jwt` in `process.cwd()`, then one
-   level up (handy for monorepos where you `cd packages/myapp` and
-   `node ./dist/server.js`)
-
-For containerised deployments, point `DVAI_LICENSE_PATH` at a mounted
-secret (Kubernetes secret, Docker `--secret`, etc.) — the SDK reads
-the file once at startup, then never touches it again.
-
-## Code: with vs. without
-
-Default discovery (Node finds `./dvai-license.jwt`):
-
-```ts
-import { DVAI } from "@dvai-bridge/core";
-
-const dvai = new DVAI({ backend: "transformers" });
-await dvai.initialize();
-console.log(dvai.licenseStatus); // { kind: "commercial", licensee: ... }
-console.log(dvai.baseUrl);        // http://127.0.0.1:38883/v1
-```
-
-Inline JWT (CI / serverless friendly):
-
-```ts
-const dvai = new DVAI({
-  backend: "transformers",
-  licenseToken: process.env.DVAI_LICENSE_JWT,
-});
-await dvai.initialize();
-```
-
-Explicit path:
-
-```ts
-const dvai = new DVAI({
-  backend: "transformers",
-  licenseKeyPath: "/run/secrets/dvai-license.jwt",
-});
-```
-
-Via environment variable (no code changes):
-
-```bash
-DVAI_LICENSE_PATH=/run/secrets/dvai-license.jwt node ./server.js
-# or
-DVAI_LICENSE_TOKEN=$(cat license.jwt) node ./server.js
-```
-
-## What happens without a license
-
-In production, `initialize()` throws `LicenseRequiredError` before any
-backend loads. The error message tells you exactly which check failed.
-
-```ts
-import { DVAI, LicenseRequiredError } from "@dvai-bridge/core";
-
-try {
-  await dvai.initialize();
-} catch (err) {
-  if (err instanceof LicenseRequiredError) {
-    console.error(err.message);
-    console.error("status:", err.status.kind); // "free-prod" | "free-expired"
-    process.exit(1);
-  }
-  throw err;
-}
-```
-
-A typical message looks like:
-
-```
-DVAI-Bridge Commercial License Required
-=======================================
-
-no license token found; checked config.licenseToken,
-config.licenseKeyPath, DVAI_LICENSE_PATH env, DVAI_LICENSE_TOKEN env,
-and platform-default paths
-
-This SDK is licensed under BSL 1.1 and requires a valid commercial
-or trial license to run in production / release builds.
-... (resolution steps)
-```
-
-## Testing locally without a license
-
-Three ways:
-
-```bash
-# 1. NODE_ENV=test or NODE_ENV=development — most natural for tests.
-NODE_ENV=test node ./tests/run.js
-
-# 2. Explicit override — for ad-hoc local runs.
-DVAI_FORCE_DEV=1 node ./server.js
-
-# 3. Use a `dvai-license.jwt` file (real or sample from the
-#    generate-keypair script's output).
-```
-
-To rehearse production behaviour locally, set `DVAI_FORCE_PROD=1`. It
-overrides every dev-mode signal and makes the SDK throw if the license
-is missing.
-
-## Audience binding for servers
-
-Server-side Node deployments don't have a browser hostname, so the SDK
-needs you to tell it which `aud` claim to match:
-
-```bash
-DVAI_AUDIENCE=api.acme.com node ./server.js
-```
-
-If `DVAI_AUDIENCE` is unset, the SDK accepts any license whose `aud`
-claim contains `"*"` (the any-host wildcard), but refuses ones bound to
-specific domains. Most commercial licenses include `"*"` so this works
-out of the box; bind explicitly with `DVAI_AUDIENCE` if you want
-stricter checks.
-
-## When validation fails
-
-Common Node-specific failures:
-
-| Error reason fragment | What's wrong | Fix |
-| --- | --- | --- |
-| `no license token found` | File missing at all 5 discovery paths | Drop one in, or set `DVAI_LICENSE_PATH` |
-| `does not authorise platform "node"` | License doesn't include `"node"` in `platforms` | Re-issue covering node |
-| `audience entries ... do not match` | `DVAI_AUDIENCE` doesn't match any `aud` entry | Set `DVAI_AUDIENCE` or use a `*` license |
-
-## See also
-
-- [License setup index](./index)
-- [Pre-init inspection](./pre-init-inspection) — run `LicenseValidator`
-  standalone in a script / CLI / health endpoint without booting the
-  backend.
-- [Web](./web) — browser-side flow.
-- [Reference: DVAIConfig.licenseKeyPath / licenseToken](/reference/api).
-
-
----
-
-# === FILE: guide/license/ios.md ===
-
-# License setup — iOS
-
-You added the `DVAIBridge` SwiftPM (or CocoaPods) dependency and want
-to ship to the App Store. Here's the licensing path.
-
-## TL;DR
-
-Add `dvai-license.jwt` to your Xcode project's main bundle as a
-resource. At app launch, the SDK reads it from the bundle, verifies
-the ES256 signature offline, and unlocks production behaviour. In
-Debug builds the SDK ignores license problems.
-
-## Where the file goes
-
-Add the license file as a bundled resource so it ships inside the
-`.app` package:
-
-1. Drop `dvai-license.jwt` into your Xcode project (drag-and-drop or
-   File → Add Files…).
-2. In the file inspector, tick **Target Membership** for your app
-   target.
-3. Make sure it appears under **Build Phases → Copy Bundle Resources**.
-
-The runtime location is `Bundle.main.url(forResource: "dvai-license",
-withExtension: "jwt")`. The SDK looks there first.
-
-Alternative locations the SDK also checks (in priority order):
-
-1. An inline JWT passed to `start(.init(licenseToken: "..."))` — useful
-   when the token comes from your account flow at runtime.
-2. A path passed to `start(.init(licenseKeyPath: ...))` — e.g. a file
-   downloaded into `Application Support`.
-3. `Bundle.main` → `dvai-license.jwt`.
-
-## Code: with vs. without
-
-Default (license bundled at `dvai-license.jwt`):
-
-```swift
-import DVAIBridge
-
-let bound = try await DVAIBridge.shared.start(.init(
-    backend: .llama,
-    modelPath: modelURL.path
-))
-print(bound.baseUrl)             // http://127.0.0.1:38883/v1
-print(bound.licenseStatus)       // .commercial(licensee: "Acme", ...)
-```
-
-With an inline JWT (downloaded at runtime, stored in Keychain):
-
-```swift
-let token = try keychain.read("dvai-license-jwt")
-
-let bound = try await DVAIBridge.shared.start(.init(
-    backend: .llama,
-    modelPath: modelURL.path,
-    licenseToken: token
-))
-```
-
-With an explicit file path:
-
-```swift
-let bound = try await DVAIBridge.shared.start(.init(
-    backend: .llama,
-    modelPath: modelURL.path,
-    licenseKeyPath: licensePath
-))
-```
-
-::: tip Native license fields land in v3.3
-In v3.2.x, the iOS SDK ships without `licenseToken` /
-`licenseKeyPath` on `StartOptions`. The Capacitor-wrapped path runs
-the JS validator automatically; pure-native Swift apps in v3.2 ship
-under a "dev preview" allowance. Native iOS validation arrives in
-v3.3 — track [the milestone](https://github.com/dvai-global/dvai-bridge)
-for the release date and pin to v3.3+ to enforce on iOS.
-:::
-
-## What happens without a license
-
-In Release builds, `start(...)` throws `DVAIBridgeError.licenseRequired`
-with a verbose user-facing message:
-
-```swift
-do {
-    let bound = try await DVAIBridge.shared.start(...)
-} catch DVAIBridgeError.licenseRequired(let reason) {
-    // reason is a multi-line string suitable for a crash log.
-    print(reason)
-    showAlert(title: "License required", message: reason)
-}
-```
-
-The reason includes which check failed (missing file, expired,
-audience mismatch, etc.) and the resolution steps.
-
-## Testing locally without a license
-
-Debug builds skip license checks automatically. The SDK detects Debug
-mode via the `DEBUG` compile flag and the simulator's environment.
-
-To force dev mode explicitly (e.g. for a TestFlight build you want to
-distribute without a real license):
-
-```swift
-ProcessInfo.processInfo.environment["DVAI_FORCE_DEV"] = "1"
-```
-
-To rehearse the production code path inside a Debug build:
-
-```swift
-setenv("DVAI_FORCE_PROD", "1", 1)
-```
-
-## When validation fails
-
-| Error reason fragment | What's wrong | Fix |
-| --- | --- | --- |
-| `bundle resource not found` | `dvai-license.jwt` isn't in Copy Bundle Resources | Re-add to the target |
-| `signature did not verify` | Token tampered with or wrong key | Re-download from your licensor |
-| `does not authorise platform "ios"` | License missing `"ios"` in `platforms` claim | Re-issue covering iOS |
-| `audience entries ... do not match` | Bundle id doesn't match `aud` entries | Re-issue with your `CFBundleIdentifier`, or use a wildcard pattern |
-| `expired` | Past `exp` | Renew |
-
-The runtime audience on iOS is `Bundle.main.bundleIdentifier`. License
-templates typically include both your bundle id (e.g.
-`com.acme.app`) and a `"*"` fallback for trials.
-
-## See also
-
-- [License setup index](./index)
-- [Pre-init inspection](./pre-init-inspection) — run `LicenseValidator`
-  standalone for a dashboard / settings UI without booting the SDK.
-- [iOS Native SDK](/guide/ios-native-sdk) — full SDK reference.
-- [Capacitor](./capacitor) — if you ship via Capacitor instead of
-  native Swift.
-
-
----
-
-# === FILE: guide/license/android.md ===
-
-# License setup — Android
-
-You added `co.deepvoiceai:dvai-bridge` to your Gradle build and want
-to ship a release APK / AAB. Here's the licensing path.
-
-## TL;DR
-
-Drop `dvai-license.jwt` into your app's `src/main/assets/` folder. At
-`DVAIBridge.start(...)` time, the SDK reads it from the APK assets,
-verifies the ES256 signature offline, and unlocks production
-behaviour. In `debug` build variants the SDK ignores license problems.
-
-## Where the file goes
-
-Add the license file as an Android asset:
-
-```
-app/
-  src/
-    main/
-      assets/
-        dvai-license.jwt
-```
-
-It ships inside the APK, accessible via `context.assets.open(...)`.
-
-Alternative locations the SDK also checks (in priority order):
-
-1. An inline JWT passed to `StartOptions(licenseToken = "...")` —
-   useful when the token comes from your account flow at runtime.
-2. A path passed to `StartOptions(licenseKeyPath = ...)` — e.g. a
-   file your app downloaded into `Context.filesDir`.
-3. `assets/dvai-license.jwt` (auto-discovered).
-
-## Code: with vs. without
-
-Default (license bundled in `assets/`):
-
-```kotlin
-import co.deepvoiceai.bridge.DVAIBridge
-import co.deepvoiceai.bridge.StartOptions
-
-val bound = DVAIBridge.start(StartOptions(
-    backend = BackendKind.Llama,
-    modelPath = modelFile.absolutePath
-))
-println(bound.baseUrl)              // http://127.0.0.1:38883/v1
-println(bound.licenseStatus)        // LicenseStatus.Commercial(licensee = "Acme", ...)
-```
-
-With an inline JWT (downloaded at runtime, stored in EncryptedSharedPreferences):
-
-```kotlin
-val token = encryptedPrefs.getString("dvai_license_jwt", null)!!
-
-val bound = DVAIBridge.start(StartOptions(
-    backend = BackendKind.Llama,
-    modelPath = modelFile.absolutePath,
-    licenseToken = token
-))
-```
-
-With an explicit file path:
-
-```kotlin
-val licensePath = File(context.filesDir, "dvai-license.jwt").absolutePath
-val bound = DVAIBridge.start(StartOptions(
-    backend = BackendKind.Llama,
-    modelPath = modelFile.absolutePath,
-    licenseKeyPath = licensePath
-))
-```
-
-::: tip Native license fields land in v3.3
-In v3.2.x, the Android SDK ships without `licenseToken` /
-`licenseKeyPath` on `StartOptions`. The Capacitor-wrapped path runs
-the JS validator automatically; pure-native Kotlin apps in v3.2 ship
-under a "dev preview" allowance. Native Android validation arrives
-in v3.3 — track
-[the milestone](https://github.com/dvai-global/dvai-bridge) for the
-release date and pin to v3.3+ to enforce on Android.
-:::
-
-## What happens without a license
-
-In `release` build variants, `start(...)` throws
-`DVAIBridgeError.LicenseRequired` with a verbose message:
-
-```kotlin
-try {
-    val bound = DVAIBridge.start(...)
-} catch (e: DVAIBridgeError.LicenseRequired) {
-    // e.message is a multi-line string with resolution steps.
-    Log.e("dvai", e.message ?: "")
-    showSnackbar("License required: ${e.shortReason}")
-}
-```
-
-## Testing locally without a license
-
-`debug` build variants skip license checks automatically. The SDK
-detects debug mode via `BuildConfig.DEBUG` and
-`ApplicationInfo.FLAG_DEBUGGABLE`.
-
-To force dev mode explicitly:
-
-```kotlin
-System.setProperty("DVAI_FORCE_DEV", "1")
-```
-
-To rehearse the release code path inside a debug build:
-
-```kotlin
-System.setProperty("DVAI_FORCE_PROD", "1")
-```
-
-## When validation fails
-
-| Error reason fragment | What's wrong | Fix |
-| --- | --- | --- |
-| `asset not found` | `dvai-license.jwt` isn't in `src/main/assets/` | Drop it in, rebuild |
-| `signature did not verify` | Token tampered with or wrong key | Re-download from your licensor |
-| `does not authorise platform "android"` | License missing `"android"` in `platforms` claim | Re-issue covering Android |
-| `audience entries ... do not match` | Package name doesn't match `aud` entries | Re-issue with your `applicationId`, or use a wildcard pattern |
-| `expired` | Past `exp` | Renew |
-
-The runtime audience on Android is your application's `packageName`
-(e.g. `com.acme.app`). License templates typically include both your
-package name and a `"*"` fallback for trials.
-
-## See also
-
-- [License setup index](./index)
-- [Pre-init inspection](./pre-init-inspection) — run `LicenseValidator`
-  standalone for a settings-screen license status without
-  `DVAIBridge.start()`.
-- [Android Native SDK](/guide/android-native-sdk) — full SDK reference.
-- [Capacitor](./capacitor) — if you ship via Capacitor instead of
-  native Kotlin.
-
-
----
-
-# === FILE: guide/license/dotnet.md ===
-
-# License setup — .NET
-
-You added `DVAIBridge` to your .NET MAUI, Avalonia, WinUI, or console
-project and want to ship a release. Here's the licensing path.
-
-## TL;DR
-
-Add `dvai-license.jwt` to your `.csproj` as content with
-`CopyToOutputDirectory="PreserveNewest"`. The SDK reads it from the
-app's working directory at startup. In `Debug` configurations the SDK
-ignores license problems.
-
-## Where the file goes
-
-Add the file next to your `.csproj`:
-
-```
-MyApp/
-  MyApp.csproj
-  dvai-license.jwt
-```
-
-Then mark it as content so it ends up next to the binary:
-
-```xml
-<ItemGroup>
-  <None Update="dvai-license.jwt">
-    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-  </None>
-</ItemGroup>
-```
-
-For MAUI / mobile build profiles, also include it as a MAUI asset:
-
-```xml
-<ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android' or '$(TargetFramework)' == 'net10.0-ios'">
-  <MauiAsset Include="dvai-license.jwt" />
-</ItemGroup>
-```
-
-Alternative locations the SDK also checks (in priority order):
-
-1. Inline JWT via `StartOptions { LicenseToken = "..." }`.
-2. Explicit path via `StartOptions { LicenseKeyPath = "..." }`.
-3. `DVAI_LICENSE_PATH` environment variable.
-4. `DVAI_LICENSE_TOKEN` environment variable.
-5. `dvai-license.jwt` in `AppContext.BaseDirectory` (auto-discovered).
-
-## Code: with vs. without
-
-Default (license deployed next to binary):
-
-```csharp
-using DVAIBridge;
-
-var bound = await DVAIBridge.Shared.StartAsync(new StartOptions
-{
-    Backend = BackendKind.Llama,
-    ModelPath = modelPath
-});
-
-Console.WriteLine(bound.BaseUrl);          // http://127.0.0.1:38883/v1
-Console.WriteLine(bound.LicenseStatus);    // Commercial { Licensee = "Acme", ... }
-```
-
-Inline JWT (e.g. read from a config service):
-
-```csharp
-var token = Environment.GetEnvironmentVariable("DVAI_LICENSE_JWT")
-            ?? throw new InvalidOperationException("missing license env");
-
-var bound = await DVAIBridge.Shared.StartAsync(new StartOptions
-{
-    Backend = BackendKind.Llama,
-    ModelPath = modelPath,
-    LicenseToken = token
-});
-```
-
-Explicit path:
-
-```csharp
-var bound = await DVAIBridge.Shared.StartAsync(new StartOptions
-{
-    Backend = BackendKind.Llama,
-    ModelPath = modelPath,
-    LicenseKeyPath = Path.Combine(FileSystem.AppDataDirectory, "dvai-license.jwt")
-});
-```
-
-::: tip Native license fields land in v3.3
-In v3.2.x, the .NET SDK ships without `LicenseToken` /
-`LicenseKeyPath` on `StartOptions`. The Capacitor-wrapped path runs
-the JS validator automatically; pure-native .NET apps in v3.2 ship
-under a "dev preview" allowance. Native .NET validation arrives in
-v3.3 — pin to v3.3+ to enforce on .NET.
-:::
-
-## What happens without a license
-
-In `Release` configurations, `StartAsync(...)` throws
-`LicenseRequiredException`:
-
-```csharp
-try
-{
-    var bound = await DVAIBridge.Shared.StartAsync(...);
-}
-catch (LicenseRequiredException ex)
-{
-    // ex.Message is a multi-line, user-presentable string with
-    // remediation steps. ex.Reason carries the machine-readable
-    // failure kind ("FreeProd" or "FreeExpired").
-    Console.Error.WriteLine(ex.Message);
-    Environment.Exit(1);
-}
-```
-
-## Testing locally without a license
-
-`Debug` builds skip license checks automatically. The SDK detects
-debug mode via `Debugger.IsAttached` and `#if DEBUG`.
-
-To force dev mode explicitly:
-
-```bash
-DVAI_FORCE_DEV=1 dotnet run -c Release
-```
-
-To rehearse the production code path:
-
-```bash
-DVAI_FORCE_PROD=1 dotnet run -c Release
-```
-
-## Per-flavour notes
-
-- **MAUI iOS / Android**: the file is loaded from the bundled
-  `MauiAsset` path on mobile and from `AppContext.BaseDirectory` on
-  Catalyst.
-- **Avalonia / WinUI desktop**: the file lives next to the binary in
-  `bin/<config>/<tfm>/`.
-- **Console / server**: same discovery rules as
-  [Node](./node) (env vars, cwd, etc.).
-
-## When validation fails
-
-| Error reason fragment | What's wrong | Fix |
-| --- | --- | --- |
-| `no license token found` | File didn't make it into the output dir | Verify `CopyToOutputDirectory="PreserveNewest"` in `.csproj` |
-| `signature did not verify` | Wrong key or tampered token | Re-download from your licensor |
-| `does not authorise platform "dotnet"` | License missing `"dotnet"` in `platforms` | Re-issue covering .NET |
-| `audience entries ... do not match` | Assembly identity doesn't match `aud` | Re-issue, or use a wildcard |
-| `expired` | Past `exp` | Renew |
-
-The runtime audience on .NET is the executing assembly's name, or the
-value of the `DVAI_AUDIENCE` env var if set. Most licenses include a
-`"*"` fallback.
-
-## See also
-
-- [License setup index](./index)
-- [Pre-init inspection](./pre-init-inspection) — run `LicenseValidator`
-  standalone for a license-status badge in a MAUI / WPF dashboard
-  without `StartAsync()`.
-- [.NET SDK](/guide/dotnet-sdk) — full SDK reference.
-
-
----
-
-# === FILE: guide/license/flutter.md ===
-
-# License setup — Flutter
-
-You added `dvai_bridge` to your `pubspec.yaml` and want to ship a
-release build. Here's the licensing path.
-
-## TL;DR
-
-Drop `dvai-license.jwt` into your app's `assets/` directory and
-register it in `pubspec.yaml`. At `DVAIBridge.instance.start(...)`
-time, the SDK loads it via `rootBundle`, verifies the ES256 signature
-offline, and unlocks production behaviour. In `flutter run --debug`
-the SDK ignores license problems.
-
-## Where the file goes
-
-Add the file under `assets/`:
-
-```
-my_app/
-  assets/
-    dvai-license.jwt
-  pubspec.yaml
-```
-
-Register the asset in `pubspec.yaml`:
-
-```yaml
-flutter:
-  assets:
-    - assets/dvai-license.jwt
-```
-
-Alternative locations the SDK also checks (in priority order):
-
-1. Inline JWT via `StartOptions(licenseToken: "...")`.
-2. Explicit path via `StartOptions(licenseKeyPath: ...)` — a path
-   under `getApplicationDocumentsDirectory()` is typical for tokens
-   downloaded after install.
-3. `assets/dvai-license.jwt` via `rootBundle` (auto-discovered).
-
-## Code: with vs. without
-
-Default (license bundled in `assets/`):
-
-```dart
-import 'package:dvai_bridge/dvai_bridge.dart';
-
-final bound = await DVAIBridge.instance.start(StartOptions(
-  backend: BackendKind.llama,
-  modelPath: modelFile.path,
-));
-
-print(bound.baseUrl);            // http://127.0.0.1:38883/v1
-print(bound.licenseStatus);      // LicenseStatus.commercial(licensee: "Acme", ...)
-```
-
-With an inline JWT (loaded from `flutter_secure_storage`):
-
-```dart
-final token = await secureStorage.read(key: 'dvai_license_jwt');
-
-final bound = await DVAIBridge.instance.start(StartOptions(
-  backend: BackendKind.llama,
-  modelPath: modelFile.path,
-  licenseToken: token,
-));
-```
-
-With an explicit file path:
-
-```dart
-final docs = await getApplicationDocumentsDirectory();
-final licensePath = '${docs.path}/dvai-license.jwt';
-
-final bound = await DVAIBridge.instance.start(StartOptions(
-  backend: BackendKind.llama,
-  modelPath: modelFile.path,
-  licenseKeyPath: licensePath,
-));
-```
-
-::: tip Native license fields land in v3.3
-In v3.2.x, the Flutter SDK ships without `licenseToken` /
-`licenseKeyPath` on `StartOptions`. Pure Flutter apps in v3.2 ship
-under a "dev preview" allowance. Native Flutter validation arrives
-in v3.3 — pin to v3.3+ to enforce on Flutter.
-:::
-
-## What happens without a license
-
-In release builds (`flutter build apk`, `flutter build ipa`),
-`start(...)` throws `DVAIBridgeError.licenseRequired`:
-
-```dart
-try {
-  final bound = await DVAIBridge.instance.start(...);
-} on DVAIBridgeError catch (e) {
-  if (e.kind == DVAIBridgeErrorKind.licenseRequired) {
-    // e.message is a multi-line string with resolution steps.
-    debugPrint(e.message);
-    showDialog(...);
-  }
-}
-```
-
-## Testing locally without a license
-
-`flutter run --debug` automatically enables dev mode. The SDK
-detects debug mode via `kDebugMode` (which Flutter sets via
-`assert(...)` inlining).
-
-To force dev mode explicitly inside a profile / release build:
-
-```dart
-const bool kForceDev = bool.fromEnvironment('DVAI_FORCE_DEV', defaultValue: false);
-```
-
-Pass at build time:
-
-```bash
-flutter build apk --dart-define=DVAI_FORCE_DEV=true
-```
-
-To rehearse production behaviour in a debug build:
-
-```bash
-flutter run --dart-define=DVAI_FORCE_PROD=true
-```
-
-## When validation fails
-
-| Error reason fragment | What's wrong | Fix |
-| --- | --- | --- |
-| `asset not found` | `assets/dvai-license.jwt` missing from `pubspec.yaml` | Add the asset entry |
-| `signature did not verify` | Wrong key or tampered | Re-download from your licensor |
-| `does not authorise platform "flutter"` | License missing `"flutter"` in `platforms` | Re-issue covering Flutter |
-| `audience entries ... do not match` | Bundle id / package name doesn't match | Re-issue with the right ids, or use a wildcard |
-| `expired` | Past `exp` | Renew |
-
-The runtime audience on Flutter is the platform-specific app id:
-`CFBundleIdentifier` on iOS, `applicationId` on Android. Most
-licenses include both plus a `"*"` fallback.
-
-## See also
-
-- [License setup index](./index)
-- [Pre-init inspection](./pre-init-inspection) — run `LicenseValidator`
-  standalone for a license-status widget without
-  `DVAIBridge.instance.start()`.
-- [Flutter SDK](/guide/flutter-sdk) — full SDK reference.
-
-
----
-
-# === FILE: guide/license/react-native.md ===
-
-# License setup — React Native
-
-You added `@dvai-bridge/react-native` to a React Native (≥ 0.77,
-Bridgeless ON) app and want to ship a release. Here's the licensing
-path.
-
-## TL;DR
-
-Drop `dvai-license.jwt` into your app's project root and reference it
-in your platform bundle configs (iOS `Resources`, Android `assets/`).
-At `DVAIBridge.start(...)` time, the SDK reads it from the bundle on
-the native side, verifies the ES256 signature offline, and unlocks
-production behaviour. In development builds (Metro dev server) the SDK
-ignores license problems.
-
-## Where the file goes
-
-You need the file available to the **native** side, since the
-TurboModule reads it from the platform bundle:
-
-**iOS** — add to `ios/<YourApp>/`:
-
-```
-ios/MyApp/dvai-license.jwt
-```
-
-Then in Xcode, add the file to the app target and confirm it appears
-in **Copy Bundle Resources** (see the [iOS page](./ios) for the
-file-inspector steps).
-
-**Android** — add to `android/app/src/main/assets/`:
-
-```
-android/app/src/main/assets/dvai-license.jwt
-```
-
-Alternative locations the SDK also checks:
-
-1. Inline JWT via `start({ licenseToken: "..." })`.
-2. Explicit path via `start({ licenseKeyPath: "..." })`.
-3. Platform-default bundle resource (auto-discovered).
-
-## Code: with vs. without
-
-Default (license bundled on both platforms):
-
-```ts
-import { DVAIBridge } from "@dvai-bridge/react-native";
-
-const bound = await DVAIBridge.start({
-  backend: "llama",
-  modelPath: modelPath,
-});
-
-console.log(bound.baseUrl);           // http://127.0.0.1:38883/v1
-console.log(bound.licenseStatus);     // { kind: "commercial", ... }
-```
-
-Inline JWT (e.g. fetched from your account API):
-
-```ts
-const token = await api.getDvaiLicense();
-
-const bound = await DVAIBridge.start({
-  backend: "llama",
-  modelPath,
-  licenseToken: token,
-});
-```
-
-Explicit path (e.g. a file saved into RNFS document directory):
-
-```ts
-import RNFS from "react-native-fs";
-
-const bound = await DVAIBridge.start({
-  backend: "llama",
-  modelPath,
-  licenseKeyPath: `${RNFS.DocumentDirectoryPath}/dvai-license.jwt`,
-});
-```
-
-::: tip Native license fields land in v3.3
-In v3.2.x, the React Native SDK ships without `licenseToken` /
-`licenseKeyPath` on `start()`. Pure React Native apps in v3.2 ship
-under a "dev preview" allowance. Native React Native validation
-arrives in v3.3 — pin to v3.3+ to enforce on React Native.
-:::
-
-## What happens without a license
-
-In release builds (`./gradlew assembleRelease`, `xcodebuild archive`),
-`start(...)` rejects with a `LicenseRequiredError`-shaped object:
-
-```ts
-try {
-  await DVAIBridge.start(...);
-} catch (err: any) {
-  if (err.code === "LICENSE_REQUIRED") {
-    // err.message is a multi-line string with resolution steps.
-    // err.status is "free-prod" | "free-expired".
-    Alert.alert("License required", err.message);
-  }
-}
-```
-
-## Testing locally without a license
-
-Metro / dev-server builds (`__DEV__ === true`) automatically enable
-dev mode. The native module checks `BuildConfig.DEBUG` on Android and
-the `DEBUG` macro on iOS.
-
-To force dev mode explicitly in a release build:
-
-```ts
-DVAIBridge.setEnv({ DVAI_FORCE_DEV: "1" });
-```
-
-To rehearse the production code path in a debug build:
-
-```ts
-DVAIBridge.setEnv({ DVAI_FORCE_PROD: "1" });
-```
-
-## When validation fails
-
-The platform-specific failures mirror [iOS](./ios) and
-[Android](./android). The `aud` audience claim must match the iOS
-bundle id OR the Android `applicationId` (whichever is running) — most
-licenses include both, plus a `"*"` fallback.
-
-## See also
-
-- [License setup index](./index)
-- [Pre-init inspection](./pre-init-inspection) — pull
-  `@dvai-bridge/core` as a separate dep for JS-side license
-  inspection in an RN settings screen without `DVAIBridge.start()`.
-- [React Native SDK](/guide/react-native-sdk) — full SDK reference.
-- [iOS](./ios) and [Android](./android) — platform-specific
-  details that bubble up to the React Native module.
-
-
----
-
-# === FILE: guide/license/capacitor.md ===
-
-# License setup — Capacitor
-
-You added `@dvai-bridge/capacitor` (plus a backend plugin like
-`@dvai-bridge/capacitor-llama`) and want to ship to the App Store and
-Play Store. Here's the licensing path.
-
-## TL;DR
-
-Drop `dvai-license.jwt` into your `www/` (or Vite's `public/`) folder
-so it ends up at `/dvai-license.jwt` inside the bundled webview
-assets. The JS-side validator runs on `DVAIBridge.start(...)`, fetches
-the file via the Capacitor scheme, verifies the signature offline,
-and unlocks production behaviour. In `Capacitor.DEBUG === true` mode
-the SDK ignores license problems.
-
-## Where the file goes
-
-For Capacitor, the JS-side validator does the verification — same
-discovery rules as the [web setup](./web), but the file ships inside
-the native app rather than from your origin.
-
-- **Vite / esbuild bundled webview**: drop the file in `public/`. Vite
-  copies it to `dist/`, then `npx cap sync` copies `dist/` into the
-  native projects.
-- **Single-HTML / no bundler**: drop it directly into `www/`.
-
-Verify it's bundled correctly:
-
-- iOS: open the `.app` bundle in Xcode, expand `App/public/`, confirm
-  `dvai-license.jwt` is there.
-- Android: open the APK with Android Studio's APK analyzer, look for
-  `assets/public/dvai-license.jwt`.
-
-Alternative discovery (same as web):
-
-1. Inline JWT — `DVAIBridge.start({ licenseToken: "..." })`.
-2. Explicit URL — `DVAIBridge.start({ licenseKeyPath: "/path/in/webview.jwt" })`.
-
-## Code: with vs. without
-
-Default (license bundled in webview assets):
-
-```ts
-import { DVAIBridge } from "@dvai-bridge/capacitor";
-
-const bound = await DVAIBridge.start({
-  backend: "llama",
-  modelPath: modelPath,
-});
-
-console.log(bound.baseUrl);          // http://127.0.0.1:38883/v1
-console.log(bound.licenseStatus);    // { kind: "commercial", licensee: "Acme", ... }
-```
-
-With an inline JWT (downloaded into Capacitor Preferences):
-
-```ts
-import { Preferences } from "@capacitor/preferences";
-
-const { value: token } = await Preferences.get({ key: "dvai_license_jwt" });
-
-const bound = await DVAIBridge.start({
-  backend: "llama",
-  modelPath,
-  licenseToken: token!,
-});
-```
-
-## What happens without a license
-
-In release builds, `start(...)` rejects with a `LicenseRequiredError`
-relayed across the Capacitor bridge:
-
-```ts
-try {
-  await DVAIBridge.start(...);
-} catch (err: any) {
-  if (err.code === "LICENSE_REQUIRED" || err.name === "LicenseRequiredError") {
-    // err.message is a multi-line string; err.status.kind is the kind.
-    console.error(err.message);
-    showAlert("License required");
-  }
-}
-```
-
-## Testing locally without a license
-
-The Capacitor JS validator detects dev mode when **any** of these are
-true:
-
-- The webview hostname is `localhost` (which it usually is in
-  Capacitor's bundled-content scheme).
-- `Capacitor.DEBUG === true` (set by Capacitor in debug builds).
-- `window.localStorage.DVAI_FORCE_DEV === "true"`.
-- `NODE_ENV=test` or `NODE_ENV=development` at bundle time.
-
-To rehearse production behaviour locally:
-
-```ts
-localStorage.setItem("DVAI_FORCE_PROD", "true");
-```
-
-## Audience binding on Capacitor
-
-The runtime audience is the webview hostname — Capacitor reports
-`localhost` for the bundled-content origin. Your licenses should
-include `"localhost"` as an `aud` entry for Capacitor activation, or
-use `"*"`. (The native bundle-id binding will come with the v3.3
-native-side validators — see the iOS / Android pages.)
-
-## When validation fails
-
-| Error reason fragment | What's wrong | Fix |
-| --- | --- | --- |
-| `not a well-formed JWT` | File missing from `www/public` after `cap sync` | Re-run `cap sync` after the file is in `public/` |
-| `signature did not verify` | Wrong key or tampered | Re-download from your licensor |
-| `does not authorise platform "capacitor"` | License missing `"capacitor"` in `platforms` | Re-issue covering Capacitor |
-| `audience entries ... do not match "localhost"` | License doesn't include `localhost` (or `*`) | Re-issue with `localhost` in `aud` |
-| `expired` | Past `exp` | Renew |
-
-## See also
-
-- [License setup index](./index)
-- [Pre-init inspection](./pre-init-inspection) — run
-  `LicenseValidator` from `@dvai-bridge/core` in the webview before
-  the native plugin boots, useful for setup wizards.
-- [Web](./web) — the JS-side discovery rules apply identically.
-- [Native LLM (Capacitor)](/guide/native-backend) — the broader
-  Capacitor quickstart.
-
-
----
-
-# === FILE: guide/license/pre-init-inspection.md ===
-
-# Pre-init license inspection
-
-You can run the license validator independently of the SDK's main
-startup sequence. This is useful when:
-
-- A dashboard / settings UI wants to display the licensee, expiry, or
-  tier without paying the full cost of `DVAI.initialize()` /
-  `DVAIBridge.start()` (which loads models, starts the embedded HTTP
-  server, performs backend init).
-- A setup wizard wants to verify the license file before committing
-  the user to a model download.
-- A CI smoke wants to confirm that a license artifact is valid before
-  running the full integration test.
-
-The same `LicenseValidator` class that the SDK uses internally during
-`initialize()` is exposed on every SDK's public surface. Same JWT
-format, same claim checks, same dev-mode bypass rules everywhere.
-
-## TypeScript / Node / Browser / Capacitor JS layer
-
-`@dvai-bridge/core`:
-
-```ts
-import { LicenseValidator, type LicenseStatus } from "@dvai-bridge/core";
-
-const status: LicenseStatus = await new LicenseValidator().validate();
-
-// status.kind ∈ "commercial" | "trial" | "free-dev" | "free-prod" | "free-expired"
-switch (status.kind) {
-  case "commercial":
-  case "trial":
-    console.log(`Licensed to ${status.licensee} until ${new Date(status.expiresAt * 1000).toISOString()}`);
-    break;
-  case "free-dev":
-    console.log("Running in dev mode — no license required");
-    break;
-  case "free-prod":
-    console.warn(`License needed before SDK can start: ${status.reason}`);
-    break;
-  case "free-expired":
-    console.warn(`License expired for ${status.licensee}`);
-    break;
-}
-```
-
-`validate()` never throws. Use `validateAndAssert()` instead if you
-want the same throw-on-prod behavior the SDK itself uses at startup.
-
-## Swift (iOS / macOS / Mac Catalyst)
-
-`DVAIBridge`:
-
-```swift
-import DVAIBridge
-
-let validator = LicenseValidator()
-let status = await validator.validate()
-
-switch status {
-case .commercial(let licensee, let expiresAt, _, _):
-    print("Licensed to \(licensee), expires \(Date(timeIntervalSince1970: TimeInterval(expiresAt)))")
-case .trial(let licensee, let expiresAt, _, _):
-    print("Trial license for \(licensee) until \(Date(timeIntervalSince1970: TimeInterval(expiresAt)))")
-case .freeDev(let reason):
-    print("Dev mode: \(reason)")
-case .freeProd(let reason):
-    print("License required: \(reason)")
-case .freeExpired(let licensee, let expiredAt):
-    print("Expired license for \(licensee) at \(Date(timeIntervalSince1970: TimeInterval(expiredAt)))")
-}
-```
-
-For the throw variant: `try await validator.validateAndAssert()`.
-
-## Kotlin (Android)
-
-`co.deepvoiceai.bridge.license.LicenseValidator`:
-
-```kotlin
-import android.content.Context
-import co.deepvoiceai.bridge.license.LicenseStatus
-import co.deepvoiceai.bridge.license.LicenseValidator
-
-// In a Coroutine scope or suspend function:
-suspend fun checkLicense(context: Context, isDebugBuild: Boolean) {
-    val validator = LicenseValidator(
-        context = context.applicationContext,
-        hostBuildConfigDebug = isDebugBuild,  // pass your app's BuildConfig.DEBUG
-    )
-    when (val status = validator.validate()) {
-        is LicenseStatus.Commercial ->
-            Log.i("DVAI", "Licensed to ${status.licensee} until ${status.expiresAt}")
-        is LicenseStatus.Trial ->
-            Log.i("DVAI", "Trial license for ${status.licensee}")
-        is LicenseStatus.FreeDev ->
-            Log.d("DVAI", "Dev mode: ${status.reason}")
-        is LicenseStatus.FreeProd ->
-            Log.w("DVAI", "License required: ${status.reason}")
-        is LicenseStatus.FreeExpired ->
-            Log.w("DVAI", "Expired license for ${status.licensee}")
-    }
-}
-```
-
-The Kotlin validator needs the `Context` to read `packageName` (for
-audience binding) and to discover assets / raw resources. Pass your
-host app's `BuildConfig.DEBUG` so the dev-mode bypass picks up the
-right value (the library module's own `BuildConfig.DEBUG` doesn't
-reflect your app's build variant).
-
-## C# / .NET (MAUI, Avalonia, WinUI, Desktop)
-
-`DVAIBridge.License`:
-
-```csharp
-using DVAIBridge.License;
-
-var validator = new LicenseValidator();
-var status = await validator.ValidateAsync();
-
-switch (status)
-{
-    case LicenseStatus.Commercial c:
-        Console.WriteLine($"Licensed to {c.Licensee} until {DateTimeOffset.FromUnixTimeSeconds(c.ExpiresAt)}");
-        break;
-    case LicenseStatus.Trial t:
-        Console.WriteLine($"Trial license for {t.Licensee}");
-        break;
-    case LicenseStatus.FreeDev d:
-        Console.WriteLine($"Dev mode: {d.Reason}");
-        break;
-    case LicenseStatus.FreeProd p:
-        Console.WriteLine($"License required: {p.Reason}");
-        break;
-    case LicenseStatus.FreeExpired e:
-        Console.WriteLine($"Expired license for {e.Licensee}");
-        break;
-}
-```
-
-For the throw variant: `await validator.ValidateAndAssertAsync()`
-which throws `LicenseRequiredException`.
-
-## Dart (Flutter)
-
-`package:dvai_bridge/dvai_bridge.dart`:
-
-```dart
-import 'package:dvai_bridge/dvai_bridge.dart';
-
-final validator = LicenseValidator();
-final status = await validator.validate();
-
-// status is a sealed class — switch on the runtime type:
-switch (status) {
-  case Commercial(:final licensee, :final expiresAt):
-    print('Licensed to $licensee until ${DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000)}');
-  case Trial(:final licensee):
-    print('Trial license for $licensee');
-  case FreeDev(:final reason):
-    print('Dev mode: $reason');
-  case FreeProd(:final reason):
-    print('License required: $reason');
-  case FreeExpired(:final licensee):
-    print('Expired license for $licensee');
-}
-```
-
-For the throw variant: `await validator.validateAndAssert()` which
-throws `LicenseRequiredException`.
-
-## React Native + Capacitor
-
-These wrappers don't ship a JS-side LicenseValidator of their own —
-the license check happens on the native side (Swift / Kotlin) at
-startup. If you want pre-init validation from the JS layer:
-
-- **Capacitor**: install `@dvai-bridge/core` as a regular dependency
-  alongside `@dvai-bridge/capacitor` and use the TypeScript example
-  above. The core's validator reads the same `dvai-license.jwt` your
-  app already ships (it's a same-origin fetch from `public/`).
-- **React Native**: same — install `@dvai-bridge/core` and use the
-  TypeScript example. Note that audience binding from a Node-style
-  context won't have `window.location.hostname`; either pass
-  `DVAI_AUDIENCE` via `process.env` shim or pre-read your bundle id
-  via the native module and pass it through `audienceOverride`.
-
-## Same JWT file works everywhere
-
-All five SDK validators read the same `dvai-license.jwt` format and
-verify with the same `kid`-keyed public-key registry. One license
-issued by `dvai-license-generator` with platforms `["ios", "android",
-"web", "dotnet", "flutter", "react-native", "capacitor", "node"]`
-activates across every SDK that consumes it.
-
-## See also
-
-- [License setup overview](./) — per-platform file-drop walkthrough
-- [Migration v3.x → v4.0](../../migration/v3-to-v4) — the throw-on-prod
-  policy + field rename context
-
-
----
-
 # === FILE: guide/ai-agents.md ===
 
 # Vibe-coding with DVAI-Bridge
@@ -7685,7 +6183,7 @@ In Cursor settings → **Rules for AI**, add:
 When the user is working with DVAI-Bridge (@dvai-bridge/core,
 @dvai-bridge/react, dvai_bridge, DVAIBridge SwiftPM, or
 co.deepvoiceai:dvai-bridge), fetch context from
-https://bridge.deepvoiceai.co/docs/llms.txt and follow the linked pages
+https://dvai-global.github.io/dvai-bridge/llms.txt and follow the linked pages
 relevant to the task.
 ```
 
@@ -7710,7 +6208,7 @@ Add `docs/llms-full.txt` to your `CLAUDE.md` references section:
 In Copilot Chat, attach this prompt:
 
 ```
-Use the DVAI-Bridge docs at https://bridge.deepvoiceai.co/docs/llms.txt
+Use the DVAI-Bridge docs at https://dvai-global.github.io/dvai-bridge/llms.txt
 as reference. The library exposes an OpenAI-compatible HTTP server on
 loopback (read via dvai.baseUrl). Always wire OpenAI SDKs through
 baseUrl rather than calling DVAI's internal APIs.
@@ -7759,7 +6257,6 @@ Required-ish fields, in priority order of "what to set first":
   .MediaPipe | .LiteRT` (native).
 - `modelId` (JS WebLLM), `transformersModelId` (JS Transformers.js),
   or `modelPath` (every native llama.cpp path).
-- `licenseKeyPath` / `licenseToken` (production builds — required).
 
 Optional:
 - `httpBasePort` (default 38883), `httpBindHost` (default 127.0.0.1).
@@ -7767,19 +6264,9 @@ Optional:
 - `transport: "auto" | "msw" | "http" | "none" | "capacitor"`.
 - `offload: OffloadConfig` (v3.0+, distributed inference).
 
-## License flow (BSL 1.1 — must work in production)
+## License
 
-Production builds throw `LicenseRequiredError` if no valid license is
-found. Discovery order:
-1. `licenseToken` config option (inline JWT)
-2. `licenseKeyPath` config option (file path)
-3. `DVAI_LICENSE_PATH` env var
-4. `DVAI_LICENSE_TOKEN` env var
-5. Platform default (`dvai-license.jwt` in cwd for Node, `/dvai-license.jwt`
-   for web, `Bundle.main` for iOS, `assets/` for Android)
-
-Dev-mode auto-bypass: localhost / 127.0.0.1 / *.local hostnames;
-NODE_ENV=test or development; DVAI_FORCE_DEV=1; Capacitor.DEBUG=true.
+MIT. No license key, token, or file is needed in any environment.
 
 ## Distributed inference (v3.0+)
 
@@ -7818,7 +6305,6 @@ its existing OpenAI knowledge applies.
 - [`/llms-full.txt`](https://github.com/dvai-global/dvai-bridge/blob/main/docs/llms-full.txt)
   — every doc in one file.
 - [Getting started](./getting-started) — the human-readable quickstart.
-- [License setup](./license/) — production licensing per platform.
 
 
 ---
@@ -8018,8 +6504,7 @@ bash examples/react-native-app/smoke.sh
 # Typecheck + Metro bundle. RUN_ANDROID_BUILD=1 opts into the Gradle build.
 ```
 
-Verify: the in-app log panel prints `licenseStatus.kind` and the
-bound `baseUrl`; the response area streams tokens.
+Verify: the in-app log panel prints the bound `baseUrl`; the response area streams tokens.
 
 Adapt: edit `App.tsx` — backend dropdown values map to native enum
 cases; the model-path text input feeds into `StartOptions`.
@@ -8142,8 +6627,6 @@ The full per-(SDK × backend) matrix with host requirements is in
 ## See also
 
 - [Getting started](./getting-started) — the human-readable quickstart.
-- [License setup](./license/) — what to add before shipping any of
-  these to production.
 - Per-SDK guide: [iOS](./ios-native-sdk),
   [Android](./android-native-sdk), [React Native](./react-native-sdk),
   [Flutter](./flutter-sdk), [.NET](./dotnet-sdk).
@@ -8185,8 +6668,6 @@ The main configuration object used to initialize the orchestration layer.
 | `maxRetries`            | `number`                                           | `2`                                              | Number of automatic recovery attempts on fatal WebLLM errors.                                                                                            |
 | `generationTimeout`     | `number`                                           | `60000`                                          | Maximum time (ms) allowed for generation before timing out.                                                                                              |
 | `maxBlankChunks`        | `number`                                           | `20`                                             | Abort streaming after this many consecutive empty chunks.                                                                                                |
-| `licenseKeyPath`        | `string`                                           | —                                                | Path or URL to a DVAI-Bridge license JWT. Auto-discovered from `dvai-license.jwt` at platform-conventional locations when unset. See [License setup](/guide/license/).                                                                |
-| `licenseToken`          | `string`                                           | —                                                | Inline DVAI-Bridge license JWT (full token string). Highest-priority discovery path; wins over `licenseKeyPath` and env vars. Useful for serverless / CI deployments. See [License setup](/guide/license/).                          |
 | `autoInit`              | `boolean`                                          | `true`                                           | Whether to initialize the backend immediately on mount (React only).                                                                                     |
 | `transport`             | `"auto" \| "msw" \| "http" \| "none"`              | `"auto"`                                         | Transport selection. `"auto"` picks MSW in browser, HTTP in Node.                                                                                        |
 | `httpBasePort`          | `number`                                           | `38883`                                          | HTTP transport base port (retries +1 up to 16 times).                                                                                                    |
@@ -10255,6 +8736,132 @@ the title and include:
 - [Developer fork guide](/guide/dvai-hub-developer-fork)
 - [Distributed inference](/guide/distributed-inference) — the substrate Hub builds on
 - [Distributed inference testing](/development/distributed-inference-testing)
+
+
+---
+
+# === FILE: migration/v4.2-to-v4.3.md ===
+
+# Migration: v4.2 → v4.3
+
+**TL;DR — DVAI-Bridge is now MIT-licensed, and the runtime license checker is gone.**
+
+- Free for personal and commercial use. No license key, no JWT, no sign-up.
+- Every SDK starts the same way in debug and release builds. There's no
+  "production mode" check any more, so `LicenseRequiredError` /
+  `LicenseRequiredException` can't be thrown.
+- **This is a source-breaking change** if your code passes the old license
+  options or reads `licenseStatus`. To fix it: **delete the argument, and
+  delete `dvai-license.jwt` from your app bundle.**
+
+Nothing else changes. The OpenAI HTTP surface, backends, offload, and
+the SDK lifecycle all work as they did in v4.2.
+
+---
+
+## License
+
+v4.3.0 replaces the previous licence with the [MIT License](https://github.com/dvai-global/dvai-bridge/blob/main/LICENSE).
+The CLA is gone too: contributions are accepted under MIT.
+
+## Removed API, per SDK
+
+### TypeScript — `@dvai-bridge/core` (web, Node, React, vanilla)
+
+| Removed | What to do |
+| --- | --- |
+| `DVAIConfig.licenseKeyPath` | Delete the option. |
+| `DVAIConfig.licenseToken` | Delete the option. |
+| `DVAI.licenseStatus` | Delete reads of it. The SDK no longer has a license state. |
+| `LicenseValidator`, `LicenseRequiredError`, `DEFAULT_LICENSE_FILENAME` exports | Delete the imports and any `catch` branch for `LicenseRequiredError`. |
+| `LicenseStatus`, `LicenseTier`, `LicenseValidatorOptions`, `LicenseDiscoveryOptions`, `DvaiLicensePayload` types | Delete the imports. |
+
+Environment variables `DVAI_LICENSE_PATH`, `DVAI_LICENSE_TOKEN`,
+`DVAI_FORCE_DEV`, and `DVAI_FORCE_PROD` are no longer read. Remove them
+from your deploy config. Remove `dvai-license.jwt` from your project root /
+`public/` folder.
+
+### React Native — `@dvai-bridge/react-native`
+
+| Removed | What to do |
+| --- | --- |
+| `StartOptions.licenseKeyPath` | Delete the option. |
+| `StartOptions.licenseToken` | Delete the option. |
+
+### Capacitor — `@dvai-bridge/capacitor`
+
+| Removed | What to do |
+| --- | --- |
+| `StartOptions.licenseKeyPath` | Delete the option. |
+| `StartOptions.licenseToken` | Delete the option. |
+
+For both React Native and Capacitor, also delete `dvai-license.jwt` from the
+iOS bundle resources and the Android `res/raw` / assets folder.
+
+### Swift — `DVAIBridge` (iOS / macOS)
+
+| Removed | What to do |
+| --- | --- |
+| `StartOptions.licenseKeyPath` | Delete the argument. |
+| `StartOptions.licenseToken` | Delete the argument. |
+| `BoundServer.licenseStatus` | Delete reads of it. |
+| `LicenseValidator`, `LicenseStatus`, `LicenseRequiredError` | Delete usages and any `catch` for `LicenseRequiredError`. |
+
+Delete `dvai-license.jwt` from your app target's bundle resources.
+
+### Kotlin — `co.deepvoiceai:dvai-bridge` (Android)
+
+| Removed | What to do |
+| --- | --- |
+| `StartOptions.licenseKeyPath` | Delete the argument. |
+| `StartOptions.licenseToken` | Delete the argument. |
+| `StartOptions.hostBuildConfigDebug` | Delete the argument. |
+| `BoundServer.licenseStatus` | Delete reads of it. |
+| `co.deepvoiceai.bridge.license.*` (`LicenseValidator`, `LicenseStatus`, `LicenseRequiredError`) | Delete the imports and any `catch` for `LicenseRequiredError`. |
+
+`DVAIBridge.start()` no longer requires `DVAIBridge.init(context)` first.
+You still need `init(context)` if you enable distributed-inference
+offload (`StartOptions.offload`), because offload uses the context for
+network discovery.
+
+Delete `res/raw/dvai_license` / `dvai-license.jwt` from your app module.
+
+### C# — `DVAIBridge` NuGet family (.NET)
+
+| Removed | What to do |
+| --- | --- |
+| `StartOptions.LicenseKeyPath` | Delete the property. |
+| `StartOptions.LicenseToken` | Delete the property. |
+| `BoundServer.LicenseStatus` | Delete reads of it. |
+| `DVAIBridge.License` namespace (`LicenseValidator`, `LicenseStatus`, `LicenseRequiredException`) | Delete the `using` and any `catch (LicenseRequiredException)`. |
+
+Delete `dvai-license.jwt` from your project (and its `<Content>` /
+`<MauiAsset>` item, if you added one).
+
+### Dart — `dvai_bridge` (Flutter)
+
+| Removed | What to do |
+| --- | --- |
+| `StartOptions.licenseKeyPath` | Delete the argument. |
+| `StartOptions.licenseToken` | Delete the argument. |
+| `BoundServer.licenseStatus` | Delete reads of it. |
+| `LicenseValidator`, `LicenseStatus`, `LicenseRequiredException` | Delete usages and any `on LicenseRequiredException` clause. |
+
+Delete `dvai-license.jwt` from your `assets/` folder and its entry in
+`pubspec.yaml`.
+
+## Also in this release
+
+- **.NET iOS binding: no Mac Catalyst.** The `DVAIBridge.iOS` binding has
+  shipped without a Mac Catalyst target since 4.2.1, because LiteRT-LM has
+  no Catalyst slice. `net10.0-maccatalyst` apps can't consume it for now.
+- **Docs moved** to <https://dvai-global.github.io/dvai-bridge/>.
+
+## See also
+
+- [v3.x → v4.0](https://dvai-global.github.io/dvai-bridge/migration/v3-to-v4) — the release that added the license checker
+  (now removed).
+- [Changelog](https://github.com/dvai-global/dvai-bridge/blob/main/CHANGELOG.md) — full release notes.
 
 
 ---

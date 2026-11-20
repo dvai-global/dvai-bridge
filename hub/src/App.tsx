@@ -95,7 +95,7 @@ export function App(): React.JSX.Element {
         <div className="mb-10 px-2">
           <h2 className="text-2xl font-bold text-primary tracking-tighter">DVAI Hub</h2>
           <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant/50 font-semibold">
-            Distributed Utility v3.2.1
+            Distributed Utility v4.3.0
           </p>
         </div>
 

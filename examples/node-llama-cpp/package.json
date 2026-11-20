@@ -9,8 +9,8 @@
 	},
 	"dependencies": {
 		"@dvai-bridge/core": "workspace:*",
-		"@langchain/core": "^1.2.2",
-		"@langchain/openai": "^1.5.1",
-		"node-llama-cpp": "^3.18.1"
+		"@langchain/core": "^1.4.2",
+		"@langchain/openai": "^1.8.4",
+		"node-llama-cpp": "^3.22.3"
 	}
 }

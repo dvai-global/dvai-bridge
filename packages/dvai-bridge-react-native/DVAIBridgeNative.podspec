@@ -29,7 +29,7 @@ Pod::Spec.new do |s|
   s.name             = 'DVAIBridgeNative'
   s.version          = package['version']
   s.summary          = package['description']
-  s.license          = { :type => 'Custom', :file => '../../LICENSE' }
+  s.license          = { :type => 'MIT', :file => '../../LICENSE' }
   s.homepage         = 'https://github.com/dvai-global/dvai-bridge'
   s.author           = package['author']
   s.source           = { :git => 'https://github.com/dvai-global/dvai-bridge.git', :tag => "v#{s.version}" }
@@ -41,9 +41,9 @@ Pod::Spec.new do |s|
 
   # Dependency on the DVAIBridge umbrella pod (Phase 3C v2.1) — provides
   # `DVAIBridge.shared`, `BackendKind`, `DVAIBridgeError`, `ProgressEvent`,
-  # `BoundServer`, `DVAIBridgeConfig`. Pinned to the same minor that this
-  # package version targets.
-  s.dependency 'DVAIBridge', '~> 2.1'
+  # `BoundServer`, `DVAIBridgeConfig`. Pinned to this pod's own version:
+  # the family ships in lockstep.
+  s.dependency 'DVAIBridge', s.version.to_s
 
   # React Native New Architecture install hook. Picked up by `pod install`
   # in any RN ≥ 0.74 app; populates the right preprocessor flags, header

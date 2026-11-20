@@ -43,19 +43,11 @@ jobs:
     name: Facade + Desktop/ONNX/MLNet (Ubuntu)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      # Bypass commercial-license validation in CI test runs — none of the
-      # facade unit tests inject a license token, so without this the tests
-      # that exercise StartAsync throw LicenseRequiredException before the
-      # assertion can compare against the expected DVAIBridgeException type.
-      # Test code paths only — production consumers without a license still
-      # see the LicenseRequiredException.
-      DVAI_FORCE_DEV: '1'
     steps:
       - uses: actions/checkout@v7
 
       - name: Setup .NET ${{ env.DOTNET_VERSION }}
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -138,16 +130,11 @@ jobs:
     name: Desktop + ONNX + MLNet (Windows)
     runs-on: windows-latest
     timeout-minutes: 30
-    env:
-      # Same rationale as facade-and-net-backends — bypass license validation
-      # so the Desktop/ONNX/MLNet test assertions match the expected
-      # DVAIBridgeException type rather than LicenseRequiredException.
-      DVAI_FORCE_DEV: '1'
     steps:
       - uses: actions/checkout@v7
 
       - name: Setup .NET ${{ env.DOTNET_VERSION }}
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -185,57 +172,47 @@ jobs:
   # Android binding compile-only check on Ubuntu (no instrumentation —
   # we only verify Metadata.xml + class-parse produce a clean C# wrapper).
   # ------------------------------------------------------------------
-  android-binding:
-    name: Android binding compile (Ubuntu)
+  # ------------------------------------------------------------------
+  # Build the Kotlin AARs from THIS commit so the C# binding always matches
+  # the Kotlin API it wraps. (Pre-4.3.0 this downloaded a hard-pinned
+  # 4.0.0 AAR from Maven Central, whose file name never matched the
+  # csproj's native/dvai-bridge-$(Version).aar include.) Building here also
+  # removes the race with publish.yml on tag pushes.
+  # ------------------------------------------------------------------
+  android-aars:
+    name: Build Android AARs from source (Ubuntu)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-
-      - name: Setup .NET ${{ env.DOTNET_VERSION }}
-        uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          submodules: recursive
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: '21'
 
-      - name: Install Android workload
-        run: dotnet workload install android
-
-      - name: Cache NuGet
+      - name: Cache Gradle
         uses: actions/cache@v6
         with:
-          path: ~/.nuget/packages
-          key: nuget-android-${{ hashFiles('packages/dvai-bridge-dotnet/Directory.Packages.props') }}
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-dotnet-aars-${{ hashFiles('packages/dvai-bridge-android*/android/**/*.gradle*', 'packages/dvai-bridge-android/android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
-            nuget-android-
+            gradle-dotnet-aars-
 
-      - name: Fetch DVAI Bridge AAR + shared-core AAR + kotlin-coroutines reference jar
-        # The binding needs three native artifacts:
-        #   1. dvai-bridge-$(Version).aar          — the AAR we bind (Bind=true).
-        #   2. android-shared-core-$(Version).aar  — class-parse reference for
-        #      CorsConfig + OffloadConfig, which appear in StartOptions' 22-arg
-        #      constructor. Without this the 22-arg ctor is silently dropped
-        #      and StartOptions becomes uneditable from C#.
-        #   3. kotlin-coroutines-min.jar           — class-parse reference for
-        #      kotlin.coroutines.Continuation so the AAR's `suspend fun`
-        #      methods bind as Continuation-form (we wrap them in Task<T>
-        #      via TaskContinuation<T> in AndroidNativeBridge.cs). Trimmed
-        #      from upstream kotlin-stdlib-2.3.21.jar so we only pull the
-        #      ~10 classes class-parse needs — avoids polluting the
-        #      generated C# surface with 600+ kotlin internals.
+      - name: Build umbrella + shared-core AARs and kotlin-coroutines reference jar
         run: |
-          mkdir -p packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native
-          curl -L \
-            "https://repo1.maven.org/maven2/co/deepvoiceai/dvai-bridge/4.0.0/dvai-bridge-4.0.0.aar" \
-            -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/dvai-bridge-4.0.0.aar
-          curl -L \
-            "https://repo1.maven.org/maven2/co/deepvoiceai/android-shared-core/4.0.0/android-shared-core-4.0.0.aar" \
-            -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/android-shared-core-4.0.0.aar
+          VER=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' packages/dvai-bridge-dotnet/Directory.Build.props)
+          for m in shared-core llama-core mediapipe-core litert-core; do
+            (cd packages/dvai-bridge-android-$m/android && ./gradlew publishToMavenLocal --no-daemon --stacktrace)
+          done
+          (cd packages/dvai-bridge-android/android && ./gradlew assembleRelease --no-daemon --stacktrace)
+          mkdir -p out
+          cp packages/dvai-bridge-android/android/build/outputs/aar/dvai-bridge-android-release.aar "out/dvai-bridge-$VER.aar"
+          cp packages/dvai-bridge-android-shared-core/android/build/outputs/aar/dvai-bridge-android-shared-core-release.aar "out/android-shared-core-$VER.aar"
           curl -L \
             "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.jar" \
             -o /tmp/kotlin-stdlib-2.3.21.jar
@@ -252,8 +229,50 @@ jobs:
             'kotlin/Unit.class'
           jar cf /tmp/kotlin-coroutines-min.jar kotlin
           cd -
-          cp /tmp/kotlin-coroutines-min.jar packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/kotlin-coroutines-min.jar
+          cp /tmp/kotlin-coroutines-min.jar out/kotlin-coroutines-min.jar
+          ls -la out
 
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android-aars
+          path: out/
+          if-no-files-found: error
+
+  android-binding:
+    name: Android binding compile (Ubuntu)
+    needs: android-aars
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Android workload
+        run: dotnet workload install android
+
+      - name: Cache NuGet
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-android-${{ hashFiles('packages/dvai-bridge-dotnet/Directory.Packages.props') }}
+          restore-keys: |
+            nuget-android-
+
+      - name: Download Android AARs built from this commit
+        uses: actions/download-artifact@v8
+        with:
+          name: android-aars
+          path: packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native
       - name: Restore Android binding
         working-directory: packages/dvai-bridge-dotnet
         run: dotnet restore src/DVAIBridge.Android/DVAIBridge.Android.csproj
@@ -269,7 +288,8 @@ jobs:
   # NuGet IDs.
   # ------------------------------------------------------------------
   ios-catalyst-and-pack:
-    name: iOS + Catalyst + xcframework + pack (macOS)
+    name: iOS + xcframework + pack (macOS)
+    needs: android-aars
     runs-on: macos-latest
     # Bumped to 150 minutes — cold-cache run hit the 90 min cap at
     # step #10 mid-xcframework build (run 26141432701). With the llama
@@ -302,7 +322,7 @@ jobs:
           submodules: recursive
 
       - name: Setup .NET ${{ env.DOTNET_VERSION }}
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -381,7 +401,7 @@ jobs:
         # the dirs already.
         run: bash scripts/mac-side-prepare-xcframework.sh
 
-      - name: Build xcframework (iOS + Catalyst slices)
+      - name: Build xcframework (iOS slices)
         working-directory: packages/dvai-bridge-dotnet/src/DVAIBridge.iOS/native
         run: bash build-xcframework.sh
 
@@ -389,40 +409,16 @@ jobs:
         run: bash scripts/mac-side-prepare-llama-desktop.sh
         continue-on-error: true
 
-      - name: Fetch DVAI Bridge AAR + shared-core AAR + kotlin-coroutines reference jar
-        # Same artifact set as the android-binding job — see that job for
-        # the rationale on each curl + jar build step.
-        run: |
-          mkdir -p packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native
-          curl -L \
-            "https://repo1.maven.org/maven2/co/deepvoiceai/dvai-bridge/4.0.0/dvai-bridge-4.0.0.aar" \
-            -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/dvai-bridge-4.0.0.aar
-          curl -L \
-            "https://repo1.maven.org/maven2/co/deepvoiceai/android-shared-core/4.0.0/android-shared-core-4.0.0.aar" \
-            -o packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/android-shared-core-4.0.0.aar
-          curl -L \
-            "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.jar" \
-            -o /tmp/kotlin-stdlib-2.3.21.jar
-          mkdir -p /tmp/k && cd /tmp/k
-          unzip -q -o /tmp/kotlin-stdlib-2.3.21.jar \
-            'kotlin/coroutines/Continuation.class' \
-            'kotlin/coroutines/CoroutineContext.class' \
-            'kotlin/coroutines/CoroutineContext$*.class' \
-            'kotlin/coroutines/EmptyCoroutineContext.class' \
-            'kotlin/Result.class' \
-            'kotlin/Result$*.class' \
-            'kotlin/jvm/functions/Function1.class' \
-            'kotlin/jvm/functions/Function2.class' \
-            'kotlin/Unit.class'
-          jar cf /tmp/kotlin-coroutines-min.jar kotlin
-          cd -
-          cp /tmp/kotlin-coroutines-min.jar packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native/kotlin-coroutines-min.jar
-
+      - name: Download Android AARs built from this commit
+        uses: actions/download-artifact@v8
+        with:
+          name: android-aars
+          path: packages/dvai-bridge-dotnet/src/DVAIBridge.Android/native
       - name: Restore solution
         working-directory: packages/dvai-bridge-dotnet
         run: dotnet restore DVAIBridge.sln
 
-      - name: Build iOS + Catalyst binding (multi-target)
+      - name: Build iOS binding
         working-directory: packages/dvai-bridge-dotnet
         run: dotnet build src/DVAIBridge.iOS/DVAIBridge.iOS.csproj -c Release --no-restore
 

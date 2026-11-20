@@ -47,18 +47,7 @@ let package = Package(
     dependencies: [
         // Path-based: the monorepo's iOS umbrella lives at
         // packages/dvai-bridge-ios relative to the repo root.
-        .package(name: "DVAIBridge", path: "../../../../dvai-bridge-ios"),
-        // Pin swift-certificates to 1.18.0 because 1.19.x has Swift
-        // strict-init regressions in `_CertificateInternals/_TinyArray.swift`
-        // (`'self.init' isn't called on all paths` + `'self' used before
-        // 'self.init'`) that block xcodebuild archive under the current
-        // macos-latest Xcode toolchain. Declared here even though we
-        // don't import swift-certificates directly — jwt-kit pulls it
-        // transitively, and SwiftPM resolves a single global version
-        // across the dep graph, so this `exact` constraint forces the
-        // good version everywhere. Remove once upstream 1.20.x ships
-        // with the fix.
-        .package(url: "https://github.com/apple/swift-certificates.git", exact: "1.18.0")
+        .package(name: "DVAIBridge", path: "../../../../dvai-bridge-ios")
     ],
     targets: [
         .target(

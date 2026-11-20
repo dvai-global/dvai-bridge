@@ -19,17 +19,13 @@
     <id>DVAIBridge</id>
     <version>$version$</version>
     <title>DVAIBridge — local LLM bridge for .NET MAUI / Avalonia / WinUI</title>
-    <authors>Deep Voice AI</authors>
-    <owners>Deep Voice AI</owners>
-    <!--
-      Custom license (DVAI Bridge Community Licence v1.0) — shipped as a
-      file inside the .nupkg, since it's not an SPDX identifier.
-    -->
-    <license type="file">LICENSE</license>
+    <authors>DVAI-Bridge contributors</authors>
+    <owners>DVAI-Bridge contributors</owners>
+        <license type="expression">MIT</license>
     <projectUrl>https://github.com/dvai-global/dvai-bridge</projectUrl>
     <repository type="git" url="https://github.com/dvai-global/dvai-bridge.git" />
-    <description>Embeds an OpenAI-compatible HTTP server inside your .NET app process (127.0.0.1:38883, /v1/chat/completions, /v1/embeddings, /v1/models, SSE streaming). Any OpenAI client speaks to it — the OpenAI .NET SDK, Semantic Kernel, LangChain.NET, anything pointing a `baseUrl` at an HTTP endpoint. Why not Ollama / LM Studio / llama-server? Those are servers your END USERS install. DVAIBridge ships INSIDE your app's binary — `dotnet add package DVAIBridge`, build, run. Zero setup for the user. Cross-platform: net10.0 (Desktop) / net10.0-ios26.5 / net10.0-android36.0. Mac Catalyst is temporarily off in v4.2.x while LiteRT-LM lands — coming back in v4.3.0. Backends: llama.cpp (Metal / CUDA / Vulkan / DirectML), Apple Foundation Models, CoreML / ANE, MLX, MediaPipe LLM, LiteRT, ONNX Runtime GenAI, ML.NET — engine selected at runtime by device capability. Same OpenAI wire as the dvai-bridge family on iOS (CocoaPods), Android (Maven Central), Flutter (pub.dev), React Native + Capacitor + browser + Node (npm). One library, every client platform, identical request/response shapes. Reactive progress via IAsyncEnumerable&lt;ProgressEvent&gt;. Optional LAN-mDNS + self-hostable WebSocket rendezvous for transparent peer offload. Docs + architecture: https://bridge.deepvoiceai.co</description>
-    <copyright>Copyright (c) 2026 Deep Voice AI</copyright>
+    <description>Embeds an OpenAI-compatible HTTP server inside your .NET app process (127.0.0.1:38883, /v1/chat/completions, /v1/embeddings, /v1/models, SSE streaming). Any OpenAI client speaks to it — the OpenAI .NET SDK, Semantic Kernel, LangChain.NET, anything pointing a `baseUrl` at an HTTP endpoint. Why not Ollama / LM Studio / llama-server? Those are servers your END USERS install. DVAIBridge ships INSIDE your app's binary — `dotnet add package DVAIBridge`, build, run. Zero setup for the user. Cross-platform: net10.0 (Desktop) / net10.0-ios26.5 / net10.0-android36.0. Mac Catalyst is temporarily off (LiteRT-LM ships no Catalyst slice). Backends: llama.cpp (Metal / CUDA / Vulkan / DirectML), Apple Foundation Models, CoreML / ANE, MLX, MediaPipe LLM, LiteRT, ONNX Runtime GenAI, ML.NET — engine selected at runtime by device capability. Same OpenAI wire as the dvai-bridge family on iOS (CocoaPods), Android (Maven Central), Flutter (pub.dev), React Native + Capacitor + browser + Node (npm). One library, every client platform, identical request/response shapes. Reactive progress via IAsyncEnumerable&lt;ProgressEvent&gt;. Optional LAN-mDNS + self-hostable WebSocket rendezvous for transparent peer offload. Docs + architecture: https://dvai-global.github.io/dvai-bridge/</description>
+    <copyright>Copyright (c) 2026 Deep Chakraborty and DVAI-Bridge contributors</copyright>
     <tags>llm ai openai ios android maui avalonia winui local-inference llama-cpp mediapipe litert mlx coreml foundation-models</tags>
     <readme>README.md</readme>
     <dependencies>

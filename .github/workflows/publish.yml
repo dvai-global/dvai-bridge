@@ -61,12 +61,12 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v6.1.1
         with:
           version: 10
 
       - name: Set up Node.js (npmjs.org registry)
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: 'pnpm'
@@ -129,7 +129,7 @@ jobs:
           # configureCMakeRelWithDebInfo task dies with CXX1429 'cannot find
           # llama.cpp/CMakeLists.txt' (run 26364994303 hit exactly this).
           submodules: recursive
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -331,7 +331,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.44.0'
+          flutter-version: '3.50.1'
       - name: Authenticate with pub.dev (long-lived credentials JSON)
         # PUB_CREDENTIALS_JSON is the contents of `~/.config/dart/pub-credentials.json`
         # after a local `dart pub login`. The token doesn't expire as

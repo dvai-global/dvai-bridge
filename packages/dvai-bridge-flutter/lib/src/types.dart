@@ -6,7 +6,6 @@
 
 import 'package:meta/meta.dart';
 
-import 'license/types.dart';
 import 'messages.g.dart' as wire;
 import 'offload.dart';
 
@@ -164,8 +163,6 @@ class StartOptions {
     this.logLevel,
     this.autoUnloadOnLowMemory,
     this.offload,
-    this.licenseKeyPath,
-    this.licenseToken,
   });
 
   /// Which backend to start. Pass [BackendKind.auto] to resolve at runtime.
@@ -255,21 +252,6 @@ class StartOptions {
   /// listen to a [Stream] of [PairingRequest] values instead.
   final OffloadConfig? offload;
 
-  /// v3.3+ — offline JWT commercial license. Filesystem path or
-  /// asset key the SDK will load the signed `.jwt` license token
-  /// from. Skipped when [licenseToken] is also set. See the
-  /// `LicenseValidator` doc-comments for the full discovery order
-  /// (inline token → explicit path → env vars → bundled asset →
-  /// documents directory).
-  final String? licenseKeyPath;
-
-  /// v3.3+ — offline JWT commercial license. Pre-loaded JWT string
-  /// to validate. Wins over [licenseKeyPath] and every auto-discovery
-  /// path. Use this when the license travels with the build via a
-  /// secret-injection step (CI / serverless deploy) rather than as a
-  /// file the user drops at a path.
-  final String? licenseToken;
-
   /// Returns a copy of this object with the given fields replaced.
   StartOptions copyWith({
     BackendKind? backend,
@@ -293,8 +275,6 @@ class StartOptions {
     LogLevel? logLevel,
     bool? autoUnloadOnLowMemory,
     OffloadConfig? offload,
-    String? licenseKeyPath,
-    String? licenseToken,
   }) {
     return StartOptions(
       backend: backend ?? this.backend,
@@ -319,8 +299,6 @@ class StartOptions {
       autoUnloadOnLowMemory:
           autoUnloadOnLowMemory ?? this.autoUnloadOnLowMemory,
       offload: offload ?? this.offload,
-      licenseKeyPath: licenseKeyPath ?? this.licenseKeyPath,
-      licenseToken: licenseToken ?? this.licenseToken,
     );
   }
 
@@ -362,24 +340,16 @@ class BoundServer {
     required this.port,
     required this.backend,
     required this.modelId,
-    this.licenseStatus,
   });
 
-  /// Decode from the Pigeon wire format. The [licenseStatus] is
-  /// attached separately by the Dart-side validator since license
-  /// verification happens entirely in Dart — the native side never
-  /// sees the JWT.
-  factory BoundServer.fromMessage(
-    wire.BoundServerMessage msg, {
-    LicenseStatus? licenseStatus,
-  }) {
+  /// Decode from the Pigeon wire format.
+  factory BoundServer.fromMessage(wire.BoundServerMessage msg) {
     return BoundServer(
       baseUrl: msg.baseUrl,
       port: msg.port,
       backend:
           BackendKind.fromWire(msg.backend) ?? BackendKind.auto,
       modelId: msg.modelId,
-      licenseStatus: licenseStatus,
     );
   }
 
@@ -398,13 +368,6 @@ class BoundServer {
   /// field of every OpenAI response.
   final String modelId;
 
-  /// v3.3+ — result of the offline license-validation step that ran
-  /// during [DVAIBridge.start]. Always set to a [Commercial] / [Trial]
-  /// / [FreeDev] value (the [FreeProd] / [FreeExpired] branches throw
-  /// before [BoundServer] is constructed). Host-app dashboards
-  /// dispatch on this to display the licensee / expiry.
-  final LicenseStatus? licenseStatus;
-
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) {
@@ -414,18 +377,17 @@ class BoundServer {
         other.baseUrl == baseUrl &&
         other.port == port &&
         other.backend == backend &&
-        other.modelId == modelId &&
-        other.licenseStatus == licenseStatus;
+        other.modelId == modelId;
   }
 
   @override
   int get hashCode =>
-      Object.hash(baseUrl, port, backend, modelId, licenseStatus);
+      Object.hash(baseUrl, port, backend, modelId);
 
   @override
   String toString() {
     return 'BoundServer(baseUrl: $baseUrl, port: $port, backend: $backend, '
-        'modelId: $modelId, licenseStatus: ${licenseStatus?.kind})';
+        'modelId: $modelId)';
   }
 }
 

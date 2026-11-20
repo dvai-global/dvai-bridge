@@ -118,7 +118,7 @@ export interface StartOptions {
    * (and optionally a rendezvous WebSocket) to find peer dvai-bridge
    * instances and offloads inference requests when the local device
    * can't serve the model fast enough. See
-   * [the distributed-inference guide](https://bridge.deepvoiceai.co/guide/distributed-inference)
+   * [the distributed-inference guide](https://dvai-global.github.io/dvai-bridge/guide/distributed-inference)
    * for the full contract.
    *
    * Pairing-request UI is surfaced via the `"pairingRequest"` event
@@ -127,44 +127,6 @@ export interface StartOptions {
    * boundary, so RN consumers use the event surface instead.
    */
   offload?: OffloadConfig;
-
-  /**
-   * v3.2.2+ — path (or fetchable URL) to your DVAI-Bridge license JWT.
-   *
-   * Forwarded as-is to the iOS / Android TurboModule, which runs the
-   * authoritative offline JWT verification (signature + expiry +
-   * audience + platform binding) against the platform's native bundle
-   * identifier (`Bundle.main.bundleIdentifier` on iOS,
-   * `context.packageName` on Android). React Native's JS layer cannot
-   * read those identifiers, so license enforcement lives entirely on
-   * the native side; the JS layer's only job is to pass the field
-   * through.
-   *
-   * Override priority on the native side (matches the JS-side
-   * `DVAIConfig`):
-   *   1. `licenseToken` (below) — inline JWT string, highest priority
-   *   2. `licenseKeyPath` (this field) — explicit path or URL
-   *   3. Platform default locations + env-var fallbacks
-   *
-   * Free-tier behaviour (no license, expired, invalid) is enforced by
-   * the native validator and surfaced via `DVAIBridgeError` with the
-   * native side's chosen `kind`. The JS layer never inspects this
-   * value beyond forwarding it.
-   */
-  licenseKeyPath?: string;
-
-  /**
-   * v3.2.2+ — inline DVAI-Bridge license JWT (the full token string).
-   *
-   * Use when fetching the token at runtime (e.g. from your backend
-   * after the user signs in) rather than shipping a file alongside
-   * the app bundle. Useful for OTA license refresh or multi-tenant
-   * deployments where the same RN binary serves multiple licensees.
-   *
-   * If both `licenseToken` and `licenseKeyPath` are set, `licenseToken`
-   * wins on the native side.
-   */
-  licenseToken?: string;
 }
 
 /**
@@ -174,7 +136,7 @@ export interface StartOptions {
  * representable across the TurboModule boundary, so they're surfaced via
  * the {@link DVAIBridge.addListener} event channel instead.
  *
- * See [the distributed-inference guide](https://bridge.deepvoiceai.co/guide/distributed-inference)
+ * See [the distributed-inference guide](https://dvai-global.github.io/dvai-bridge/guide/distributed-inference)
  * for the full feature description.
  */
 export interface OffloadConfig {

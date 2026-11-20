@@ -13,7 +13,8 @@
 //
 // Conventions:
 //
-//   - All `@HostApi()` methods are `@async` so they map to Dart `Future<T>`
+//   - All `@HostApi()` methods are `@asyncCallback` (pigeon 28+; plain
+//     `@async` now emits Kotlin `suspend` / Swift `async`) so they map to Dart `Future<T>`
 //     and Swift / Kotlin completion-handler signatures. The native plugin
 //     impls bridge `await DVAIBridge.shared.start(...)` (Swift) or
 //     `DVAIBridge.start(...)` (Kotlin) into the completion handler from
@@ -282,16 +283,16 @@ class ProgressEventMessage {
 /// the native plugin classes implement it.
 @HostApi()
 abstract class DVAIBridgeHostApi {
-  @async
+  @asyncCallback
   BoundServerMessage startBridge(StartOptionsMessage opts);
 
-  @async
+  @asyncCallback
   void stopBridge();
 
-  @async
+  @asyncCallback
   StatusInfoMessage status();
 
-  @async
+  @asyncCallback
   DownloadResultMessage downloadModel(DownloadOptionsMessage opts);
 
   /// v3.0+ — Phase 3 distributed inference. Resolve a pending pairing
@@ -299,9 +300,9 @@ abstract class DVAIBridgeHostApi {
   /// matches the `id` field of the [PairingRequestMessage] payload.
   /// `approved=true` lets the inbound peer pair; `false` rejects.
   ///
-  /// Idempotent — responding twice to the same `requestId` resolves
-  /// cleanly on subsequent calls.
-  @async
+  /// Answer each request once. An unknown, expired or already-answered
+  /// `requestId` fails with a `configurationInvalid` error.
+  @asyncCallback
   void respondToPairingRequest(String requestId, bool approved);
 
   /// v3.2 — pre-init hardware assessment. Returns a structured result
@@ -309,6 +310,7 @@ abstract class DVAIBridgeHostApi {
   /// any model download/load. The SDK never shows UI for hardware
   /// decisions; consumers query this and decide their own UX based
   /// on `result.mode`.
+  @asyncCallback
   HardwareAssessmentMessage assessHardware(
     double hardwareMinimum,
     double minLocalCapability,

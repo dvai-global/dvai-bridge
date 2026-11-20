@@ -31,11 +31,6 @@ function Chat() {
 That's the library, end to end. The rest of this page is for the cases
 where the React snippet above doesn't match your stack.
 
-::: tip Going to production?
-You need a license JWT before the SDK runs outside `localhost`. See
-[License setup](./license/) for the per-platform walkthrough.
-:::
-
 ## Install
 
 Pick the core package, plus the backends you plan to use.
@@ -272,7 +267,7 @@ Any OpenAI client — Node, .NET, Python, Swift, anything — points at
 
 ## Next steps
 
-- [Pick your platform](/guide/license/) — per-SDK setup + license JWT.
+- [Examples](/guide/examples) — a runnable app for every platform.
 - [Backends](/guide/backends) — pick or override the engine.
 - [Transports](/guide/transports) — how the HTTP wire actually works on each runtime.
 - [How it compares](/guide/comparison) — DVAI-Bridge vs Ollama, LiteLLM, LangChain, and QVAC.

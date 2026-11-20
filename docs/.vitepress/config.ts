@@ -3,24 +3,14 @@ import llmstxt from "vitepress-plugin-llms";
 
 export default defineConfig({
 	title: "DVAI-Bridge",
-	description: "One local OpenAI server, embedded in your Web, iOS, Android, React Native, Flutter, or .NET app. Six SDKs, nine backends, one HTTP surface.",
-	// Site is served at https://bridge.deepvoiceai.co/docs/ — Apache vhost
-	// proxies the root to the Fastify portal and serves /docs/* directly
-	// from /var/www/dvai-bridge-docs/. Without this, VitePress emits
-	// root-relative asset URLs (/assets/...) which 404 because they hit
-	// the Fastify proxy instead of the static-files alias.
-	base: "/docs/",
+	description: "One local OpenAI server, embedded in your Web, iOS, Android, React Native, Flutter, or .NET app. Six SDKs, ten backends, one HTTP surface. MIT licensed.",
+	// Served from GitHub Pages at https://dvai-global.github.io/dvai-bridge/
+	// (project site, so every URL lives under the repo-name prefix).
+	base: "/dvai-bridge/",
 	head: [
-		[
-			"script",
-			{
-				defer: "defer",
-				src: "https://app.lemonsqueezy.com/js/lemon.js",
-			},
-		],
 		// head entries are emitted verbatim — VitePress does NOT apply
 		// `base` to user-supplied href values. Prefix manually.
-		["link", { rel: "icon", href: "/docs/favicon.png", type: "image/x-png" }],
+		["link", { rel: "icon", href: "/dvai-bridge/favicon.png", type: "image/x-png" }],
 	],
 	// Ignore dead links that point outside the published docs tree:
 	// - `../../CHANGELOG` from `docs/migration/*.md` resolves to the repo-root
@@ -91,22 +81,6 @@ export default defineConfig({
 				],
 			},
 			{
-				text: "License setup",
-				collapsed: false,
-				items: [
-					{ text: "Overview", link: "/guide/license/" },
-					{ text: "Web", link: "/guide/license/web" },
-					{ text: "Node", link: "/guide/license/node" },
-					{ text: "iOS", link: "/guide/license/ios" },
-					{ text: "Android", link: "/guide/license/android" },
-					{ text: ".NET", link: "/guide/license/dotnet" },
-					{ text: "Flutter", link: "/guide/license/flutter" },
-					{ text: "React Native", link: "/guide/license/react-native" },
-					{ text: "Capacitor", link: "/guide/license/capacitor" },
-					{ text: "Pre-init inspection", link: "/guide/license/pre-init-inspection" },
-				],
-			},
-			{
 				text: "API Reference",
 				items: [
 					{ text: "Core Options", link: "/reference/api" },
@@ -117,6 +91,7 @@ export default defineConfig({
 			{
 				text: "Migration Guides",
 				items: [
+					{ text: "v4.2 → v4.3 (MIT)", link: "/migration/v4.2-to-v4.3" },
 					{ text: "v3.x → v4.0", link: "/migration/v3-to-v4" },
 					{ text: "v3.0 → v3.1", link: "/migration/v3.0-to-v3.1" },
 					{ text: "v2.4 → v3.0", link: "/migration/v2.4-to-v3.0" },
@@ -153,9 +128,8 @@ export default defineConfig({
 			{ icon: "github", link: "https://github.com/dvai-global/dvai-bridge" },
 		],
 		footer: {
-			message: "Released under Custom License.",
-			copyright:
-				'Copyright © 2026 <a href="https://deepvoiceai.co" target="_blank" rel="noopener">Deep Voice AI Limited</a>',
+			message: "Released under the MIT License.",
+			copyright: "Copyright © 2026 Deep Chakraborty and DVAI-Bridge contributors",
 		},
 	},
 });

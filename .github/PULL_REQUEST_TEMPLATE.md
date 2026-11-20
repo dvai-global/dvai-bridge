@@ -28,13 +28,13 @@ Fixes #NNN / Refs #NNN. -->
 Tests are required when:
   - Behaviour changes (new test + assertion).
   - Bug fixes (regression test that fails on the old code).
-  - License / security paths (must add unit tests).
+  - Security-sensitive paths (must add unit tests).
 -->
 
 ## Checklist
 
 - [ ] PR title follows `<module>: <imperative summary>` (e.g.
-      `core: fix license JWT replay edge case`). Will be the squash
+      `core: fix SSE stream close on abort`). Will be the squash
       commit subject — keep it under 70 chars.
 - [ ] `CHANGELOG.md` updated under `## [Unreleased]` if this is
       consumer-visible.
@@ -45,14 +45,6 @@ Tests are required when:
 - [ ] No new lint warnings.
 - [ ] No new secrets, credentials, or large binaries committed.
 - [ ] If breaking: a `docs/migration/vX-to-vY.md` entry exists.
-
-## Contributor Licence Agreement
-
-- [ ] I have read and agree to the [DVAI Bridge Contributor Licence
-      Agreement](https://bridge.deepvoiceai.co/cla). The CLA Assistant
-      bot will also prompt me to sign before merge; this checkbox is a
-      good-faith acknowledgement, not a substitute for the bot's
-      signature flow.
 
 ## Breaking change notes
 

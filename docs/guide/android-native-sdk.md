@@ -276,7 +276,7 @@ missing.
 
 ## Distributed inference (Phase 3)
 
-`StartOptions` accepts an optional [`OffloadConfig`](https://bridge.deepvoiceai.co/docs/guide/distributed-inference)
+`StartOptions` accepts an optional [`OffloadConfig`](./distributed-inference)
 that turns on LAN peer discovery + capability-aware request offload.
 
 ```kotlin

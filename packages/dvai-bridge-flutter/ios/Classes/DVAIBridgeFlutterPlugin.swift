@@ -42,6 +42,10 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
   /// the plugin instance (Flutter doesn't retain stream handlers itself).
   private var progressStreamHandler: ProgressStreamHandler?
 
+  /// Pairing-request stream handler; also owns the id → request map that
+  /// `respondToPairingRequest` resolves against.
+  private let pairingStreamHandler = PairingStreamHandler()
+
   public static func register(with registrar: any FlutterPluginRegistrar) {
     let plugin = DVAIBridgeFlutterPlugin()
     DVAIBridgeHostApiSetup.setUp(binaryMessenger: registrar.messenger(), api: plugin)
@@ -52,6 +56,14 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
       with: registrar.messenger(),
       streamHandler: streamHandler
     )
+    PairingRequestEventsStreamHandler.register(
+      with: registrar.messenger(),
+      streamHandler: plugin.pairingStreamHandler
+    )
+  }
+
+  public func detachFromEngine(for registrar: any FlutterPluginRegistrar) {
+    pairingStreamHandler.stop()
   }
 
   // MARK: - DVAIBridgeHostApi
@@ -64,6 +76,9 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
       do {
         let config = try DVAIBridgeFlutterPlugin.makeConfig(from: opts)
         let server = try await DVAIBridge.shared.start(config)
+        // The pairing stream is per-run (created by start()), so a listener
+        // attached before start is re-pointed at it.
+        self.pairingStreamHandler.resubscribe()
         completion(.success(DVAIBridgeFlutterPlugin.toMessage(server)))
       } catch let bridgeError as DVAIBridgeError {
         completion(.failure(DVAIBridgeFlutterPlugin.toPigeonError(bridgeError)))
@@ -176,6 +191,23 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
       gpuClass: a.hints.gpuClass.rawValue,
       cpuClass: a.hints.cpuClass.rawValue
     )))
+  }
+
+  public func respondToPairingRequest(
+    requestId: String,
+    approved: Bool,
+    completion: @escaping (Result<Void, Error>) -> Void
+  ) {
+    guard let req = pairingStreamHandler.take(requestId) else {
+      completion(.failure(PigeonError(
+        code: "configurationInvalid",
+        message: "Unknown or already-resolved pairing request id: \(requestId)",
+        details: nil
+      )))
+      return
+    }
+    req.respond(approved: approved)
+    completion(.success(()))
   }
 
   // MARK: - Translation helpers
@@ -305,6 +337,101 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
         message: event.message,
         errorKind: event.phase == .error ? "backendError" : nil,
         errorMessage: event.phase == .error ? event.message : nil
+      )
+    }
+  }
+
+  // MARK: - Pairing-request event channel
+
+  /// Stream handler for the Pigeon `pairingRequestEvents` channel. Iterates
+  /// `DVAIBridge.shared.pairingRequests()`, tags each request with a fresh
+  /// id and parks it in `pending` until `respondToPairingRequest` takes it.
+  final class PairingStreamHandler: PigeonEventChannelWrapper<PairingRequestMessage> {
+    private let lock = NSLock()
+    private var pending: [String: PairingRequest] = [:]
+    private var sink: PigeonEventSink<PairingRequestMessage>?
+    private var task: Task<Void, Never>?
+
+    override func onListen(
+      withArguments arguments: Any?,
+      sink: PigeonEventSink<PairingRequestMessage>
+    ) {
+      lock.lock()
+      self.sink = sink
+      lock.unlock()
+      resubscribe()
+    }
+
+    override func onCancel(withArguments arguments: Any?) {
+      stop()
+    }
+
+    /// (Re)iterate the current run's stream. No-op without a listener.
+    func resubscribe() {
+      lock.lock()
+      defer { lock.unlock() }
+      guard let sink = sink else { return }
+      task?.cancel()
+      task = Task { [weak self] in
+        let stream = await DVAIBridge.shared.pairingRequests()
+        // ponytail: entries for requests that time out natively stay
+        // until answered or the stream is cancelled.
+        for await req in stream {
+          guard let self = self, !Task.isCancelled else { return }
+          let message = PairingStreamHandler.toMessage(id: self.park(req), req)
+          DispatchQueue.main.async { sink.success(message) }
+        }
+      }
+    }
+
+    /// Store `req` under a fresh id. Sync so the lock isn't taken from an
+    /// async context.
+    private func park(_ req: PairingRequest) -> String {
+      let id = UUID().uuidString
+      lock.lock()
+      pending[id] = req
+      lock.unlock()
+      return id
+    }
+
+    func take(_ id: String) -> PairingRequest? {
+      lock.lock()
+      defer { lock.unlock() }
+      return pending.removeValue(forKey: id)
+    }
+
+    func stop() {
+      lock.lock()
+      task?.cancel()
+      task = nil
+      sink = nil
+      pending.removeAll()
+      lock.unlock()
+    }
+
+    static func toMessage(id: String, _ req: PairingRequest) -> PairingRequestMessage {
+      let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
+      let via: String
+      switch req.via {
+      case .lanHandshake:
+        via = "mdns"
+      case .rendezvousQR:
+        via = "rendezvous"
+      }
+      return PairingRequestMessage(
+        id: id,
+        peer: PeerMessage(
+          deviceId: req.peerDeviceId,
+          deviceName: req.peerDeviceName,
+          dvaiVersion: "",
+          baseUrl: "",
+          loadedModels: [],
+          capability: [],
+          via: via,
+          secure: false,
+          lastSeenAt: nowMs
+        ),
+        expiresAt: nowMs + Int64(PairingPolicy.defaultResponseTimeoutSeconds * 1000)
       )
     }
   }

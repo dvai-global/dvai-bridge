@@ -4,41 +4,37 @@
     inherits versions from this file — there are no <Version> attributes on
     PackageReference items in any csproj. Single source of truth.
 
-    Pinned versions (latest stable at 2026-04-27 — verify before tag):
-      - Microsoft.NET.Test.Sdk 17.13.0  (Visual Studio Test Platform shim, .NET 10-ready)
-      - xunit 2.9.x                    (xUnit v2 LTS line; v3 is GA but still maturing for CI ergonomics)
-      - xunit.runner.visualstudio 3.0  (matches xunit 2.9.x)
-      - Moq 4.20.x                     (latest stable; we use it for INativeBridge fakes)
-      - coverlet.collector 6.0.x       (XPlat Code Coverage in CI)
-      - Microsoft.SourceLink.GitHub 8.0.0 (deterministic builds + sourcelink)
+    Pinned versions (latest stable at 2026-11-20, v4.3.0 dep sweep):
+      - Microsoft.NET.Test.Sdk 18.12.0
+      - xunit 2.9.3                    (latest v2; xunit.v3 migration tracked separately)
+      - xunit.runner.visualstudio 4.0.1 (still runs xunit v2 tests)
+      - Moq 4.21.0, coverlet.collector 10.1.1
+      - Microsoft.SourceLink.GitHub 11.0.100 (10.0.300 pulled Microsoft.Build.Tasks.Git with NU1902)
   -->
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
     <!-- Test stack -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.0.0" />
-    <PackageVersion Include="Moq" Version="4.20.72" />
-    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+    <PackageVersion Include="Moq" Version="4.21.0" />
+    <PackageVersion Include="coverlet.collector" Version="10.1.1" />
     <!-- Source link -->
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.300" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100" />
 
     <!-- ONNX Runtime + GenAI backend (Task 18-19, rev 2) -->
-    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.27.0" />
-    <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.14.1" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.32.0" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI" Version="0.20.0" />
 
     <!-- ML.NET backend (Task 21, rev 2) -->
-    <PackageVersion Include="Microsoft.ML" Version="5.0.0" />
-    <PackageVersion Include="Microsoft.ML.OnnxTransformer" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.ML" Version="6.0.0" />
+    <PackageVersion Include="Microsoft.ML.OnnxTransformer" Version="6.0.0" />
     <!-- Used by the MLNet path's hand-rolled tokenizer + sampler (Task 21) -->
-    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
+    <PackageVersion Include="Microsoft.ML.Tokenizers" Version="3.0.0" />
 
     <!-- mDNS / DNS-SD for desktop LAN peer discovery (Task 8e — Phase 3 distributed inference) -->
     <PackageVersion Include="Makaretu.Dns.Multicast" Version="0.27.0" />
-
-    <!-- Offline JWT license validator (ES256 verification) — used by DVAIBridge.License. -->
-    <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.18.0" />
   </ItemGroup>
 </Project>

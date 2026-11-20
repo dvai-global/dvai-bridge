@@ -2,7 +2,7 @@ package co.deepvoiceai.bridge.shared.core
 
 import io.ktor.server.application.*
 import io.ktor.server.cio.CIO
-import io.ktor.server.engine.ApplicationEngine
+import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.*
 import kotlinx.coroutines.delay
@@ -10,13 +10,13 @@ import kotlinx.coroutines.delay
 /**
  * Wraps Ktor's CIO embedded server with port-fallback bind logic.
  *
- * Ktor 2.3.7's `embeddedServer(CIO, ...) { ... }` returns a
- * `BaseApplicationEngine` which is a subtype of [ApplicationEngine].
- * We hold the engine through that interface — `start(wait)` and
+ * Ktor 3's `embeddedServer(CIO, ...) { ... }` returns an
+ * [EmbeddedServer] wrapping the CIO engine.
+ * We hold it directly — `start(wait)` and
  * `stop(...)` are defined on it.
  */
 class HttpServer {
-    @Volatile private var engine: ApplicationEngine? = null
+    @Volatile private var engine: EmbeddedServer<*, *>? = null
     @Volatile var boundPort: Int? = null
         private set
 
@@ -29,7 +29,7 @@ class HttpServer {
         val lastPort = basePort + maxAttempts - 1
         for (i in 0 until maxAttempts) {
             val port = basePort + i
-            val candidate: ApplicationEngine = embeddedServer(CIO, port = port, host = host) {
+            val candidate: EmbeddedServer<*, *> = embeddedServer(CIO, port = port, host = host) {
                 // routes installed later via configure() in Task 29
             }
             try {
@@ -74,7 +74,7 @@ class HttpServer {
         val lastPort = basePort + maxAttempts - 1
         for (i in 0 until maxAttempts) {
             val port = basePort + i
-            val candidate: ApplicationEngine = embeddedServer(CIO, port = port, host = host) {
+            val candidate: EmbeddedServer<*, *> = embeddedServer(CIO, port = port, host = host) {
                 routing { installDispatchRoutes(handlers, ctx, corsConfig) }
             }
             try {

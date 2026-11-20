@@ -53,14 +53,6 @@
   - changed-files:
       - any-glob-to-any-file: 'rendezvous/**'
 
-"area: license":
-  - changed-files:
-      - any-glob-to-any-file:
-          - '**/license/**'
-          - 'LICENSE'
-          - 'NOTICE'
-          - 'CHANGE_DATE.md'
-
 "area: ci":
   - changed-files:
       - any-glob-to-any-file:

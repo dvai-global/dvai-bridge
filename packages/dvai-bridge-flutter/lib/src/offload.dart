@@ -13,7 +13,7 @@ import 'messages.g.dart' as wire;
 /// to enable peer-to-peer offload of inference requests when the local
 /// device's hardware can't serve the model fast enough.
 ///
-/// See the [distributed-inference guide](https://bridge.deepvoiceai.co/guide/distributed-inference)
+/// See the [distributed-inference guide](https://dvai-global.github.io/dvai-bridge/guide/distributed-inference)
 /// for the full feature description.
 ///
 /// Pairing-request UI is surfaced via [DVAIBridge.pairingRequests] —
@@ -26,7 +26,7 @@ import 'messages.g.dart' as wire;
 class OffloadConfig {
   /// Construct an [OffloadConfig]. Only [enabled] is required; the rest
   /// fall back to platform defaults documented in the
-  /// [distributed-inference guide](https://bridge.deepvoiceai.co/guide/distributed-inference).
+  /// [distributed-inference guide](https://dvai-global.github.io/dvai-bridge/guide/distributed-inference).
   const OffloadConfig({
     required this.enabled,
     this.discoverLAN,
@@ -47,7 +47,7 @@ class OffloadConfig {
 
   /// Optional rendezvous-server URL — enables the internet path when
   /// set. See the
-  /// [self-hosting guide](https://bridge.deepvoiceai.co/guide/self-hosting-rendezvous)
+  /// [self-hosting guide](https://dvai-global.github.io/dvai-bridge/guide/self-hosting-rendezvous)
   /// for deployment options.
   final String? rendezvousUrl;
 
@@ -310,8 +310,8 @@ class PairingRequest {
     required this.id,
     required this.peer,
     required this.expiresAt,
-    required Future<void> Function(String requestId, bool approved) respond,
-  }) : _respond = respond;
+    required this._respond,
+  });
 
   /// Decode from the Pigeon wire format. The `respond` callback closes
   /// over a reference to the [DVAIBridge] facade so consumers can call

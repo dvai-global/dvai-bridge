@@ -14,12 +14,14 @@ android {
     namespace = "co.deepvoiceai.example.llama"
     // Library SDK pin is 36; example apps default to 35 to match the
     // umbrella's `compileSdkOverride` Windows fallback.
-    compileSdk = (project.findProperty("compileSdkOverride") as String?)?.toInt() ?: 35
+    compileSdk = (project.findProperty("compileSdkOverride") as String?)?.toInt() ?: 37
+    // Compose BOM 2026.11 needs API 37.1 (minor SDK).
+    compileSdkMinor = 1
 
     defaultConfig {
         applicationId = "co.deepvoiceai.example.llama"
         minSdk = 24
-        targetSdk = (project.findProperty("compileSdkOverride") as String?)?.toInt() ?: 35
+        targetSdk = (project.findProperty("compileSdkOverride") as String?)?.toInt() ?: 37
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -51,35 +53,35 @@ dependencies {
     // The umbrella `co.deepvoiceai:dvai-bridge` brings in all four cores
     // (shared/llama/mediapipe/litert) as transitive `api` deps. Resolved
     // from `mavenLocal()` after `pwsh scripts/android-publish-local.ps1`.
-    implementation("co.deepvoiceai:dvai-bridge:3.2.0")
+    implementation("co.deepvoiceai:dvai-bridge:4.3.0")
 
     // OkHttp is already pulled in transitively through shared-core, but
     // declaring it here makes the example self-explanatory.
-    implementation("com.squareup.okhttp3:okhttp:5.3.2")
+    implementation("com.squareup.okhttp3:okhttp:5.5.1")
 
     // Compose BOM keeps Material 3 + Foundation versions consistent.
-    val composeBom = platform("androidx.compose:compose-bom:2025.02.00")
+    val composeBom = platform("androidx.compose:compose-bom:2026.11.01")
     implementation(composeBom)
-    implementation("androidx.activity:activity-compose:1.10.0")
+    implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // Kotlin coroutines + Lifecycle for collectAsState / viewModelScope.
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.1")
 
     // OpenAI Kotlin client — idiomatic per the spec
     // (https://github.com/aallam/openai-kotlin).
-    implementation("com.aallam.openai:openai-client:4.0.1")
-    // Ktor engine for the OpenAI client. Match the Ktor 2.x family
+    implementation("com.aallam.openai:openai-client:4.2.0")
+    // Ktor engine for the OpenAI client. Match the Ktor 3.x family
     // already on the classpath via the shared-core dep.
-    implementation("io.ktor:ktor-client-okhttp:2.3.13")
+    implementation("io.ktor:ktor-client-okhttp:3.6.1")
 
     // Tests
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
-    testImplementation("com.squareup.okhttp3:okhttp:5.3.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+    testImplementation("com.squareup.okhttp3:okhttp:5.5.1")
 }

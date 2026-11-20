@@ -1,7 +1,7 @@
 # Security Policy
 
-DVAI-Bridge is a multi-platform local-AI SDK shipping under BSL 1.1
-with commercial enforcement. Vulnerabilities in the SDK can affect
+DVAI-Bridge is a multi-platform local-AI SDK released under the MIT
+License. Vulnerabilities in the SDK can affect
 downstream applications running in production, so we take reports
 seriously and respond on a predictable timeline.
 
@@ -18,22 +18,15 @@ upgrade path is the migration guide for each major.
 
 When v4.1 ships, v4.0 stops receiving fixes; we don't backport across
 minors. If you need long-term support on an older minor,
-[open a discussion](https://github.com/dvai-global/dvai-bridge/discussions)
-about commercial support.
+[open a discussion](https://github.com/dvai-global/dvai-bridge/discussions).
 
 ## Reporting a Vulnerability
 
-**Do not file public issues for security reports.** Use one of:
-
-1. **GitHub Security Advisory (preferred)** — open
-   [Security → Report a vulnerability](https://github.com/dvai-global/dvai-bridge/security/advisories/new).
-   This routes the report privately to the maintainers and creates a
-   tracked advisory thread.
-2. **Email** — `info@deepvoiceai.co` with "DVAI-Bridge security"
-   in the subject so it routes correctly.
-
-Encrypted email is welcome but not required — reach out before
-sending encrypted payloads so we can exchange keys.
+**Do not file public issues for security reports.** Use GitHub private
+vulnerability reporting: open
+[Security → Report a vulnerability](https://github.com/dvai-global/dvai-bridge/security/advisories/new).
+This routes the report privately to the maintainers and creates a
+tracked advisory thread.
 
 ### What to include
 
@@ -64,9 +57,6 @@ reporter requests anonymity.
 In-scope (we want reports on these):
 
 - The TypeScript core (`packages/dvai-bridge-core/`).
-- The license validator on any SDK (`@dvai-bridge/core/license`,
-  Swift `LicenseValidator`, Kotlin `LicenseValidator`,
-  `DVAIBridge.License`, Dart `LicenseValidator`).
 - The embedded HTTP server / OpenAI shim.
 - Distributed-inference offload + rendezvous code.
 - Native SDKs: `@dvai-bridge/ios`, `@dvai-bridge/android`,

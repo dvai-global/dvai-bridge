@@ -226,10 +226,7 @@ internal sealed class AndroidNativeBridge : INativeBridge
             httpMaxPortAttempts: opts.HttpMaxPortAttempts ?? 0,
             corsOrigin: null!,                       // Kotlin default kicks in (Wildcard).
             modelId: opts.ModelId ?? string.Empty,
-            offload: null!,                          // Kotlin default kicks in (disabled).
-            licenseKeyPath: opts.LicenseKeyPath ?? string.Empty,
-            licenseToken: opts.LicenseToken ?? string.Empty,
-            hostBuildConfigDebug: (Java.Lang.Boolean?)null);
+            offload: null!);                         // Kotlin default kicks in (disabled).
     }
 
     private static BoundServer NativeBoundServerToManaged(NativeBoundServer native) =>
