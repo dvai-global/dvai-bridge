@@ -42,7 +42,9 @@
       LiteRT-LM upstream ships a Catalyst slice, or we split the iOS
       umbrella so .NET can opt out of LiteRT-LM (planned for v4.3.0).
     -->
-    <TargetFrameworks>net10.0-ios26.5</TargetFrameworks>
+    <!-- v4.3.0: TPV 27.2 — the current .NET iOS workload (27.2, needs
+         Xcode 27.2) accepts only 26.0 / 27.2. -->
+    <TargetFrameworks>net10.0-ios27.2</TargetFrameworks>
     <SupportedOSPlatformVersion>18.1</SupportedOSPlatformVersion>
     <IsBindingProject>true</IsBindingProject>
     <NoBindingEmbedding>false</NoBindingEmbedding>

@@ -24,7 +24,7 @@
         <license type="expression">MIT</license>
     <projectUrl>https://github.com/dvai-global/dvai-bridge</projectUrl>
     <repository type="git" url="https://github.com/dvai-global/dvai-bridge.git" />
-    <description>Embeds an OpenAI-compatible HTTP server inside your .NET app process (127.0.0.1:38883, /v1/chat/completions, /v1/embeddings, /v1/models, SSE streaming). Any OpenAI client speaks to it — the OpenAI .NET SDK, Semantic Kernel, LangChain.NET, anything pointing a `baseUrl` at an HTTP endpoint. Why not Ollama / LM Studio / llama-server? Those are servers your END USERS install. DVAIBridge ships INSIDE your app's binary — `dotnet add package DVAIBridge`, build, run. Zero setup for the user. Cross-platform: net10.0 (Desktop) / net10.0-ios26.5 / net10.0-android36.0. Mac Catalyst is temporarily off (LiteRT-LM ships no Catalyst slice). Backends: llama.cpp (Metal / CUDA / Vulkan / DirectML), Apple Foundation Models, CoreML / ANE, MLX, MediaPipe LLM, LiteRT, ONNX Runtime GenAI, ML.NET — engine selected at runtime by device capability. Same OpenAI wire as the dvai-bridge family on iOS (CocoaPods), Android (Maven Central), Flutter (pub.dev), React Native + Capacitor + browser + Node (npm). One library, every client platform, identical request/response shapes. Reactive progress via IAsyncEnumerable&lt;ProgressEvent&gt;. Optional LAN-mDNS + self-hostable WebSocket rendezvous for transparent peer offload. Docs + architecture: https://dvai-global.github.io/dvai-bridge/</description>
+    <description>Embeds an OpenAI-compatible HTTP server inside your .NET app process (127.0.0.1:38883, /v1/chat/completions, /v1/embeddings, /v1/models, SSE streaming). Any OpenAI client speaks to it — the OpenAI .NET SDK, Semantic Kernel, LangChain.NET, anything pointing a `baseUrl` at an HTTP endpoint. Why not Ollama / LM Studio / llama-server? Those are servers your END USERS install. DVAIBridge ships INSIDE your app's binary — `dotnet add package DVAIBridge`, build, run. Zero setup for the user. Cross-platform: net10.0 (Desktop) / net10.0-ios27.2 / net10.0-android36.0. Mac Catalyst is temporarily off (LiteRT-LM ships no Catalyst slice). Backends: llama.cpp (Metal / CUDA / Vulkan / DirectML), Apple Foundation Models, CoreML / ANE, MLX, MediaPipe LLM, LiteRT, ONNX Runtime GenAI, ML.NET — engine selected at runtime by device capability. Same OpenAI wire as the dvai-bridge family on iOS (CocoaPods), Android (Maven Central), Flutter (pub.dev), React Native + Capacitor + browser + Node (npm). One library, every client platform, identical request/response shapes. Reactive progress via IAsyncEnumerable&lt;ProgressEvent&gt;. Optional LAN-mDNS + self-hostable WebSocket rendezvous for transparent peer offload. Docs + architecture: https://dvai-global.github.io/dvai-bridge/</description>
     <copyright>Copyright (c) 2026 Deep Chakraborty and DVAI-Bridge contributors</copyright>
     <tags>llm ai openai ios android maui avalonia winui local-inference llama-cpp mediapipe litert mlx coreml foundation-models</tags>
     <readme>README.md</readme>
@@ -41,7 +41,7 @@
         <dependency id="DVAIBridge.Desktop" version="[$version$]" />
       </group>
       <!-- iOS: pulls in the iOS binding NuGet (which bundles the xcframework). -->
-      <group targetFramework="net10.0-ios26.5">
+      <group targetFramework="net10.0-ios27.2">
         <dependency id="DVAIBridge.iOS" version="[$version$]" />
       </group>
       <!--
@@ -79,16 +79,16 @@
     <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0\" />
     <!--
       Same facade DLL re-shipped under the platform TFM folders. NuGet's
-      lib-resolver picks the most-specific match (`net10.0-ios26.5` over
+      lib-resolver picks the most-specific match (`net10.0-ios27.2` over
       `net10.0`) and the NuGet dep group above pulls in the iOS slice
-      transitively. Without this, restoring net10.0-ios26.5 would fall
+      transitively. Without this, restoring net10.0-ios27.2 would fall
       back to the bare net10.0 folder and miss the slice.
       `_._` would also work but most consumers prefer a real DLL match
       so reflection-loaded type lookup (PlatformBridgeFactory) Just Works.
     -->
-    <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-ios26.5\" />
-    <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-ios26.5\" />
-    <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-ios26.5\" />
+    <file src="bin\Release\net10.0\DVAIBridge.dll" target="lib\net10.0-ios27.2\" />
+    <file src="bin\Release\net10.0\DVAIBridge.xml" target="lib\net10.0-ios27.2\" />
+    <file src="bin\Release\net10.0\DVAIBridge.pdb" target="lib\net10.0-ios27.2\" />
     <!-- Mac Catalyst TFM folders dropped in v4.2.3 alongside the
          maccatalyst dep group — see the comment on the dependencies
          block. -->

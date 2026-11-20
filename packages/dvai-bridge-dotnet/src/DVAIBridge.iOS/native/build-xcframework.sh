@@ -8,9 +8,9 @@
 #   ./DVAIBridgeNetBridge.xcframework/   (2 slices: ios, ios-sim)
 #
 # Prerequisites (CI macos-latest runner):
-#   - Xcode 26+ (test-dotnet.yml selects /Applications/Xcode_26.3.app;
-#     also downloads the Metal Toolchain component which Xcode 26 ships
-#     separately and mlx-swift's kernels need)
+#   - Xcode 27.2+ (test-dotnet.yml runs this on the self-hosted Mac;
+#     the Metal Toolchain component must be installed for mlx-swift's
+#     kernels)
 #   - Swift 6+
 #   - The iOS umbrella checked out at packages/dvai-bridge-ios
 #     (relative to the repo root)
