@@ -33,7 +33,7 @@ Pod::Spec.new do |s|
   s.homepage         = 'https://github.com/dvai-global/dvai-bridge'
   s.author           = package['author']
   s.source           = { :git => 'https://github.com/dvai-global/dvai-bridge.git', :tag => "v#{s.version}" }
-  s.platform         = :ios, '15.1'
+  s.platform         = :ios, '18.1'
   s.swift_version    = '5.9'
 
   s.source_files = 'ios/*.{swift,h,m,mm}'

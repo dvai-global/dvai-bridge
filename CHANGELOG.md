@@ -33,7 +33,9 @@ later.
 - `@dvai-bridge/vanilla` is now bundled for the `browser` platform.
 - The `dvai_bridge` (Flutter) and `DVAIBridgeNative` (React Native) pods
   now depend on the matching `DVAIBridge` version. They were stuck on
-  `~> 2.2` / `~> 2.1`, which resolved to a 2.x native SDK.
+  `~> 2.2` / `~> 2.1`, which resolved to a 2.x native SDK. Their iOS
+  floor is now 18.1 to match `DVAIBridge`; at 15.1 the app failed to
+  compile (`module 'DVAIBridge' has a minimum deployment target of iOS 18.1`).
 - Family-wide dependency refresh to latest; see below.
 
 ### Removed — BREAKING

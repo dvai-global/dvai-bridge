@@ -68,7 +68,7 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
 
   // MARK: - DVAIBridgeHostApi
 
-  public func startBridge(
+  func startBridge(
     opts: StartOptionsMessage,
     completion: @escaping (Result<BoundServerMessage, Error>) -> Void
   ) {
@@ -92,7 +92,7 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
     }
   }
 
-  public func stopBridge(completion: @escaping (Result<Void, Error>) -> Void) {
+  func stopBridge(completion: @escaping (Result<Void, Error>) -> Void) {
     Task {
       do {
         try await DVAIBridge.shared.stop()
@@ -109,7 +109,7 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
     }
   }
 
-  public func status(
+  func status(
     completion: @escaping (Result<StatusInfoMessage, Error>) -> Void
   ) {
     Task {
@@ -124,7 +124,7 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
     }
   }
 
-  public func downloadModel(
+  func downloadModel(
     opts: DownloadOptionsMessage,
     completion: @escaping (Result<DownloadResultMessage, Error>) -> Void
   ) {
@@ -173,7 +173,7 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
     }
   }
 
-  public func assessHardware(
+  func assessHardware(
     hardwareMinimum: Double,
     minLocalCapability: Double,
     completion: @escaping (Result<HardwareAssessmentMessage, Error>) -> Void
@@ -193,7 +193,7 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
     )))
   }
 
-  public func respondToPairingRequest(
+  func respondToPairingRequest(
     requestId: String,
     approved: Bool,
     completion: @escaping (Result<Void, Error>) -> Void
@@ -293,7 +293,7 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
   /// Stream handler for the Pigeon `progressEvents` event channel. Subscribes
   /// to `DVAIBridge.shared.progressPublisher` on first listener and replays
   /// events as `ProgressEventMessage` payloads. Cancels on `onCancel`.
-  final class ProgressStreamHandler: PigeonEventChannelWrapper<ProgressEventMessage> {
+  final class ProgressStreamHandler: ProgressEventsStreamHandler {
     private var cancellable: AnyCancellable?
 
     override func onListen(
@@ -346,7 +346,7 @@ public final class DVAIBridgeFlutterPlugin: NSObject, FlutterPlugin, DVAIBridgeH
   /// Stream handler for the Pigeon `pairingRequestEvents` channel. Iterates
   /// `DVAIBridge.shared.pairingRequests()`, tags each request with a fresh
   /// id and parks it in `pending` until `respondToPairingRequest` takes it.
-  final class PairingStreamHandler: PigeonEventChannelWrapper<PairingRequestMessage> {
+  final class PairingStreamHandler: PairingRequestEventsStreamHandler {
     private let lock = NSLock()
     private var pending: [String: PairingRequest] = [:]
     private var sink: PigeonEventSink<PairingRequestMessage>?
