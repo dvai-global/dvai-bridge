@@ -294,6 +294,9 @@ jobs:
     name: iOS + xcframework + pack (macOS)
     needs: android-aars
     runs-on: [self-hosted, macOS, ARM64]
+    permissions:
+      contents: read
+      id-token: write   # NuGet Trusted Publishing (OIDC)
     # Bumped to 150 minutes — cold-cache run hit the 90 min cap at
     # step #10 mid-xcframework build (run 26141432701). With the llama
     # xcframework cache step below restoring most of the heavy work,
@@ -421,13 +424,23 @@ jobs:
             packages/dvai-bridge-dotnet/out/*.nupkg
             packages/dvai-bridge-dotnet/out/*.snupkg
 
-      # Tag-gated NuGet.org push for all six packages. The wildcard picks
-      # up DVAIBridge / .iOS / .Android / .Desktop / .OnnxRuntime / .MLNet
-      # in one push; --skip-duplicate makes re-runs safe.
+      # Tag-gated NuGet.org push for all six packages via NuGet Trusted
+      # Publishing (OIDC): NuGet/login exchanges this job's GitHub OIDC
+      # token for a short-lived API key. The nuget.org policy (dvai org,
+      # created by user Xapp) trusts dvai-global/dvai-bridge +
+      # test-dotnet.yml, so there is no long-lived key to expire.
+      # --skip-duplicate makes re-runs safe.
+      - name: NuGet login (Trusted Publishing)
+        id: nuget-login
+        if: (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish == 'true'))
+        uses: NuGet/login@v1
+        with:
+          user: Xapp
+
       - name: Push to NuGet.org
-        if: (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish == 'true')) && env.NUGET_API_KEY != ''
+        if: (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish == 'true'))
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         working-directory: packages/dvai-bridge-dotnet
         run: |
           dotnet nuget push ./out/*.nupkg \
