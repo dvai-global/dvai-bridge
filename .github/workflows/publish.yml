@@ -20,9 +20,11 @@ name: Publish Packages
 #
 # ── Active legs ──
 #   npm  — publishes the @dvai-bridge/* JS scopes to npmjs.org.
-#          Requires repo secret NPM_TOKEN (automation token, npmjs
-#          → Access Tokens → "Automation"). The job is gated on
-#          secret presence so dry runs / forks don't fail.
+#          Uses npm Trusted Publishing (OIDC), no token. PREREQUISITE:
+#          every package needs a trusted publisher on npmjs.com
+#          (package → Settings → GitHub Actions: dvai-global /
+#          dvai-bridge / publish.yml). A package without one fails
+#          with 404/ENEEDAUTH.
 #
 # ── Planned legs (commented out until pipeline-ready) ──
 #   Maven Central — co.deepvoiceai:dvai-bridge*. Requires Sonatype
